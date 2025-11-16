@@ -1,7 +1,7 @@
 import { Audio } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Plus, Trash2, Mic, MicOff } from 'lucide-react-native';
+import { ArrowLeft, Plus, Trash2, Mic, CircleDot } from 'lucide-react-native';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import {
@@ -574,7 +574,7 @@ export default function CreateFlashcardPage() {
                   {isTranscribing && activeVoiceInput === 'deckName' ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : activeVoiceInput === 'deckName' ? (
-                    <MicOff color="#fff" size={20} strokeWidth={2.5} />
+                    <CircleDot color="#fff" size={20} strokeWidth={2.5} />
                   ) : (
                     <Mic color="#fff" size={20} strokeWidth={2.5} />
                   )}
@@ -614,7 +614,7 @@ export default function CreateFlashcardPage() {
                   {isTranscribing && activeVoiceInput === 'deckDescription' ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : activeVoiceInput === 'deckDescription' ? (
-                    <MicOff color="#fff" size={20} strokeWidth={2.5} />
+                    <CircleDot color="#fff" size={20} strokeWidth={2.5} />
                   ) : (
                     <Mic color="#fff" size={20} strokeWidth={2.5} />
                   )}
@@ -680,7 +680,7 @@ export default function CreateFlashcardPage() {
                       {isTranscribing && activeVoiceInput === `card_${card.id}_question` ? (
                         <ActivityIndicator size="small" color="#fff" />
                       ) : activeVoiceInput === `card_${card.id}_question` ? (
-                        <MicOff color="#fff" size={18} strokeWidth={2.5} />
+                        <CircleDot color="#fff" size={18} strokeWidth={2.5} />
                       ) : (
                         <Mic color="#fff" size={18} strokeWidth={2.5} />
                       )}
@@ -719,7 +719,7 @@ export default function CreateFlashcardPage() {
                       {isTranscribing && activeVoiceInput === `card_${card.id}_answer` ? (
                         <ActivityIndicator size="small" color="#fff" />
                       ) : activeVoiceInput === `card_${card.id}_answer` ? (
-                        <MicOff color="#fff" size={18} strokeWidth={2.5} />
+                        <CircleDot color="#fff" size={18} strokeWidth={2.5} />
                       ) : (
                         <Mic color="#fff" size={18} strokeWidth={2.5} />
                       )}
