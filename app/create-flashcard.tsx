@@ -2,7 +2,8 @@ import { Audio } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Plus, Trash2, Mic, MicOff } from 'lucide-react-native';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import {
   View,
   Text,
@@ -64,9 +65,36 @@ export default function CreateFlashcardPage() {
     { id: '1', question: '', answer: '' },
   ]);
   const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaChunksRef = useRef<Blob[]>([]);
   const [activeVoiceInput, setActiveVoiceInput] = useState<string | null>(null);
-  const [isTranscribing, setIsTranscribing] = useState(false);
+
+  const transcribeAudioMutation = useMutation<
+    { text: string; language: string },
+    Error,
+    { formData: FormData }
+  >({
+    mutationFn: async ({ formData }) => {
+      console.log('Uploading audio for transcription...');
+      const response = await fetch('https://toolkit.rork.com/stt/transcribe/', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Transcription failed response:', response.status, errorText);
+        throw new Error(`Transcription failed: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json() as { text: string; language: string };
+      return data;
+    },
+  });
+
+  const isTranscribing = transcribeAudioMutation.isPending;
 
   useEffect(() => {
     if (deckId && typeof deckId === 'string') {
@@ -95,86 +123,202 @@ export default function CreateFlashcardPage() {
   };
 
   const startRecording = async (inputId: string) => {
+    if (transcribeAudioMutation.isPending) {
+      console.log('Transcription is in progress, ignoring new recording request');
+      return;
+    }
+
+    if (activeVoiceInput) {
+      console.log('Recording already active for input:', activeVoiceInput);
+      return;
+    }
+
     try {
-      console.log('Requesting audio permissions...');
-      const permission = await Audio.requestPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert('Permission Required', 'Please grant microphone permission to use voice input');
-        return;
+      console.log('Preparing to start recording for input:', inputId);
+
+      if (Platform.OS === 'web') {
+        if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+          Alert.alert('Unsupported', 'Voice recording is not supported in this browser');
+          return;
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
+
+        const preferredMimeTypes = [
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/ogg;codecs=opus',
+        ];
+        const selectedMimeType = preferredMimeTypes.find((type) => {
+          try {
+            return typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type);
+          } catch (mimeError) {
+            console.log('Unable to validate mime type support:', mimeError);
+            return false;
+          }
+        }) ?? 'audio/webm';
+
+        const recorder = new MediaRecorder(stream, { mimeType: selectedMimeType });
+        mediaChunksRef.current = [];
+        mediaRecorderRef.current = recorder;
+
+        recorder.addEventListener('dataavailable', (event) => {
+          if (event.data && event.data.size > 0) {
+            mediaChunksRef.current.push(event.data);
+          }
+        });
+
+        recorder.start();
+        console.log('Web recording started with mime type:', selectedMimeType);
+      } else {
+        const permission = await Audio.requestPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert('Permission Required', 'Please grant microphone permission to use voice input');
+          return;
+        }
+
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+          shouldDuckAndroid: true,
+          staysActiveInBackground: false,
+        });
+
+        const recording = new Audio.Recording();
+        await recording.prepareToRecordAsync({
+          android: {
+            extension: '.m4a',
+            outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+            audioEncoder: Audio.AndroidAudioEncoder.AAC,
+            sampleRate: 44100,
+            numberOfChannels: 1,
+            bitRate: 128000,
+          },
+          ios: {
+            extension: '.wav',
+            outputFormat: Audio.IOSOutputFormat.LINEARPCM,
+            audioQuality: Audio.IOSAudioQuality.HIGH,
+            sampleRate: 44100,
+            numberOfChannels: 1,
+            bitRate: 128000,
+            linearPCMBitDepth: 16,
+            linearPCMIsBigEndian: false,
+            linearPCMIsFloat: false,
+          },
+        });
+        await recording.startAsync();
+        recordingRef.current = recording;
+        console.log('Native recording started');
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      console.log('Starting recording...');
-      const { recording: newRecording } = await Audio.Recording.createAsync({
-        android: {
-          extension: '.m4a',
-          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-          audioEncoder: Audio.AndroidAudioEncoder.AAC,
-          sampleRate: 44100,
-          numberOfChannels: 2,
-          bitRate: 128000,
-        },
-        ios: {
-          extension: '.wav',
-          outputFormat: Audio.IOSOutputFormat.LINEARPCM,
-          audioQuality: Audio.IOSAudioQuality.HIGH,
-          sampleRate: 44100,
-          numberOfChannels: 2,
-          bitRate: 128000,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
-        },
-        web: {
-          mimeType: 'audio/webm',
-          bitsPerSecond: 128000,
-        },
-      });
-
-      setRecording(newRecording);
       setActiveVoiceInput(inputId);
     } catch (err) {
       console.error('Failed to start recording:', err);
+      if (Platform.OS !== 'web') {
+        try {
+          await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+        } catch (modeError) {
+          console.log('Failed to reset audio mode after start failure', modeError);
+        }
+      }
+      if (mediaStreamRef.current) {
+        try {
+          mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+        } catch (streamError) {
+          console.log('Failed to stop media stream after start failure', streamError);
+        }
+        mediaStreamRef.current = null;
+      }
+      mediaRecorderRef.current = null;
+      mediaChunksRef.current = [];
       Alert.alert('Error', 'Failed to start recording');
     }
   };
 
   const stopRecording = async () => {
-    if (!recording || !activeVoiceInput) {
+    if (!activeVoiceInput) {
       return;
     }
 
     const targetInput = activeVoiceInput;
-    setIsTranscribing(true);
-    console.log('Stopping recording...');
+    console.log('Stopping recording for input:', targetInput);
 
     try {
-      await recording.stopAndUnloadAsync();
-      if (Platform.OS !== 'web') {
-        await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-      }
-
-      const uri = recording.getURI();
-      if (!uri) {
-        throw new Error('Recording file unavailable');
-      }
-
-      console.log('Recording saved at:', uri);
-
-      const extension = getFileExtensionFromUri(uri);
-      const mimeType = getMimeTypeForExtension(extension);
-      const formData = new FormData();
+      let formData: FormData | null = null;
 
       if (Platform.OS === 'web') {
-        console.log('Preparing web blob for transcription');
-        const webResponse = await fetch(uri);
-        const blob = await webResponse.blob();
-        formData.append('audio', blob, `recording.${extension}`);
+        const recorder = mediaRecorderRef.current;
+        if (!recorder) {
+          console.log('No active web recorder found when stopping');
+          setActiveVoiceInput(null);
+          return;
+        }
+
+        const blob = await new Promise<Blob>((resolve, reject) => {
+          const handleStop = () => {
+            recorder.removeEventListener('stop', handleStop);
+            recorder.removeEventListener('error', handleError as EventListener);
+            try {
+              mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+            } catch (streamError) {
+              console.log('Failed to stop stream tracks after recording', streamError);
+            }
+            const output = new Blob(mediaChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+            mediaChunksRef.current = [];
+            resolve(output);
+          };
+
+          const handleError = (event: Event) => {
+            recorder.removeEventListener('stop', handleStop);
+            recorder.removeEventListener('error', handleError as EventListener);
+            mediaChunksRef.current = [];
+            reject(event instanceof ErrorEvent ? event.error : new Error('MediaRecorder error'));
+          };
+
+          recorder.addEventListener('stop', handleStop);
+          recorder.addEventListener('error', handleError as EventListener);
+          recorder.stop();
+        });
+
+        mediaRecorderRef.current = null;
+        mediaStreamRef.current = null;
+
+        console.log('Web recording size (bytes):', blob.size);
+
+        const file = new File([blob], 'recording.webm', {
+          type: blob.type || 'audio/webm',
+        });
+
+        formData = new FormData();
+        formData.append('audio', file);
       } else {
+        const recording = recordingRef.current;
+        if (!recording) {
+          console.log('No native recording active when stopping');
+          setActiveVoiceInput(null);
+          return;
+        }
+
+        await recording.stopAndUnloadAsync();
+        try {
+          await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+        } catch (modeError) {
+          console.log('Audio mode reset failed after stop', modeError);
+        }
+
+        const uri = recording.getURI();
+        recordingRef.current = null;
+
+        if (!uri) {
+          throw new Error('Recording file unavailable');
+        }
+
+        console.log('Recording saved at:', uri);
+
+        const extension = getFileExtensionFromUri(uri);
+        const mimeType = getMimeTypeForExtension(extension);
+        formData = new FormData();
         formData.append(
           'audio',
           {
@@ -185,27 +329,21 @@ export default function CreateFlashcardPage() {
         );
       }
 
-      console.log('Transcribing audio with mime type:', mimeType);
-      const response = await fetch('https://toolkit.rork.com/stt/transcribe/', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Transcription failed: ${response.status} ${errorText}`);
+      if (!formData) {
+        throw new Error('Failed to assemble audio payload');
       }
 
-      const data = await response.json() as { text: string; language: string };
+      const data = await transcribeAudioMutation.mutateAsync({ formData });
       console.log('Transcription result:', data.text);
 
+      const transcript = data.text.trim();
       if (targetInput.startsWith('card_')) {
         const [, cardId, field] = targetInput.split('_');
-        updateCard(cardId, field as 'question' | 'answer', data.text);
+        updateCard(cardId, field as 'question' | 'answer', transcript);
       } else if (targetInput === 'deckName') {
-        setDeckName(data.text);
+        setDeckName(transcript);
       } else if (targetInput === 'deckDescription') {
-        setDeckDescription(data.text);
+        setDeckDescription(transcript);
       }
     } catch (err) {
       console.error('Failed to transcribe:', err);
@@ -213,16 +351,26 @@ export default function CreateFlashcardPage() {
       Alert.alert('Error', message.includes('Transcription failed') ? 'Unable to transcribe this recording. Please try again with a clearer sample.' : 'Failed to transcribe audio');
     } finally {
       if (Platform.OS === 'web') {
+        mediaChunksRef.current = [];
+        if (mediaStreamRef.current) {
+          try {
+            mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+          } catch (streamError) {
+            console.log('Failed to stop media stream during cleanup', streamError);
+          }
+          mediaStreamRef.current = null;
+        }
+        mediaRecorderRef.current = null;
+      } else {
+        recordingRef.current = null;
         try {
-          const status = await recording.getStatusAsync();
-          console.log('Web recording status after stop:', status);
-        } catch (statusError) {
-          console.log('Unable to fetch recording status after stop:', statusError);
+          await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+        } catch (modeError) {
+          console.log('Audio mode reset failed during cleanup', modeError);
         }
       }
-      setRecording(null);
+
       setActiveVoiceInput(null);
-      setIsTranscribing(false);
     }
   };
 
@@ -413,7 +561,13 @@ export default function CreateFlashcardPage() {
                     styles.micButton,
                     { backgroundColor: activeVoiceInput === 'deckName' ? theme.error : theme.primary },
                   ]}
-                  onPress={() => activeVoiceInput === 'deckName' ? stopRecording() : startRecording('deckName')}
+                  onPress={() => {
+                    if (activeVoiceInput === 'deckName') {
+                      void stopRecording();
+                    } else {
+                      void startRecording('deckName');
+                    }
+                  }}
                   disabled={isTranscribing}
                   activeOpacity={0.8}
                 >
@@ -447,7 +601,13 @@ export default function CreateFlashcardPage() {
                     styles.micButton,
                     { backgroundColor: activeVoiceInput === 'deckDescription' ? theme.error : theme.primary },
                   ]}
-                  onPress={() => activeVoiceInput === 'deckDescription' ? stopRecording() : startRecording('deckDescription')}
+                  onPress={() => {
+                    if (activeVoiceInput === 'deckDescription') {
+                      void stopRecording();
+                    } else {
+                      void startRecording('deckDescription');
+                    }
+                  }}
                   disabled={isTranscribing}
                   activeOpacity={0.8}
                 >
@@ -507,7 +667,13 @@ export default function CreateFlashcardPage() {
                         styles.micButton,
                         { backgroundColor: activeVoiceInput === `card_${card.id}_question` ? theme.error : theme.primary },
                       ]}
-                      onPress={() => activeVoiceInput === `card_${card.id}_question` ? stopRecording() : startRecording(`card_${card.id}_question`)}
+                      onPress={() => {
+                        if (activeVoiceInput === `card_${card.id}_question`) {
+                          void stopRecording();
+                        } else {
+                          void startRecording(`card_${card.id}_question`);
+                        }
+                      }}
                       disabled={isTranscribing}
                       activeOpacity={0.8}
                     >
@@ -540,7 +706,13 @@ export default function CreateFlashcardPage() {
                         styles.micButton,
                         { backgroundColor: activeVoiceInput === `card_${card.id}_answer` ? theme.error : theme.primary },
                       ]}
-                      onPress={() => activeVoiceInput === `card_${card.id}_answer` ? stopRecording() : startRecording(`card_${card.id}_answer`)}
+                      onPress={() => {
+                        if (activeVoiceInput === `card_${card.id}_answer`) {
+                          void stopRecording();
+                        } else {
+                          void startRecording(`card_${card.id}_answer`);
+                        }
+                      }}
                       disabled={isTranscribing}
                       activeOpacity={0.8}
                     >
