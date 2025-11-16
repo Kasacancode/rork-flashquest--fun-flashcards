@@ -89,6 +89,11 @@ export default function CreateFlashcardPage() {
   const [recentImagePreviews, setRecentImagePreviews] = useState<string[]>([]);
   const [lastImportSummary, setLastImportSummary] = useState<string | null>(null);
   const [googleDocUrl, setGoogleDocUrl] = useState<string>('');
+  const [showSmartImportDetails, setShowSmartImportDetails] = useState<boolean>(false);
+  const scrollRef = useRef<ScrollView | null>(null);
+  const smartImportSectionOffset = useRef<number>(0);
+  const docInputRef = useRef<TextInput | null>(null);
+  const docFocusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     mutateAsync: generateFromImagesAsync,
@@ -314,6 +319,49 @@ export default function CreateFlashcardPage() {
       Alert.alert('Import Failed', message);
     }
   }, [isImportingGoogleDoc, googleDocUrl, deckName, deckDescription, generateFromDocAsync, applyGeneratedFlashcards]);
+
+  const handleCameraQuickPress = useCallback(() => {
+    console.log('[QuickAction] Scan Notes pressed');
+    setShowSmartImportDetails(true);
+    void handleImageIntake('camera');
+  }, [handleImageIntake]);
+
+  const handleUploadQuickPress = useCallback(() => {
+    console.log('[QuickAction] Upload Study Sheets pressed');
+    setShowSmartImportDetails(true);
+    void handleImageIntake('library');
+  }, [handleImageIntake]);
+
+  const handleDocQuickPress = useCallback(() => {
+    console.log('[QuickAction] Google Doc import pressed');
+    setShowSmartImportDetails(true);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        y: smartImportSectionOffset.current > 16 ? smartImportSectionOffset.current - 16 : 0,
+        animated: true,
+      });
+    }
+    if (docFocusTimeoutRef.current) {
+      clearTimeout(docFocusTimeoutRef.current);
+      docFocusTimeoutRef.current = null;
+    }
+    docFocusTimeoutRef.current = setTimeout(() => {
+      docInputRef.current?.focus();
+    }, 350);
+  }, []);
+
+  const toggleSmartImportDetails = useCallback(() => {
+    setShowSmartImportDetails((prev) => !prev);
+    console.log('[SmartImport] Toggling details');
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (docFocusTimeoutRef.current) {
+        clearTimeout(docFocusTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const addCard = () => {
     setCards([...cards, { id: Date.now().toString(), question: '', answer: '' }]);
@@ -741,6 +789,7 @@ export default function CreateFlashcardPage() {
         </View>
 
         <ScrollView
+          ref={scrollRef}
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -825,116 +874,218 @@ export default function CreateFlashcardPage() {
             </View>
           </View>
 
-          <View style={styles.smartImportSection}>
-            <Text style={[styles.sectionTitle, { color: theme.white }]}>Smart Imports</Text>
-            <Text style={[styles.smartImportSubtitle, { color: theme.textSecondary }]}>Scan handwritten notes, upload study sheets, or convert a Google Doc into ready-to-study flashcards.</Text>
-
-            <View style={styles.smartActionsRow}>
+          <View style={[styles.quickActionsContainer, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.86)' : 'rgba(255, 255, 255, 0.82)' }]}> 
+            <View style={styles.quickActionsHeader}>
+              <Text style={[styles.quickActionsTitle, { color: theme.text }]}>AI Assist</Text>
               <TouchableOpacity
-                style={[
-                  styles.smartActionCard,
-                  { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.7)' },
-                  isGeneratingFromImages ? styles.disabledCard : null,
-                ]}
-                onPress={() => {
-                  void handleImageIntake('camera');
-                }}
-                disabled={isGeneratingFromImages || isTranscribing}
-                activeOpacity={0.85}
-                testID="scanNotesCameraButton"
+                onPress={toggleSmartImportDetails}
+                style={styles.quickActionsToggle}
+                activeOpacity={0.8}
+                testID="smartImportToggleButton"
               >
-                <View style={[styles.smartActionIconWrapper, { backgroundColor: theme.primary }] }>
-                  {isGeneratingFromImages ? (
-                    <ActivityIndicator color={theme.white} />
-                  ) : (
-                    <Camera color={theme.white} size={20} strokeWidth={2.5} />
-                  )}
-                </View>
-                <Text style={[styles.smartActionTitle, { color: theme.white }]}>Scan Notes</Text>
-                <Text style={[styles.smartActionSubtitle, { color: theme.textSecondary }]}>Snap a photo and let AI draft cards instantly.</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.smartActionCard,
-                  { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.7)' : 'rgba(255, 255, 255, 0.55)' },
-                  isGeneratingFromImages ? styles.disabledCard : null,
-                ]}
-                onPress={() => {
-                  void handleImageIntake('library');
-                }}
-                disabled={isGeneratingFromImages || isTranscribing}
-                activeOpacity={0.85}
-                testID="scanNotesUploadButton"
-              >
-                <View style={[styles.smartActionIconWrapper, { backgroundColor: theme.primaryDark }] }>
-                  {isGeneratingFromImages ? (
-                    <ActivityIndicator color={theme.white} />
-                  ) : (
-                    <ImageIcon color={theme.white} size={20} strokeWidth={2.5} />
-                  )}
-                </View>
-                <Text style={[styles.smartActionTitle, { color: theme.white }]}>Upload Study Sheets</Text>
-                <Text style={[styles.smartActionSubtitle, { color: theme.textSecondary }]}>Import PDFs or screenshots from your device.</Text>
+                <Text style={[styles.quickActionsToggleText, { color: theme.primary }]}>{showSmartImportDetails ? 'Hide Details' : 'Show Details'}</Text>
               </TouchableOpacity>
             </View>
-
-            {recentImagePreviews.length > 0 && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.imagePreviewList}
-                contentContainerStyle={styles.imagePreviewContent}
+            <View style={styles.quickActionsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.quickActionChip,
+                  isGeneratingFromImages || isTranscribing ? styles.quickActionDisabled : null,
+                ]}
+                onPress={handleCameraQuickPress}
+                disabled={isGeneratingFromImages || isTranscribing}
+                activeOpacity={0.85}
+                testID="quickActionScanNotes"
               >
-                {recentImagePreviews.map((uri) => (
-                  <View key={uri} style={[styles.imagePreviewItem, { borderColor: theme.white }] }>
-                    <Image source={{ uri }} style={styles.imagePreviewImage} contentFit="cover" />
-                  </View>
-                ))}
-              </ScrollView>
-            )}
+                <View style={[styles.quickActionIconBadge, { backgroundColor: theme.primary }]}>
+                  {isGeneratingFromImages ? (
+                    <ActivityIndicator color={theme.white} />
+                  ) : (
+                    <Camera color={theme.white} size={18} strokeWidth={2.5} />
+                  )}
+                </View>
+                <Text style={[styles.quickActionText, { color: theme.text }]} numberOfLines={1}>Scan Notes</Text>
+              </TouchableOpacity>
 
-            <View style={[styles.smartDocContainer, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.65)' }] }>
-              <View style={styles.smartDocHeader}>
-                <View style={[styles.smartActionIconWrapper, { backgroundColor: theme.primary }] }>
+              <TouchableOpacity
+                style={[
+                  styles.quickActionChip,
+                  isGeneratingFromImages || isTranscribing ? styles.quickActionDisabled : null,
+                ]}
+                onPress={handleUploadQuickPress}
+                disabled={isGeneratingFromImages || isTranscribing}
+                activeOpacity={0.85}
+                testID="quickActionUploadSheets"
+              >
+                <View style={[styles.quickActionIconBadge, { backgroundColor: theme.primaryDark }]}>
+                  {isGeneratingFromImages ? (
+                    <ActivityIndicator color={theme.white} />
+                  ) : (
+                    <ImageIcon color={theme.white} size={18} strokeWidth={2.5} />
+                  )}
+                </View>
+                <Text style={[styles.quickActionText, { color: theme.text }]} numberOfLines={1}>Upload Sheets</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.quickActionChip,
+                  (isImportingGoogleDoc || isGeneratingFromImages) ? styles.quickActionDisabled : null,
+                ]}
+                onPress={handleDocQuickPress}
+                disabled={isImportingGoogleDoc || isGeneratingFromImages}
+                activeOpacity={0.85}
+                testID="quickActionGoogleDoc"
+              >
+                <View style={[styles.quickActionIconBadge, { backgroundColor: theme.primary }]}>
                   {isImportingGoogleDoc ? (
                     <ActivityIndicator color={theme.white} />
                   ) : (
-                    <FileText color={theme.white} size={20} strokeWidth={2.5} />
+                    <FileText color={theme.white} size={18} strokeWidth={2.5} />
                   )}
                 </View>
-                <View style={styles.smartDocHeaderText}>
-                  <Text style={[styles.smartActionTitle, { color: theme.white }]}>Google Docs Import</Text>
-                  <Text style={[styles.smartActionSubtitle, { color: theme.textSecondary }]}>Paste a shareable link to your lecture notes and turn them into flashcards.</Text>
-                </View>
+                <Text style={[styles.quickActionText, { color: theme.text }]} numberOfLines={1}>Google Doc</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View
+            style={styles.sectionAnchor}
+            onLayout={(event) => {
+              smartImportSectionOffset.current = event.nativeEvent.layout.y;
+            }}
+          />
+
+          {(showSmartImportDetails || recentImagePreviews.length > 0 || !!lastImportSummary) && (
+            <View style={styles.smartImportSection}>
+              <View style={styles.smartImportHeaderRow}>
+                <Text style={[styles.sectionTitle, { color: theme.white }]}>Smart Imports</Text>
+                {showSmartImportDetails && (
+                  <TouchableOpacity
+                    onPress={() => setShowSmartImportDetails(false)}
+                    style={styles.smartImportHideButton}
+                    activeOpacity={0.8}
+                    testID="smartImportHideButton"
+                  >
+                    <Text style={[styles.smartImportHideText, { color: theme.textSecondary }]}>Hide</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
-              <TextInput
-                style={[styles.docInput, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.65)' : 'rgba(255, 255, 255, 0.9)', color: theme.text }]}
-                value={googleDocUrl}
-                onChangeText={setGoogleDocUrl}
-                placeholder="https://docs.google.com/document/d/..."
-                placeholderTextColor={placeholderColor}
-                autoCapitalize="none"
-                keyboardType="url"
-                editable={!isImportingGoogleDoc && !isGeneratingFromImages}
-              />
+              {showSmartImportDetails && (
+                <>
+                  <Text style={[styles.smartImportSubtitle, { color: theme.textSecondary }]}>Scan handwritten notes, upload study sheets, or convert a Google Doc into ready-to-study flashcards.</Text>
 
-              <TouchableOpacity
-                style={[styles.docImportButton, { backgroundColor: theme.primary }]}
-                onPress={() => {
-                  void handleGoogleDocImport();
-                }}
-                disabled={isImportingGoogleDoc || isGeneratingFromImages}
-                activeOpacity={0.85}
-                testID="googleDocImportButton"
-              >
-                {isImportingGoogleDoc ? (
-                  <ActivityIndicator color={theme.white} />
-                ) : (
-                  <Text style={[styles.docImportButtonText, { color: theme.white }]}>Convert Google Doc</Text>
-                )}
-              </TouchableOpacity>
+                  <View style={styles.smartActionsRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.smartActionCard,
+                        { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.7)' },
+                        isGeneratingFromImages ? styles.disabledCard : null,
+                      ]}
+                      onPress={() => {
+                        void handleImageIntake('camera');
+                      }}
+                      disabled={isGeneratingFromImages || isTranscribing}
+                      activeOpacity={0.85}
+                      testID="scanNotesCameraButton"
+                    >
+                      <View style={[styles.smartActionIconWrapper, { backgroundColor: theme.primary }] }>
+                        {isGeneratingFromImages ? (
+                          <ActivityIndicator color={theme.white} />
+                        ) : (
+                          <Camera color={theme.white} size={20} strokeWidth={2.5} />
+                        )}
+                      </View>
+                      <Text style={[styles.smartActionTitle, { color: theme.white }]}>Scan Notes</Text>
+                      <Text style={[styles.smartActionSubtitle, { color: theme.textSecondary }]}>Snap a photo and let AI draft cards instantly.</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.smartActionCard,
+                        { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.7)' : 'rgba(255, 255, 255, 0.55)' },
+                        isGeneratingFromImages ? styles.disabledCard : null,
+                      ]}
+                      onPress={() => {
+                        void handleImageIntake('library');
+                      }}
+                      disabled={isGeneratingFromImages || isTranscribing}
+                      activeOpacity={0.85}
+                      testID="scanNotesUploadButton"
+                    >
+                      <View style={[styles.smartActionIconWrapper, { backgroundColor: theme.primaryDark }] }>
+                        {isGeneratingFromImages ? (
+                          <ActivityIndicator color={theme.white} />
+                        ) : (
+                          <ImageIcon color={theme.white} size={20} strokeWidth={2.5} />
+                        )}
+                      </View>
+                      <Text style={[styles.smartActionTitle, { color: theme.white }]}>Upload Study Sheets</Text>
+                      <Text style={[styles.smartActionSubtitle, { color: theme.textSecondary }]}>Import PDFs or screenshots from your device.</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={[styles.smartDocContainer, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.65)' }] }>
+                    <View style={styles.smartDocHeader}>
+                      <View style={[styles.smartActionIconWrapper, { backgroundColor: theme.primary }] }>
+                        {isImportingGoogleDoc ? (
+                          <ActivityIndicator color={theme.white} />
+                        ) : (
+                          <FileText color={theme.white} size={20} strokeWidth={2.5} />
+                        )}
+                      </View>
+                      <View style={styles.smartDocHeaderText}>
+                        <Text style={[styles.smartActionTitle, { color: theme.white }]}>Google Docs Import</Text>
+                        <Text style={[styles.smartActionSubtitle, { color: theme.textSecondary }]}>Paste a shareable link to your lecture notes and turn them into flashcards.</Text>
+                      </View>
+                    </View>
+
+                    <TextInput
+                      ref={docInputRef}
+                      style={[styles.docInput, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.65)' : 'rgba(255, 255, 255, 0.9)', color: theme.text }]}
+                      value={googleDocUrl}
+                      onChangeText={setGoogleDocUrl}
+                      placeholder="https://docs.google.com/document/d/..."
+                      placeholderTextColor={placeholderColor}
+                      autoCapitalize="none"
+                      keyboardType="url"
+                      editable={!isImportingGoogleDoc && !isGeneratingFromImages}
+                    />
+
+                    <TouchableOpacity
+                      style={[styles.docImportButton, { backgroundColor: theme.primary }]}
+                      onPress={() => {
+                        void handleGoogleDocImport();
+                      }}
+                      disabled={isImportingGoogleDoc || isGeneratingFromImages}
+                      activeOpacity={0.85}
+                      testID="googleDocImportButton"
+                    >
+                      {isImportingGoogleDoc ? (
+                        <ActivityIndicator color={theme.white} />
+                      ) : (
+                        <Text style={[styles.docImportButtonText, { color: theme.white }]}>Convert Google Doc</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+
+              {recentImagePreviews.length > 0 && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.imagePreviewList}
+                  contentContainerStyle={styles.imagePreviewContent}
+                >
+                  {recentImagePreviews.map((uri) => (
+                    <View key={uri} style={[styles.imagePreviewItem, { borderColor: theme.white }] }>
+                      <Image source={{ uri }} style={styles.imagePreviewImage} contentFit="cover" />
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
 
               {lastImportSummary && (
                 <View style={[styles.importSummaryCard, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.65)' : 'rgba(255, 255, 255, 0.9)' }] }>
@@ -943,7 +1094,7 @@ export default function CreateFlashcardPage() {
                 </View>
               )}
             </View>
-          </View>
+          )}
 
           <View style={styles.cardsSection}>
             <View style={styles.cardsSectionHeader}>
@@ -1124,9 +1275,87 @@ const styles = StyleSheet.create({
     minHeight: 96,
     textAlignVertical: 'top',
   },
+  quickActionsContainer: {
+    marginHorizontal: 24,
+    borderRadius: 24,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    gap: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  quickActionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  quickActionsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  quickActionsToggle: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  quickActionsToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  quickActionChip: {
+    flex: 1,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  quickActionDisabled: {
+    opacity: 0.6,
+  },
+  quickActionIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  sectionAnchor: {
+    height: 0,
+  },
   smartImportSection: {
     paddingHorizontal: 24,
     gap: 20,
+  },
+  smartImportHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  smartImportHideButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  smartImportHideText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   smartImportSubtitle: {
     fontSize: 14,
