@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { FlashQuestProvider } from '@/context/FlashQuestContext';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { trpc, trpcClient } from '@/lib/trpc';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -31,14 +32,16 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <FlashQuestProvider>
-          <GestureHandlerRootView>
-            <RootLayoutNav />
-          </GestureHandlerRootView>
-        </FlashQuestProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <trpc.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <FlashQuestProvider>
+            <GestureHandlerRootView>
+              <RootLayoutNav />
+            </GestureHandlerRootView>
+          </FlashQuestProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </trpc.Provider>
   );
 }
