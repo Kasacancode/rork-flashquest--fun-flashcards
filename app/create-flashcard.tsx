@@ -1,8 +1,9 @@
 import { Audio } from 'expo-av';
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Plus, Trash2, Mic, CircleDot } from 'lucide-react-native';
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { ArrowLeft, Plus, Trash2, Mic, CircleDot, Camera, Image as ImageIcon, FileText } from 'lucide-react-native';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import {
   View,
@@ -15,16 +16,31 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useFlashQuest } from '@/context/FlashQuestContext';
-import { useTheme } from '@/context/ThemeContext';
-import { Flashcard } from '@/types/flashcard';
+import { useFlashQuest } from '../context/FlashQuestContext';
+import { useTheme } from '../context/ThemeContext';
+import { trpc } from '../lib/trpc';
+import { Flashcard } from '../types/flashcard';
 
 interface CardInput {
   id: string;
   question: string;
   answer: string;
+}
+
+interface GeneratedFlashcard {
+  question: string;
+  answer: string;
+  tags?: string[];
+}
+
+interface PreparedImage {
+  base64: string;
+  mimeType: string;
+  name: string;
+  previewUri: string;
 }
 
 const getFileExtensionFromUri = (uri: string): string => {
@@ -70,6 +86,19 @@ export default function CreateFlashcardPage() {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaChunksRef = useRef<Blob[]>([]);
   const [activeVoiceInput, setActiveVoiceInput] = useState<string | null>(null);
+  const [recentImagePreviews, setRecentImagePreviews] = useState<string[]>([]);
+  const [lastImportSummary, setLastImportSummary] = useState<string | null>(null);
+  const [googleDocUrl, setGoogleDocUrl] = useState<string>('');
+
+  const {
+    mutateAsync: generateFromImagesAsync,
+    isPending: isGeneratingFromImages,
+  } = trpc.flashcards.fromImage.useMutation();
+
+  const {
+    mutateAsync: generateFromDocAsync,
+    isPending: isImportingGoogleDoc,
+  } = trpc.flashcards.fromGoogleDoc.useMutation();
 
   const transcribeAudioMutation = useMutation<
     { text: string; language: string },
@@ -111,6 +140,180 @@ export default function CreateFlashcardPage() {
       }
     }
   }, [deckId, decks]);
+
+  const applyGeneratedFlashcards = useCallback(
+    (payload: { flashcards: GeneratedFlashcard[]; suggestedDeckName?: string | null; summary?: string | null }) => {
+      let additionsCount = 0;
+
+      setCards((prev) => {
+        const seen = new Set(prev.map((card) => card.question.trim().toLowerCase()));
+        const additions: CardInput[] = [];
+
+        payload.flashcards.forEach((item) => {
+          const trimmedQuestion = item.question.trim();
+          const trimmedAnswer = item.answer.trim();
+          if (!trimmedQuestion || !trimmedAnswer) {
+            return;
+          }
+          const normalizedQuestion = trimmedQuestion.toLowerCase();
+          if (seen.has(normalizedQuestion)) {
+            return;
+          }
+          additions.push({
+            id: `${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+            question: trimmedQuestion,
+            answer: trimmedAnswer,
+          });
+          seen.add(normalizedQuestion);
+        });
+
+        additionsCount = additions.length;
+        if (additions.length === 0) {
+          return prev;
+        }
+        return [...prev, ...additions];
+      });
+
+      if (!deckName.trim() && payload.suggestedDeckName?.trim()) {
+        setDeckName(payload.suggestedDeckName.trim());
+      }
+
+      if (payload.summary?.trim()) {
+        setLastImportSummary(payload.summary.trim());
+      } else {
+        setLastImportSummary(null);
+      }
+
+      if (additionsCount === 0) {
+        Alert.alert('No New Cards', 'All generated flashcards already exist in this deck.');
+      } else {
+        Alert.alert('Flashcards Added', `${additionsCount} new flashcard${additionsCount === 1 ? '' : 's'} ready to review.`);
+      }
+    },
+    [deckName]
+  );
+
+  const processImageAssets = useCallback(
+    async (assets: ImagePicker.ImagePickerAsset[]) => {
+      const prepared = assets.reduce<PreparedImage[]>((acc, asset, index) => {
+        if (!asset.base64) {
+          console.log('[ImageIntake] Asset missing base64, skipping', asset.uri);
+          return acc;
+        }
+        const mimeType = asset.mimeType ?? 'image/jpeg';
+        const name = asset.fileName ?? `scan-${Date.now()}-${index + 1}.jpg`;
+        acc.push({
+          base64: asset.base64,
+          mimeType,
+          name,
+          previewUri: asset.uri,
+        });
+        return acc;
+      }, []);
+
+      if (prepared.length === 0) {
+        Alert.alert('Image Unavailable', 'We could not read these images. Please try again with clearer photos.');
+        return;
+      }
+
+      setRecentImagePreviews((prev) => {
+        const combined = [...prepared.map((item) => item.previewUri), ...prev];
+        return combined.slice(0, 8);
+      });
+
+      const contextPieces = [deckName.trim(), deckDescription.trim()].filter(Boolean);
+
+      const result = await generateFromImagesAsync({
+        images: prepared.map(({ base64, mimeType, name }) => ({ base64, mimeType, name })),
+        deckContext: contextPieces.length ? contextPieces.join('. ') : undefined,
+      });
+
+      applyGeneratedFlashcards(result);
+    },
+    [deckName, deckDescription, generateFromImagesAsync, applyGeneratedFlashcards]
+  );
+
+  const handleImageIntake = useCallback(
+    async (source: 'camera' | 'library') => {
+      if (isTranscribing || isGeneratingFromImages) {
+        return;
+      }
+
+      try {
+        if (source === 'camera') {
+          const permission = await ImagePicker.requestCameraPermissionsAsync();
+          if (!permission.granted) {
+            Alert.alert('Permission Required', 'Please allow camera access to capture your notes.');
+            return;
+          }
+
+          const cameraResult = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            base64: true,
+            quality: 0.8,
+          });
+
+          if (cameraResult.canceled) {
+            return;
+          }
+
+          await processImageAssets(cameraResult.assets ?? []);
+        } else {
+          const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (!permission.granted) {
+            Alert.alert('Permission Required', 'Please allow photo library access to import images.');
+            return;
+          }
+
+          const libraryResult = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsMultipleSelection: true,
+            selectionLimit: 6,
+            base64: true,
+            quality: 0.75,
+          });
+
+          if (libraryResult.canceled) {
+            return;
+          }
+
+          await processImageAssets(libraryResult.assets ?? []);
+        }
+      } catch (error) {
+        console.error('[ImageIntake] Failed to process images', error);
+        Alert.alert('Image Error', 'We could not process those images. Please try again.');
+      }
+    },
+    [isTranscribing, isGeneratingFromImages, processImageAssets]
+  );
+
+  const handleGoogleDocImport = useCallback(async () => {
+    if (isImportingGoogleDoc) {
+      return;
+    }
+
+    if (!googleDocUrl.trim()) {
+      Alert.alert('Missing Link', 'Paste a Google Docs link to convert it into flashcards.');
+      return;
+    }
+
+    try {
+      console.log('[GoogleDocImport] Starting import');
+      const contextPieces = [deckName.trim(), deckDescription.trim()].filter(Boolean);
+
+      const result = await generateFromDocAsync({
+        docUrl: googleDocUrl.trim(),
+        deckContext: contextPieces.length ? contextPieces.join('. ') : undefined,
+      });
+
+      applyGeneratedFlashcards(result);
+      setGoogleDocUrl('');
+    } catch (error) {
+      console.error('[GoogleDocImport] Failed', error);
+      const message = error instanceof Error ? error.message : 'Unable to import that document.';
+      Alert.alert('Import Failed', message);
+    }
+  }, [isImportingGoogleDoc, googleDocUrl, deckName, deckDescription, generateFromDocAsync, applyGeneratedFlashcards]);
 
   const addCard = () => {
     setCards([...cards, { id: Date.now().toString(), question: '', answer: '' }]);
@@ -374,7 +577,6 @@ export default function CreateFlashcardPage() {
     }
   };
 
-
   const updateCard = (id: string, field: 'question' | 'answer', value: string) => {
     setCards(
       cards.map((c) => (c.id === id ? { ...c, [field]: value } : c))
@@ -554,7 +756,7 @@ export default function CreateFlashcardPage() {
                   placeholder="e.g. Spanish Vocabulary"
                   placeholderTextColor={placeholderColor}
                   testID="deckNameInput"
-                  editable={!isTranscribing}
+                  editable={!isTranscribing && !isGeneratingFromImages && !isImportingGoogleDoc}
                 />
                 <TouchableOpacity
                   style={[
@@ -568,7 +770,7 @@ export default function CreateFlashcardPage() {
                       void startRecording('deckName');
                     }
                   }}
-                  disabled={isTranscribing}
+                  disabled={isTranscribing || isGeneratingFromImages || isImportingGoogleDoc}
                   activeOpacity={0.8}
                 >
                   {isTranscribing && activeVoiceInput === 'deckName' ? (
@@ -594,7 +796,7 @@ export default function CreateFlashcardPage() {
                   multiline
                   numberOfLines={3}
                   testID="deckDescriptionInput"
-                  editable={!isTranscribing}
+                  editable={!isTranscribing && !isGeneratingFromImages && !isImportingGoogleDoc}
                 />
                 <TouchableOpacity
                   style={[
@@ -608,7 +810,7 @@ export default function CreateFlashcardPage() {
                       void startRecording('deckDescription');
                     }
                   }}
-                  disabled={isTranscribing}
+                  disabled={isTranscribing || isGeneratingFromImages || isImportingGoogleDoc}
                   activeOpacity={0.8}
                 >
                   {isTranscribing && activeVoiceInput === 'deckDescription' ? (
@@ -620,6 +822,126 @@ export default function CreateFlashcardPage() {
                   )}
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+
+          <View style={styles.smartImportSection}>
+            <Text style={[styles.sectionTitle, { color: theme.white }]}>Smart Imports</Text>
+            <Text style={[styles.smartImportSubtitle, { color: theme.textSecondary }]}>Scan handwritten notes, upload study sheets, or convert a Google Doc into ready-to-study flashcards.</Text>
+
+            <View style={styles.smartActionsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.smartActionCard,
+                  { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.7)' },
+                  isGeneratingFromImages ? styles.disabledCard : null,
+                ]}
+                onPress={() => {
+                  void handleImageIntake('camera');
+                }}
+                disabled={isGeneratingFromImages || isTranscribing}
+                activeOpacity={0.85}
+                testID="scanNotesCameraButton"
+              >
+                <View style={[styles.smartActionIconWrapper, { backgroundColor: theme.primary }] }>
+                  {isGeneratingFromImages ? (
+                    <ActivityIndicator color={theme.white} />
+                  ) : (
+                    <Camera color={theme.white} size={20} strokeWidth={2.5} />
+                  )}
+                </View>
+                <Text style={[styles.smartActionTitle, { color: theme.white }]}>Scan Notes</Text>
+                <Text style={[styles.smartActionSubtitle, { color: theme.textSecondary }]}>Snap a photo and let AI draft cards instantly.</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.smartActionCard,
+                  { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.7)' : 'rgba(255, 255, 255, 0.55)' },
+                  isGeneratingFromImages ? styles.disabledCard : null,
+                ]}
+                onPress={() => {
+                  void handleImageIntake('library');
+                }}
+                disabled={isGeneratingFromImages || isTranscribing}
+                activeOpacity={0.85}
+                testID="scanNotesUploadButton"
+              >
+                <View style={[styles.smartActionIconWrapper, { backgroundColor: theme.primaryDark }] }>
+                  {isGeneratingFromImages ? (
+                    <ActivityIndicator color={theme.white} />
+                  ) : (
+                    <ImageIcon color={theme.white} size={20} strokeWidth={2.5} />
+                  )}
+                </View>
+                <Text style={[styles.smartActionTitle, { color: theme.white }]}>Upload Study Sheets</Text>
+                <Text style={[styles.smartActionSubtitle, { color: theme.textSecondary }]}>Import PDFs or screenshots from your device.</Text>
+              </TouchableOpacity>
+            </View>
+
+            {recentImagePreviews.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.imagePreviewList}
+                contentContainerStyle={styles.imagePreviewContent}
+              >
+                {recentImagePreviews.map((uri) => (
+                  <View key={uri} style={[styles.imagePreviewItem, { borderColor: theme.white }] }>
+                    <Image source={{ uri }} style={styles.imagePreviewImage} contentFit="cover" />
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+
+            <View style={[styles.smartDocContainer, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.65)' }] }>
+              <View style={styles.smartDocHeader}>
+                <View style={[styles.smartActionIconWrapper, { backgroundColor: theme.primary }] }>
+                  {isImportingGoogleDoc ? (
+                    <ActivityIndicator color={theme.white} />
+                  ) : (
+                    <FileText color={theme.white} size={20} strokeWidth={2.5} />
+                  )}
+                </View>
+                <View style={styles.smartDocHeaderText}>
+                  <Text style={[styles.smartActionTitle, { color: theme.white }]}>Google Docs Import</Text>
+                  <Text style={[styles.smartActionSubtitle, { color: theme.textSecondary }]}>Paste a shareable link to your lecture notes and turn them into flashcards.</Text>
+                </View>
+              </View>
+
+              <TextInput
+                style={[styles.docInput, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.65)' : 'rgba(255, 255, 255, 0.9)', color: theme.text }]}
+                value={googleDocUrl}
+                onChangeText={setGoogleDocUrl}
+                placeholder="https://docs.google.com/document/d/..."
+                placeholderTextColor={placeholderColor}
+                autoCapitalize="none"
+                keyboardType="url"
+                editable={!isImportingGoogleDoc && !isGeneratingFromImages}
+              />
+
+              <TouchableOpacity
+                style={[styles.docImportButton, { backgroundColor: theme.primary }]}
+                onPress={() => {
+                  void handleGoogleDocImport();
+                }}
+                disabled={isImportingGoogleDoc || isGeneratingFromImages}
+                activeOpacity={0.85}
+                testID="googleDocImportButton"
+              >
+                {isImportingGoogleDoc ? (
+                  <ActivityIndicator color={theme.white} />
+                ) : (
+                  <Text style={[styles.docImportButtonText, { color: theme.white }]}>Convert Google Doc</Text>
+                )}
+              </TouchableOpacity>
+
+              {lastImportSummary && (
+                <View style={[styles.importSummaryCard, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.65)' : 'rgba(255, 255, 255, 0.9)' }] }>
+                  <Text style={[styles.importSummaryTitle, { color: theme.textSecondary }]}>Study Summary</Text>
+                  <Text style={[styles.importSummaryText, { color: theme.text }]}>{lastImportSummary}</Text>
+                </View>
+              )}
             </View>
           </View>
 
@@ -660,7 +982,7 @@ export default function CreateFlashcardPage() {
                       placeholderTextColor={placeholderColor}
                       multiline
                       testID={`cardQuestionInput-${card.id}`}
-                      editable={!isTranscribing}
+                      editable={!isTranscribing && !isGeneratingFromImages && !isImportingGoogleDoc}
                     />
                     <TouchableOpacity
                       style={[
@@ -674,7 +996,7 @@ export default function CreateFlashcardPage() {
                           void startRecording(`card_${card.id}_question`);
                         }
                       }}
-                      disabled={isTranscribing}
+                      disabled={isTranscribing || isGeneratingFromImages || isImportingGoogleDoc}
                       activeOpacity={0.8}
                     >
                       {isTranscribing && activeVoiceInput === `card_${card.id}_question` ? (
@@ -699,7 +1021,7 @@ export default function CreateFlashcardPage() {
                       placeholderTextColor={placeholderColor}
                       multiline
                       testID={`cardAnswerInput-${card.id}`}
-                      editable={!isTranscribing}
+                      editable={!isTranscribing && !isGeneratingFromImages && !isImportingGoogleDoc}
                     />
                     <TouchableOpacity
                       style={[
@@ -713,7 +1035,7 @@ export default function CreateFlashcardPage() {
                           void startRecording(`card_${card.id}_answer`);
                         }
                       }}
-                      disabled={isTranscribing}
+                      disabled={isTranscribing || isGeneratingFromImages || isImportingGoogleDoc}
                       activeOpacity={0.8}
                     >
                       {isTranscribing && activeVoiceInput === `card_${card.id}_answer` ? (
@@ -779,10 +1101,10 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 140,
+    gap: 32,
   },
   deckInfoSection: {
     paddingHorizontal: 24,
-    marginBottom: 32,
     gap: 20,
   },
   inputGroup: {
@@ -801,6 +1123,110 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 96,
     textAlignVertical: 'top',
+  },
+  smartImportSection: {
+    paddingHorizontal: 24,
+    gap: 20,
+  },
+  smartImportSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  smartActionsRow: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  smartActionCard: {
+    flex: 1,
+    borderRadius: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  smartActionIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  smartActionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  smartActionSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+  smartDocContainer: {
+    borderRadius: 24,
+    padding: 20,
+    gap: 16,
+  },
+  smartDocHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  smartDocHeaderText: {
+    flex: 1,
+    gap: 8,
+  },
+  docInput: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  docImportButton: {
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  docImportButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  imagePreviewList: {
+    marginTop: 8,
+  },
+  imagePreviewContent: {
+    gap: 12,
+    paddingRight: 12,
+  },
+  imagePreviewItem: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+  },
+  imagePreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  importSummaryCard: {
+    borderRadius: 18,
+    padding: 16,
+    gap: 8,
+  },
+  importSummaryTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  importSummaryText: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
   },
   cardsSection: {
     paddingHorizontal: 24,
@@ -908,5 +1334,8 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 18,
     fontWeight: '700',
+  },
+  disabledCard: {
+    opacity: 0.6,
   },
 });
