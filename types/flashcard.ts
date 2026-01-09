@@ -33,6 +33,15 @@ export interface Flashcard {
   
   // Timestamp (number) of when this card was created
   createdAt: number;
+  
+  // Optional: First hint to help the user before revealing the answer
+  hint1?: string;
+  
+  // Optional: Second hint (more revealing) if user needs more help
+  hint2?: string;
+  
+  // Optional: Explanation shown after user views the answer
+  explanation?: string;
 }
 
 // ============================================

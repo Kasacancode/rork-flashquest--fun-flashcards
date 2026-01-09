@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Check, X, RotateCcw } from 'lucide-react-native';
-import React, { useState, useMemo } from 'react';
+import { ArrowLeft, RotateCcw } from 'lucide-react-native';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,10 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
-  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import StudyFeed from '@/components/StudyFeed';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -24,9 +24,6 @@ export default function StudyPage() {
 
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(!params.deckId);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(params.deckId || null);
-  const [currentCardIndex, setCurrentCardIndex] = useState<number>(0);
-  const [showAnswer, setShowAnswer] = useState<boolean>(false);
-  const [flipAnimation] = useState(new Animated.Value(0));
   const [sessionCorrect, setSessionCorrect] = useState<number>(0);
   const [sessionTotal, setSessionTotal] = useState<number>(0);
   const [showResults, setShowResults] = useState<boolean>(false);
@@ -36,57 +33,34 @@ export default function StudyPage() {
     [decks, selectedDeckId]
   );
 
-  const currentCard = useMemo(() => {
-    if (!selectedDeck) return null;
-    return selectedDeck.flashcards[currentCardIndex];
-  }, [selectedDeck, currentCardIndex]);
-
-  const handleDeckSelect = (deckId: string) => {
+  const handleDeckSelect = useCallback((deckId: string) => {
     setSelectedDeckId(deckId);
     setShowDeckSelector(false);
-    setCurrentCardIndex(0);
-    setShowAnswer(false);
     setSessionCorrect(0);
     setSessionTotal(0);
     setShowResults(false);
-  };
+  }, []);
 
-  const handleFlipCard = () => {
-    Animated.timing(flipAnimation, {
-      toValue: showAnswer ? 0 : 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-    setShowAnswer(!showAnswer);
-  };
-
-  const handleAnswer = (correct: boolean) => {
-    if (!selectedDeck) return;
-
-    updateProgress(selectedDeck.id, correct);
-    setSessionCorrect(sessionCorrect + (correct ? 1 : 0));
-    setSessionTotal(sessionTotal + 1);
-
-    if (currentCardIndex + 1 < selectedDeck.flashcards.length) {
-      setCurrentCardIndex(currentCardIndex + 1);
-      setShowAnswer(false);
-      flipAnimation.setValue(0);
-    } else {
-      setShowResults(true);
+  const handleCardResolved = useCallback((cardId: string, correct: boolean) => {
+    if (selectedDeck) {
+      updateProgress(selectedDeck.id, correct);
+      setSessionCorrect(prev => prev + (correct ? 1 : 0));
+      setSessionTotal(prev => prev + 1);
     }
-  };
+  }, [selectedDeck, updateProgress]);
 
-  const handleRestart = () => {
-    setCurrentCardIndex(0);
-    setShowAnswer(false);
+  const handleComplete = useCallback(() => {
+    setShowResults(true);
+  }, []);
+
+  const handleRestart = useCallback(() => {
     setSessionCorrect(0);
     setSessionTotal(0);
     setShowResults(false);
-    flipAnimation.setValue(0);
-  };
+  }, []);
 
   if (showResults && selectedDeck) {
-    const accuracy = Math.round((sessionCorrect / sessionTotal) * 100);
+    const accuracy = sessionTotal > 0 ? Math.round((sessionCorrect / sessionTotal) * 100) : 0;
 
     return (
       <View style={styles.container}>
@@ -99,13 +73,13 @@ export default function StudyPage() {
 
         <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
           <View style={styles.resultsContainer}>
-            <Text style={styles.resultsTitle}>🎓 Session Complete!</Text>
+            <Text style={styles.resultsTitle}>Deck Complete!</Text>
             <Text style={styles.resultsSubtitle}>Great work studying {selectedDeck.name}</Text>
 
             <View style={styles.resultsCard}>
               <View style={styles.resultStat}>
                 <Text style={styles.resultStatValue}>{sessionCorrect}</Text>
-                <Text style={styles.resultStatLabel}>Correct</Text>
+                <Text style={styles.resultStatLabel}>Resolved</Text>
               </View>
               <View style={styles.resultStatDivider} />
               <View style={styles.resultStat}>
@@ -115,7 +89,7 @@ export default function StudyPage() {
               <View style={styles.resultStatDivider} />
               <View style={styles.resultStat}>
                 <Text style={styles.resultStatValue}>{accuracy}%</Text>
-                <Text style={styles.resultStatLabel}>Accuracy</Text>
+                <Text style={styles.resultStatLabel}>Rate</Text>
               </View>
             </View>
 
@@ -125,7 +99,7 @@ export default function StudyPage() {
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.homeButton} onPress={() => router.back()}>
-              <Text style={styles.homeButtonText}>Back to Home</Text>
+              <Text style={styles.homeButtonText}>Back to Decks</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -133,7 +107,7 @@ export default function StudyPage() {
     );
   }
 
-  if (!selectedDeck || !currentCard) {
+  if (!selectedDeck) {
     return (
       <View style={styles.container}>
         <LinearGradient
@@ -215,8 +189,6 @@ export default function StudyPage() {
     );
   }
 
-  const progress = ((currentCardIndex + 1) / selectedDeck.flashcards.length) * 100;
-
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -235,58 +207,13 @@ export default function StudyPage() {
           <View style={styles.placeholder} />
         </View>
 
-        <View style={styles.progressContainer}>
-          <Text style={styles.progressText}>
-            {currentCardIndex + 1} / {selectedDeck.flashcards.length}
-          </Text>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
-          </View>
-        </View>
-
-        <View style={styles.cardContainer}>
-          <TouchableOpacity
-            style={[styles.flashcard, { backgroundColor: isDark ? theme.card : '#fff' }]}
-            onPress={handleFlipCard}
-            activeOpacity={0.95}
-          >
-            <View style={styles.flashcardContent}>
-              {!showAnswer ? (
-                <>
-                  <Text style={styles.cardLabel}>QUESTION</Text>
-                  <Text style={[styles.cardText, { color: isDark ? theme.text : '#333' }]}>{currentCard.question}</Text>
-                  <Text style={[styles.tapHint, { color: isDark ? theme.textSecondary : '#999' }]}>Tap to reveal answer</Text>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.cardLabel}>ANSWER</Text>
-                  <Text style={[styles.cardText, { color: isDark ? theme.text : '#333' }]}>{currentCard.answer}</Text>
-                  <Text style={[styles.tapHint, { color: isDark ? theme.textSecondary : '#999' }]}>How did you do?</Text>
-                </>
-              )}
-            </View>
-          </TouchableOpacity>
-
-          {showAnswer && (
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.wrongButton]}
-                onPress={() => handleAnswer(false)}
-              >
-                <X color="#fff" size={32} strokeWidth={2.5} />
-                <Text style={styles.actionButtonText}>Wrong</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.actionButton, styles.correctButton]}
-                onPress={() => handleAnswer(true)}
-              >
-                <Check color="#fff" size={32} strokeWidth={2.5} />
-                <Text style={styles.actionButtonText}>Correct</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+        <StudyFeed
+          flashcards={selectedDeck.flashcards}
+          theme={theme}
+          isDark={isDark}
+          onComplete={handleComplete}
+          onCardResolved={handleCardResolved}
+        />
       </SafeAreaView>
 
       <Modal
@@ -355,97 +282,6 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     width: 40,
-  },
-  progressContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
-  progressText: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: '#fff',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 4,
-  },
-  cardContainer: {
-    flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'center',
-  },
-  flashcard: {
-    backgroundColor: '#fff',
-    borderRadius: 32,
-    padding: 40,
-    minHeight: 400,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.3,
-    shadowRadius: 24,
-    elevation: 16,
-  },
-  flashcardContent: {
-    alignItems: 'center',
-  },
-  cardLabel: {
-    fontSize: 14,
-    fontWeight: '700' as const,
-    color: '#667eea',
-    marginBottom: 20,
-    letterSpacing: 2,
-  },
-  cardText: {
-    fontSize: 26,
-    fontWeight: '700' as const,
-    color: '#333',
-    textAlign: 'center',
-    lineHeight: 38,
-    marginBottom: 24,
-  },
-  tapHint: {
-    fontSize: 14,
-    color: '#999',
-    fontWeight: '500' as const,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    marginTop: 32,
-    gap: 16,
-  },
-  actionButton: {
-    flex: 1,
-    borderRadius: 20,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  wrongButton: {
-    backgroundColor: '#F44336',
-  },
-  correctButton: {
-    backgroundColor: '#4CAF50',
-  },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: '#fff',
-    marginTop: 8,
   },
   emptyContainer: {
     flex: 1,
