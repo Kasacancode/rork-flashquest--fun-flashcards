@@ -46,14 +46,14 @@ export default function StatsPage() {
   const backgroundGradient = useMemo(
     () => (
       isDark
-        ? [theme.gradientStart, theme.gradientMid, theme.gradientEnd]
-        : ['#FF6B6B', '#FF8E53', '#FFA07A']
+        ? [theme.gradientStart, theme.gradientMid, theme.gradientEnd] as const
+        : ['#FF6B6B', '#FF8E53', '#FFA07A'] as const
     ),
     [isDark, theme.gradientEnd, theme.gradientMid, theme.gradientStart],
   );
 
   const scoreGradientColors = useMemo(
-    () => (isDark ? ['#0EA5E9', '#2563EB'] : ['#FFD93D', '#F6C23E']),
+    () => (isDark ? ['#0EA5E9', '#2563EB'] as const : ['#FFD93D', '#F6C23E'] as const),
     [isDark],
   );
 

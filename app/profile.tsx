@@ -15,9 +15,9 @@ type TabType = 'overview' | 'achievements' | 'avatar';
 type AvatarType = 'lightning' | 'flame' | 'shield';
 
 const AVATARS = [
-  { id: 'lightning' as const, name: 'Lightning', icon: Zap, color: '#FFB800', gradient: ['#FFD700', '#FFA500'] },
-  { id: 'flame' as const, name: 'Flame', icon: Flame, color: '#FF6B6B', gradient: ['#FF6B6B', '#FF8E53'] },
-  { id: 'shield' as const, name: 'Shield', icon: Shield, color: '#667eea', gradient: ['#667eea', '#764ba2'] },
+  { id: 'lightning' as const, name: 'Lightning', icon: Zap, color: '#FFB800', gradient: ['#FFD700', '#FFA500'] as const },
+  { id: 'flame' as const, name: 'Flame', icon: Flame, color: '#FF6B6B', gradient: ['#FF6B6B', '#FF8E53'] as const },
+  { id: 'shield' as const, name: 'Shield', icon: Shield, color: '#667eea', gradient: ['#667eea', '#764ba2'] as const },
 ];
 
 const ACHIEVEMENTS = [
@@ -79,12 +79,12 @@ export default function ProfilePage() {
 
   const selectedAvatarData = AVATARS.find((a) => a.id === selectedAvatar) || AVATARS[0];
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
-  const profileGradient = useMemo<[string, string]>(
-    () => (isDark ? ['#4338CA', '#7C3AED'] : ['#667eea', '#F093FB']),
+  const profileGradient = useMemo(
+    () => (isDark ? ['#4338CA', '#7C3AED'] as const : ['#667eea', '#F093FB'] as const),
     [isDark]
   );
-  const avatarDeselectedGradient = useMemo<[string, string]>(
-    () => (isDark ? ['#1f2937', '#0f172a'] : ['#F3F4F6', '#E5E7EB']),
+  const avatarDeselectedGradient = useMemo(
+    () => (isDark ? ['#1f2937', '#0f172a'] as const : ['#F3F4F6', '#E5E7EB'] as const),
     [isDark]
   );
   const overviewGradients = useMemo(
