@@ -7,8 +7,9 @@ import {
   Dimensions,
   Platform,
   Pressable,
+  TouchableOpacity,
 } from 'react-native';
-import { Lightbulb, BookOpen, ChevronUp, Lock, CheckCircle } from 'lucide-react-native';
+import { Lightbulb, BookOpen, Lock, CheckCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 import { Flashcard } from '@/types/flashcard';
@@ -17,13 +18,14 @@ import { Theme } from '@/constants/colors';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 60;
 const DOUBLE_TAP_DELAY = 300;
+const BLOCKED_SHAKE_COOLDOWN = 300;
 
 interface StudyFeedProps {
   flashcards: Flashcard[];
   theme: Theme;
   isDark: boolean;
   onComplete: () => void;
-  onCardResolved?: (cardId: string, correct: boolean) => void;
+  onCardResolved?: (cardId: string) => void;
 }
 
 export default function StudyFeed({
@@ -51,6 +53,7 @@ export default function StudyFeed({
   const lastTapRef = useRef<number>(0);
   const gestureStartRef = useRef<{ x: number; y: number } | null>(null);
   const isProcessingRef = useRef(false);
+  const lastBlockedShakeRef = useRef<number>(0);
 
   const currentCard = flashcards[currentIndex];
 
@@ -60,7 +63,12 @@ export default function StudyFeed({
     }
   }, []);
 
-  const triggerShake = useCallback(() => {
+  const triggerShakeWithCooldown = useCallback(() => {
+    const now = Date.now();
+    if (now - lastBlockedShakeRef.current < BLOCKED_SHAKE_COOLDOWN) {
+      return;
+    }
+    lastBlockedShakeRef.current = now;
     triggerHaptic();
     Animated.sequence([
       Animated.timing(shakeAnim, { toValue: 12, duration: 40, useNativeDriver: true }),
@@ -106,7 +114,14 @@ export default function StudyFeed({
   }, [isRevealed, flipAnim, cardScale, triggerHaptic]);
 
   const handleShowHint = useCallback(() => {
-    if (isRevealed || hintShown || isProcessingRef.current) return;
+    if (isProcessingRef.current) return;
+    
+    if (isRevealed) {
+      triggerShakeWithCooldown();
+      return;
+    }
+    
+    if (hintShown) return;
     
     const hint = currentCard?.hint1;
     if (!hint) return;
@@ -133,15 +148,21 @@ export default function StudyFeed({
         setShowHintOverlay(false);
       });
     }, 2500);
-  }, [isRevealed, hintShown, currentCard, hintOpacity, triggerHaptic]);
+  }, [isRevealed, hintShown, currentCard, hintOpacity, triggerHaptic, triggerShakeWithCooldown]);
 
   const handleShowFeedback = useCallback(() => {
-    if (!isRevealed || isProcessingRef.current) return;
+    if (isProcessingRef.current) return;
+    
+    if (!isRevealed) {
+      triggerShakeWithCooldown();
+      return;
+    }
+    
+    if (resolved) return;
     
     isProcessingRef.current = true;
     triggerHaptic();
     setShowFeedbackOverlay(true);
-    
     setResolved(true);
 
     Animated.timing(feedbackOpacity, {
@@ -151,14 +172,14 @@ export default function StudyFeed({
     }).start(() => {
       isProcessingRef.current = false;
       if (currentCard) {
-        onCardResolved?.(currentCard.id, true);
+        onCardResolved?.(currentCard.id);
       }
     });
-  }, [isRevealed, currentCard, feedbackOpacity, onCardResolved, triggerHaptic]);
+  }, [isRevealed, resolved, currentCard, feedbackOpacity, onCardResolved, triggerHaptic, triggerShakeWithCooldown]);
 
   const handleNextCard = useCallback(() => {
     if (!resolved) {
-      triggerShake();
+      triggerShakeWithCooldown();
       return;
     }
 
@@ -179,9 +200,10 @@ export default function StudyFeed({
       }
       isProcessingRef.current = false;
     });
-  }, [resolved, currentIndex, flashcards.length, cardTranslateY, resetForNextCard, onComplete, triggerShake, triggerHaptic]);
+  }, [resolved, currentIndex, flashcards.length, cardTranslateY, resetForNextCard, onComplete, triggerShakeWithCooldown, triggerHaptic]);
 
-  const closeFeedback = useCallback(() => {
+  const dismissFeedbackOverlay = useCallback(() => {
+    if (isProcessingRef.current) return;
     Animated.timing(feedbackOpacity, {
       toValue: 0,
       duration: 200,
@@ -223,12 +245,6 @@ export default function StudyFeed({
     if (absDx < SWIPE_THRESHOLD && absDy < SWIPE_THRESHOLD) return;
 
     if (showFeedbackOverlay) {
-      // In feedback view: swipe up to go next, swipe left to close
-      if (absDy > absDx && dy < -SWIPE_THRESHOLD) {
-        handleNextCard();
-      } else if (absDx > absDy && dx > SWIPE_THRESHOLD) {
-        closeFeedback();
-      }
       return;
     }
 
@@ -245,7 +261,7 @@ export default function StudyFeed({
         handleNextCard();
       }
     }
-  }, [showFeedbackOverlay, handleDoubleTap, handleShowHint, handleShowFeedback, handleNextCard, closeFeedback]);
+  }, [showFeedbackOverlay, handleDoubleTap, handleShowHint, handleShowFeedback, handleNextCard]);
 
   const frontInterpolate = flipAnim.interpolate({
     inputRange: [0, 1],
@@ -407,8 +423,7 @@ export default function StudyFeed({
         >
           <Pressable 
             style={styles.feedbackPressable}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
+            onPress={dismissFeedbackOverlay}
           >
             <View style={styles.overlayContent}>
               <View style={styles.overlayHeader}>
@@ -418,10 +433,14 @@ export default function StudyFeed({
               <Text style={styles.overlayText}>
                 {currentCard.explanation || 'No additional explanation available for this card.'}
               </Text>
-              <View style={styles.swipeUpPrompt}>
-                <ChevronUp size={24} color="rgba(255,255,255,0.7)" />
-                <Text style={styles.swipeUpText}>Swipe up for next card</Text>
-              </View>
+              <TouchableOpacity 
+                style={styles.continueButton}
+                onPress={dismissFeedbackOverlay}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.continueButtonText}>Continue</Text>
+              </TouchableOpacity>
+              <Text style={styles.tapHintText}>or tap anywhere to dismiss</Text>
             </View>
           </Pressable>
         </Animated.View>
@@ -632,16 +651,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 28,
   },
-  swipeUpPrompt: {
-    alignItems: 'center',
-    marginTop: 40,
-    opacity: 0.8,
+  continueButton: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 32,
   },
-  swipeUpText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 4,
+  continueButtonText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#fff',
+  },
+  tapHintText: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 12,
   },
   emptyText: {
     fontSize: 18,

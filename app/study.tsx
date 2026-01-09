@@ -24,8 +24,7 @@ export default function StudyPage() {
 
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(!params.deckId);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(params.deckId || null);
-  const [sessionCorrect, setSessionCorrect] = useState<number>(0);
-  const [sessionTotal, setSessionTotal] = useState<number>(0);
+  const [sessionResolved, setSessionResolved] = useState<number>(0);
   const [showResults, setShowResults] = useState<boolean>(false);
 
   const selectedDeck = useMemo(
@@ -36,16 +35,14 @@ export default function StudyPage() {
   const handleDeckSelect = useCallback((deckId: string) => {
     setSelectedDeckId(deckId);
     setShowDeckSelector(false);
-    setSessionCorrect(0);
-    setSessionTotal(0);
+    setSessionResolved(0);
     setShowResults(false);
   }, []);
 
-  const handleCardResolved = useCallback((cardId: string, correct: boolean) => {
+  const handleCardResolved = useCallback((cardId: string) => {
     if (selectedDeck) {
-      updateProgress(selectedDeck.id, correct);
-      setSessionCorrect(prev => prev + (correct ? 1 : 0));
-      setSessionTotal(prev => prev + 1);
+      updateProgress(selectedDeck.id, true);
+      setSessionResolved(prev => prev + 1);
     }
   }, [selectedDeck, updateProgress]);
 
@@ -54,14 +51,11 @@ export default function StudyPage() {
   }, []);
 
   const handleRestart = useCallback(() => {
-    setSessionCorrect(0);
-    setSessionTotal(0);
+    setSessionResolved(0);
     setShowResults(false);
   }, []);
 
   if (showResults && selectedDeck) {
-    const accuracy = sessionTotal > 0 ? Math.round((sessionCorrect / sessionTotal) * 100) : 0;
-
     return (
       <View style={styles.container}>
         <LinearGradient
@@ -78,18 +72,13 @@ export default function StudyPage() {
 
             <View style={styles.resultsCard}>
               <View style={styles.resultStat}>
-                <Text style={styles.resultStatValue}>{sessionCorrect}</Text>
-                <Text style={styles.resultStatLabel}>Resolved</Text>
+                <Text style={styles.resultStatValue}>{sessionResolved}</Text>
+                <Text style={styles.resultStatLabel}>Completed</Text>
               </View>
               <View style={styles.resultStatDivider} />
               <View style={styles.resultStat}>
-                <Text style={styles.resultStatValue}>{sessionTotal}</Text>
-                <Text style={styles.resultStatLabel}>Total</Text>
-              </View>
-              <View style={styles.resultStatDivider} />
-              <View style={styles.resultStat}>
-                <Text style={styles.resultStatValue}>{accuracy}%</Text>
-                <Text style={styles.resultStatLabel}>Rate</Text>
+                <Text style={styles.resultStatValue}>{selectedDeck.flashcards.length}</Text>
+                <Text style={styles.resultStatLabel}>Total Cards</Text>
               </View>
             </View>
 
