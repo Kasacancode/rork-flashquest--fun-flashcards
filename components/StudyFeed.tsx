@@ -234,7 +234,9 @@ export default function StudyFeed({
         const { dx, dy } = gestureState;
 
         if (showFeedbackOverlay) {
-          if (dx < -SWIPE_THRESHOLD) {
+          if (dy < -SWIPE_THRESHOLD && Math.abs(dy) > Math.abs(dx)) {
+            handleSwipeUp();
+          } else if (dx < -SWIPE_THRESHOLD) {
             closeFeedbackOverlay();
           } else {
             Animated.spring(feedbackSlideAnim, {
