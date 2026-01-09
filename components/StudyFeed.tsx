@@ -64,6 +64,24 @@ export default function StudyFeed({
   const lastSwipeRef = useRef<number>(0);
   const isAnimatingRef = useRef(false);
 
+  // Use refs to track current state for PanResponder
+  const cardStateRef = useRef(cardState);
+  const currentIndexRef = useRef(currentIndex);
+  const showFeedbackRef = useRef(showFeedbackOverlay);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    cardStateRef.current = cardState;
+  }, [cardState]);
+
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+
+  useEffect(() => {
+    showFeedbackRef.current = showFeedbackOverlay;
+  }, [showFeedbackOverlay]);
+
   const currentCard = flashcards[currentIndex];
 
   const resetCardState = useCallback(() => {
@@ -102,34 +120,38 @@ export default function StudyFeed({
     isAnimatingRef.current = true;
     triggerHaptic();
 
+    const currentRevealed = cardStateRef.current.isRevealed;
+
     Animated.sequence([
       Animated.timing(cardScale, { toValue: 0.95, duration: 100, useNativeDriver: true }),
       Animated.timing(cardScale, { toValue: 1, duration: 100, useNativeDriver: true }),
     ]).start();
 
     Animated.timing(flipAnim, {
-      toValue: cardState.isRevealed ? 0 : 1,
+      toValue: currentRevealed ? 0 : 1,
       duration: 300,
       useNativeDriver: true,
     }).start(() => {
       setCardState(prev => ({ ...prev, isRevealed: !prev.isRevealed }));
       isAnimatingRef.current = false;
     });
-  }, [cardState.isRevealed, flipAnim, cardScale, triggerHaptic]);
+  }, [flipAnim, cardScale, triggerHaptic]);
 
   const handleSwipeLeft = useCallback(() => {
-    if (cardState.isRevealed || isAnimatingRef.current) return;
+    const state = cardStateRef.current;
+    if (state.isRevealed || isAnimatingRef.current) return;
     if (Date.now() - lastSwipeRef.current < SWIPE_COOLDOWN) return;
     lastSwipeRef.current = Date.now();
 
-    const newHintLevel = Math.min(cardState.hintLevel + 1, 2) as 0 | 1 | 2;
-    if (newHintLevel === cardState.hintLevel && cardState.hintLevel === 2) return;
+    const newHintLevel = Math.min(state.hintLevel + 1, 2) as 0 | 1 | 2;
+    if (newHintLevel === state.hintLevel && state.hintLevel === 2) return;
 
     triggerHaptic();
 
+    const card = flashcards[currentIndexRef.current];
     const hintText = newHintLevel === 1 
-      ? currentCard?.hint1 || 'No hint available'
-      : currentCard?.hint2 || currentCard?.hint1 || 'No hint available';
+      ? card?.hint1 || 'No hint available'
+      : card?.hint2 || card?.hint1 || 'No hint available';
 
     setCurrentHintText(hintText);
     setCardState(prev => ({ ...prev, hintLevel: newHintLevel }));
@@ -149,10 +171,11 @@ export default function StudyFeed({
         useNativeDriver: true,
       }).start(() => setShowHintOverlay(false));
     }, 2500);
-  }, [cardState, currentCard, hintSlideAnim, triggerHaptic]);
+  }, [flashcards, hintSlideAnim, triggerHaptic]);
 
   const handleSwipeRight = useCallback(() => {
-    if (!cardState.isRevealed || isAnimatingRef.current) return;
+    const state = cardStateRef.current;
+    if (!state.isRevealed || isAnimatingRef.current) return;
     if (Date.now() - lastSwipeRef.current < SWIPE_COOLDOWN) return;
     lastSwipeRef.current = Date.now();
 
@@ -166,12 +189,15 @@ export default function StudyFeed({
       friction: 8,
     }).start(() => {
       setCardState(prev => ({ ...prev, feedbackViewed: true, resolved: true }));
-      onCardResolved?.(currentCard?.id || '', true);
+      const card = flashcards[currentIndexRef.current];
+      onCardResolved?.(card?.id || '', true);
     });
-  }, [cardState.isRevealed, currentCard, feedbackSlideAnim, onCardResolved, triggerHaptic]);
+  }, [flashcards, feedbackSlideAnim, onCardResolved, triggerHaptic]);
 
   const handleSwipeUp = useCallback(() => {
-    if (!cardState.resolved) {
+    const state = cardStateRef.current;
+    
+    if (!state.resolved) {
       triggerShake();
       return;
     }
@@ -183,21 +209,28 @@ export default function StudyFeed({
 
     triggerHaptic();
 
+    // Close feedback overlay first if open
+    if (showFeedbackRef.current) {
+      setShowFeedbackOverlay(false);
+      feedbackSlideAnim.setValue(-SCREEN_WIDTH);
+    }
+
     Animated.timing(translateY, {
       toValue: -SCREEN_HEIGHT,
       duration: 300,
       useNativeDriver: true,
     }).start(() => {
-      if (currentIndex + 1 >= flashcards.length) {
+      const idx = currentIndexRef.current;
+      if (idx + 1 >= flashcards.length) {
         onComplete();
       } else {
-        setCurrentIndex(prev => prev + 1);
+        setCurrentIndex(idx + 1);
         resetCardState();
         translateY.setValue(0);
       }
       isAnimatingRef.current = false;
     });
-  }, [cardState.resolved, currentIndex, flashcards.length, translateY, resetCardState, onComplete, triggerShake, triggerHaptic]);
+  }, [flashcards.length, translateY, feedbackSlideAnim, resetCardState, onComplete, triggerShake, triggerHaptic]);
 
   const closeFeedbackOverlay = useCallback(() => {
     Animated.timing(feedbackSlideAnim, {
@@ -223,7 +256,7 @@ export default function StudyFeed({
         }
       },
       onPanResponderMove: (_, gestureState) => {
-        if (showFeedbackOverlay) {
+        if (showFeedbackRef.current) {
           feedbackSlideAnim.setValue(-gestureState.dx * 0.3);
         } else {
           translateX.setValue(gestureState.dx * 0.3);
@@ -233,7 +266,7 @@ export default function StudyFeed({
       onPanResponderRelease: (_, gestureState) => {
         const { dx, dy } = gestureState;
 
-        if (showFeedbackOverlay) {
+        if (showFeedbackRef.current) {
           if (dy < -SWIPE_THRESHOLD && Math.abs(dy) > Math.abs(dx)) {
             handleSwipeUp();
           } else if (dx < -SWIPE_THRESHOLD) {
@@ -244,6 +277,8 @@ export default function StudyFeed({
               useNativeDriver: true,
             }).start();
           }
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true }).start();
           return;
         }
 
@@ -429,6 +464,7 @@ export default function StudyFeed({
             styles.feedbackOverlay,
             { transform: [{ translateX: feedbackSlideAnim }] },
           ]}
+          {...panResponder.panHandlers}
         >
           <View style={styles.overlayContent}>
             <View style={styles.overlayHeader}>
