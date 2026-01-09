@@ -255,8 +255,8 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
   // ============================================
   // UPDATE STUDY PROGRESS
   // ============================================
-  // Function to record when user studies a card (correct or incorrect)
-  const updateProgress = useCallback((deckId: string, correct: boolean) => {
+  // Function to record when user completes/reviews a card (no correctness tracking)
+  const updateProgress = useCallback((deckId: string) => {
     const currentProgress = progressQuery.data || [];
     const currentStats = statsQuery.data || DEFAULT_STATS;
 
@@ -270,10 +270,8 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       updatedProgress = [...currentProgress];
       updatedProgress[deckProgressIndex] = {
         ...existing,
-        // Increment correct answers only if answer was correct
-        correctAnswers: correct ? existing.correctAnswers + 1 : existing.correctAnswers,
-        // Always increment total attempts
-        totalAttempts: existing.totalAttempts + 1,
+        // Increment cards reviewed counter
+        cardsReviewed: existing.cardsReviewed + 1,
         // Update last studied timestamp
         lastStudied: Date.now(),
       };
@@ -283,8 +281,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
         ...currentProgress,
         {
           deckId,
-          correctAnswers: correct ? 1 : 0,
-          totalAttempts: 1,
+          cardsReviewed: 1,
           lastStudied: Date.now(),
           masteredCards: [],
         },
@@ -295,8 +292,8 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     const today = new Date().toISOString().split('T')[0];
     const updatedStats: UserStats = {
       ...currentStats,
-      // Add 10 points for correct answer
-      totalScore: currentStats.totalScore + (correct ? 10 : 0),
+      // Award points for completing a card review
+      totalScore: currentStats.totalScore + 5,
       // Increment total cards studied counter
       totalCardsStudied: currentStats.totalCardsStudied + 1,
       // Maintain or increment streak

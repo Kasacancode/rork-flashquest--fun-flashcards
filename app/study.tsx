@@ -41,7 +41,7 @@ export default function StudyPage() {
 
   const handleCardResolved = useCallback((cardId: string) => {
     if (selectedDeck) {
-      updateProgress(selectedDeck.id, true);
+      updateProgress(selectedDeck.id);
       setSessionResolved(prev => prev + 1);
     }
   }, [selectedDeck, updateProgress]);

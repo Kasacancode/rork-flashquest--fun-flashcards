@@ -80,16 +80,13 @@ export interface Deck {
 // ============================================
 // USER PROGRESS INTERFACE
 // ============================================
-// Tracks how well the user is doing with each deck
+// Tracks user's study progress with each deck (no correctness tracking in MVP)
 export interface UserProgress {
   // ID of the deck this progress tracks
   deckId: string;
   
-  // How many times user answered correctly
-  correctAnswers: number;
-  
-  // Total number of attempts (correct + incorrect)
-  totalAttempts: number;
+  // Total number of cards reviewed/completed
+  cardsReviewed: number;
   
   // Timestamp of the last time user studied this deck
   lastStudied: number;

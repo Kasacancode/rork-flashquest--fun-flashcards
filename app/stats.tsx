@@ -22,22 +22,14 @@ export default function StatsPage() {
   const { stats, decks, progress } = useFlashQuest();
   const { theme, isDark } = useTheme();
 
-  const accuracyEntries = useMemo(() => {
-    console.log('StatsPage accuracyEntries computation', { progressCount: progress.length });
-    return progress
-      .filter((entry) => entry.totalAttempts > 0)
-      .map((entry) => entry.correctAnswers / entry.totalAttempts);
+  const totalCardsReviewed = useMemo(() => {
+    console.log('StatsPage totalCardsReviewed computation', { progressCount: progress.length });
+    return progress.reduce((sum, entry) => sum + entry.cardsReviewed, 0);
   }, [progress]);
-
-  const totalAccuracy = accuracyEntries.length > 0
-    ? Math.round(
-      (accuracyEntries.reduce((sum, ratio) => sum + ratio, 0) / accuracyEntries.length) * 100,
-    )
-    : 0;
 
   console.log('StatsPage render', {
     isDark,
-    totalAccuracy,
+    totalCardsReviewed,
     totalDecks: decks.length,
     progressCount: progress.length,
     totalScore: stats.totalScore,
@@ -71,10 +63,10 @@ export default function StatsPage() {
     },
     {
       icon: <Target color="#4ECDC4" size={32} strokeWidth={2} />,
-      value: `${totalAccuracy}%`,
-      title: 'Accuracy',
-      subtitle: 'Overall score',
-      testId: 'stats-card-accuracy',
+      value: `${totalCardsReviewed}`,
+      title: 'Reviewed',
+      subtitle: 'Cards completed',
+      testId: 'stats-card-reviewed',
     },
     {
       icon: <Award color="#667eea" size={32} strokeWidth={2} />,
@@ -158,8 +150,8 @@ export default function StatsPage() {
                   return null;
                 }
 
-                const attempts = item.totalAttempts;
-                const accuracy = attempts > 0 ? Math.round((item.correctAnswers / attempts) * 100) : 0;
+                const totalCards = deck.flashcards.length;
+                const progressPercent = totalCards > 0 ? Math.min(100, Math.round((item.cardsReviewed / totalCards) * 100)) : 0;
 
                 return (
                   <View
@@ -172,13 +164,13 @@ export default function StatsPage() {
                       <Text style={styles.progressDeckName}>{deck.name}</Text>
                       <View style={styles.progressStats}>
                         <Text style={styles.progressText}>
-                          {item.correctAnswers}/{item.totalAttempts} correct
+                          {item.cardsReviewed} reviewed
                         </Text>
-                        <Text style={styles.progressAccuracy}>{accuracy}%</Text>
+                        <Text style={styles.progressReviewed}>{progressPercent}%</Text>
                       </View>
                       <View style={styles.progressBar}>
                         <View
-                          style={[styles.progressBarFill, { width: `${accuracy}%`, backgroundColor: deck.color }]}
+                          style={[styles.progressBarFill, { width: `${progressPercent}%`, backgroundColor: deck.color }]}
                         />
                       </View>
                     </View>
@@ -352,7 +344,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => StyleSheet.create(
     color: theme.textSecondary,
     fontWeight: '500' as const,
   },
-  progressAccuracy: {
+  progressReviewed: {
     fontSize: 16,
     fontWeight: '700' as const,
     color: theme.text,
