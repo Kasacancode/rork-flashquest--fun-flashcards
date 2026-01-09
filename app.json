@@ -15,28 +15,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.rork.flashquest",
-      "infoPlist": {
-        "UIBackgroundModes": [
-          "audio"
-        ],
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone",
-        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photos",
-        "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera"
-      }
+      "bundleIdentifier": "app.rork.flashquest"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.rork.flashquest",
-      "permissions": [
-        "RECORD_AUDIO",
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
-      ]
+      "package": "app.rork.flashquest"
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
@@ -49,19 +35,7 @@
         }
       ],
       "expo-font",
-      "expo-web-browser",
-      [
-        "expo-av",
-        {
-          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone"
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "The app accesses your photos to let you share them with your friends."
-        }
-      ]
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
