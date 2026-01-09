@@ -1,12 +1,12 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Animated,
-  PanResponder,
   Dimensions,
   Platform,
+  Pressable,
 } from 'react-native';
 import { Lightbulb, BookOpen, ChevronUp, Lock, CheckCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -14,10 +14,9 @@ import * as Haptics from 'expo-haptics';
 import { Flashcard } from '@/types/flashcard';
 import { Theme } from '@/constants/colors';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SWIPE_THRESHOLD = 70;
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SWIPE_THRESHOLD = 60;
 const DOUBLE_TAP_DELAY = 300;
-const SWIPE_COOLDOWN = 300;
 
 interface StudyFeedProps {
   flashcards: Flashcard[];
@@ -25,13 +24,6 @@ interface StudyFeedProps {
   isDark: boolean;
   onComplete: () => void;
   onCardResolved?: (cardId: string, correct: boolean) => void;
-}
-
-interface CardState {
-  isRevealed: boolean;
-  hintLevel: 0 | 1 | 2;
-  feedbackViewed: boolean;
-  resolved: boolean;
 }
 
 export default function StudyFeed({
@@ -42,61 +34,25 @@ export default function StudyFeed({
   onCardResolved,
 }: StudyFeedProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [cardState, setCardState] = useState<CardState>({
-    isRevealed: false,
-    hintLevel: 0,
-    feedbackViewed: false,
-    resolved: false,
-  });
+  const [isRevealed, setIsRevealed] = useState(false);
+  const [hintShown, setHintShown] = useState(false);
+  
+  const [resolved, setResolved] = useState(false);
   const [showHintOverlay, setShowHintOverlay] = useState(false);
   const [showFeedbackOverlay, setShowFeedbackOverlay] = useState(false);
-  const [currentHintText, setCurrentHintText] = useState('');
 
-  const translateX = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
   const flipAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
-  const hintSlideAnim = useRef(new Animated.Value(SCREEN_WIDTH)).current;
-  const feedbackSlideAnim = useRef(new Animated.Value(-SCREEN_WIDTH)).current;
+  const hintOpacity = useRef(new Animated.Value(0)).current;
+  const feedbackOpacity = useRef(new Animated.Value(0)).current;
   const cardScale = useRef(new Animated.Value(1)).current;
+  const cardTranslateY = useRef(new Animated.Value(0)).current;
 
   const lastTapRef = useRef<number>(0);
-  const lastSwipeRef = useRef<number>(0);
-  const isAnimatingRef = useRef(false);
-
-  // Use refs to track current state for PanResponder
-  const cardStateRef = useRef(cardState);
-  const currentIndexRef = useRef(currentIndex);
-  const showFeedbackRef = useRef(showFeedbackOverlay);
-
-  // Keep refs in sync with state
-  useEffect(() => {
-    cardStateRef.current = cardState;
-  }, [cardState]);
-
-  useEffect(() => {
-    currentIndexRef.current = currentIndex;
-  }, [currentIndex]);
-
-  useEffect(() => {
-    showFeedbackRef.current = showFeedbackOverlay;
-  }, [showFeedbackOverlay]);
+  const gestureStartRef = useRef<{ x: number; y: number } | null>(null);
+  const isProcessingRef = useRef(false);
 
   const currentCard = flashcards[currentIndex];
-
-  const resetCardState = useCallback(() => {
-    setCardState({
-      isRevealed: false,
-      hintLevel: 0,
-      feedbackViewed: false,
-      resolved: false,
-    });
-    setShowHintOverlay(false);
-    setShowFeedbackOverlay(false);
-    flipAnim.setValue(0);
-    hintSlideAnim.setValue(SCREEN_WIDTH);
-    feedbackSlideAnim.setValue(-SCREEN_WIDTH);
-  }, [flipAnim, hintSlideAnim, feedbackSlideAnim]);
 
   const triggerHaptic = useCallback(() => {
     if (Platform.OS !== 'web') {
@@ -107,212 +63,189 @@ export default function StudyFeed({
   const triggerShake = useCallback(() => {
     triggerHaptic();
     Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 12, duration: 40, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -12, duration: 40, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 8, duration: 40, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -8, duration: 40, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 40, useNativeDriver: true }),
     ]).start();
   }, [shakeAnim, triggerHaptic]);
 
-  const handleDoubleTap = useCallback(() => {
-    if (isAnimatingRef.current) return;
-    isAnimatingRef.current = true;
-    triggerHaptic();
+  const resetForNextCard = useCallback(() => {
+    setIsRevealed(false);
+    setHintShown(false);
+    
+    setResolved(false);
+    setShowHintOverlay(false);
+    setShowFeedbackOverlay(false);
+    flipAnim.setValue(0);
+    hintOpacity.setValue(0);
+    feedbackOpacity.setValue(0);
+    cardTranslateY.setValue(0);
+  }, [flipAnim, hintOpacity, feedbackOpacity, cardTranslateY]);
 
-    const currentRevealed = cardStateRef.current.isRevealed;
+  const handleDoubleTap = useCallback(() => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+    triggerHaptic();
 
     Animated.sequence([
-      Animated.timing(cardScale, { toValue: 0.95, duration: 100, useNativeDriver: true }),
-      Animated.timing(cardScale, { toValue: 1, duration: 100, useNativeDriver: true }),
+      Animated.timing(cardScale, { toValue: 0.96, duration: 80, useNativeDriver: true }),
+      Animated.timing(cardScale, { toValue: 1, duration: 80, useNativeDriver: true }),
     ]).start();
 
+    const targetValue = isRevealed ? 0 : 1;
     Animated.timing(flipAnim, {
-      toValue: currentRevealed ? 0 : 1,
-      duration: 300,
+      toValue: targetValue,
+      duration: 250,
       useNativeDriver: true,
     }).start(() => {
-      setCardState(prev => ({ ...prev, isRevealed: !prev.isRevealed }));
-      isAnimatingRef.current = false;
+      setIsRevealed(!isRevealed);
+      isProcessingRef.current = false;
     });
-  }, [flipAnim, cardScale, triggerHaptic]);
+  }, [isRevealed, flipAnim, cardScale, triggerHaptic]);
 
-  const handleSwipeLeft = useCallback(() => {
-    const state = cardStateRef.current;
-    if (state.isRevealed || isAnimatingRef.current) return;
-    if (Date.now() - lastSwipeRef.current < SWIPE_COOLDOWN) return;
-    lastSwipeRef.current = Date.now();
+  const handleShowHint = useCallback(() => {
+    if (isRevealed || hintShown || isProcessingRef.current) return;
+    
+    const hint = currentCard?.hint1;
+    if (!hint) return;
 
-    const newHintLevel = Math.min(state.hintLevel + 1, 2) as 0 | 1 | 2;
-    if (newHintLevel === state.hintLevel && state.hintLevel === 2) return;
-
+    isProcessingRef.current = true;
     triggerHaptic();
-
-    const card = flashcards[currentIndexRef.current];
-    const hintText = newHintLevel === 1 
-      ? card?.hint1 || 'No hint available'
-      : card?.hint2 || card?.hint1 || 'No hint available';
-
-    setCurrentHintText(hintText);
-    setCardState(prev => ({ ...prev, hintLevel: newHintLevel }));
+    setHintShown(true);
     setShowHintOverlay(true);
 
-    Animated.spring(hintSlideAnim, {
-      toValue: 0,
+    Animated.timing(hintOpacity, {
+      toValue: 1,
+      duration: 200,
       useNativeDriver: true,
-      tension: 50,
-      friction: 8,
-    }).start();
+    }).start(() => {
+      isProcessingRef.current = false;
+    });
 
     setTimeout(() => {
-      Animated.timing(hintSlideAnim, {
-        toValue: SCREEN_WIDTH,
+      Animated.timing(hintOpacity, {
+        toValue: 0,
         duration: 300,
         useNativeDriver: true,
-      }).start(() => setShowHintOverlay(false));
+      }).start(() => {
+        setShowHintOverlay(false);
+      });
     }, 2500);
-  }, [flashcards, hintSlideAnim, triggerHaptic]);
+  }, [isRevealed, hintShown, currentCard, hintOpacity, triggerHaptic]);
 
-  const handleSwipeRight = useCallback(() => {
-    const state = cardStateRef.current;
-    if (!state.isRevealed || isAnimatingRef.current) return;
-    if (Date.now() - lastSwipeRef.current < SWIPE_COOLDOWN) return;
-    lastSwipeRef.current = Date.now();
-
+  const handleShowFeedback = useCallback(() => {
+    if (!isRevealed || isProcessingRef.current) return;
+    
+    isProcessingRef.current = true;
     triggerHaptic();
     setShowFeedbackOverlay(true);
-
-    Animated.spring(feedbackSlideAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 50,
-      friction: 8,
-    }).start(() => {
-      setCardState(prev => ({ ...prev, feedbackViewed: true, resolved: true }));
-      const card = flashcards[currentIndexRef.current];
-      onCardResolved?.(card?.id || '', true);
-    });
-  }, [flashcards, feedbackSlideAnim, onCardResolved, triggerHaptic]);
-
-  const handleSwipeUp = useCallback(() => {
-    const state = cardStateRef.current;
     
-    if (!state.resolved) {
+    setResolved(true);
+
+    Animated.timing(feedbackOpacity, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      isProcessingRef.current = false;
+      if (currentCard) {
+        onCardResolved?.(currentCard.id, true);
+      }
+    });
+  }, [isRevealed, currentCard, feedbackOpacity, onCardResolved, triggerHaptic]);
+
+  const handleNextCard = useCallback(() => {
+    if (!resolved) {
       triggerShake();
       return;
     }
 
-    if (isAnimatingRef.current) return;
-    if (Date.now() - lastSwipeRef.current < SWIPE_COOLDOWN) return;
-    lastSwipeRef.current = Date.now();
-    isAnimatingRef.current = true;
-
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
     triggerHaptic();
 
-    // Close feedback overlay first if open
-    if (showFeedbackRef.current) {
-      setShowFeedbackOverlay(false);
-      feedbackSlideAnim.setValue(-SCREEN_WIDTH);
-    }
-
-    Animated.timing(translateY, {
+    Animated.timing(cardTranslateY, {
       toValue: -SCREEN_HEIGHT,
-      duration: 300,
+      duration: 250,
       useNativeDriver: true,
     }).start(() => {
-      const idx = currentIndexRef.current;
-      if (idx + 1 >= flashcards.length) {
+      if (currentIndex + 1 >= flashcards.length) {
         onComplete();
       } else {
-        setCurrentIndex(idx + 1);
-        resetCardState();
-        translateY.setValue(0);
+        setCurrentIndex(prev => prev + 1);
+        resetForNextCard();
       }
-      isAnimatingRef.current = false;
+      isProcessingRef.current = false;
     });
-  }, [flashcards.length, translateY, feedbackSlideAnim, resetCardState, onComplete, triggerShake, triggerHaptic]);
+  }, [resolved, currentIndex, flashcards.length, cardTranslateY, resetForNextCard, onComplete, triggerShake, triggerHaptic]);
 
-  const closeFeedbackOverlay = useCallback(() => {
-    Animated.timing(feedbackSlideAnim, {
-      toValue: -SCREEN_WIDTH,
-      duration: 300,
+  const closeFeedback = useCallback(() => {
+    Animated.timing(feedbackOpacity, {
+      toValue: 0,
+      duration: 200,
       useNativeDriver: true,
-    }).start(() => setShowFeedbackOverlay(false));
-  }, [feedbackSlideAnim]);
+    }).start(() => {
+      setShowFeedbackOverlay(false);
+    });
+  }, [feedbackOpacity]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > 10 || Math.abs(gestureState.dy) > 10;
-      },
-      onPanResponderGrant: () => {
-        const now = Date.now();
-        if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
-          handleDoubleTap();
-          lastTapRef.current = 0;
-        } else {
-          lastTapRef.current = now;
-        }
-      },
-      onPanResponderMove: (_, gestureState) => {
-        if (showFeedbackRef.current) {
-          feedbackSlideAnim.setValue(-gestureState.dx * 0.3);
-        } else {
-          translateX.setValue(gestureState.dx * 0.3);
-          translateY.setValue(gestureState.dy * 0.3);
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const { dx, dy } = gestureState;
+  const handleTouchStart = useCallback((e: any) => {
+    const touch = e.nativeEvent;
+    gestureStartRef.current = { x: touch.pageX, y: touch.pageY };
+  }, []);
 
-        if (showFeedbackRef.current) {
-          if (dy < -SWIPE_THRESHOLD && Math.abs(dy) > Math.abs(dx)) {
-            handleSwipeUp();
-          } else if (dx < -SWIPE_THRESHOLD) {
-            closeFeedbackOverlay();
-          } else {
-            Animated.spring(feedbackSlideAnim, {
-              toValue: 0,
-              useNativeDriver: true,
-            }).start();
-          }
-          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
-          Animated.spring(translateY, { toValue: 0, useNativeDriver: true }).start();
-          return;
-        }
+  const handleTouchEnd = useCallback((e: any) => {
+    if (!gestureStartRef.current) return;
 
-        const absDx = Math.abs(dx);
-        const absDy = Math.abs(dy);
+    const touch = e.nativeEvent;
+    const dx = touch.pageX - gestureStartRef.current.x;
+    const dy = touch.pageY - gestureStartRef.current.y;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
 
-        if (absDx < SWIPE_THRESHOLD && absDy < SWIPE_THRESHOLD) {
-          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
-          Animated.spring(translateY, { toValue: 0, useNativeDriver: true }).start();
-          return;
-        }
+    gestureStartRef.current = null;
 
-        if (absDx > absDy) {
-          if (dx < -SWIPE_THRESHOLD) {
-            handleSwipeLeft();
-          } else if (dx > SWIPE_THRESHOLD) {
-            handleSwipeRight();
-          }
-        } else {
-          if (dy < -SWIPE_THRESHOLD) {
-            handleSwipeUp();
-          }
-        }
+    // Check for tap (minimal movement)
+    if (absDx < 10 && absDy < 10) {
+      const now = Date.now();
+      if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+        lastTapRef.current = 0;
+        handleDoubleTap();
+      } else {
+        lastTapRef.current = now;
+      }
+      return;
+    }
 
-        Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
-        Animated.spring(translateY, { toValue: 0, useNativeDriver: true }).start();
-      },
-    })
-  ).current;
+    // Check for swipe
+    if (absDx < SWIPE_THRESHOLD && absDy < SWIPE_THRESHOLD) return;
 
-  useEffect(() => {
-    translateX.setValue(0);
-    translateY.setValue(0);
-  }, [currentIndex, translateX, translateY]);
+    if (showFeedbackOverlay) {
+      // In feedback view: swipe up to go next, swipe left to close
+      if (absDy > absDx && dy < -SWIPE_THRESHOLD) {
+        handleNextCard();
+      } else if (absDx > absDy && dx < -SWIPE_THRESHOLD) {
+        closeFeedback();
+      }
+      return;
+    }
+
+    if (absDx > absDy) {
+      // Horizontal swipe
+      if (dx < -SWIPE_THRESHOLD) {
+        handleShowHint();
+      } else if (dx > SWIPE_THRESHOLD) {
+        handleShowFeedback();
+      }
+    } else {
+      // Vertical swipe
+      if (dy < -SWIPE_THRESHOLD) {
+        handleNextCard();
+      }
+    }
+  }, [showFeedbackOverlay, handleDoubleTap, handleShowHint, handleShowFeedback, handleNextCard, closeFeedback]);
 
   const frontInterpolate = flipAnim.interpolate({
     inputRange: [0, 1],
@@ -324,6 +257,8 @@ export default function StudyFeed({
     outputRange: ['180deg', '360deg'],
   });
 
+  const progress = useMemo(() => ((currentIndex + 1) / flashcards.length) * 100, [currentIndex, flashcards.length]);
+
   if (!currentCard) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -331,8 +266,6 @@ export default function StudyFeed({
       </View>
     );
   }
-
-  const progress = ((currentIndex + 1) / flashcards.length) * 100;
 
   return (
     <View style={styles.container}>
@@ -346,35 +279,39 @@ export default function StudyFeed({
       </View>
 
       <View style={styles.statusIndicators}>
-        <View style={[styles.statusBadge, cardState.isRevealed && styles.statusBadgeActive]}>
+        <View style={[styles.statusBadge, isRevealed && styles.statusBadgeActive]}>
           <CheckCircle 
             size={14} 
-            color={cardState.isRevealed ? '#fff' : 'rgba(255,255,255,0.5)'} 
+            color={isRevealed ? '#fff' : 'rgba(255,255,255,0.5)'} 
           />
-          <Text style={[styles.statusText, cardState.isRevealed && styles.statusTextActive]}>
+          <Text style={[styles.statusText, isRevealed && styles.statusTextActive]}>
             Revealed
           </Text>
         </View>
-        <View style={[styles.statusBadge, cardState.resolved && styles.statusBadgeActive]}>
-          {cardState.resolved ? (
+        <View style={[styles.statusBadge, resolved && styles.statusBadgeActive]}>
+          {resolved ? (
             <CheckCircle size={14} color="#fff" />
           ) : (
             <Lock size={14} color="rgba(255,255,255,0.5)" />
           )}
-          <Text style={[styles.statusText, cardState.resolved && styles.statusTextActive]}>
+          <Text style={[styles.statusText, resolved && styles.statusTextActive]}>
             Resolved
           </Text>
         </View>
       </View>
 
-      <View style={styles.cardContainer} {...panResponder.panHandlers}>
+      <Pressable 
+        style={styles.cardContainer}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         <Animated.View
           style={[
             styles.cardWrapper,
             {
               transform: [
-                { translateX: Animated.add(translateX, shakeAnim) },
-                { translateY },
+                { translateX: shakeAnim },
+                { translateY: cardTranslateY },
                 { scale: cardScale },
               ],
             },
@@ -390,10 +327,10 @@ export default function StudyFeed({
           >
             <View style={styles.cardLabelContainer}>
               <Text style={[styles.cardLabel, { color: theme.primary || '#667eea' }]}>QUESTION</Text>
-              {cardState.hintLevel > 0 && (
+              {hintShown && (
                 <View style={styles.hintBadge}>
                   <Lightbulb size={12} color="#FFD700" />
-                  <Text style={styles.hintBadgeText}>Hint {cardState.hintLevel}</Text>
+                  <Text style={styles.hintBadgeText}>Hint used</Text>
                 </View>
               )}
             </View>
@@ -422,7 +359,7 @@ export default function StudyFeed({
             </Text>
           </Animated.View>
         </Animated.View>
-      </View>
+      </Pressable>
 
       <View style={styles.gestureGuide}>
         <View style={styles.gestureItem}>
@@ -444,15 +381,18 @@ export default function StudyFeed({
           style={[
             styles.overlay,
             styles.hintOverlay,
-            { transform: [{ translateX: hintSlideAnim }] },
+            { opacity: hintOpacity },
           ]}
+          pointerEvents="none"
         >
           <View style={styles.overlayContent}>
             <View style={styles.overlayHeader}>
               <Lightbulb size={28} color="#FFD700" />
-              <Text style={styles.overlayTitle}>Hint {cardState.hintLevel}</Text>
+              <Text style={styles.overlayTitle}>Hint</Text>
             </View>
-            <Text style={styles.overlayText}>{currentHintText}</Text>
+            <Text style={styles.overlayText}>
+              {currentCard.hint1 || 'No hint available'}
+            </Text>
           </View>
         </Animated.View>
       )}
@@ -462,23 +402,28 @@ export default function StudyFeed({
           style={[
             styles.overlay,
             styles.feedbackOverlay,
-            { transform: [{ translateX: feedbackSlideAnim }] },
+            { opacity: feedbackOpacity },
           ]}
-          {...panResponder.panHandlers}
         >
-          <View style={styles.overlayContent}>
-            <View style={styles.overlayHeader}>
-              <BookOpen size={28} color="#4CAF50" />
-              <Text style={styles.overlayTitle}>Explanation</Text>
+          <Pressable 
+            style={styles.feedbackPressable}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            <View style={styles.overlayContent}>
+              <View style={styles.overlayHeader}>
+                <BookOpen size={28} color="#4CAF50" />
+                <Text style={styles.overlayTitle}>Explanation</Text>
+              </View>
+              <Text style={styles.overlayText}>
+                {currentCard.explanation || 'No additional explanation available for this card.'}
+              </Text>
+              <View style={styles.swipeUpPrompt}>
+                <ChevronUp size={24} color="rgba(255,255,255,0.7)" />
+                <Text style={styles.swipeUpText}>Swipe up for next card</Text>
+              </View>
             </View>
-            <Text style={styles.overlayText}>
-              {currentCard.explanation || 'No additional explanation available for this card.'}
-            </Text>
-            <View style={styles.swipeUpPrompt}>
-              <ChevronUp size={24} color="rgba(255,255,255,0.7)" />
-              <Text style={styles.swipeUpText}>Swipe up for next card</Text>
-            </View>
-          </View>
+          </Pressable>
         </Animated.View>
       )}
     </View>
@@ -657,6 +602,12 @@ const styles = StyleSheet.create({
   },
   feedbackOverlay: {
     backgroundColor: 'rgba(56, 142, 60, 0.95)',
+  },
+  feedbackPressable: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   overlayContent: {
     width: '100%',
