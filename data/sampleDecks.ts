@@ -1,15 +1,31 @@
+// ============================================
+// SAMPLE DECKS - Pre-made Flashcard Collections
+// ============================================
+// This file contains starter decks that come with the app
+// Users get these decks when they first open the app
+// Each deck contains flashcards on different topics
+
+// Import the Deck type definition
 import { Deck } from '@/types/flashcard';
 
+// ============================================
+// SAMPLE DECKS ARRAY
+// ============================================
+// Array of 5 pre-made decks covering different subjects
 export const SAMPLE_DECKS: Deck[] = [
+  // ============================================
+  // DECK 1: WORLD CAPITALS
+  // ============================================
+  // Geography deck teaching capital cities around the world
   {
-    id: 'world-capitals',
-    name: 'World Capitals',
+    id: 'world-capitals',           // Unique identifier
+    name: 'World Capitals',         // Display name
     description: 'Master the capital cities of countries around the globe',
-    color: '#FF6B6B',
-    icon: 'globe',
-    category: 'Geography',
-    isCustom: false,
-    createdAt: Date.now(),
+    color: '#FF6B6B',               // Red color for this deck
+    icon: 'globe',                  // Globe icon
+    category: 'Geography',          // Subject category
+    isCustom: false,                // Pre-made deck (not user-created)
+    createdAt: Date.now(),          // Timestamp of creation
     flashcards: [
       {
         id: 'wc1',
@@ -58,12 +74,16 @@ export const SAMPLE_DECKS: Deck[] = [
       },
     ],
   },
+  // ============================================
+  // DECK 2: PROGRAMMING CONCEPTS
+  // ============================================
+  // Technology deck teaching basic programming concepts
   {
     id: 'programming-concepts',
     name: 'Programming 101',
     description: 'Essential programming concepts for beginners',
-    color: '#4ECDC4',
-    icon: 'code',
+    color: '#4ECDC4',               // Teal color
+    icon: 'code',                   // Code icon
     category: 'Technology',
     isCustom: false,
     createdAt: Date.now(),
@@ -115,12 +135,16 @@ export const SAMPLE_DECKS: Deck[] = [
       },
     ],
   },
+  // ============================================
+  // DECK 3: SPANISH BASICS
+  // ============================================
+  // Language deck teaching essential Spanish phrases
   {
     id: 'spanish-basics',
     name: 'Spanish Essentials',
     description: 'Learn basic Spanish vocabulary and phrases',
-    color: '#FFD93D',
-    icon: 'message-circle',
+    color: '#FFD93D',               // Yellow color
+    icon: 'message-circle',         // Message icon
     category: 'Languages',
     isCustom: false,
     createdAt: Date.now(),
@@ -172,12 +196,16 @@ export const SAMPLE_DECKS: Deck[] = [
       },
     ],
   },
+  // ============================================
+  // DECK 4: SPACE FACTS
+  // ============================================
+  // Science deck teaching about space and the universe
   {
     id: 'space-facts',
     name: 'Space Exploration',
     description: 'Fascinating facts about our universe',
-    color: '#9B59B6',
-    icon: 'rocket',
+    color: '#9B59B6',               // Purple color
+    icon: 'rocket',                 // Rocket icon
     category: 'Science',
     isCustom: false,
     createdAt: Date.now(),
@@ -229,12 +257,16 @@ export const SAMPLE_DECKS: Deck[] = [
       },
     ],
   },
+  // ============================================
+  // DECK 5: HISTORICAL EVENTS
+  // ============================================
+  // History deck teaching important historical milestones
   {
     id: 'historical-events',
     name: 'History Milestones',
     description: 'Key events that shaped our world',
-    color: '#E67E22',
-    icon: 'book-open',
+    color: '#E67E22',               // Orange color
+    icon: 'book-open',              // Book icon
     category: 'History',
     isCustom: false,
     createdAt: Date.now(),
