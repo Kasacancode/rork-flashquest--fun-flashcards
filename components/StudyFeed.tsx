@@ -226,7 +226,7 @@ export default function StudyFeed({
       // In feedback view: swipe up to go next, swipe left to close
       if (absDy > absDx && dy < -SWIPE_THRESHOLD) {
         handleNextCard();
-      } else if (absDx > absDy && dx < -SWIPE_THRESHOLD) {
+      } else if (absDx > absDy && dx > SWIPE_THRESHOLD) {
         closeFeedback();
       }
       return;
@@ -234,9 +234,9 @@ export default function StudyFeed({
 
     if (absDx > absDy) {
       // Horizontal swipe
-      if (dx < -SWIPE_THRESHOLD) {
+      if (dx > SWIPE_THRESHOLD) {
         handleShowHint();
-      } else if (dx > SWIPE_THRESHOLD) {
+      } else if (dx < -SWIPE_THRESHOLD) {
         handleShowFeedback();
       }
     } else {
@@ -355,7 +355,7 @@ export default function StudyFeed({
               {currentCard.answer}
             </Text>
             <Text style={[styles.cardHint, { color: isDark ? theme.textSecondary : '#999' }]}>
-              Swipe right to see explanation
+              Swipe left to see explanation
             </Text>
           </Animated.View>
         </Animated.View>
@@ -364,7 +364,7 @@ export default function StudyFeed({
       <View style={styles.gestureGuide}>
         <View style={styles.gestureItem}>
           <View style={[styles.gestureArrow, styles.arrowLeft]} />
-          <Text style={styles.gestureText}>Hint</Text>
+          <Text style={styles.gestureText}>Explain</Text>
         </View>
         <View style={styles.gestureItem}>
           <View style={[styles.gestureArrow, styles.arrowUp]} />
@@ -372,7 +372,7 @@ export default function StudyFeed({
         </View>
         <View style={styles.gestureItem}>
           <View style={[styles.gestureArrow, styles.arrowRight]} />
-          <Text style={styles.gestureText}>Explain</Text>
+          <Text style={styles.gestureText}>Hint</Text>
         </View>
       </View>
 
