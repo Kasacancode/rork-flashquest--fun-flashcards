@@ -20,6 +20,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // Our custom providers for managing app state
 import { FlashQuestProvider } from '@/context/FlashQuestContext';
+import { PerformanceProvider } from '@/context/PerformanceContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 
 // ============================================
@@ -59,6 +60,9 @@ function RootLayoutNav() {
       
       {/* Create/Edit flashcard screen */}
       <Stack.Screen name="create-flashcard" options={{ headerShown: false }} />
+      <Stack.Screen name="quest" options={{ headerShown: false }} />
+      <Stack.Screen name="quest-session" options={{ headerShown: false }} />
+      <Stack.Screen name="quest-results" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -81,11 +85,14 @@ export default function RootLayout() {
       <ThemeProvider>
         {/* 3. FlashQuest Provider - manages app data (decks, progress, stats) */}
         <FlashQuestProvider>
-          {/* 4. Gesture Handler - enables touch gestures throughout app */}
-          <GestureHandlerRootView>
-            {/* 5. Navigation - the actual screens */}
-            <RootLayoutNav />
-          </GestureHandlerRootView>
+          {/* 4. Performance Provider - tracks quest accuracy and stats */}
+          <PerformanceProvider>
+            {/* 5. Gesture Handler - enables touch gestures throughout app */}
+            <GestureHandlerRootView>
+              {/* 6. Navigation - the actual screens */}
+              <RootLayoutNav />
+            </GestureHandlerRootView>
+          </PerformanceProvider>
         </FlashQuestProvider>
       </ThemeProvider>
     </QueryClientProvider>

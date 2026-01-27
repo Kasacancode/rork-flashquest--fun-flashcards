@@ -125,10 +125,7 @@ export default function HomePage() {
 
             <TouchableOpacity
               style={[styles.actionCard, styles.actionCardMedium]}
-              onPress={() => {
-                setSelectedMode('ai');
-                setShowDeckSelector(true);
-              }}
+              onPress={() => router.push('/quest')}
               activeOpacity={0.85}
             >
               <LinearGradient
