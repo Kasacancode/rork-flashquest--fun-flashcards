@@ -11,13 +11,17 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { ArenaSettings } from '@/types/flashcard';
 
+const ARENA_ACCENT_LIGHT = '#f97316';
+const ARENA_ACCENT_DARK = '#f59e0b';
+
 type RoundsOption = 5 | 10 | 20;
 type TimerOption = 0 | 5 | 10;
 
 export default function ArenaLobbyScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ joinMode?: string; playerName?: string; roomCode?: string }>();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
+  const arenaAccent = isDark ? ARENA_ACCENT_DARK : ARENA_ACCENT_LIGHT;
   const { decks } = useFlashQuest();
   const {
     lobby,
@@ -151,7 +155,7 @@ export default function ArenaLobbyScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={[styles.codeSection, { backgroundColor: theme.cardBackground }]}>
+          <View style={[styles.codeSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
             <Text style={[styles.codeLabel, { color: theme.textSecondary }]}>Room Code</Text>
             <Text style={[styles.roomCode, { color: theme.text }]}>{lobby.roomCode}</Text>
             <View style={styles.qrContainer}>
@@ -162,16 +166,16 @@ export default function ArenaLobbyScreen() {
             </Text>
           </View>
 
-          <View style={[styles.playersSection, { backgroundColor: theme.cardBackground }]}>
+          <View style={[styles.playersSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
             <View style={styles.playersSectionHeader}>
               <View style={styles.playersHeaderLeft}>
-                <Users color={theme.primary} size={20} />
+                <Users color={arenaAccent} size={20} />
                 <Text style={[styles.sectionTitle, { color: theme.text }]}>
                   Players ({lobby.players.length})
                 </Text>
               </View>
               <TouchableOpacity
-                style={[styles.addPlayerButton, { backgroundColor: theme.primary }]}
+                style={[styles.addPlayerButton, { backgroundColor: arenaAccent }]}
                 onPress={() => setShowAddPlayerModal(true)}
                 activeOpacity={0.7}
               >
@@ -184,7 +188,7 @@ export default function ArenaLobbyScreen() {
               {lobby.players.map((player, index) => (
                 <View
                   key={player.id}
-                  style={[styles.playerCard, { backgroundColor: theme.background }]}
+                  style={[styles.playerCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background }]}
                 >
                   <View style={[styles.playerAvatar, { backgroundColor: player.color }]}>
                     <Text style={styles.playerInitial}>
@@ -222,7 +226,7 @@ export default function ArenaLobbyScreen() {
             )}
           </View>
 
-          <View style={[styles.deckSection, { backgroundColor: theme.cardBackground }]}>
+          <View style={[styles.deckSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Select Deck</Text>
             <ScrollView
               horizontal
@@ -234,8 +238,8 @@ export default function ArenaLobbyScreen() {
                   key={deck.id}
                   style={[
                     styles.deckOption,
-                    { backgroundColor: theme.background },
-                    lobby.deckId === deck.id && { borderColor: theme.primary, borderWidth: 2 },
+                    { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background },
+                    lobby.deckId === deck.id && { borderColor: arenaAccent, borderWidth: 2 },
                   ]}
                   onPress={() => selectDeck(deck.id)}
                   activeOpacity={0.7}
@@ -268,7 +272,7 @@ export default function ArenaLobbyScreen() {
             )}
           </View>
 
-          <View style={[styles.settingsPreview, { backgroundColor: theme.cardBackground }]}>
+          <View style={[styles.settingsPreview, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Game Settings</Text>
             <View style={styles.settingsGrid}>
               <View style={styles.settingItem}>
@@ -312,7 +316,7 @@ export default function ArenaLobbyScreen() {
         onRequestClose={() => setShowAddPlayerModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#1e293b' : theme.cardBackground }]}>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Add Player</Text>
             <TextInput
               style={[styles.modalInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
@@ -359,7 +363,7 @@ export default function ArenaLobbyScreen() {
         onRequestClose={() => setShowSettingsModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.settingsModalContent, { backgroundColor: theme.cardBackground }]}>
+          <View style={[styles.settingsModalContent, { backgroundColor: isDark ? '#1e293b' : theme.cardBackground }]}>
             <View style={styles.settingsModalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>Game Settings</Text>
               <TouchableOpacity onPress={() => setShowSettingsModal(false)}>
@@ -379,8 +383,8 @@ export default function ArenaLobbyScreen() {
                       key={val}
                       style={[
                         styles.optionButton,
-                        { backgroundColor: theme.background },
-                        lobby.settings.rounds === val && { backgroundColor: theme.primary },
+                        { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : theme.background },
+                        lobby.settings.rounds === val && { backgroundColor: arenaAccent },
                       ]}
                       onPress={() => handleSettingsUpdate('rounds', val)}
                       activeOpacity={0.7}
@@ -407,8 +411,8 @@ export default function ArenaLobbyScreen() {
                       key={val}
                       style={[
                         styles.optionButton,
-                        { backgroundColor: theme.background },
-                        lobby.settings.timerSeconds === val && { backgroundColor: theme.primary },
+                        { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : theme.background },
+                        lobby.settings.timerSeconds === val && { backgroundColor: arenaAccent },
                       ]}
                       onPress={() => handleSettingsUpdate('timerSeconds', val)}
                       activeOpacity={0.7}
@@ -434,7 +438,7 @@ export default function ArenaLobbyScreen() {
                 </Text>
                 <View style={[
                   styles.toggle,
-                  { backgroundColor: lobby.settings.showExplanationsAtEnd ? theme.primary : theme.border },
+                  { backgroundColor: lobby.settings.showExplanationsAtEnd ? arenaAccent : theme.border },
                 ]}>
                   <View style={[
                     styles.toggleKnob,
@@ -445,7 +449,7 @@ export default function ArenaLobbyScreen() {
             </ScrollView>
 
             <TouchableOpacity
-              style={[styles.doneButton, { backgroundColor: theme.primary }]}
+              style={[styles.doneButton, { backgroundColor: arenaAccent }]}
               onPress={() => setShowSettingsModal(false)}
               activeOpacity={0.8}
             >

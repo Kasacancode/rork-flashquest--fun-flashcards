@@ -8,10 +8,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useArena } from '@/context/ArenaContext';
 import { useTheme } from '@/context/ThemeContext';
 
+const ARENA_ACCENT_LIGHT = '#f97316';
+const ARENA_ACCENT_DARK = '#f59e0b';
+
 export default function ArenaMenuScreen() {
   const router = useRouter();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { leaderboard, createRoom } = useArena();
+  const arenaAccent = isDark ? ARENA_ACCENT_DARK : ARENA_ACCENT_LIGHT;
 
   const [showNameModal, setShowNameModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -125,9 +129,9 @@ export default function ArenaMenuScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={[styles.leaderboardSection, { backgroundColor: theme.cardBackground }]}>
+          <View style={[styles.leaderboardSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
             <View style={styles.leaderboardHeader}>
-              <Trophy color={theme.warning} size={22} />
+              <Trophy color={arenaAccent} size={22} />
               <Text style={[styles.leaderboardTitle, { color: theme.text }]}>Recent Games</Text>
             </View>
 
@@ -142,7 +146,7 @@ export default function ArenaMenuScreen() {
                 {leaderboard.slice(0, 5).map((entry) => (
                   <View
                     key={entry.id}
-                    style={[styles.leaderboardEntry, { backgroundColor: theme.background }]}
+                    style={[styles.leaderboardEntry, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background }]}
                   >
                     <View style={styles.entryMain}>
                       <Text style={[styles.entryWinner, { color: theme.text }]} numberOfLines={1}>
@@ -175,7 +179,7 @@ export default function ArenaMenuScreen() {
             )}
           </View>
 
-          <View style={[styles.infoCard, { backgroundColor: theme.cardBackground }]}>
+          <View style={[styles.infoCard, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
             <Text style={[styles.infoTitle, { color: theme.text }]}>How to Play</Text>
             <View style={styles.infoList}>
               <Text style={[styles.infoItem, { color: theme.textSecondary }]}>
@@ -205,7 +209,7 @@ export default function ArenaMenuScreen() {
         onRequestClose={() => setShowNameModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#1e293b' : theme.cardBackground }]}>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Enter Your Name</Text>
             <TextInput
               style={[styles.modalInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
@@ -249,7 +253,7 @@ export default function ArenaMenuScreen() {
         onRequestClose={() => setShowJoinModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#1e293b' : theme.cardBackground }]}>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Join a Room</Text>
             <TextInput
               style={[styles.modalInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}

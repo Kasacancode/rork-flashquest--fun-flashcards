@@ -73,6 +73,11 @@ export const lightTheme = {
   // Gradient for arena/battle mode (orange shades)
   arenaGradient: ['#f97316', '#ea580c'] as const,
   
+  // Arena dark surface colors
+  arenaSurface: 'rgba(255, 255, 255, 0.95)',
+  arenaTableSurface: 'rgba(0, 50, 35, 0.3)',
+  arenaOverlay: 'rgba(255, 255, 255, 0.18)',
+  
   // Gradient for quest mode (indigo shades)
   questGradient: ['#6366f1', '#4f46e5'] as const,
   
@@ -173,8 +178,13 @@ export const darkTheme = {
   // Gradient for deck cards
   deckGradient: ['#6366f1', '#4f46e5'] as const,
   
-  // Gradient for arena/battle mode
-  arenaGradient: ['#f97316', '#ea580c'] as const,
+  // Gradient for arena/battle mode (darker amber for dark mode)
+  arenaGradient: ['#78350f', '#451a03'] as const,
+  
+  // Arena dark surface colors
+  arenaSurface: '#1e293b',
+  arenaTableSurface: 'rgba(0, 30, 20, 0.6)',
+  arenaOverlay: 'rgba(255, 255, 255, 0.08)',
   
   // Gradient for quest mode
   questGradient: ['#8b5cf6', '#7c3aed'] as const,
@@ -255,4 +265,7 @@ export type Theme = {
   achievementBaseGradient: readonly [string, string];
   achievementCompletedGradient: readonly [string, string];
   sheetHandle: string;
+  arenaSurface: string;
+  arenaTableSurface: string;
+  arenaOverlay: string;
 };

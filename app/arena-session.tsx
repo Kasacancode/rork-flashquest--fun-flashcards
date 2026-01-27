@@ -32,7 +32,7 @@ interface PlayerState {
 export default function ArenaSessionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ lobbyState: string }>();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { decks } = useFlashQuest();
 
   const lobby: ArenaLobbyState = useMemo(() => {
@@ -604,7 +604,7 @@ export default function ArenaSessionScreen() {
           </View>
         )}
 
-        <View style={[styles.questionCard, { backgroundColor: 'rgba(255,255,255,0.95)' }]}>
+        <View style={[styles.questionCard, { backgroundColor: isDark ? theme.cardBackground : 'rgba(255,255,255,0.95)' }]}>
           {lobby.settings.timerSeconds > 0 && timeRemaining !== null && (
             <View style={styles.inlineTimer}>
               <DealerCountdownBar 
@@ -613,13 +613,13 @@ export default function ArenaSessionScreen() {
               />
             </View>
           )}
-          <Text style={styles.questionText} numberOfLines={3}>
+          <Text style={[styles.questionText, { color: theme.text }]} numberOfLines={3}>
             {currentCard?.question}
           </Text>
         </View>
 
         <View style={styles.gameArea}>
-          <View style={styles.tableSurface}>
+          <View style={[styles.tableSurface, { backgroundColor: theme.arenaTableSurface }]}>
             <View style={styles.optionsGrid}>
               {options.map((option, index) => (
                 <AnswerCard
@@ -670,7 +670,7 @@ export default function ArenaSessionScreen() {
                 {isCorrect ? 'Correct!' : timeRemaining === 0 ? "Time's Up!" : 'Incorrect'}
               </Text>
               {!isCorrect && currentCard && (
-                <View style={styles.feedbackAnswerBox}>
+                <View style={[styles.feedbackAnswerBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
                   <Text style={[styles.feedbackAnswerLabel, { color: theme.textSecondary }]}>
                     Correct answer:
                   </Text>
@@ -813,7 +813,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   tableSurface: {
-    backgroundColor: 'rgba(0, 50, 35, 0.3)',
+    backgroundColor: undefined,
     marginHorizontal: GRID_HORIZONTAL_MARGIN,
     borderRadius: 14,
     padding: CARD_PADDING,
@@ -836,7 +836,6 @@ const styles = StyleSheet.create({
   questionText: {
     fontSize: 16,
     fontWeight: '700' as const,
-    color: '#1a1a1a',
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -1003,7 +1002,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   feedbackAnswerBox: {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: undefined,
     borderRadius: 14,
     padding: 16,
     marginBottom: 16,
