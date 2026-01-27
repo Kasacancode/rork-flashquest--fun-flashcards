@@ -253,9 +253,10 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
   }, [decksQuery.data, progressQuery.data, queryClient, saveDecksMutateAsync, saveProgressMutate]);
 
   // ============================================
-  // UPDATE STUDY PROGRESS
+  // UPDATE STUDY PROGRESS (REVIEW ONLY - NO SCORING)
   // ============================================
-  // Function to record when user completes/reviews a card (no correctness tracking)
+  // Study mode is EXPOSURE/REVIEW only - it does NOT track correctness or award points.
+  // Points are only awarded in graded modes (Quest, Duel).
   const updateProgress = useCallback((deckId: string) => {
     const currentProgress = progressQuery.data || [];
     const currentStats = statsQuery.data || DEFAULT_STATS;
@@ -288,15 +289,14 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       ];
     }
 
-    // Update overall user statistics
+    // Update activity stats only (NO SCORE for Study mode - it's just review/exposure)
     const today = new Date().toISOString().split('T')[0];
     const updatedStats: UserStats = {
       ...currentStats,
-      // Award points for completing a card review
-      totalScore: currentStats.totalScore + 5,
-      // Increment total cards studied counter
+      // NO totalScore change - Study is not graded
+      // Increment total cards studied counter (activity metric)
       totalCardsStudied: currentStats.totalCardsStudied + 1,
-      // Maintain or increment streak
+      // Maintain or increment streak based on daily activity
       currentStreak: currentStats.lastActiveDate === today ? currentStats.currentStreak : currentStats.currentStreak + 1,
       // Update longest streak if current streak is higher
       longestStreak: Math.max(currentStats.longestStreak, currentStats.currentStreak + 1),
