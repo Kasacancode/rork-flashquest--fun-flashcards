@@ -39,6 +39,7 @@ type DialogueType = 'idle' | 'correct' | 'wrong';
 interface DealerPlaceholderProps {
   dialogueType?: DialogueType;
   customDialogue?: string;
+  size?: 'normal' | 'small';
 }
 
 function getRandomLine(lines: string[], lastLine?: string): string {
@@ -50,7 +51,9 @@ function getRandomLine(lines: string[], lastLine?: string): string {
 export default function DealerPlaceholder({ 
   dialogueType = 'idle',
   customDialogue,
+  size = 'normal',
 }: DealerPlaceholderProps) {
+  const isSmall = size === 'small';
   const { theme } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -104,10 +107,11 @@ export default function DealerPlaceholder({
       : theme.primary;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isSmall && styles.containerSmall]}>
       <Animated.View 
         style={[
           styles.avatarContainer,
+          isSmall && styles.avatarSmall,
           { 
             backgroundColor: avatarBgColor,
             transform: [{ scale: scaleAnim }],
@@ -115,13 +119,14 @@ export default function DealerPlaceholder({
           }
         ]}
       >
-        <Text style={styles.emoji}>🃏</Text>
-        <Text style={[styles.label, { color: theme.white }]}>Dealer</Text>
+        <Text style={[styles.emoji, isSmall && styles.emojiSmall]}>🃏</Text>
+        {!isSmall && <Text style={[styles.label, { color: theme.white }]}>Dealer</Text>}
       </Animated.View>
       
       <Animated.View 
         style={[
           styles.speechBubble,
+          isSmall && styles.speechBubbleSmall,
           { 
             backgroundColor: theme.cardBackground,
             opacity: fadeAnim,
@@ -129,8 +134,8 @@ export default function DealerPlaceholder({
           }
         ]}
       >
-        <View style={[styles.speechTail, { backgroundColor: theme.cardBackground }]} />
-        <Text style={[styles.dialogue, { color: theme.text }]}>{dialogue}</Text>
+        <View style={[styles.speechTail, isSmall && styles.speechTailSmall, { backgroundColor: theme.cardBackground }]} />
+        <Text style={[styles.dialogue, isSmall && styles.dialogueSmall, { color: theme.text }]}>{dialogue}</Text>
       </Animated.View>
     </View>
   );
@@ -140,6 +145,12 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     paddingVertical: 16,
+  },
+  containerSmall: {
+    flexDirection: 'row',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    gap: 10,
   },
   avatarContainer: {
     width: 80,
@@ -153,8 +164,20 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
+  avatarSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   emoji: {
     fontSize: 32,
+  },
+  emojiSmall: {
+    fontSize: 18,
   },
   label: {
     fontSize: 12,
@@ -173,6 +196,13 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  speechBubbleSmall: {
+    marginTop: 0,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    flex: 1,
+  },
   speechTail: {
     position: 'absolute',
     top: -8,
@@ -183,9 +213,21 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     transform: [{ rotate: '45deg' }],
   },
+  speechTailSmall: {
+    top: '50%',
+    left: -6,
+    marginTop: -6,
+    marginLeft: 0,
+    width: 12,
+    height: 12,
+  },
   dialogue: {
     fontSize: 16,
     fontWeight: '600' as const,
     textAlign: 'center',
+  },
+  dialogueSmall: {
+    fontSize: 13,
+    textAlign: 'left',
   },
 });

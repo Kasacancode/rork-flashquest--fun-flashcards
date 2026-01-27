@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnswerCard, getSuitForIndex, AnswerCardState } from '@/components/AnswerCard';
+import { AnswerCard, getSuitForIndex, AnswerCardState, CARD_GAP, CARD_PADDING } from '@/components/AnswerCard';
 import DealerPlaceholder from '@/components/DealerPlaceholder';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
@@ -349,14 +349,6 @@ export default function QuestSessionScreen() {
     return 'disabled';
   };
 
-  const streakMultiplier = useMemo(() => {
-    if (streak >= 4) return '2.0x';
-    if (streak >= 3) return '1.6x';
-    if (streak >= 2) return '1.4x';
-    if (streak >= 1) return '1.2x';
-    return '1.0x';
-  }, [streak]);
-
   if (!deck || !currentCard) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -383,29 +375,23 @@ export default function QuestSessionScreen() {
             onPress={handleQuit}
             activeOpacity={0.7}
           >
-            <X color="#fff" size={24} />
+            <X color="#fff" size={20} />
           </TouchableOpacity>
 
           <View style={styles.hudContainer}>
-            <View style={styles.hudItem}>
-              <Text style={styles.hudLabel}>Round</Text>
-              <Text style={styles.hudValue}>{currentRound + 1}/{settings.runLength}</Text>
-            </View>
+            <Text style={styles.hudValue}>{currentRound + 1}/{settings.runLength}</Text>
+            <View style={styles.hudDivider} />
+            <Text style={styles.hudValue}>{score} pts</Text>
             <View style={styles.hudDivider} />
             <View style={styles.hudItem}>
-              <Text style={styles.hudLabel}>Score</Text>
-              <Text style={styles.hudValue}>{score}</Text>
-            </View>
-            <View style={styles.hudDivider} />
-            <View style={styles.hudItem}>
-              <Zap color="#FFD700" size={14} />
-              <Text style={styles.hudValue}>{streak} ({streakMultiplier})</Text>
+              <Zap color="#FFD700" size={12} />
+              <Text style={styles.hudValue}>{streak}</Text>
             </View>
           </View>
 
           {settings.timerSeconds > 0 && timeRemaining !== null && (
             <View style={[styles.timerContainer, timeRemaining <= 3 && styles.timerWarning]}>
-              <Clock color={timeRemaining <= 3 ? theme.error : '#fff'} size={16} />
+              <Clock color={timeRemaining <= 3 ? theme.error : '#fff'} size={14} />
               <Text style={[styles.timerText, timeRemaining <= 3 && { color: theme.error }]}>
                 {timeRemaining}s
               </Text>
@@ -414,11 +400,11 @@ export default function QuestSessionScreen() {
         </View>
 
         <View style={styles.dealerSection}>
-          <DealerPlaceholder dialogueType={dealerDialogue.current} />
+          <DealerPlaceholder dialogueType={dealerDialogue.current} size="small" />
         </View>
 
         <View style={[styles.questionCard, { backgroundColor: theme.cardBackground }]}>
-          <Text style={[styles.questionText, { color: theme.text }]} numberOfLines={4}>
+          <Text style={[styles.questionText, { color: theme.text }]} numberOfLines={3}>
             {currentCard.question}
           </Text>
           
@@ -428,32 +414,34 @@ export default function QuestSessionScreen() {
               onPress={handleHintPress}
               activeOpacity={0.7}
             >
-              <Lightbulb color={theme.warning} size={16} />
-              <Text style={[styles.hintButtonText, { color: theme.warning }]}>Show Hint</Text>
+              <Lightbulb color={theme.warning} size={14} />
+              <Text style={[styles.hintButtonText, { color: theme.warning }]}>Hint</Text>
             </TouchableOpacity>
           )}
           
           {showHint && currentCard.hint1 && (
             <View style={[styles.hintContainer, { backgroundColor: theme.warning + '15' }]}>
-              <Lightbulb color={theme.warning} size={14} />
+              <Lightbulb color={theme.warning} size={12} />
               <Text style={[styles.hintText, { color: theme.warning }]}>{currentCard.hint1}</Text>
             </View>
           )}
         </View>
 
-        <View style={styles.tableBackground}>
-          <View style={styles.optionsGrid}>
-            {options.map((option, index) => (
-              <AnswerCard
-                key={index}
-                optionText={option}
-                suit={getSuitForIndex(index)}
-                index={index}
-                state={getCardState(option)}
-                onPress={() => handleOptionPress(option)}
-                animatedOpacity={cardAnimations[index]}
-              />
-            ))}
+        <View style={styles.gameArea}>
+          <View style={styles.tableBackground}>
+            <View style={styles.optionsGrid}>
+              {options.map((option, index) => (
+                <AnswerCard
+                  key={index}
+                  optionText={option}
+                  suit={getSuitForIndex(index)}
+                  index={index}
+                  state={getCardState(option)}
+                  onPress={() => handleOptionPress(option)}
+                  animatedOpacity={cardAnimations[index]}
+                />
+              ))}
+            </View>
           </View>
         </View>
 
@@ -504,125 +492,127 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 8,
   },
   quitButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   hudContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  hudItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  hudLabel: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontWeight: '500' as const,
-  },
-  hudValue: {
-    fontSize: 14,
-    color: '#fff',
-    fontWeight: '700' as const,
-    marginLeft: 4,
-  },
-  hudDivider: {
-    width: 1,
-    height: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    marginHorizontal: 12,
-  },
-  timerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
+  hudItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  hudValue: {
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '700' as const,
+  },
+  hudDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginHorizontal: 10,
+  },
+  timerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
   timerWarning: {
     backgroundColor: 'rgba(239, 68, 68, 0.3)',
   },
   timerText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#fff',
     fontWeight: '700' as const,
   },
   dealerSection: {
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 4,
+  },
+  gameArea: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    paddingBottom: 12,
   },
   questionCard: {
-    marginHorizontal: 20,
-    borderRadius: 20,
-    padding: 20,
+    marginHorizontal: 12,
+    marginBottom: 10,
+    borderRadius: 16,
+    padding: 14,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
     elevation: 4,
   },
   questionText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600' as const,
     textAlign: 'center',
-    lineHeight: 26,
+    lineHeight: 22,
   },
   hintButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginTop: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    gap: 4,
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     alignSelf: 'center',
   },
   hintButtonText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600' as const,
   },
   hintContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
-    marginTop: 16,
-    padding: 12,
-    borderRadius: 12,
+    gap: 6,
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 10,
   },
   hintText: {
     flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
   },
   tableBackground: {
     backgroundColor: 'rgba(0, 60, 40, 0.35)',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 20,
-    padding: 12,
+    marginHorizontal: CARD_PADDING,
+    borderRadius: 16,
+    padding: CARD_PADDING,
     borderWidth: 2,
     borderColor: 'rgba(139, 90, 43, 0.4)',
   },
   optionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: CARD_GAP,
     justifyContent: 'center',
   },
   explanationOverlay: {
