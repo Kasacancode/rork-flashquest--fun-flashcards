@@ -130,7 +130,6 @@ export default function QuestSessionScreen() {
       timerRef.current = setInterval(() => {
         setTimeRemaining(prev => {
           if (prev === null || prev <= 1) {
-            handleTimeUp();
             return 0;
           }
           return prev - 1;
@@ -181,6 +180,12 @@ export default function QuestSessionScreen() {
       advanceRound();
     }, 1500);
   }, [inputLocked, currentCard, roundStartTime, settings.deckId, logQuestAttempt]);
+
+  useEffect(() => {
+    if (timeRemaining === 0 && !inputLocked && currentCard) {
+      handleTimeUp();
+    }
+  }, [timeRemaining, inputLocked, currentCard, handleTimeUp]);
 
   const handleOptionPress = useCallback((option: string) => {
     if (inputLocked || !currentCard) return;
