@@ -106,10 +106,7 @@ export default function HomePage() {
 
             <TouchableOpacity
               style={[styles.actionCard, styles.actionCardMedium]}
-              onPress={() => {
-                setSelectedMode('multiplayer');
-                setShowDeckSelector(true);
-              }}
+              onPress={() => router.push('/arena')}
               activeOpacity={0.85}
             >
               <LinearGradient

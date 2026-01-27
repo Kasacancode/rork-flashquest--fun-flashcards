@@ -19,6 +19,7 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // Our custom providers for managing app state
+import { ArenaProvider } from '@/context/ArenaContext';
 import { FlashQuestProvider } from '@/context/FlashQuestContext';
 import { PerformanceProvider } from '@/context/PerformanceContext';
 import { ThemeProvider } from '@/context/ThemeContext';
@@ -63,6 +64,10 @@ function RootLayoutNav() {
       <Stack.Screen name="quest" options={{ headerShown: false }} />
       <Stack.Screen name="quest-session" options={{ headerShown: false }} />
       <Stack.Screen name="quest-results" options={{ headerShown: false }} />
+      <Stack.Screen name="arena" options={{ headerShown: false }} />
+      <Stack.Screen name="arena-lobby" options={{ headerShown: false }} />
+      <Stack.Screen name="arena-session" options={{ headerShown: false }} />
+      <Stack.Screen name="arena-results" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -87,11 +92,14 @@ export default function RootLayout() {
         <FlashQuestProvider>
           {/* 4. Performance Provider - tracks quest accuracy and stats */}
           <PerformanceProvider>
-            {/* 5. Gesture Handler - enables touch gestures throughout app */}
-            <GestureHandlerRootView>
-              {/* 6. Navigation - the actual screens */}
-              <RootLayoutNav />
-            </GestureHandlerRootView>
+            {/* 5. Arena Provider - manages multiplayer arena state */}
+            <ArenaProvider>
+              {/* 6. Gesture Handler - enables touch gestures throughout app */}
+              <GestureHandlerRootView>
+                {/* 7. Navigation - the actual screens */}
+                <RootLayoutNav />
+              </GestureHandlerRootView>
+            </ArenaProvider>
           </PerformanceProvider>
         </FlashQuestProvider>
       </ThemeProvider>
