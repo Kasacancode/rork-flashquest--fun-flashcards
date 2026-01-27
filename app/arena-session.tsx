@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnswerCard, getSuitForIndex, DealerReaction, getRandomDealerLine, AnswerCardState, CARD_GAP, CARD_PADDING } from '@/components/AnswerCard';
+import { AnswerCard, getSuitForIndex, DealerReaction, getRandomDealerLine, AnswerCardState, CARD_GAP, CARD_PADDING, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
 import { DealerCountdownBar, MiniScoreboard, StreakIndicator } from '@/components/GameUI';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -613,13 +613,13 @@ export default function ArenaSessionScreen() {
               />
             </View>
           )}
-          <Text style={styles.questionText} numberOfLines={4}>
+          <Text style={styles.questionText} numberOfLines={3}>
             {currentCard?.question}
           </Text>
         </View>
 
         <View style={styles.gameArea}>
-          <View style={styles.tableBackground}>
+          <View style={styles.tableSurface}>
             <View style={styles.optionsGrid}>
               {options.map((option, index) => (
                 <AnswerCard
@@ -637,12 +637,21 @@ export default function ArenaSessionScreen() {
             </View>
           </View>
 
-          <View style={styles.bottomScoreboard}>
-            <MiniScoreboard 
-              players={scoreboardPlayers} 
-              currentPlayerId={currentPlayer?.id}
-              maxDisplay={3}
-            />
+          <View style={styles.compactScoreboard}>
+            {scoreboardPlayers.slice(0, 3).map((player, index) => (
+              <View 
+                key={player.id} 
+                style={[
+                  styles.compactScoreItem,
+                  player.id === currentPlayer?.id && styles.compactScoreItemActive
+                ]}
+              >
+                <Text style={styles.compactRank}>{index === 0 ? '👑' : `#${index + 1}`}</Text>
+                <View style={[styles.compactDot, { backgroundColor: player.color }]} />
+                <Text style={styles.compactName} numberOfLines={1}>{player.name}</Text>
+                <Text style={styles.compactPoints}>{player.points}</Text>
+              </View>
+            ))}
           </View>
         </View>
 
@@ -797,52 +806,84 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
   },
   dealerSection: {
-    marginBottom: 6,
+    marginBottom: 4,
   },
   gameArea: {
     flex: 1,
-    justifyContent: 'space-between',
-    paddingBottom: 8,
+    justifyContent: 'flex-start',
   },
-  tableBackground: {
-    backgroundColor: 'rgba(0, 60, 40, 0.35)',
-    marginHorizontal: CARD_PADDING,
-    borderRadius: 16,
+  tableSurface: {
+    backgroundColor: 'rgba(0, 50, 35, 0.3)',
+    marginHorizontal: GRID_HORIZONTAL_MARGIN,
+    borderRadius: 14,
     padding: CARD_PADDING,
-    borderWidth: 2,
-    borderColor: 'rgba(139, 90, 43, 0.4)',
   },
   questionCard: {
-    marginHorizontal: 12,
-    marginBottom: 10,
-    borderRadius: 16,
-    padding: 16,
+    marginHorizontal: GRID_HORIZONTAL_MARGIN,
+    marginBottom: 8,
+    borderRadius: 14,
+    padding: 14,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
   },
   inlineTimer: {
-    marginBottom: 10,
+    marginBottom: 8,
     marginHorizontal: -4,
   },
   questionText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700' as const,
     color: '#1a1a1a',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 22,
   },
   optionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: CARD_GAP,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
   },
-  bottomScoreboard: {
-    marginHorizontal: 12,
+  compactScoreboard: {
+    flexDirection: 'row',
+    marginHorizontal: GRID_HORIZONTAL_MARGIN,
     marginTop: 10,
+    gap: 6,
+  },
+  compactScoreItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    gap: 4,
+  },
+  compactScoreItemActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  compactRank: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  compactDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  compactName: {
+    flex: 1,
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontWeight: '500' as const,
+  },
+  compactPoints: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: '700' as const,
   },
   passDeviceContainer: {
     flex: 1,

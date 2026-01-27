@@ -2,11 +2,13 @@ import * as Haptics from 'expo-haptics';
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, Dimensions } from 'react-native';
 
-const { width, height } = Dimensions.get('window');
-const CARD_GAP = 10;
-const CARD_PADDING = 12;
-const CARD_WIDTH = (width - (CARD_PADDING * 2) - CARD_GAP) / 2;
-const CARD_HEIGHT = Math.max(100, Math.min(160, height * 0.14));
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_GAP = 8;
+const CARD_PADDING = 10;
+const GRID_HORIZONTAL_MARGIN = 12;
+const AVAILABLE_WIDTH = SCREEN_WIDTH - (GRID_HORIZONTAL_MARGIN * 2) - (CARD_PADDING * 2) - CARD_GAP;
+const CARD_WIDTH = Math.floor(AVAILABLE_WIDTH / 2);
+const CARD_HEIGHT = Math.min(CARD_WIDTH * 0.85, 110);
 
 export type CardSuit = '♠' | '♥' | '♦' | '♣';
 export type AnswerCardState = 'idle' | 'selected' | 'correct' | 'wrong' | 'disabled';
@@ -306,7 +308,7 @@ export function getRandomDealerLine(type: keyof typeof DEALER_LINES, lastLine?: 
   return lines[Math.floor(Math.random() * lines.length)];
 }
 
-export { CARD_WIDTH, CARD_HEIGHT, CARD_GAP, CARD_PADDING };
+export { CARD_WIDTH, CARD_HEIGHT, CARD_GAP, CARD_PADDING, GRID_HORIZONTAL_MARGIN };
 
 const styles = StyleSheet.create({
   cardWrapper: {
@@ -316,15 +318,15 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     height: '100%',
-    borderRadius: 14,
-    borderWidth: 2,
-    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    padding: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -334,18 +336,18 @@ const styles = StyleSheet.create({
   },
   suitCornerTop: {
     position: 'absolute',
-    top: 6,
-    left: 8,
+    top: 4,
+    left: 6,
   },
   suitCornerBottom: {
     position: 'absolute',
-    bottom: 6,
-    right: 8,
+    bottom: 4,
+    right: 6,
   },
   suitText: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    opacity: 0.5,
+    fontSize: 13,
+    fontWeight: '600' as const,
+    opacity: 0.35,
   },
   suitRotated: {
     transform: [{ rotate: '180deg' }],
@@ -354,15 +356,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     paddingVertical: 2,
   },
   optionText: {
-    fontSize: 14,
-    fontWeight: '700' as const,
+    fontSize: 13,
+    fontWeight: '600' as const,
     color: '#1e293b',
     textAlign: 'center',
-    lineHeight: 19,
+    lineHeight: 17,
   },
   optionTextCorrect: {
     color: '#166534',
@@ -373,54 +375,54 @@ const styles = StyleSheet.create({
   glowOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#22c55e',
-    borderRadius: 12,
+    borderRadius: 10,
   },
   feedbackBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    top: -3,
+    right: -3,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#16a34a',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
   },
   feedbackBadgeWrong: {
     backgroundColor: '#dc2626',
   },
   feedbackIcon: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700' as const,
     color: '#fff',
   },
   dealerReaction: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
+    gap: 6,
+    paddingHorizontal: 10,
   },
   dealerAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   dealerEmoji: {
-    fontSize: 16,
+    fontSize: 12,
   },
   dealerBubble: {
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
     maxWidth: '80%',
   },
   dealerBubbleCorrect: {
@@ -430,9 +432,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(220, 38, 38, 0.3)',
   },
   dealerText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500' as const,
+    color: 'rgba(255, 255, 255, 0.85)',
     fontStyle: 'italic',
   },
 });

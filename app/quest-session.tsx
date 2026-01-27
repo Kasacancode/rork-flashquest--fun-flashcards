@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnswerCard, getSuitForIndex, AnswerCardState, CARD_GAP, CARD_PADDING } from '@/components/AnswerCard';
+import { AnswerCard, getSuitForIndex, AnswerCardState, CARD_GAP, CARD_PADDING, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
 import DealerPlaceholder from '@/components/DealerPlaceholder';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
@@ -428,7 +428,7 @@ export default function QuestSessionScreen() {
         </View>
 
         <View style={styles.gameArea}>
-          <View style={styles.tableBackground}>
+          <View style={styles.tableSurface}>
             <View style={styles.optionsGrid}>
               {options.map((option, index) => (
                 <AnswerCard
@@ -549,17 +549,16 @@ const styles = StyleSheet.create({
   },
   dealerSection: {
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   gameArea: {
     flex: 1,
     justifyContent: 'flex-start',
-    paddingBottom: 12,
   },
   questionCard: {
-    marginHorizontal: 12,
-    marginBottom: 10,
-    borderRadius: 16,
+    marginHorizontal: GRID_HORIZONTAL_MARGIN,
+    marginBottom: 8,
+    borderRadius: 14,
     padding: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
@@ -568,10 +567,10 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   questionText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600' as const,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 21,
   },
   hintButton: {
     flexDirection: 'row',
@@ -601,19 +600,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  tableBackground: {
-    backgroundColor: 'rgba(0, 60, 40, 0.35)',
-    marginHorizontal: CARD_PADDING,
-    borderRadius: 16,
+  tableSurface: {
+    backgroundColor: 'rgba(0, 50, 35, 0.3)',
+    marginHorizontal: GRID_HORIZONTAL_MARGIN,
+    borderRadius: 14,
     padding: CARD_PADDING,
-    borderWidth: 2,
-    borderColor: 'rgba(139, 90, 43, 0.4)',
   },
   optionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: CARD_GAP,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
   },
   explanationOverlay: {
     ...StyleSheet.absoluteFillObject,
