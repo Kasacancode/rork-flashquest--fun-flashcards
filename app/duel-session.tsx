@@ -1,12 +1,15 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Trophy, X, Clock, User, Bot } from 'lucide-react-native';
+import { Trophy, X, User, Bot, Zap, Swords } from 'lucide-react-native';
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Vibration, Platform, TextInput, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, TextInput, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { TimerProgressBar, StreakIndicator } from '@/components/GameUI';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
+
 
 const QUESTION_TIME = 15;
 
@@ -40,11 +43,14 @@ export default function DuelSessionPage() {
   const [currentPlayer, setCurrentPlayer] = useState<1 | 2>(1);
   const [player1Result, setPlayer1Result] = useState<PlayerInfo | null>(null);
   const [player2Result, setPlayer2Result] = useState<PlayerInfo | null>(null);
+  const [playerStreak, setPlayerStreak] = useState(0);
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const progressAnim = useRef(new Animated.Value(1)).current;
-
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const feedbackOpacity = useRef(new Animated.Value(0)).current;
+  const feedbackScale = useRef(new Animated.Value(0.8)).current;
+  const scorePopAnim = useRef(new Animated.Value(1)).current;
 
   const deck = useMemo(() => decks.find((d) => d.id === deckId), [decks, deckId]);
   
@@ -75,9 +81,21 @@ export default function DuelSessionPage() {
     });
     
     setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(feedbackOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(feedbackScale, {
+          toValue: 1,
+          friction: 6,
+          useNativeDriver: true,
+        }),
+      ]).start();
       setGamePhase('reveal-results');
-    }, 1500);
-  }, [currentCard, currentDuel]);
+    }, 1200);
+  }, [currentCard, currentDuel, feedbackOpacity, feedbackScale]);
 
   useEffect(() => {
     if (!currentCard) return;
@@ -90,21 +108,22 @@ export default function DuelSessionPage() {
     setCurrentPlayer(1);
     setPlayer1Result(null);
     setPlayer2Result(null);
-    progressAnim.setValue(1);
-  }, [currentCard, progressAnim]);
+    feedbackOpacity.setValue(0);
+    feedbackScale.setValue(0.8);
+  }, [currentCard, feedbackOpacity, feedbackScale]);
 
   useEffect(() => {
     if (gamePhase === 'opponent-turn') {
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
-            toValue: 1.2,
-            duration: 800,
+            toValue: 1.15,
+            duration: 600,
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 800,
+            duration: 600,
             useNativeDriver: true,
           }),
         ])
@@ -114,6 +133,16 @@ export default function DuelSessionPage() {
       pulseAnim.setValue(1);
     }
   }, [gamePhase, pulseAnim]);
+
+  const triggerShake = useCallback(() => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 8, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -8, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+    ]).start();
+  }, [shakeAnim]);
 
   const handleTimeUp = useCallback(() => {
     if (gamePhase === 'player-turn') {
@@ -128,8 +157,9 @@ export default function DuelSessionPage() {
             timeUsed: QUESTION_TIME,
           });
           setButtonState('incorrect');
+          triggerShake();
           if (Platform.OS !== 'web') {
-            Vibration.vibrate(200);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           }
           
           setTimeout(() => {
@@ -137,8 +167,7 @@ export default function DuelSessionPage() {
             setUserAnswer('');
             setButtonState('idle');
             setTimeLeft(QUESTION_TIME);
-            progressAnim.setValue(1);
-          }, 1500);
+          }, 1200);
         } else {
           setPlayer2Result({
             name: 'Player 2',
@@ -147,13 +176,18 @@ export default function DuelSessionPage() {
             timeUsed: QUESTION_TIME,
           });
           setButtonState('incorrect');
+          triggerShake();
           if (Platform.OS !== 'web') {
-            Vibration.vibrate(200);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           }
           
           setTimeout(() => {
+            Animated.parallel([
+              Animated.timing(feedbackOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+              Animated.spring(feedbackScale, { toValue: 1, friction: 6, useNativeDriver: true }),
+            ]).start();
             setGamePhase('reveal-results');
-          }, 1500);
+          }, 1200);
         }
       } else {
         setPlayerResult({
@@ -162,20 +196,21 @@ export default function DuelSessionPage() {
           timeUsed: QUESTION_TIME,
         });
         setButtonState('incorrect');
+        setPlayerStreak(0);
+        triggerShake();
         if (Platform.OS !== 'web') {
-          Vibration.vibrate(200);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
         
         setTimeout(() => {
           setGamePhase('opponent-turn');
           setTimeLeft(QUESTION_TIME);
-          progressAnim.setValue(1);
-        }, 1500);
+        }, 1200);
       }
     } else if (gamePhase === 'opponent-turn') {
       simulateOpponentAnswer();
     }
-  }, [gamePhase, userAnswer, progressAnim, simulateOpponentAnswer, currentDuel, currentPlayer]);
+  }, [gamePhase, userAnswer, simulateOpponentAnswer, currentDuel, currentPlayer, triggerShake, feedbackOpacity, feedbackScale]);
 
   useEffect(() => {
     if (gamePhase === 'reveal-results' || !currentCard) return;
@@ -190,14 +225,8 @@ export default function DuelSessionPage() {
       });
     }, 1000);
 
-    Animated.timing(progressAnim, {
-      toValue: 0,
-      duration: QUESTION_TIME * 1000,
-      useNativeDriver: false,
-    }).start();
-
     return () => clearInterval(timer);
-  }, [currentCard, gamePhase, progressAnim, handleTimeUp]);
+  }, [currentCard, gamePhase, handleTimeUp]);
 
   if (!deck || !currentDuel || !currentCard) {
     return (
@@ -225,20 +254,14 @@ export default function DuelSessionPage() {
         setButtonState(correct ? 'correct' : 'incorrect');
 
         if (Platform.OS !== 'web') {
-          Vibration.vibrate(correct ? [0, 100] : [0, 100, 100, 100]);
+          Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
         }
 
+        if (!correct) triggerShake();
+
         Animated.sequence([
-          Animated.spring(scaleAnim, {
-            toValue: 1.05,
-            useNativeDriver: true,
-            speed: 50,
-          }),
-          Animated.spring(scaleAnim, {
-            toValue: 1,
-            useNativeDriver: true,
-            speed: 50,
-          }),
+          Animated.spring(scaleAnim, { toValue: 1.05, useNativeDriver: true, speed: 50 }),
+          Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 50 }),
         ]).start();
 
         setTimeout(() => {
@@ -246,8 +269,7 @@ export default function DuelSessionPage() {
           setUserAnswer('');
           setButtonState('idle');
           setTimeLeft(QUESTION_TIME);
-          progressAnim.setValue(1);
-        }, 1500);
+        }, 1200);
       } else {
         setPlayer2Result({
           name: 'Player 2',
@@ -258,25 +280,23 @@ export default function DuelSessionPage() {
         setButtonState(correct ? 'correct' : 'incorrect');
 
         if (Platform.OS !== 'web') {
-          Vibration.vibrate(correct ? [0, 100] : [0, 100, 100, 100]);
+          Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
         }
 
+        if (!correct) triggerShake();
+
         Animated.sequence([
-          Animated.spring(scaleAnim, {
-            toValue: 1.05,
-            useNativeDriver: true,
-            speed: 50,
-          }),
-          Animated.spring(scaleAnim, {
-            toValue: 1,
-            useNativeDriver: true,
-            speed: 50,
-          }),
+          Animated.spring(scaleAnim, { toValue: 1.05, useNativeDriver: true, speed: 50 }),
+          Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 50 }),
         ]).start();
 
         setTimeout(() => {
+          Animated.parallel([
+            Animated.timing(feedbackOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+            Animated.spring(feedbackScale, { toValue: 1, friction: 6, useNativeDriver: true }),
+          ]).start();
           setGamePhase('reveal-results');
-        }, 1500);
+        }, 1200);
       }
     } else {
       setPlayerResult({
@@ -285,33 +305,34 @@ export default function DuelSessionPage() {
         timeUsed,
       });
       setButtonState(correct ? 'correct' : 'incorrect');
+      setPlayerStreak(correct ? playerStreak + 1 : 0);
 
       if (Platform.OS !== 'web') {
-        Vibration.vibrate(correct ? [0, 100] : [0, 100, 100, 100]);
+        Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
+      }
+
+      if (correct) {
+        Animated.sequence([
+          Animated.timing(scorePopAnim, { toValue: 1.3, duration: 150, useNativeDriver: true }),
+          Animated.spring(scorePopAnim, { toValue: 1, friction: 4, useNativeDriver: true }),
+        ]).start();
+      } else {
+        triggerShake();
       }
 
       Animated.sequence([
-        Animated.spring(scaleAnim, {
-          toValue: 1.05,
-          useNativeDriver: true,
-          speed: 50,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          speed: 50,
-        }),
+        Animated.spring(scaleAnim, { toValue: 1.05, useNativeDriver: true, speed: 50 }),
+        Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 50 }),
       ]).start();
 
       setTimeout(() => {
         setGamePhase('opponent-turn');
         setTimeLeft(QUESTION_TIME);
-        progressAnim.setValue(1);
         
         setTimeout(() => {
           simulateOpponentAnswer();
-        }, Math.random() * 8000 + 2000);
-      }, 1500);
+        }, Math.random() * 6000 + 2000);
+      }, 1200);
     }
   };
 
@@ -333,6 +354,8 @@ export default function DuelSessionPage() {
     scaleAnim.setValue(1);
     pulseAnim.stopAnimation();
     pulseAnim.setValue(1);
+    feedbackOpacity.setValue(0);
+    feedbackScale.setValue(0.8);
   };
 
   const handleQuit = () => {
@@ -340,20 +363,13 @@ export default function DuelSessionPage() {
     router.back();
   };
 
-
-
-  const progressWidth = progressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
-
   if (currentDuel.status === 'completed') {
     const won = currentDuel.playerScore > currentDuel.opponentScore;
 
     return (
       <View style={styles.container}>
         <LinearGradient
-          colors={won ? ['#FFD93D', '#F6C23E'] : isDark ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
+          colors={won ? ['#f59e0b', '#d97706'] : isDark ? ['#1e293b', '#0f172a'] : ['#6366f1', '#4f46e5']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -374,12 +390,12 @@ export default function DuelSessionPage() {
             <View style={styles.finalScoreCard}>
               <View style={styles.scoreRow}>
                 <Text style={styles.scoreLabel}>You</Text>
-                <Text style={styles.scoreValue}>{currentDuel.playerScore}</Text>
+                <Text style={[styles.scoreValue, won && { color: '#10b981' }]}>{currentDuel.playerScore}</Text>
               </View>
               <View style={styles.scoreDivider} />
               <View style={styles.scoreRow}>
                 <Text style={styles.scoreLabel}>{currentDuel.opponentName}</Text>
-                <Text style={styles.scoreValue}>{currentDuel.opponentScore}</Text>
+                <Text style={[styles.scoreValue, !won && { color: '#10b981' }]}>{currentDuel.opponentScore}</Text>
               </View>
             </View>
 
@@ -398,7 +414,7 @@ export default function DuelSessionPage() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={isDark ? ['#0f0f1e', '#1a1a2e'] : ['#46178F', '#5C2BA8']}
+        colors={isDark ? ['#0f172a', '#1e293b'] : ['#4338ca', '#6366f1']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -407,64 +423,73 @@ export default function DuelSessionPage() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleQuit} style={styles.quitButton}>
-            <X color="#fff" size={28} strokeWidth={2.5} />
+            <X color="#fff" size={24} />
           </TouchableOpacity>
-          <View style={styles.roundIndicator}>
+          <View style={styles.roundBadge}>
             <Text style={styles.roundText}>
               {currentDuel.currentRound + 1}/{currentDuel.totalRounds}
             </Text>
           </View>
-          <View style={styles.placeholder} />
-        </View>
-
-        <View style={styles.progressBarContainer}>
-          <Animated.View style={[styles.progressBar, { width: progressWidth }]} />
-        </View>
-
-        <View style={styles.timerContainer}>
-          <Clock color={timeLeft <= 5 ? '#FF6B6B' : '#fff'} size={24} strokeWidth={2.5} />
-          <Text style={[styles.timerText, timeLeft <= 5 && styles.timerWarning]}>
-            {timeLeft}s
-          </Text>
+          {playerStreak > 0 && <StreakIndicator streak={playerStreak} showMultiplier={false} />}
+          {playerStreak === 0 && <View style={styles.placeholder} />}
         </View>
 
         <View style={styles.scoreBoard}>
           <View style={styles.scoreItem}>
+            <View style={[styles.scoreAvatar, { backgroundColor: '#10b981' }]}>
+              <User color="#fff" size={20} />
+            </View>
             <Text style={styles.scorePlayerLabel}>You</Text>
-            <Animated.Text style={[styles.scorePlayerValue, { transform: [{ scale: scaleAnim }] }]}>
+            <Animated.Text style={[styles.scorePlayerValue, { transform: [{ scale: scorePopAnim }] }]}>
               {currentDuel.playerScore}
             </Animated.Text>
           </View>
-          <Text style={styles.scoreVs}>VS</Text>
+          <View style={styles.vsContainer}>
+            <Swords color="rgba(255,255,255,0.6)" size={24} />
+          </View>
           <View style={styles.scoreItem}>
+            <View style={[styles.scoreAvatar, { backgroundColor: '#ef4444' }]}>
+              <Bot color="#fff" size={20} />
+            </View>
             <Text style={styles.scorePlayerLabel}>{currentDuel.opponentName}</Text>
             <Text style={styles.scorePlayerValue}>{currentDuel.opponentScore}</Text>
           </View>
         </View>
 
+        {gamePhase === 'player-turn' && (
+          <View style={styles.timerSection}>
+            <TimerProgressBar 
+              timeRemaining={timeLeft} 
+              totalTime={QUESTION_TIME}
+              isUrgent={true}
+            />
+          </View>
+        )}
+
         <View style={styles.content}>
-          <View style={[styles.questionCard, { backgroundColor: isDark ? theme.card : 'rgba(255, 255, 255, 0.95)' }]}>
-            <Text style={[styles.questionText, { color: isDark ? '#1a1a2e' : '#333' }]}>{currentCard.question}</Text>
+          <View style={[styles.questionCard, { backgroundColor: isDark ? theme.card : 'rgba(255, 255, 255, 0.97)' }]}>
+            <Text style={[styles.questionText, { color: isDark ? theme.text : '#1a1a1a' }]}>
+              {currentCard.question}
+            </Text>
           </View>
 
           {gamePhase === 'player-turn' && (
-            <View style={styles.answerSection}>
+            <Animated.View style={[styles.answerSection, { transform: [{ translateX: shakeAnim }] }]}>
               <View style={styles.turnIndicator}>
-                <User color="#fff" size={24} strokeWidth={2.5} />
+                <View style={[styles.turnDot, { backgroundColor: '#10b981' }]} />
                 <Text style={styles.turnText}>
                   {currentDuel?.mode === 'multiplayer' ? `Player ${currentPlayer}'s Turn` : 'Your Turn'}
                 </Text>
               </View>
-              <Text style={styles.answerLabel}>Type your answer:</Text>
               <TextInput
                 style={[styles.answerInput, { 
-                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.15)',
-                  borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.3)'
+                  backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                  borderColor: buttonState === 'correct' ? '#10b981' : buttonState === 'incorrect' ? '#ef4444' : 'rgba(255, 255, 255, 0.25)'
                 }]}
                 value={userAnswer}
                 onChangeText={setUserAnswer}
-                placeholder="Enter answer..."
-                placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                placeholder="Type your answer..."
+                placeholderTextColor="rgba(255, 255, 255, 0.4)"
                 autoCapitalize="none"
                 autoCorrect={false}
                 editable={currentDuel?.mode === 'multiplayer' ? (currentPlayer === 1 ? !player1Result : !player2Result) : !playerResult}
@@ -480,43 +505,44 @@ export default function DuelSessionPage() {
                 ]}
                 onPress={handleSubmitAnswer}
                 disabled={userAnswer.trim() === '' || (currentDuel?.mode === 'multiplayer' ? (currentPlayer === 1 ? player1Result !== null : player2Result !== null) : playerResult !== null)}
+                activeOpacity={0.85}
               >
                 <Text style={[
                   styles.submitButtonText,
-                  (buttonState === 'correct' || buttonState === 'incorrect') && styles.submitButtonTextWhite,
+                  buttonState !== 'idle' && styles.submitButtonTextWhite,
                 ]}>
                   {buttonState === 'idle' && 'Submit'}
                   {buttonState === 'correct' && '✓ Correct!'}
                   {buttonState === 'incorrect' && '✗ Wrong'}
                 </Text>
               </TouchableOpacity>
-            </View>
+            </Animated.View>
           )}
 
           {gamePhase === 'opponent-turn' && (
             <View style={styles.answerSection}>
               <View style={styles.turnIndicator}>
-                <Bot color="#fff" size={24} strokeWidth={2.5} />
+                <View style={[styles.turnDot, { backgroundColor: '#ef4444' }]} />
                 <Text style={styles.turnText}>{currentDuel.opponentName}&apos;s Turn</Text>
               </View>
               <View style={styles.waitingCard}>
-                <Text style={styles.waitingText}>Waiting for opponent...</Text>
                 <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                  <Text style={styles.waitingEmoji}>⏳</Text>
+                  <Bot color="rgba(255,255,255,0.8)" size={48} />
                 </Animated.View>
+                <Text style={styles.waitingText}>Thinking...</Text>
               </View>
             </View>
           )}
 
           {gamePhase === 'reveal-results' && (
-            <Animated.View style={[styles.resultsContainer, { transform: [{ scale: scaleAnim }] }]}>
+            <Animated.View style={[styles.resultsContainer, { opacity: feedbackOpacity, transform: [{ scale: feedbackScale }] }]}>
               <Text style={styles.resultsTitle}>Round Results</Text>
               
               {currentDuel?.mode === 'multiplayer' ? (
                 <>
-                  <View style={styles.resultCard}>
+                  <View style={[styles.resultCard, player1Result?.isCorrect && styles.resultCardCorrect]}>
                     <View style={styles.resultHeader}>
-                      <User color="#fff" size={20} strokeWidth={2.5} />
+                      <User color="#fff" size={18} />
                       <Text style={styles.resultPlayerName}>Player 1</Text>
                     </View>
                     <View style={[styles.resultBadge, player1Result?.isCorrect ? styles.resultBadgeCorrect : styles.resultBadgeIncorrect]}>
@@ -524,14 +550,11 @@ export default function DuelSessionPage() {
                         {player1Result?.isCorrect ? '✓ Correct' : '✗ Wrong'}
                       </Text>
                     </View>
-                    {!player1Result?.isCorrect && (
-                      <Text style={styles.resultAnswer}>Answer: {player1Result?.answer}</Text>
-                    )}
                   </View>
 
-                  <View style={styles.resultCard}>
+                  <View style={[styles.resultCard, player2Result?.isCorrect && styles.resultCardCorrect]}>
                     <View style={styles.resultHeader}>
-                      <User color="#fff" size={20} strokeWidth={2.5} />
+                      <User color="#fff" size={18} />
                       <Text style={styles.resultPlayerName}>Player 2</Text>
                     </View>
                     <View style={[styles.resultBadge, player2Result?.isCorrect ? styles.resultBadgeCorrect : styles.resultBadgeIncorrect]}>
@@ -539,16 +562,13 @@ export default function DuelSessionPage() {
                         {player2Result?.isCorrect ? '✓ Correct' : '✗ Wrong'}
                       </Text>
                     </View>
-                    {!player2Result?.isCorrect && (
-                      <Text style={styles.resultAnswer}>Answer: {player2Result?.answer}</Text>
-                    )}
                   </View>
                 </>
               ) : (
                 <>
-                  <View style={styles.resultCard}>
+                  <View style={[styles.resultCard, playerResult?.isCorrect && styles.resultCardCorrect]}>
                     <View style={styles.resultHeader}>
-                      <User color="#fff" size={20} strokeWidth={2.5} />
+                      <User color="#fff" size={18} />
                       <Text style={styles.resultPlayerName}>You</Text>
                     </View>
                     <View style={[styles.resultBadge, playerResult?.isCorrect ? styles.resultBadgeCorrect : styles.resultBadgeIncorrect]}>
@@ -556,14 +576,11 @@ export default function DuelSessionPage() {
                         {playerResult?.isCorrect ? '✓ Correct' : '✗ Wrong'}
                       </Text>
                     </View>
-                    {!playerResult?.isCorrect && (
-                      <Text style={styles.resultAnswer}>Your answer: {playerResult?.answer}</Text>
-                    )}
                   </View>
 
-                  <View style={styles.resultCard}>
+                  <View style={[styles.resultCard, opponentResult?.isCorrect && styles.resultCardCorrect]}>
                     <View style={styles.resultHeader}>
-                      <Bot color="#fff" size={20} strokeWidth={2.5} />
+                      <Bot color="#fff" size={18} />
                       <Text style={styles.resultPlayerName}>{currentDuel.opponentName}</Text>
                     </View>
                     <View style={[styles.resultBadge, opponentResult?.isCorrect ? styles.resultBadgeCorrect : styles.resultBadgeIncorrect]}>
@@ -575,12 +592,17 @@ export default function DuelSessionPage() {
                 </>
               )}
 
-              <View style={[styles.correctAnswerCard, { backgroundColor: isDark ? theme.card : 'rgba(255, 255, 255, 0.95)' }]}>
-                <Text style={[styles.correctAnswerLabel, { color: isDark ? '#666' : '#666' }]}>Correct Answer:</Text>
-                <Text style={[styles.correctAnswerText, { color: isDark ? '#1a1a2e' : '#333' }]}>{currentCard.answer}</Text>
+              <View style={[styles.correctAnswerCard, { backgroundColor: isDark ? theme.card : 'rgba(255, 255, 255, 0.97)' }]}>
+                <Text style={[styles.correctAnswerLabel, { color: isDark ? theme.textSecondary : '#666' }]}>
+                  Correct Answer
+                </Text>
+                <Text style={[styles.correctAnswerText, { color: isDark ? theme.text : '#1a1a1a' }]}>
+                  {currentCard.answer}
+                </Text>
               </View>
 
-              <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+              <TouchableOpacity style={styles.nextButton} onPress={handleNext} activeOpacity={0.85}>
+                <Zap color="#4338ca" size={20} />
                 <Text style={styles.nextButtonText}>Next Question</Text>
               </TouchableOpacity>
             </Animated.View>
@@ -594,7 +616,7 @@ export default function DuelSessionPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#4ECDC4',
+    backgroundColor: '#4338ca',
   },
   safeArea: {
     flex: 1,
@@ -609,20 +631,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   quitButton: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  roundIndicator: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+  roundBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 16,
   },
   roundText: {
     fontSize: 16,
@@ -630,93 +654,112 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   placeholder: {
-    width: 40,
+    width: 42,
   },
   scoreBoard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
     paddingHorizontal: 24,
-    marginBottom: 32,
+    marginTop: 8,
+    marginBottom: 16,
+    gap: 20,
   },
   scoreItem: {
     alignItems: 'center',
+    flex: 1,
+  },
+  scoreAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
   },
   scorePlayerLabel: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: 4,
     fontWeight: '600' as const,
   },
   scorePlayerValue: {
-    fontSize: 40,
+    fontSize: 36,
     fontWeight: '800' as const,
     color: '#fff',
   },
-  scoreVs: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: 'rgba(255, 255, 255, 0.8)',
+  vsContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timerSection: {
+    marginBottom: 16,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   questionCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 24,
-    padding: 32,
-    marginBottom: 32,
+    padding: 28,
+    marginBottom: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 16,
     elevation: 10,
-  },
-  questionLabel: {
-    fontSize: 14,
-    fontWeight: '700' as const,
-    color: '#4ECDC4',
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    minHeight: 120,
+    justifyContent: 'center',
   },
   questionText: {
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: '700' as const,
-    color: '#333',
-    lineHeight: 32,
+    lineHeight: 30,
+    textAlign: 'center',
   },
   answerSection: {
     flex: 1,
   },
-  answerLabel: {
+  turnIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 20,
+  },
+  turnDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  turnText: {
     fontSize: 18,
     fontWeight: '700' as const,
     color: '#fff',
-    marginBottom: 16,
   },
   answerInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 20,
-    fontSize: 20,
+    fontSize: 18,
     color: '#fff',
     fontWeight: '600' as const,
-    marginBottom: 20,
+    marginBottom: 16,
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   submitButton: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 18,
+    padding: 18,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 8,
+    elevation: 6,
   },
   submitButtonDisabled: {
     opacity: 0.5,
@@ -724,60 +767,52 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 18,
     fontWeight: '700' as const,
-    color: '#46178F',
+    color: '#4338ca',
   },
   submitButtonCorrect: {
-    backgroundColor: '#26890C',
+    backgroundColor: '#10b981',
   },
   submitButtonIncorrect: {
-    backgroundColor: '#DC3545',
+    backgroundColor: '#ef4444',
   },
   submitButtonTextWhite: {
     color: '#fff',
   },
-  turnIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 24,
-    justifyContent: 'center',
-  },
-  turnText: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: '#fff',
-  },
   waitingCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 20,
-    padding: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 24,
+    padding: 48,
     alignItems: 'center',
-    gap: 20,
+    gap: 16,
   },
   waitingText: {
     fontSize: 18,
     fontWeight: '600' as const,
-    color: '#fff',
-  },
-  waitingEmoji: {
-    fontSize: 48,
+    color: 'rgba(255, 255, 255, 0.8)',
   },
   resultsContainer: {
     flex: 1,
-    gap: 16,
+    gap: 12,
   },
   resultsTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800' as const,
     color: '#fff',
     textAlign: 'center',
     marginBottom: 8,
   },
   resultCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 16,
-    padding: 20,
-    gap: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 18,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  resultCardCorrect: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
   },
   resultHeader: {
     flexDirection: 'row',
@@ -785,71 +820,63 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   resultPlayerName: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: '#fff',
-  },
-  resultBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-  },
-  resultBadgeCorrect: {
-    backgroundColor: '#26890C',
-  },
-  resultBadgeIncorrect: {
-    backgroundColor: '#DC3545',
-  },
-  resultBadgeText: {
     fontSize: 16,
     fontWeight: '700' as const,
     color: '#fff',
   },
-  resultAnswer: {
+  resultBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  resultBadgeCorrect: {
+    backgroundColor: '#10b981',
+  },
+  resultBadgeIncorrect: {
+    backgroundColor: '#ef4444',
+  },
+  resultBadgeText: {
     fontSize: 14,
-    fontWeight: '600' as const,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontStyle: 'italic',
+    fontWeight: '700' as const,
+    color: '#fff',
   },
   correctAnswerCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 20,
     marginTop: 8,
+    alignItems: 'center',
   },
   correctAnswerLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600' as const,
-    color: '#666',
     marginBottom: 8,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   correctAnswerText: {
     fontSize: 20,
     fontWeight: '700' as const,
-    color: '#333',
   },
-
   nextButton: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    paddingHorizontal: 48,
-    paddingVertical: 20,
+    borderRadius: 18,
+    paddingHorizontal: 40,
+    paddingVertical: 18,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
     marginTop: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 8,
+    elevation: 6,
   },
   nextButtonText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800' as const,
-    color: '#46178F',
-    textAlign: 'center',
+    color: '#4338ca',
   },
   resultContainer: {
     flex: 1,
@@ -858,23 +885,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   resultTitle: {
-    fontSize: 42,
+    fontSize: 40,
     fontWeight: '800' as const,
     color: '#fff',
     marginTop: 24,
     marginBottom: 8,
   },
   resultSubtitle: {
-    fontSize: 18,
+    fontSize: 17,
     color: 'rgba(255, 255, 255, 0.9)',
     marginBottom: 40,
     textAlign: 'center',
     fontWeight: '600' as const,
   },
   finalScoreCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: 'rgba(255, 255, 255, 0.97)',
     borderRadius: 24,
-    padding: 32,
+    padding: 28,
     width: '100%',
     marginBottom: 32,
   },
@@ -884,7 +911,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scoreLabel: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700' as const,
     color: '#333',
   },
@@ -895,140 +922,20 @@ const styles = StyleSheet.create({
   },
   scoreDivider: {
     height: 1,
-    backgroundColor: '#e0e0e0',
-    marginVertical: 20,
+    backgroundColor: '#e5e7eb',
+    marginVertical: 18,
   },
   doneButton: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 18,
     paddingHorizontal: 48,
-    paddingVertical: 16,
+    paddingVertical: 18,
     width: '100%',
   },
   doneButtonText: {
     fontSize: 18,
     fontWeight: '700' as const,
-    color: '#667eea',
+    color: '#4338ca',
     textAlign: 'center',
-  },
-  progressBarContainer: {
-    height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginHorizontal: 20,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 3,
-  },
-  timerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  timerText: {
-    fontSize: 28,
-    fontWeight: '800' as const,
-    color: '#fff',
-  },
-  timerWarning: {
-    color: '#FF6B6B',
-  },
-  answersGrid: {
-    gap: 12,
-  },
-  answerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    minHeight: 80,
-  },
-  answerShape: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  answerShapeText: {
-    fontSize: 28,
-    color: '#fff',
-    fontWeight: '700' as const,
-  },
-  answerText: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: '#fff',
-    lineHeight: 24,
-  },
-  answerCorrect: {
-    backgroundColor: '#26890C',
-  },
-  answerIncorrect: {
-    backgroundColor: '#666',
-    opacity: 0.6,
-  },
-  answerIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  answerIconText: {
-    fontSize: 20,
-    color: '#fff',
-    fontWeight: '700' as const,
-  },
-  feedbackCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 20,
-    padding: 24,
-    marginTop: 24,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12,
-  },
-  feedbackHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  feedbackTitle: {
-    fontSize: 28,
-    fontWeight: '800' as const,
-    color: '#333',
-  },
-  feedbackSubtitle: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    color: '#666',
-    marginBottom: 20,
-  },
-  feedbackCorrect: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    color: '#666',
-    marginTop: 8,
-    marginBottom: 20,
   },
 });
