@@ -3,9 +3,10 @@ import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { X, Zap, Lightbulb, Clock } from 'lucide-react-native';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AnswerCard, getSuitForIndex, AnswerCardState } from '@/components/AnswerCard';
 import DealerPlaceholder from '@/components/DealerPlaceholder';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
@@ -13,8 +14,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { QuestSettings, Flashcard, QuestRunResult } from '@/types/flashcard';
 import { selectNextCard, generateOptions, checkAnswer, calculateScore } from '@/utils/questUtils';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 60) / 2;
+
 
 export default function QuestSessionScreen() {
   const router = useRouter();
@@ -332,31 +332,21 @@ export default function QuestSessionScreen() {
     router.back();
   }, [router]);
 
-  const getOptionStyle = (option: string) => {
-    if (!selectedOption) return {};
+  const getCardState = (option: string): AnswerCardState => {
+    if (!selectedOption) {
+      return inputLocked ? 'disabled' : 'idle';
+    }
     
     const isSelected = option === selectedOption;
     const isCorrectOption = currentCard && checkAnswer(option, currentCard.answer);
 
     if (isCorrectOption) {
-      return { backgroundColor: theme.success, borderColor: theme.success };
+      return 'correct';
     }
     if (isSelected && !isCorrect) {
-      return { backgroundColor: theme.error, borderColor: theme.error };
+      return 'wrong';
     }
-    return { opacity: 0.5 };
-  };
-
-  const getOptionTextColor = (option: string) => {
-    if (!selectedOption) return theme.text;
-    
-    const isSelected = option === selectedOption;
-    const isCorrectOption = currentCard && checkAnswer(option, currentCard.answer);
-
-    if (isCorrectOption || (isSelected && !isCorrect)) {
-      return '#fff';
-    }
-    return theme.textTertiary;
+    return 'disabled';
   };
 
   const streakMultiplier = useMemo(() => {
@@ -451,42 +441,20 @@ export default function QuestSessionScreen() {
           )}
         </View>
 
-        <View style={styles.optionsGrid}>
-          {options.map((option, index) => {
-            const animStyle = {
-              opacity: cardAnimations[index],
-              transform: [
-                {
-                  scale: cardAnimations[index].interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.8, 1],
-                  }),
-                },
-              ],
-            };
-
-            return (
-              <Animated.View key={index} style={[styles.optionWrapper, animStyle]}>
-                <TouchableOpacity
-                  style={[
-                    styles.optionCard,
-                    { backgroundColor: theme.cardBackground, borderColor: theme.border },
-                    getOptionStyle(option),
-                  ]}
-                  onPress={() => handleOptionPress(option)}
-                  activeOpacity={0.8}
-                  disabled={inputLocked}
-                >
-                  <Text 
-                    style={[styles.optionText, { color: getOptionTextColor(option) }]}
-                    numberOfLines={3}
-                  >
-                    {option}
-                  </Text>
-                </TouchableOpacity>
-              </Animated.View>
-            );
-          })}
+        <View style={styles.tableBackground}>
+          <View style={styles.optionsGrid}>
+            {options.map((option, index) => (
+              <AnswerCard
+                key={index}
+                optionText={option}
+                suit={getSuitForIndex(index)}
+                index={index}
+                state={getCardState(option)}
+                onPress={() => handleOptionPress(option)}
+                animatedOpacity={cardAnimations[index]}
+              />
+            ))}
+          </View>
         </View>
 
         {showExplanation && currentCard.explanation && (
@@ -642,38 +610,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  tableBackground: {
+    backgroundColor: 'rgba(0, 60, 40, 0.35)',
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 20,
+    padding: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(139, 90, 43, 0.4)',
+  },
   optionsGrid: {
-    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    gap: 12,
+    gap: 10,
     justifyContent: 'center',
-    alignContent: 'flex-start',
-  },
-  optionWrapper: {
-    width: CARD_WIDTH,
-  },
-  optionCard: {
-    width: '100%',
-    minHeight: 100,
-    borderRadius: 16,
-    borderWidth: 2,
-    padding: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  optionText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    textAlign: 'center',
-    lineHeight: 22,
   },
   explanationOverlay: {
     ...StyleSheet.absoluteFillObject,

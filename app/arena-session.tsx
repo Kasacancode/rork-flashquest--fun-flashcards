@@ -3,18 +3,15 @@ import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { X, Hand, Zap, Trophy, Crown } from 'lucide-react-native';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { TimerProgressBar, MiniScoreboard, StreakIndicator } from '@/components/GameUI';
+import { AnswerCard, getSuitForIndex, DealerReaction, getRandomDealerLine, AnswerCardState } from '@/components/AnswerCard';
+import { DealerCountdownBar, MiniScoreboard, StreakIndicator } from '@/components/GameUI';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { ArenaLobbyState, ArenaPlayerResult, ArenaAnswer, ArenaMatchResult, Flashcard } from '@/types/flashcard';
 import { generateOptions, checkAnswer } from '@/utils/questUtils';
-
-const { width, height } = Dimensions.get('window');
-const CARD_WIDTH = (width - 52) / 2;
-const CARD_HEIGHT = Math.min(130, height * 0.15);
 
 type GamePhase = 'pass-device' | 'question' | 'feedback';
 
@@ -30,12 +27,7 @@ interface PlayerState {
   answers: ArenaAnswer[];
 }
 
-const OPTION_COLORS = [
-  { bg: '#e53e3e', border: '#c53030' },
-  { bg: '#3182ce', border: '#2b6cb0' },
-  { bg: '#d69e2e', border: '#b7791f' },
-  { bg: '#38a169', border: '#2f855a' },
-];
+
 
 export default function ArenaSessionScreen() {
   const router = useRouter();
@@ -83,6 +75,10 @@ export default function ArenaSessionScreen() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const totalQuestionsPerPlayer = lobby.settings?.rounds || 10;
   const totalQuestions = totalQuestionsPerPlayer * (lobby.players?.length || 1);
+  
+  const [dealerLine, setDealerLine] = useState<string>('');
+  const [dealerReactionCorrect, setDealerReactionCorrect] = useState<boolean | undefined>(undefined);
+  const lastDealerLineRef = useRef<string>('');
 
   const cardAnimations = useRef([
     new Animated.Value(0),
@@ -161,6 +157,11 @@ export default function ArenaSessionScreen() {
     setIsCorrect(null);
     setInputLocked(false);
     setRoundStartTime(Date.now());
+    
+    const line = getRandomDealerLine('idle', lastDealerLineRef.current);
+    setDealerLine(line);
+    lastDealerLineRef.current = line;
+    setDealerReactionCorrect(undefined);
 
     if (lobby.settings.timerSeconds > 0) {
       setTimeRemaining(lobby.settings.timerSeconds);
@@ -273,6 +274,11 @@ export default function ArenaSessionScreen() {
     ]).start();
 
     setGamePhase('feedback');
+    
+    const line = getRandomDealerLine('timeout', lastDealerLineRef.current);
+    setDealerLine(line);
+    lastDealerLineRef.current = line;
+    setDealerReactionCorrect(false);
 
     if (Platform.OS !== 'web') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -377,6 +383,12 @@ export default function ArenaSessionScreen() {
     ]).start();
 
     setGamePhase('feedback');
+    
+    const lineType = correct ? 'correct' : 'wrong';
+    const line = getRandomDealerLine(lineType, lastDealerLineRef.current);
+    setDealerLine(line);
+    lastDealerLineRef.current = line;
+    setDealerReactionCorrect(correct);
 
     if (Platform.OS !== 'web') {
       Haptics.notificationAsync(
@@ -437,23 +449,21 @@ export default function ArenaSessionScreen() {
     router.back();
   }, [router]);
 
-  const getOptionStyle = (option: string, index: number) => {
-    const baseColor = OPTION_COLORS[index % OPTION_COLORS.length];
-    
+  const getCardState = (option: string, index: number): AnswerCardState => {
     if (!selectedOption && isCorrect === null) {
-      return { backgroundColor: baseColor.bg, borderColor: baseColor.border };
+      return inputLocked ? 'disabled' : 'idle';
     }
 
     const isSelected = option === selectedOption;
     const isCorrectOption = currentCard && checkAnswer(option, currentCard.answer);
 
     if (isCorrectOption) {
-      return { backgroundColor: '#10b981', borderColor: '#059669' };
+      return 'correct';
     }
     if (isSelected && !isCorrect) {
-      return { backgroundColor: '#ef4444', borderColor: '#dc2626' };
+      return 'wrong';
     }
-    return { backgroundColor: baseColor.bg, borderColor: baseColor.border, opacity: 0.4 };
+    return 'disabled';
   };
 
   if (!deck || !lobby.players) {
@@ -591,11 +601,16 @@ export default function ArenaSessionScreen() {
 
         {lobby.settings.timerSeconds > 0 && timeRemaining !== null && (
           <View style={styles.timerSection}>
-            <TimerProgressBar 
+            <DealerCountdownBar 
               timeRemaining={timeRemaining} 
               totalTime={lobby.settings.timerSeconds}
-              isUrgent={true}
             />
+          </View>
+        )}
+        
+        {dealerLine && gamePhase === 'question' && (
+          <View style={styles.dealerSection}>
+            <DealerReaction text={dealerLine} isCorrect={dealerReactionCorrect} />
           </View>
         )}
 
@@ -605,38 +620,22 @@ export default function ArenaSessionScreen() {
           </Text>
         </View>
 
-        <View style={styles.optionsGrid}>
-          {options.map((option, index) => {
-            const animStyle = {
-              opacity: cardAnimations[index],
-              transform: [
-                { scale: Animated.multiply(cardAnimations[index], cardScales[index]) },
-                { translateX: shakeAnims[index] },
-              ],
-            };
-
-            const optionStyle = getOptionStyle(option, index);
-
-            return (
-              <Animated.View key={index} style={[styles.optionWrapper, animStyle]}>
-                <TouchableOpacity
-                  style={[styles.optionCard, optionStyle]}
-                  onPress={() => handleOptionPress(option, index)}
-                  activeOpacity={0.85}
-                  disabled={inputLocked}
-                >
-                  <View style={styles.optionShape}>
-                    <Text style={styles.optionShapeText}>
-                      {index === 0 ? '▲' : index === 1 ? '◆' : index === 2 ? '●' : '■'}
-                    </Text>
-                  </View>
-                  <Text style={styles.optionText} numberOfLines={4}>
-                    {option}
-                  </Text>
-                </TouchableOpacity>
-              </Animated.View>
-            );
-          })}
+        <View style={styles.tableBackground}>
+          <View style={styles.optionsGrid}>
+            {options.map((option, index) => (
+              <AnswerCard
+                key={index}
+                optionText={option}
+                suit={getSuitForIndex(index)}
+                index={index}
+                state={getCardState(option, index)}
+                onPress={() => handleOptionPress(option, index)}
+                animatedScale={cardScales[index]}
+                animatedShake={shakeAnims[index]}
+                animatedOpacity={cardAnimations[index]}
+              />
+            ))}
+          </View>
         </View>
 
         <View style={styles.bottomScoreboard}>
@@ -803,7 +802,18 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
   },
   timerSection: {
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  dealerSection: {
+    marginBottom: 10,
+  },
+  tableBackground: {
+    backgroundColor: 'rgba(0, 60, 40, 0.35)',
+    marginHorizontal: 12,
+    borderRadius: 20,
+    padding: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(139, 90, 43, 0.4)',
   },
   questionCard: {
     marginHorizontal: 16,
@@ -827,47 +837,8 @@ const styles = StyleSheet.create({
   optionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    paddingTop: 16,
     gap: 10,
     justifyContent: 'center',
-  },
-  optionWrapper: {
-    width: CARD_WIDTH,
-  },
-  optionCard: {
-    width: '100%',
-    minHeight: CARD_HEIGHT,
-    borderRadius: 16,
-    borderWidth: 3,
-    padding: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  optionShape: {
-    position: 'absolute',
-    top: 8,
-    left: 10,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  optionShapeText: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.5)',
-  },
-  optionText: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: '#fff',
-    textAlign: 'center',
-    lineHeight: 21,
   },
   bottomScoreboard: {
     marginTop: 'auto',

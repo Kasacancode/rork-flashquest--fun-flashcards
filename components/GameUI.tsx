@@ -106,6 +106,177 @@ export function TimerProgressBar({ timeRemaining, totalTime, isUrgent = false }:
   );
 }
 
+interface DealerTimerProps {
+  timeRemaining: number;
+  totalTime: number;
+  size?: number;
+}
+
+export function DealerTimer({ timeRemaining, totalTime, size = 56 }: DealerTimerProps) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const ringRotate = useRef(new Animated.Value(0)).current;
+
+  const progress = timeRemaining / totalTime;
+  const isUrgent = timeRemaining <= 3 && timeRemaining > 0;
+  const isWarning = timeRemaining <= 5 && timeRemaining > 3;
+
+  useEffect(() => {
+    if (isUrgent) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.12, duration: 180, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
+        ])
+      ).start();
+
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(shakeAnim, { toValue: 2, duration: 40, useNativeDriver: true }),
+          Animated.timing(shakeAnim, { toValue: -2, duration: 40, useNativeDriver: true }),
+          Animated.timing(shakeAnim, { toValue: 0, duration: 40, useNativeDriver: true }),
+        ])
+      ).start();
+
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    } else {
+      pulseAnim.stopAnimation();
+      shakeAnim.stopAnimation();
+      pulseAnim.setValue(1);
+      shakeAnim.setValue(0);
+    }
+  }, [isUrgent, pulseAnim, shakeAnim]);
+
+  useEffect(() => {
+    Animated.timing(ringRotate, {
+      toValue: 1 - progress,
+      duration: 400,
+      useNativeDriver: false,
+    }).start();
+  }, [progress, ringRotate]);
+
+  const ringColor = isUrgent ? '#ef4444' : isWarning ? '#f59e0b' : '#10b981';
+  const bgColor = isUrgent ? 'rgba(239, 68, 68, 0.15)' : isWarning ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)';
+
+  return (
+    <Animated.View
+      style={[
+        styles.dealerTimerContainer,
+        {
+          width: size,
+          height: size,
+          transform: [{ scale: pulseAnim }, { translateX: shakeAnim }],
+        },
+      ]}
+    >
+      <View style={[styles.dealerTimerBg, { backgroundColor: bgColor, borderRadius: size / 2 }]} />
+      <View style={[styles.dealerTimerRing, { borderColor: 'rgba(255,255,255,0.15)', borderRadius: size / 2 }]} />
+      <Animated.View
+        style={[
+          styles.dealerTimerProgress,
+          {
+            borderColor: ringColor,
+            borderRadius: size / 2,
+            borderRightColor: 'transparent',
+            borderBottomColor: 'transparent',
+            transform: [
+              { rotate: ringRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) },
+            ],
+          },
+        ]}
+      />
+      <View style={styles.dealerTimerInner}>
+        <Text style={[styles.dealerTimerIcon, isUrgent && styles.dealerTimerIconUrgent]}>🎰</Text>
+        <Text style={[styles.dealerTimerText, { color: ringColor }]}>{timeRemaining}</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+interface DealerCountdownBarProps {
+  timeRemaining: number;
+  totalTime: number;
+}
+
+export function DealerCountdownBar({ timeRemaining, totalTime }: DealerCountdownBarProps) {
+  const progressAnim = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const chipAnim = useRef(new Animated.Value(0)).current;
+
+  const isUrgent = timeRemaining <= 3 && timeRemaining > 0;
+  const isWarning = timeRemaining <= 5 && timeRemaining > 3;
+
+  useEffect(() => {
+    const progress = timeRemaining / totalTime;
+    Animated.timing(progressAnim, {
+      toValue: progress,
+      duration: 350,
+      useNativeDriver: false,
+    }).start();
+  }, [timeRemaining, totalTime, progressAnim]);
+
+  useEffect(() => {
+    if (isUrgent) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.02, duration: 150, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
+        ])
+      ).start();
+
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(chipAnim, { toValue: -2, duration: 80, useNativeDriver: true }),
+          Animated.timing(chipAnim, { toValue: 2, duration: 80, useNativeDriver: true }),
+          Animated.timing(chipAnim, { toValue: 0, duration: 80, useNativeDriver: true }),
+        ])
+      ).start();
+
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    } else {
+      pulseAnim.stopAnimation();
+      chipAnim.stopAnimation();
+      pulseAnim.setValue(1);
+      chipAnim.setValue(0);
+    }
+  }, [isUrgent, pulseAnim, chipAnim]);
+
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
+  const barColor = isUrgent ? '#ef4444' : isWarning ? '#f59e0b' : '#10b981';
+  const trackColor = isUrgent ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.15)';
+
+  return (
+    <Animated.View style={[styles.dealerBarContainer, { transform: [{ scaleX: pulseAnim }] }]}>
+      <View style={styles.dealerBarWrapper}>
+        <View style={[styles.dealerBarTrack, { backgroundColor: trackColor }]}>
+          <Animated.View
+            style={[
+              styles.dealerBarFill,
+              { width: progressWidth, backgroundColor: barColor },
+            ]}
+          />
+          <View style={styles.dealerBarNotches}>
+            {[0.25, 0.5, 0.75].map((pos) => (
+              <View key={pos} style={[styles.dealerBarNotch, { left: `${pos * 100}%` }]} />
+            ))}
+          </View>
+        </View>
+        <Animated.View style={[styles.dealerChip, { transform: [{ translateY: chipAnim }] }]}>
+          <Text style={styles.dealerChipText}>{timeRemaining}s</Text>
+        </Animated.View>
+      </View>
+    </Animated.View>
+  );
+}
+
 interface PlayerScore {
   id: string;
   name: string;
@@ -569,5 +740,80 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     marginLeft: 'auto',
+  },
+  dealerTimerContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  dealerTimerBg: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  dealerTimerRing: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 3,
+  },
+  dealerTimerProgress: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 3,
+  },
+  dealerTimerInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dealerTimerIcon: {
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  dealerTimerIconUrgent: {
+    opacity: 0.9,
+  },
+  dealerTimerText: {
+    fontSize: 14,
+    fontWeight: '800' as const,
+  },
+  dealerBarContainer: {
+    paddingHorizontal: 20,
+  },
+  dealerBarWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dealerBarTrack: {
+    flex: 1,
+    height: 10,
+    borderRadius: 5,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  dealerBarFill: {
+    height: '100%',
+    borderRadius: 5,
+  },
+  dealerBarNotches: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
+  },
+  dealerBarNotch: {
+    position: 'absolute',
+    width: 2,
+    height: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+  },
+  dealerChip: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  dealerChipText: {
+    fontSize: 14,
+    fontWeight: '800' as const,
+    color: '#fff',
   },
 });
