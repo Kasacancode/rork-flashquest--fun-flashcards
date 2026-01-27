@@ -86,7 +86,7 @@ export default function ArenaMenuScreen() {
           <View style={styles.heroSection}>
             <Text style={styles.heroTitle}>Multiplayer Challenge</Text>
             <Text style={styles.heroSubtitle}>
-              Compete with friends on the same device in a Kahoot-style quiz battle!
+              Compete with friends on the same device in a quiz battle!
             </Text>
           </View>
 
