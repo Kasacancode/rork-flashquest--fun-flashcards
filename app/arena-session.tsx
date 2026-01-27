@@ -1,19 +1,22 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { X, Hand, Zap, Trophy, Crown } from 'lucide-react-native';
+import { X, Hand, Zap, Users, Trophy } from 'lucide-react-native';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated, Modal, Dimensions, ScrollView } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AnswerCard, getSuitForIndex, DealerReaction, getRandomDealerLine, AnswerCardState, CARD_GAP, CARD_PADDING, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
-import { DealerCountdownBar, MiniScoreboard, StreakIndicator } from '@/components/GameUI';
+import { getSuitForIndex, getRandomDealerLine, CARD_GAP, CARD_PADDING, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
+import { DealerCountdownBar, MiniScoreboard } from '@/components/GameUI';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { ArenaLobbyState, ArenaPlayerResult, ArenaAnswer, ArenaMatchResult, Flashcard } from '@/types/flashcard';
 import { generateOptions, checkAnswer } from '@/utils/questUtils';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 type GamePhase = 'pass-device' | 'question' | 'feedback';
+type CardState = 'idle' | 'selected' | 'correct' | 'wrong' | 'disabled';
 
 interface PlayerState {
   playerId: string;
@@ -27,7 +30,335 @@ interface PlayerState {
   answers: ArenaAnswer[];
 }
 
+interface PlayerScore {
+  id: string;
+  name: string;
+  color: string;
+  points: number;
+}
 
+const CARD_BACKGROUNDS = [
+  { bg: '#fefefe', border: '#e5e5e5', accent: 'rgba(0,0,0,0.02)' },
+  { bg: '#fefefe', border: '#e5e5e5', accent: 'rgba(0,0,0,0.02)' },
+  { bg: '#fefefe', border: '#e5e5e5', accent: 'rgba(0,0,0,0.02)' },
+  { bg: '#fefefe', border: '#e5e5e5', accent: 'rgba(0,0,0,0.02)' },
+];
+
+const SUIT_COLORS: Record<string, string> = {
+  '♠': '#374151',
+  '♥': '#dc2626',
+  '♦': '#dc2626',
+  '♣': '#374151',
+};
+
+const AVAILABLE_WIDTH = SCREEN_WIDTH - (GRID_HORIZONTAL_MARGIN * 2) - (CARD_PADDING * 2) - CARD_GAP;
+const CARD_WIDTH = Math.floor(AVAILABLE_WIDTH / 2);
+const CARD_HEIGHT = Math.min(CARD_WIDTH * 0.85, 115);
+
+function AnswerCardNew({
+  optionText,
+  suit,
+  index,
+  state,
+  onPress,
+  animatedScale,
+  animatedShake,
+}: {
+  optionText: string;
+  suit: string;
+  index: number;
+  state: CardState;
+  onPress: () => void;
+  animatedScale?: Animated.Value;
+  animatedShake?: Animated.Value;
+}) {
+  const localScale = useRef(new Animated.Value(1)).current;
+  const tiltAnim = useRef(new Animated.Value(0)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  const scale = animatedScale || localScale;
+  const shake = animatedShake || new Animated.Value(0);
+
+  useEffect(() => {
+    if (state === 'correct') {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowAnim, { toValue: 1, duration: 500, useNativeDriver: false }),
+          Animated.timing(glowAnim, { toValue: 0.5, duration: 500, useNativeDriver: false }),
+        ])
+      ).start();
+    } else {
+      glowAnim.stopAnimation();
+      glowAnim.setValue(0);
+    }
+  }, [state, glowAnim]);
+
+  const handlePressIn = () => {
+    if (state === 'idle') {
+      Animated.parallel([
+        Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 50 }),
+        Animated.timing(tiltAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
+      ]).start();
+    }
+  };
+
+  const handlePressOut = () => {
+    if (state === 'idle') {
+      Animated.parallel([
+        Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4 }),
+        Animated.timing(tiltAnim, { toValue: 0, duration: 120, useNativeDriver: true }),
+      ]).start();
+    }
+  };
+
+  const handlePress = () => {
+    if (state !== 'idle') return;
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    onPress();
+  };
+
+  const cardColors = CARD_BACKGROUNDS[index % CARD_BACKGROUNDS.length];
+  const suitColor = SUIT_COLORS[suit] || '#374151';
+
+  const getCardStyle = () => {
+    switch (state) {
+      case 'correct':
+        return { bg: '#dcfce7', border: '#22c55e', shadow: '#22c55e' };
+      case 'wrong':
+        return { bg: '#fee2e2', border: '#ef4444', shadow: '#ef4444' };
+      case 'selected':
+        return { bg: '#fef3c7', border: '#f59e0b', shadow: '#f59e0b' };
+      case 'disabled':
+        return { bg: cardColors.bg, border: cardColors.border, shadow: '#000', opacity: 0.45 };
+      default:
+        return { bg: cardColors.bg, border: cardColors.border, shadow: '#000', opacity: 1 };
+    }
+  };
+
+  const cardStyle = getCardStyle();
+
+  return (
+    <Animated.View
+      style={[
+        cardStyles.wrapper,
+        {
+          transform: [{ scale }, { translateX: shake }],
+          opacity: cardStyle.opacity ?? 1,
+        },
+      ]}
+    >
+      <TouchableOpacity
+        style={[
+          cardStyles.card,
+          {
+            backgroundColor: cardStyle.bg,
+            borderColor: cardStyle.border,
+            shadowColor: cardStyle.shadow,
+          },
+        ]}
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={1}
+        disabled={state !== 'idle'}
+      >
+        <View style={cardStyles.suitTop}>
+          <Text style={[cardStyles.suitText, { color: suitColor }]}>{suit}</Text>
+        </View>
+        <View style={cardStyles.suitBottom}>
+          <Text style={[cardStyles.suitText, cardStyles.suitRotated, { color: suitColor }]}>{suit}</Text>
+        </View>
+
+        <View style={cardStyles.content}>
+          <Text
+            style={[
+              cardStyles.optionText,
+              state === 'correct' && { color: '#166534' },
+              state === 'wrong' && { color: '#991b1b' },
+            ]}
+            numberOfLines={4}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+          >
+            {optionText}
+          </Text>
+        </View>
+
+        {state === 'correct' && (
+          <View style={[cardStyles.badge, { backgroundColor: '#22c55e' }]}>
+            <Text style={cardStyles.badgeText}>✓</Text>
+          </View>
+        )}
+        {state === 'wrong' && (
+          <View style={[cardStyles.badge, { backgroundColor: '#ef4444' }]}>
+            <Text style={cardStyles.badgeText}>✗</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+const cardStyles = StyleSheet.create({
+  wrapper: {
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+  },
+  card: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+    position: 'relative',
+  },
+  suitTop: {
+    position: 'absolute',
+    top: 6,
+    left: 8,
+  },
+  suitBottom: {
+    position: 'absolute',
+    bottom: 6,
+    right: 8,
+  },
+  suitText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    opacity: 0.3,
+  },
+  suitRotated: {
+    transform: [{ rotate: '180deg' }],
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  optionText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#1f2937',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  badgeText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: '#fff',
+  },
+});
+
+function BottomScoreBar({
+  players,
+  currentPlayerId,
+  onPress,
+}: {
+  players: PlayerScore[];
+  currentPlayerId?: string;
+  onPress: () => void;
+}) {
+  const sorted = [...players].sort((a, b) => b.points - a.points);
+  const top2 = sorted.slice(0, 2);
+  const insets = useSafeAreaInsets();
+
+  return (
+    <TouchableOpacity
+      style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 8) }]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      {top2.map((player, idx) => {
+        const isMe = player.id === currentPlayerId;
+        return (
+          <View key={player.id} style={[styles.bottomBarPlayer, isMe && styles.bottomBarPlayerActive]}>
+            <View style={styles.bottomBarRank}>
+              <Text style={styles.bottomBarRankText}>#{idx + 1}</Text>
+            </View>
+            <View style={[styles.bottomBarDot, { backgroundColor: player.color }]} />
+            <Text style={styles.bottomBarName} numberOfLines={1}>{player.name}</Text>
+            <Text style={styles.bottomBarPoints}>{player.points}</Text>
+          </View>
+        );
+      })}
+    </TouchableOpacity>
+  );
+}
+
+function ScoreboardSheet({
+  visible,
+  onClose,
+  players,
+  currentPlayerId,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  players: PlayerScore[];
+  currentPlayerId?: string;
+}) {
+  const insets = useSafeAreaInsets();
+  const sorted = [...players].sort((a, b) => b.points - a.points);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.sheetBackdrop}>
+        <TouchableOpacity style={styles.sheetBackdropTap} onPress={onClose} activeOpacity={1} />
+        <View style={[styles.sheetContainer, { paddingBottom: insets.bottom + 16 }]}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>Scoreboard</Text>
+          <ScrollView style={styles.sheetList} showsVerticalScrollIndicator={false}>
+            {sorted.map((player, idx) => {
+              const isMe = player.id === currentPlayerId;
+              return (
+                <View key={player.id} style={[styles.sheetRow, isMe && styles.sheetRowActive]}>
+                  <View style={styles.sheetRank}>
+                    {idx === 0 ? (
+                      <Text style={styles.sheetRankCrown}>👑</Text>
+                    ) : (
+                      <Text style={styles.sheetRankText}>#{idx + 1}</Text>
+                    )}
+                  </View>
+                  <View style={[styles.sheetDot, { backgroundColor: player.color }]} />
+                  <Text style={[styles.sheetName, isMe && styles.sheetNameActive]} numberOfLines={1}>
+                    {player.name}
+                  </Text>
+                  <Text style={[styles.sheetPoints, isMe && styles.sheetPointsActive]}>{player.points}</Text>
+                </View>
+              );
+            })}
+          </ScrollView>
+          <TouchableOpacity style={styles.sheetClose} onPress={onClose} activeOpacity={0.8}>
+            <Text style={styles.sheetCloseText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 export default function ArenaSessionScreen() {
   const router = useRouter();
@@ -56,6 +387,8 @@ export default function ArenaSessionScreen() {
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [roundStartTime, setRoundStartTime] = useState(0);
   const [inputLocked, setInputLocked] = useState(false);
+  const [showScoreboard, setShowScoreboard] = useState(false);
+  const [helperVisible, setHelperVisible] = useState(true);
 
   const [playerStates, setPlayerStates] = useState<PlayerState[]>(() =>
     lobby.players?.map(p => ({
@@ -75,17 +408,9 @@ export default function ArenaSessionScreen() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const totalQuestionsPerPlayer = lobby.settings?.rounds || 10;
   const totalQuestions = totalQuestionsPerPlayer * (lobby.players?.length || 1);
-  
-  const [dealerLine, setDealerLine] = useState<string>('');
-  const [dealerReactionCorrect, setDealerReactionCorrect] = useState<boolean | undefined>(undefined);
-  const lastDealerLineRef = useRef<string>('');
 
-  const cardAnimations = useRef([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]).current;
+  const [dealerLine, setDealerLine] = useState<string>('');
+  const lastDealerLineRef = useRef<string>('');
 
   const cardScales = useRef([
     new Animated.Value(1),
@@ -103,14 +428,10 @@ export default function ArenaSessionScreen() {
 
   const feedbackOpacity = useRef(new Animated.Value(0)).current;
   const feedbackScale = useRef(new Animated.Value(0.8)).current;
+  const helperOpacity = useRef(new Animated.Value(1)).current;
 
-  const currentPlayer = useMemo(() => {
-    return lobby.players?.[currentPlayerIndex];
-  }, [lobby.players, currentPlayerIndex]);
-
-  const currentPlayerState = useMemo(() => {
-    return playerStates[currentPlayerIndex];
-  }, [playerStates, currentPlayerIndex]);
+  const currentPlayer = useMemo(() => lobby.players?.[currentPlayerIndex], [lobby.players, currentPlayerIndex]);
+  const currentPlayerState = useMemo(() => playerStates[currentPlayerIndex], [playerStates, currentPlayerIndex]);
 
   const questionNumber = useMemo(() => {
     return currentRound * lobby.players.length + currentPlayerIndex + 1;
@@ -124,6 +445,19 @@ export default function ArenaSessionScreen() {
       points: ps.points,
     }));
   }, [playerStates]);
+
+  useEffect(() => {
+    if (helperVisible && gamePhase === 'question') {
+      const timer = setTimeout(() => {
+        Animated.timing(helperOpacity, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }).start(() => setHelperVisible(false));
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [helperVisible, gamePhase, helperOpacity]);
 
   const setupQuestion = useCallback(() => {
     if (!deck) return;
@@ -157,45 +491,42 @@ export default function ArenaSessionScreen() {
     setIsCorrect(null);
     setInputLocked(false);
     setRoundStartTime(Date.now());
-    
+    setHelperVisible(true);
+    helperOpacity.setValue(1);
+
     const line = getRandomDealerLine('idle', lastDealerLineRef.current);
     setDealerLine(line);
     lastDealerLineRef.current = line;
-    setDealerReactionCorrect(undefined);
 
     if (lobby.settings.timerSeconds > 0) {
       setTimeRemaining(lobby.settings.timerSeconds);
     }
 
-    cardAnimations.forEach((anim, index) => {
-      anim.setValue(0);
-      cardScales[index].setValue(1);
+    cardScales.forEach((anim, index) => {
+      anim.setValue(0.9);
       shakeAnims[index].setValue(0);
       Animated.spring(anim, {
         toValue: 1,
-        friction: 7,
-        tension: 60,
-        delay: index * 60,
+        friction: 6,
+        tension: 80,
+        delay: index * 50,
         useNativeDriver: true,
       }).start();
     });
 
     feedbackOpacity.setValue(0);
     feedbackScale.setValue(0.8);
-  }, [deck, allCards, lobby.settings, cardAnimations, cardScales, shakeAnims, feedbackOpacity, feedbackScale]);
+  }, [deck, allCards, lobby.settings, cardScales, shakeAnims, feedbackOpacity, feedbackScale, helperOpacity]);
 
   useEffect(() => {
     if (lobby.settings?.timerSeconds > 0 && timeRemaining !== null && timeRemaining > 0 && gamePhase === 'question') {
       timerRef.current = setInterval(() => {
         setTimeRemaining(prev => {
-          if (prev === null || prev <= 1) {
-            return 0;
-          }
+          if (prev === null || prev <= 1) return 0;
           return prev - 1;
         });
       }, 1000);
     }
-
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -204,15 +535,8 @@ export default function ArenaSessionScreen() {
     };
   }, [timeRemaining, gamePhase, lobby.settings?.timerSeconds]);
 
-  useEffect(() => {
-    if (timeRemaining === 0 && gamePhase === 'question' && currentCard && !inputLocked) {
-      handleTimeUp();
-    }
-  }, [timeRemaining, gamePhase, currentCard, inputLocked]);
-
   const handleTimeUp = useCallback(() => {
     if (gamePhase !== 'question' || !currentCard || inputLocked) return;
-
     setInputLocked(true);
 
     if (timerRef.current) {
@@ -247,47 +571,31 @@ export default function ArenaSessionScreen() {
     const correctIndex = options.findIndex(o => checkAnswer(o, currentCard.answer));
     if (correctIndex >= 0) {
       Animated.sequence([
-        Animated.timing(cardScales[correctIndex], {
-          toValue: 1.08,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.spring(cardScales[correctIndex], {
-          toValue: 1,
-          friction: 4,
-          useNativeDriver: true,
-        }),
+        Animated.timing(cardScales[correctIndex], { toValue: 1.06, duration: 150, useNativeDriver: true }),
+        Animated.spring(cardScales[correctIndex], { toValue: 1, friction: 4, useNativeDriver: true }),
       ]).start();
     }
 
     Animated.parallel([
-      Animated.timing(feedbackOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.spring(feedbackScale, {
-        toValue: 1,
-        friction: 6,
-        useNativeDriver: true,
-      }),
+      Animated.timing(feedbackOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.spring(feedbackScale, { toValue: 1, friction: 6, useNativeDriver: true }),
     ]).start();
 
     setGamePhase('feedback');
-    
-    const line = getRandomDealerLine('timeout', lastDealerLineRef.current);
-    setDealerLine(line);
-    lastDealerLineRef.current = line;
-    setDealerReactionCorrect(false);
 
     if (Platform.OS !== 'web') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   }, [gamePhase, currentCard, roundStartTime, currentPlayerIndex, options, inputLocked, cardScales, feedbackOpacity, feedbackScale]);
 
+  useEffect(() => {
+    if (timeRemaining === 0 && gamePhase === 'question' && currentCard && !inputLocked) {
+      handleTimeUp();
+    }
+  }, [timeRemaining, gamePhase, currentCard, inputLocked, handleTimeUp]);
+
   const handleOptionPress = useCallback((option: string, index: number) => {
     if (gamePhase !== 'question' || !currentCard || inputLocked) return;
-
     setInputLocked(true);
 
     if (timerRef.current) {
@@ -302,43 +610,27 @@ export default function ArenaSessionScreen() {
     setIsCorrect(correct);
 
     Animated.sequence([
-      Animated.timing(cardScales[index], {
-        toValue: 0.95,
-        duration: 80,
-        useNativeDriver: true,
-      }),
-      Animated.spring(cardScales[index], {
-        toValue: correct ? 1.05 : 1,
-        friction: 4,
-        useNativeDriver: true,
-      }),
+      Animated.timing(cardScales[index], { toValue: 0.94, duration: 60, useNativeDriver: true }),
+      Animated.spring(cardScales[index], { toValue: correct ? 1.04 : 1, friction: 4, useNativeDriver: true }),
     ]).start();
 
     if (!correct) {
       Animated.sequence([
-        Animated.timing(shakeAnims[index], { toValue: 10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnims[index], { toValue: -10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnims[index], { toValue: 8, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnims[index], { toValue: -8, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnims[index], { toValue: 0, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnims[index], { toValue: 8, duration: 40, useNativeDriver: true }),
+        Animated.timing(shakeAnims[index], { toValue: -8, duration: 40, useNativeDriver: true }),
+        Animated.timing(shakeAnims[index], { toValue: 6, duration: 40, useNativeDriver: true }),
+        Animated.timing(shakeAnims[index], { toValue: -6, duration: 40, useNativeDriver: true }),
+        Animated.timing(shakeAnims[index], { toValue: 0, duration: 40, useNativeDriver: true }),
       ]).start();
 
       const correctIndex = options.findIndex(o => checkAnswer(o, currentCard.answer));
       if (correctIndex >= 0 && correctIndex !== index) {
         setTimeout(() => {
           Animated.sequence([
-            Animated.timing(cardScales[correctIndex], {
-              toValue: 1.08,
-              duration: 150,
-              useNativeDriver: true,
-            }),
-            Animated.spring(cardScales[correctIndex], {
-              toValue: 1,
-              friction: 4,
-              useNativeDriver: true,
-            }),
+            Animated.timing(cardScales[correctIndex], { toValue: 1.06, duration: 150, useNativeDriver: true }),
+            Animated.spring(cardScales[correctIndex], { toValue: 1, friction: 4, useNativeDriver: true }),
           ]).start();
-        }, 200);
+        }, 180);
       }
     }
 
@@ -370,30 +662,14 @@ export default function ArenaSessionScreen() {
     });
 
     Animated.parallel([
-      Animated.timing(feedbackOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.spring(feedbackScale, {
-        toValue: 1,
-        friction: 6,
-        useNativeDriver: true,
-      }),
+      Animated.timing(feedbackOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.spring(feedbackScale, { toValue: 1, friction: 6, useNativeDriver: true }),
     ]).start();
 
     setGamePhase('feedback');
-    
-    const lineType = correct ? 'correct' : 'wrong';
-    const line = getRandomDealerLine(lineType, lastDealerLineRef.current);
-    setDealerLine(line);
-    lastDealerLineRef.current = line;
-    setDealerReactionCorrect(correct);
 
     if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(
-        correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error
-      );
+      Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
     }
   }, [gamePhase, currentCard, roundStartTime, currentPlayerIndex, options, inputLocked, cardScales, shakeAnims, feedbackOpacity, feedbackScale]);
 
@@ -449,20 +725,15 @@ export default function ArenaSessionScreen() {
     router.back();
   }, [router]);
 
-  const getCardState = (option: string, index: number): AnswerCardState => {
+  const getCardState = (option: string): CardState => {
     if (!selectedOption && isCorrect === null) {
       return inputLocked ? 'disabled' : 'idle';
     }
-
     const isSelected = option === selectedOption;
     const isCorrectOption = currentCard && checkAnswer(option, currentCard.answer);
 
-    if (isCorrectOption) {
-      return 'correct';
-    }
-    if (isSelected && !isCorrect) {
-      return 'wrong';
-    }
+    if (isCorrectOption) return 'correct';
+    if (isSelected && !isCorrect) return 'wrong';
     return 'disabled';
   };
 
@@ -481,35 +752,30 @@ export default function ArenaSessionScreen() {
     const currentRank = sortedPlayers.findIndex(p => p.playerId === currentPlayer?.id) + 1;
 
     return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={styles.container}>
         <LinearGradient
-          colors={[theme.arenaGradient[0], theme.arenaGradient[1]]}
+          colors={['#f97316', '#ea580c']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-
         <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
           <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.quitButton}
-              onPress={handleQuit}
-              activeOpacity={0.7}
-            >
-              <X color="#fff" size={24} />
+            <TouchableOpacity style={styles.headerBtn} onPress={handleQuit} activeOpacity={0.7}>
+              <X color="#fff" size={22} />
             </TouchableOpacity>
-            <View style={styles.progressInfo}>
-              <Text style={styles.progressText}>
-                Q {questionNumber}/{totalQuestions}
-              </Text>
+            <View style={styles.progressPill}>
+              <Text style={styles.progressText}>{questionNumber}/{totalQuestions}</Text>
             </View>
-            <View style={styles.headerSpacer} />
+            <TouchableOpacity style={styles.headerBtn} onPress={() => setShowScoreboard(true)} activeOpacity={0.7}>
+              <Users color="#fff" size={20} />
+            </TouchableOpacity>
           </View>
 
           <View style={styles.passDeviceContainer}>
-            <Hand color="#fff" size={56} />
+            <Hand color="#fff" size={52} />
             <Text style={styles.passDeviceTitle}>Pass to {currentPlayer?.name}</Text>
-            
+
             <View style={[styles.playerAvatarLarge, { backgroundColor: currentPlayer?.color }]}>
               <Text style={styles.playerInitialLarge}>
                 {currentPlayer?.name.charAt(0).toUpperCase()}
@@ -534,170 +800,140 @@ export default function ArenaSessionScreen() {
             </View>
 
             <View style={styles.passDeviceScoreboard}>
-              <MiniScoreboard 
-                players={scoreboardPlayers} 
-                currentPlayerId={currentPlayer?.id}
-              />
+              <MiniScoreboard players={scoreboardPlayers} currentPlayerId={currentPlayer?.id} />
             </View>
 
-            <TouchableOpacity
-              style={styles.readyButton}
-              onPress={handleReadyPress}
-              activeOpacity={0.85}
-            >
+            <TouchableOpacity style={styles.readyButton} onPress={handleReadyPress} activeOpacity={0.85}>
               <LinearGradient
-                colors={['#10b981', '#059669']}
+                colors={['#22c55e', '#16a34a']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.readyButtonGradient}
               >
-                <Zap color="#fff" size={22} />
+                <Zap color="#fff" size={20} />
                 <Text style={styles.readyButtonText}>Ready!</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
+
+        <ScoreboardSheet
+          visible={showScoreboard}
+          onClose={() => setShowScoreboard(false)}
+          players={scoreboardPlayers}
+          currentPlayerId={currentPlayer?.id}
+        />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={styles.container}>
       <LinearGradient
-        colors={[theme.arenaGradient[0], theme.arenaGradient[1]]}
+        colors={['#fb923c', '#f97316']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
 
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <View style={styles.gameHeader}>
-          <TouchableOpacity style={styles.quitButton} onPress={handleQuit} activeOpacity={0.7}>
-            <X color="#fff" size={20} />
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.headerBtn} onPress={handleQuit} activeOpacity={0.7}>
+            <X color="#fff" size={22} />
           </TouchableOpacity>
-
-          <View style={styles.questionBadge}>
-            <Text style={styles.questionBadgeText}>{questionNumber}/{totalQuestions}</Text>
+          <View style={styles.progressPill}>
+            <Text style={styles.progressText}>{questionNumber}/{totalQuestions}</Text>
           </View>
+          <TouchableOpacity style={styles.headerBtn} onPress={() => setShowScoreboard(true)} activeOpacity={0.7}>
+            <Users color="#fff" size={20} />
+          </TouchableOpacity>
+        </View>
 
-          {currentPlayerState?.currentStreak > 0 && (
-            <StreakIndicator streak={currentPlayerState.currentStreak} showMultiplier={false} />
-          )}
-
-          <View style={styles.leaderBadge}>
-            <Crown color="#f59e0b" size={12} />
-            <Text style={styles.leaderBadgeText}>
-              {[...playerStates].sort((a, b) => b.points - a.points)[0]?.playerName.slice(0, 5)}: {[...playerStates].sort((a, b) => b.points - a.points)[0]?.points}
+        <View style={styles.gameContent}>
+          <View style={styles.questionPanel}>
+            {lobby.settings.timerSeconds > 0 && timeRemaining !== null && (
+              <View style={styles.timerContainer}>
+                <DealerCountdownBar timeRemaining={timeRemaining} totalTime={lobby.settings.timerSeconds} />
+              </View>
+            )}
+            <Text style={styles.questionText} numberOfLines={4}>
+              {currentCard?.question}
             </Text>
+            {helperVisible && (
+              <Animated.Text style={[styles.helperText, { opacity: helperOpacity }]}>
+                {dealerLine}
+              </Animated.Text>
+            )}
           </View>
-        </View>
 
-        <View style={styles.currentPlayerBanner}>
-          <View style={[styles.currentPlayerDot, { backgroundColor: currentPlayer?.color }]} />
-          <Text style={styles.currentPlayerName}>{currentPlayer?.name}</Text>
-          <Text style={styles.currentPlayerScore}>{currentPlayerState?.points || 0} pts</Text>
-        </View>
-
-        {dealerLine && gamePhase === 'question' && (
-          <View style={styles.dealerSection}>
-            <DealerReaction text={dealerLine} isCorrect={dealerReactionCorrect} />
-          </View>
-        )}
-
-        <View style={[styles.questionCard, { backgroundColor: 'rgba(255,255,255,0.95)' }]}>
-          {lobby.settings.timerSeconds > 0 && timeRemaining !== null && (
-            <View style={styles.inlineTimer}>
-              <DealerCountdownBar 
-                timeRemaining={timeRemaining} 
-                totalTime={lobby.settings.timerSeconds}
-              />
-            </View>
-          )}
-          <Text style={styles.questionText} numberOfLines={3}>
-            {currentCard?.question}
-          </Text>
-        </View>
-
-        <View style={styles.gameArea}>
-          <View style={styles.tableSurface}>
-            <View style={styles.optionsGrid}>
+          <View style={styles.answersContainer}>
+            <View style={styles.answersGrid}>
               {options.map((option, index) => (
-                <AnswerCard
+                <AnswerCardNew
                   key={index}
                   optionText={option}
                   suit={getSuitForIndex(index)}
                   index={index}
-                  state={getCardState(option, index)}
+                  state={getCardState(option)}
                   onPress={() => handleOptionPress(option, index)}
                   animatedScale={cardScales[index]}
                   animatedShake={shakeAnims[index]}
-                  animatedOpacity={cardAnimations[index]}
                 />
               ))}
             </View>
           </View>
-
-          <View style={styles.compactScoreboard}>
-            {scoreboardPlayers.slice(0, 3).map((player, index) => (
-              <View 
-                key={player.id} 
-                style={[
-                  styles.compactScoreItem,
-                  player.id === currentPlayer?.id && styles.compactScoreItemActive
-                ]}
-              >
-                <Text style={styles.compactRank}>{index === 0 ? '👑' : `#${index + 1}`}</Text>
-                <View style={[styles.compactDot, { backgroundColor: player.color }]} />
-                <Text style={styles.compactName} numberOfLines={1}>{player.name}</Text>
-                <Text style={styles.compactPoints}>{player.points}</Text>
-              </View>
-            ))}
-          </View>
         </View>
-
-        {gamePhase === 'feedback' && (
-          <Animated.View 
-            style={[
-              styles.feedbackOverlay,
-              { opacity: feedbackOpacity, transform: [{ scale: feedbackScale }] }
-            ]}
-          >
-            <View style={[styles.feedbackCard, { backgroundColor: theme.cardBackground }]}>
-              <View style={[styles.feedbackIconCircle, { backgroundColor: isCorrect ? '#10b981' : '#ef4444' }]}>
-                <Text style={styles.feedbackIconText}>{isCorrect ? '✓' : '✗'}</Text>
-              </View>
-              <Text style={[styles.feedbackTitle, { color: isCorrect ? '#10b981' : '#ef4444' }]}>
-                {isCorrect ? 'Correct!' : timeRemaining === 0 ? "Time's Up!" : 'Incorrect'}
-              </Text>
-              {!isCorrect && currentCard && (
-                <View style={styles.feedbackAnswerBox}>
-                  <Text style={[styles.feedbackAnswerLabel, { color: theme.textSecondary }]}>
-                    Correct answer:
-                  </Text>
-                  <Text style={[styles.feedbackAnswer, { color: theme.text }]}>
-                    {currentCard.answer}
-                  </Text>
-                </View>
-              )}
-              {isCorrect && currentPlayerState?.currentStreak > 1 && (
-                <View style={styles.feedbackStreakBadge}>
-                  <Trophy color="#f59e0b" size={18} />
-                  <Text style={styles.feedbackStreakText}>
-                    {currentPlayerState.currentStreak} in a row!
-                  </Text>
-                </View>
-              )}
-              <TouchableOpacity
-                style={[styles.continueButton, { backgroundColor: theme.primary }]}
-                onPress={handleContinue}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.continueButtonText}>Continue</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        )}
       </SafeAreaView>
+
+      <BottomScoreBar
+        players={scoreboardPlayers}
+        currentPlayerId={currentPlayer?.id}
+        onPress={() => setShowScoreboard(true)}
+      />
+
+      <ScoreboardSheet
+        visible={showScoreboard}
+        onClose={() => setShowScoreboard(false)}
+        players={scoreboardPlayers}
+        currentPlayerId={currentPlayer?.id}
+      />
+
+      {gamePhase === 'feedback' && (
+        <Animated.View
+          style={[
+            styles.feedbackOverlay,
+            { opacity: feedbackOpacity, transform: [{ scale: feedbackScale }] },
+          ]}
+        >
+          <View style={[styles.feedbackCard, { backgroundColor: theme.cardBackground }]}>
+            <View style={[styles.feedbackIconCircle, { backgroundColor: isCorrect ? '#22c55e' : '#ef4444' }]}>
+              <Text style={styles.feedbackIconText}>{isCorrect ? '✓' : '✗'}</Text>
+            </View>
+            <Text style={[styles.feedbackTitle, { color: isCorrect ? '#22c55e' : '#ef4444' }]}>
+              {isCorrect ? 'Correct!' : timeRemaining === 0 ? "Time's Up!" : 'Incorrect'}
+            </Text>
+            {!isCorrect && currentCard && (
+              <View style={styles.feedbackAnswerBox}>
+                <Text style={[styles.feedbackAnswerLabel, { color: theme.textSecondary }]}>Correct answer:</Text>
+                <Text style={[styles.feedbackAnswer, { color: theme.text }]}>{currentCard.answer}</Text>
+              </View>
+            )}
+            {isCorrect && currentPlayerState?.currentStreak > 1 && (
+              <View style={styles.feedbackStreakBadge}>
+                <Trophy color="#f59e0b" size={18} />
+                <Text style={styles.feedbackStreakText}>{currentPlayerState.currentStreak} in a row!</Text>
+              </View>
+            )}
+            <TouchableOpacity
+              style={[styles.continueButton, { backgroundColor: theme.primary }]}
+              onPress={handleContinue}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.continueButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -723,167 +959,207 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
+    height: 52,
   },
-  quitButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  headerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerSpacer: {
-    width: 40,
-  },
-  progressInfo: {
-    alignItems: 'center',
+  progressPill: {
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
   progressText: {
+    color: '#fff',
     fontSize: 15,
     fontWeight: '700' as const,
-    color: '#fff',
   },
-  gameHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 8,
+  gameContent: {
+    flex: 1,
+    paddingHorizontal: GRID_HORIZONTAL_MARGIN,
   },
-  questionBadge: {
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
+  questionPanel: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  questionBadgeText: {
-    color: '#fff',
-    fontSize: 13,
+  timerContainer: {
+    marginBottom: 12,
+    marginHorizontal: -8,
+  },
+  questionText: {
+    fontSize: 18,
     fontWeight: '700' as const,
+    color: '#1f2937',
+    textAlign: 'center',
+    lineHeight: 26,
   },
-  leaderBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  leaderBadgeText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '600' as const,
-  },
-  currentPlayerBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginHorizontal: 12,
-    marginBottom: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-  },
-  currentPlayerDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  currentPlayerName: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700' as const,
-  },
-  currentPlayerScore: {
-    color: 'rgba(255, 255, 255, 0.85)',
+  helperText: {
     fontSize: 13,
-    fontWeight: '600' as const,
-    marginLeft: 'auto',
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
-  dealerSection: {
-    marginBottom: 4,
-  },
-  gameArea: {
+  answersContainer: {
     flex: 1,
     justifyContent: 'flex-start',
   },
-  tableSurface: {
-    backgroundColor: 'rgba(0, 50, 35, 0.3)',
-    marginHorizontal: GRID_HORIZONTAL_MARGIN,
-    borderRadius: 14,
-    padding: CARD_PADDING,
-  },
-  questionCard: {
-    marginHorizontal: GRID_HORIZONTAL_MARGIN,
-    marginBottom: 8,
-    borderRadius: 14,
-    padding: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  inlineTimer: {
-    marginBottom: 8,
-    marginHorizontal: -4,
-  },
-  questionText: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: '#1a1a1a',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  optionsGrid: {
+  answersGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: CARD_GAP,
     justifyContent: 'space-between',
   },
-  compactScoreboard: {
+  bottomBar: {
     flexDirection: 'row',
-    marginHorizontal: GRID_HORIZONTAL_MARGIN,
-    marginTop: 10,
-    gap: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    paddingTop: 10,
+    paddingHorizontal: 12,
+    gap: 8,
   },
-  compactScoreItem: {
+  bottomBarPlayer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 6,
   },
-  compactScoreItemActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  bottomBarPlayerActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
   },
-  compactRank: {
-    fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.7)',
+  bottomBarRank: {
+    width: 24,
   },
-  compactDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  compactName: {
-    flex: 1,
+  bottomBarRankText: {
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontWeight: '500' as const,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontWeight: '600' as const,
   },
-  compactPoints: {
-    fontSize: 12,
+  bottomBarDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  bottomBarName: {
+    flex: 1,
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '600' as const,
+  },
+  bottomBarPoints: {
+    fontSize: 14,
     color: '#fff',
     fontWeight: '700' as const,
+  },
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  sheetBackdropTap: {
+    flex: 1,
+  },
+  sheetContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    maxHeight: '70%',
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#d1d5db',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: '#1f2937',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  sheetList: {
+    maxHeight: 300,
+  },
+  sheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 6,
+    gap: 10,
+  },
+  sheetRowActive: {
+    backgroundColor: '#fef3c7',
+  },
+  sheetRank: {
+    width: 32,
+    alignItems: 'center',
+  },
+  sheetRankCrown: {
+    fontSize: 18,
+  },
+  sheetRankText: {
+    fontSize: 13,
+    color: '#6b7280',
+    fontWeight: '600' as const,
+  },
+  sheetDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  sheetName: {
+    flex: 1,
+    fontSize: 15,
+    color: '#374151',
+    fontWeight: '500' as const,
+  },
+  sheetNameActive: {
+    fontWeight: '700' as const,
+    color: '#1f2937',
+  },
+  sheetPoints: {
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '700' as const,
+  },
+  sheetPointsActive: {
+    color: '#f59e0b',
+  },
+  sheetClose: {
+    backgroundColor: '#f3f4f6',
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  sheetCloseText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#374151',
+    textAlign: 'center',
   },
   passDeviceContainer: {
     flex: 1,
@@ -900,9 +1176,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   playerAvatarLarge: {
-    width: 90,
-    height: 90,
-    borderRadius: 28,
+    width: 88,
+    height: 88,
+    borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -910,14 +1186,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   playerInitialLarge: {
-    fontSize: 42,
+    fontSize: 40,
     fontWeight: '700' as const,
     color: '#fff',
   },
   passDeviceStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 20,
@@ -925,7 +1201,7 @@ const styles = StyleSheet.create({
   },
   passDeviceStat: {
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
   },
   passDeviceStatLabel: {
     fontSize: 12,
@@ -954,7 +1230,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 8,
   },
@@ -972,51 +1248,51 @@ const styles = StyleSheet.create({
   },
   feedbackOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   feedbackCard: {
     width: '100%',
-    maxWidth: 340,
-    borderRadius: 28,
-    padding: 32,
+    maxWidth: 320,
+    borderRadius: 24,
+    padding: 28,
     alignItems: 'center',
   },
   feedbackIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   feedbackIconText: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '700' as const,
     color: '#fff',
   },
   feedbackTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800' as const,
     marginBottom: 12,
   },
   feedbackAnswerBox: {
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
     width: '100%',
     alignItems: 'center',
   },
   feedbackAnswerLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500' as const,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   feedbackAnswer: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700' as const,
     textAlign: 'center',
   },
@@ -1025,24 +1301,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 14,
-    marginBottom: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginBottom: 14,
   },
   feedbackStreakText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700' as const,
     color: '#f59e0b',
   },
   continueButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 48,
-    borderRadius: 16,
-    marginTop: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 44,
+    borderRadius: 14,
+    marginTop: 6,
   },
   continueButtonText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700' as const,
     color: '#fff',
   },
