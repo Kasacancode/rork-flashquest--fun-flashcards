@@ -8,10 +8,13 @@ import {
   Platform,
   Pressable,
   TouchableOpacity,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
-import { Lightbulb, BookOpen, Lock, CheckCircle } from 'lucide-react-native';
+import { Lightbulb, BookOpen, Lock, CheckCircle, Sparkles } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
+import { generateText } from '@rork-ai/toolkit-sdk';
 import { Flashcard } from '@/types/flashcard';
 import { Theme } from '@/constants/colors';
 
@@ -26,6 +29,7 @@ interface StudyFeedProps {
   isDark: boolean;
   onComplete: () => void;
   onCardResolved?: (cardId: string) => void;
+  onUpdateCard?: (cardId: string, updates: Partial<Flashcard>) => void;
 }
 
 export default function StudyFeed({
@@ -34,6 +38,7 @@ export default function StudyFeed({
   isDark,
   onComplete,
   onCardResolved,
+  onUpdateCard,
 }: StudyFeedProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isRevealed, setIsRevealed] = useState(false);
@@ -42,6 +47,8 @@ export default function StudyFeed({
   const [resolved, setResolved] = useState(false);
   const [showHintOverlay, setShowHintOverlay] = useState(false);
   const [showFeedbackOverlay, setShowFeedbackOverlay] = useState(false);
+  const [isGeneratingHint, setIsGeneratingHint] = useState(false);
+  const [isGeneratingExplanation, setIsGeneratingExplanation] = useState(false);
 
   const flipAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -49,6 +56,7 @@ export default function StudyFeed({
   const feedbackOpacity = useRef(new Animated.Value(0)).current;
   const cardScale = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
+  const hintDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const lastTapRef = useRef<number>(0);
   const gestureStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -82,14 +90,19 @@ export default function StudyFeed({
   const resetForNextCard = useCallback(() => {
     setIsRevealed(false);
     setHintShown(false);
-    
     setResolved(false);
     setShowHintOverlay(false);
     setShowFeedbackOverlay(false);
+    setIsGeneratingHint(false);
+    setIsGeneratingExplanation(false);
     flipAnim.setValue(0);
     hintOpacity.setValue(0);
     feedbackOpacity.setValue(0);
     cardTranslateY.setValue(0);
+    if (hintDismissTimer.current) {
+      clearTimeout(hintDismissTimer.current);
+      hintDismissTimer.current = null;
+    }
   }, [flipAnim, hintOpacity, feedbackOpacity, cardTranslateY]);
 
   const handleDoubleTap = useCallback(() => {
@@ -113,6 +126,20 @@ export default function StudyFeed({
     });
   }, [isRevealed, flipAnim, cardScale, triggerHaptic]);
 
+  const dismissHintOverlay = useCallback(() => {
+    if (hintDismissTimer.current) {
+      clearTimeout(hintDismissTimer.current);
+      hintDismissTimer.current = null;
+    }
+    Animated.timing(hintOpacity, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowHintOverlay(false);
+    });
+  }, [hintOpacity]);
+
   const handleShowHint = useCallback(() => {
     if (isProcessingRef.current) return;
     
@@ -121,15 +148,16 @@ export default function StudyFeed({
       return;
     }
     
-    if (hintShown) return;
-    
-    const hint = currentCard?.hint1;
-    if (!hint) return;
+    if (showHintOverlay) return;
+    if (hintShown && currentCard?.hint1) return;
 
     isProcessingRef.current = true;
     triggerHaptic();
-    setHintShown(true);
     setShowHintOverlay(true);
+
+    if (currentCard?.hint1) {
+      setHintShown(true);
+    }
 
     Animated.timing(hintOpacity, {
       toValue: 1,
@@ -139,16 +167,12 @@ export default function StudyFeed({
       isProcessingRef.current = false;
     });
 
-    setTimeout(() => {
-      Animated.timing(hintOpacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        setShowHintOverlay(false);
-      });
-    }, 2500);
-  }, [isRevealed, hintShown, currentCard, hintOpacity, triggerHaptic, triggerShakeWithCooldown]);
+    if (currentCard?.hint1) {
+      hintDismissTimer.current = setTimeout(() => {
+        dismissHintOverlay();
+      }, 2500);
+    }
+  }, [isRevealed, hintShown, showHintOverlay, currentCard, hintOpacity, triggerHaptic, triggerShakeWithCooldown, dismissHintOverlay]);
 
   const handleShowFeedback = useCallback(() => {
     if (isProcessingRef.current) return;
@@ -212,6 +236,60 @@ export default function StudyFeed({
       setShowFeedbackOverlay(false);
     });
   }, [feedbackOpacity]);
+
+  const handleGenerateHint = useCallback(async () => {
+    if (!currentCard || isGeneratingHint) return;
+    console.log('[StudyFeed] Generating AI hint for card:', currentCard.id);
+    setIsGeneratingHint(true);
+    try {
+      const hint = await generateText({
+        messages: [{
+          role: 'user' as const,
+          content: `Generate a concise, helpful hint for this flashcard question. Guide the student toward the answer without revealing it directly. Keep it to 1-2 sentences.\n\nQuestion: ${currentCard.question}\nAnswer: ${currentCard.answer}`
+        }]
+      });
+      if (!hint || hint.trim().length === 0) {
+        Alert.alert('Generation Failed', 'Could not generate a hint. Please try again.');
+        return;
+      }
+      console.log('[StudyFeed] AI hint generated successfully');
+      onUpdateCard?.(currentCard.id, { hint1: hint.trim() });
+      setHintShown(true);
+      hintDismissTimer.current = setTimeout(() => {
+        dismissHintOverlay();
+      }, 3500);
+    } catch (error) {
+      console.error('[StudyFeed] Failed to generate hint:', error);
+      Alert.alert('Generation Failed', 'Could not generate a hint. Please try again.');
+    } finally {
+      setIsGeneratingHint(false);
+    }
+  }, [currentCard, isGeneratingHint, onUpdateCard, dismissHintOverlay]);
+
+  const handleGenerateExplanation = useCallback(async () => {
+    if (!currentCard || isGeneratingExplanation) return;
+    console.log('[StudyFeed] Generating AI explanation for card:', currentCard.id);
+    setIsGeneratingExplanation(true);
+    try {
+      const explanation = await generateText({
+        messages: [{
+          role: 'user' as const,
+          content: `Generate a clear, educational explanation for this flashcard. Help the student deeply understand why this answer is correct. Keep it to 2-3 sentences.\n\nQuestion: ${currentCard.question}\nAnswer: ${currentCard.answer}`
+        }]
+      });
+      if (!explanation || explanation.trim().length === 0) {
+        Alert.alert('Generation Failed', 'Could not generate an explanation. Please try again.');
+        return;
+      }
+      console.log('[StudyFeed] AI explanation generated successfully');
+      onUpdateCard?.(currentCard.id, { explanation: explanation.trim() });
+    } catch (error) {
+      console.error('[StudyFeed] Failed to generate explanation:', error);
+      Alert.alert('Generation Failed', 'Could not generate an explanation. Please try again.');
+    } finally {
+      setIsGeneratingExplanation(false);
+    }
+  }, [currentCard, isGeneratingExplanation, onUpdateCard]);
 
   const handleTouchStart = useCallback((e: any) => {
     const touch = e.nativeEvent;
@@ -399,17 +477,38 @@ export default function StudyFeed({
             styles.hintOverlay,
             { opacity: hintOpacity },
           ]}
-          pointerEvents="none"
         >
-          <View style={styles.overlayContent}>
-            <View style={styles.overlayHeader}>
-              <Lightbulb size={28} color="#FFD700" />
-              <Text style={styles.overlayTitle}>Hint</Text>
+          <Pressable style={styles.hintPressable} onPress={dismissHintOverlay}>
+            <View style={styles.overlayContent}>
+              <View style={styles.overlayHeader}>
+                <Lightbulb size={28} color="#FFD700" />
+                <Text style={styles.overlayTitle}>Hint</Text>
+              </View>
+              {currentCard?.hint1 ? (
+                <Text style={styles.overlayText}>{currentCard.hint1}</Text>
+              ) : (
+                <>
+                  <Text style={styles.overlayText}>No hint available for this card.</Text>
+                  <TouchableOpacity
+                    style={styles.generateButton}
+                    onPress={handleGenerateHint}
+                    disabled={isGeneratingHint}
+                    activeOpacity={0.8}
+                  >
+                    {isGeneratingHint ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Sparkles size={18} color="#fff" />
+                    )}
+                    <Text style={styles.generateButtonText}>
+                      {isGeneratingHint ? 'Generating...' : 'Generate AI Hint'}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+              <Text style={styles.tapHintText}>tap anywhere to dismiss</Text>
             </View>
-            <Text style={styles.overlayText}>
-              {currentCard.hint1 || 'No hint available'}
-            </Text>
-          </View>
+          </Pressable>
         </Animated.View>
       )}
 
@@ -430,9 +529,27 @@ export default function StudyFeed({
                 <BookOpen size={28} color="#4CAF50" />
                 <Text style={styles.overlayTitle}>Explanation</Text>
               </View>
-              <Text style={styles.overlayText}>
-                {currentCard.explanation || 'No additional explanation available for this card.'}
-              </Text>
+              {currentCard?.explanation ? (
+                <Text style={styles.overlayText}>{currentCard.explanation}</Text>
+              ) : isGeneratingExplanation ? (
+                <View style={styles.generatingContainer}>
+                  <ActivityIndicator size="large" color="#fff" />
+                  <Text style={styles.generatingText}>Generating explanation...</Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.overlayText}>No explanation available for this card.</Text>
+                  <TouchableOpacity
+                    style={[styles.generateButton, styles.generateButtonGreen]}
+                    onPress={handleGenerateExplanation}
+                    disabled={isGeneratingExplanation}
+                    activeOpacity={0.8}
+                  >
+                    <Sparkles size={18} color="#fff" />
+                    <Text style={styles.generateButtonText}>Generate AI Explanation</Text>
+                  </TouchableOpacity>
+                </>
+              )}
               <TouchableOpacity 
                 style={styles.continueButton}
                 onPress={dismissFeedbackOverlay}
@@ -662,6 +779,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     color: '#fff',
+  },
+  hintPressable: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  generateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 16,
+    marginTop: 24,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  generateButtonGreen: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  generateButtonText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: '#fff',
+  },
+  generatingContainer: {
+    alignItems: 'center',
+    gap: 16,
+    paddingVertical: 12,
+  },
+  generatingText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   tapHintText: {
     fontSize: 13,

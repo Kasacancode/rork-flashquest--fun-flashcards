@@ -20,7 +20,7 @@ import { useState, useMemo, useCallback } from 'react';
 // Import sample decks (pre-made flashcard collections)
 import { SAMPLE_DECKS } from '@/data/sampleDecks';
 // Import TypeScript types for data structures
-import { Deck, UserProgress, UserStats, DuelSession } from '@/types/flashcard';
+import { Deck, Flashcard, UserProgress, UserStats, DuelSession } from '@/types/flashcard';
 
 // ============================================
 // STORAGE KEYS
@@ -204,6 +204,21 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     // Save the updated decks array
     saveDecksMutate(updatedDecks);
   }, [decksQuery.data, saveDecksMutate]);
+
+  const updateFlashcard = useCallback((deckId: string, cardId: string, updates: Partial<Flashcard>) => {
+    const currentDecks = decksQuery.data || [];
+    const updatedDecks = currentDecks.map(deck => {
+      if (deck.id !== deckId) return deck;
+      return {
+        ...deck,
+        flashcards: deck.flashcards.map(card =>
+          card.id === cardId ? { ...card, ...updates } : card
+        ),
+      };
+    });
+    queryClient.setQueryData(['decks'], updatedDecks);
+    saveDecksMutate(updatedDecks);
+  }, [decksQuery.data, queryClient, saveDecksMutate]);
 
   // ============================================
   // DELETE DECK
@@ -392,14 +407,15 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     isLoading: decksQuery.isLoading || progressQuery.isLoading || statsQuery.isLoading,
     
     // FUNCTIONS:
-    addDeck,           // Add a new deck
-    updateDeck,        // Modify existing deck
-    deleteDeck,        // Remove a deck
+    addDeck,
+    updateDeck,
+    updateFlashcard,
+    deleteDeck,
     updateProgress,    // Record study session
     startDuel,         // Begin a battle
     updateDuel,        // Update battle progress
     endDuel,           // End current battle
-  }), [decksQuery.data, progressQuery.data, statsQuery.data, currentDuel, decksQuery.isLoading, progressQuery.isLoading, statsQuery.isLoading, addDeck, updateDeck, deleteDeck, updateProgress, startDuel, updateDuel, endDuel]);
+  }), [decksQuery.data, progressQuery.data, statsQuery.data, currentDuel, decksQuery.isLoading, progressQuery.isLoading, statsQuery.isLoading, addDeck, updateDeck, updateFlashcard, deleteDeck, updateProgress, startDuel, updateDuel, endDuel]);
 });
 
 // ============================================

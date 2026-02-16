@@ -14,12 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import StudyFeed from '@/components/StudyFeed';
 import { useFlashQuest } from '@/context/FlashQuestContext';
+import { Flashcard } from '@/types/flashcard';
 import { useTheme } from '@/context/ThemeContext';
 
 export default function StudyPage() {
   const router = useRouter();
   const params = useLocalSearchParams<{ deckId?: string }>();
-  const { decks, updateProgress } = useFlashQuest();
+  const { decks, updateProgress, updateFlashcard } = useFlashQuest();
   const { theme, isDark } = useTheme();
 
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(!params.deckId);
@@ -54,6 +55,12 @@ export default function StudyPage() {
     setSessionResolved(0);
     setShowResults(false);
   }, []);
+
+  const handleUpdateCard = useCallback((cardId: string, updates: Partial<Flashcard>) => {
+    if (selectedDeck) {
+      updateFlashcard(selectedDeck.id, cardId, updates);
+    }
+  }, [selectedDeck, updateFlashcard]);
 
   if (showResults && selectedDeck) {
     return (
@@ -202,6 +209,7 @@ export default function StudyPage() {
           isDark={isDark}
           onComplete={handleComplete}
           onCardResolved={handleCardResolved}
+          onUpdateCard={handleUpdateCard}
         />
       </SafeAreaView>
 
