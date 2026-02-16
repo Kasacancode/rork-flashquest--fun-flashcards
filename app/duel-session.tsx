@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { TimerProgressBar, StreakIndicator } from '@/components/GameUI';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
+import { generateDistractors, pickDistractor, getOpponentBehavior, clearDistractorCache } from '@/utils/duelAI';
 
 
 const QUESTION_TIME = 15;
@@ -44,6 +45,8 @@ export default function DuelSessionPage() {
   const [player1Result, setPlayer1Result] = useState<PlayerInfo | null>(null);
   const [player2Result, setPlayer2Result] = useState<PlayerInfo | null>(null);
   const [playerStreak, setPlayerStreak] = useState(0);
+  const [distractors, setDistractors] = useState<string[]>([]);
+  const [distractorsLoading, setDistractorsLoading] = useState<boolean>(false);
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -70,15 +73,25 @@ export default function DuelSessionPage() {
   }, [shuffledFlashcards, currentDuel]);
 
   const simulateOpponentAnswer = useCallback(() => {
-    const correctChance = currentDuel?.mode === 'ai' ? 0.6 : 0.5;
-    const opponentCorrect = Math.random() < correctChance;
-    const opponentTime = Math.floor(Math.random() * 7) + 5;
-    
+    const difficulty = currentCard?.difficulty || 'medium';
+    const behavior = currentDuel?.mode === 'ai'
+      ? getOpponentBehavior(difficulty)
+      : { correctChance: 0.5, minTime: 4, maxTime: 10 };
+
+    const opponentCorrect = Math.random() < behavior.correctChance;
+    const opponentTime = Math.floor(Math.random() * (behavior.maxTime - behavior.minTime + 1)) + behavior.minTime;
+
+    const wrongAnswer = distractors.length > 0
+      ? pickDistractor(distractors)
+      : 'Incorrect answer';
+
     setOpponentResult({
-      answer: opponentCorrect ? currentCard?.answer || '' : 'Wrong answer',
+      answer: opponentCorrect ? currentCard?.answer || '' : wrongAnswer,
       isCorrect: opponentCorrect,
       timeUsed: opponentTime,
     });
+
+    console.log('[Duel] Opponent answered:', opponentCorrect ? 'correct' : wrongAnswer, 'in', opponentTime, 's');
     
     setTimeout(() => {
       Animated.parallel([
@@ -95,7 +108,7 @@ export default function DuelSessionPage() {
       ]).start();
       setGamePhase('reveal-results');
     }, 1200);
-  }, [currentCard, currentDuel, feedbackOpacity, feedbackScale]);
+  }, [currentCard, currentDuel, feedbackOpacity, feedbackScale, distractors]);
 
   useEffect(() => {
     if (!currentCard) return;
@@ -110,7 +123,18 @@ export default function DuelSessionPage() {
     setPlayer2Result(null);
     feedbackOpacity.setValue(0);
     feedbackScale.setValue(0.8);
-  }, [currentCard, feedbackOpacity, feedbackScale]);
+
+    if (currentDuel?.mode === 'ai') {
+      setDistractorsLoading(true);
+      generateDistractors(currentCard.question, currentCard.answer, currentCard.id)
+        .then((result) => {
+          setDistractors(result);
+          console.log('[Duel] Pre-loaded distractors for card:', currentCard.id);
+        })
+        .catch(() => setDistractors([]))
+        .finally(() => setDistractorsLoading(false));
+    }
+  }, [currentCard, feedbackOpacity, feedbackScale, currentDuel?.mode]);
 
   useEffect(() => {
     if (gamePhase === 'opponent-turn') {
@@ -359,6 +383,7 @@ export default function DuelSessionPage() {
   };
 
   const handleQuit = () => {
+    clearDistractorCache();
     endDuel();
     router.back();
   };
