@@ -122,7 +122,6 @@ export default function ScanNotesPage() {
 
     try {
       console.log('[ScanNotes] Starting AI extraction...');
-      const imageData = `data:image/jpeg;base64,${base64}`;
 
       const result = await generateObject({
         messages: [
@@ -135,7 +134,7 @@ export default function ScanNotesPage() {
               },
               {
                 type: 'image',
-                image: imageData,
+                image: base64,
               },
             ],
           },
