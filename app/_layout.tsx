@@ -64,6 +64,7 @@ function RootLayoutNav() {
       <Stack.Screen name="arena-session" options={{ headerShown: false }} />
       <Stack.Screen name="arena-results" options={{ headerShown: false }} />
       <Stack.Screen name="scan-notes" options={{ headerShown: false }} />
+      <Stack.Screen name="text-to-deck" options={{ headerShown: false }} />
     </Stack>
   );
 }

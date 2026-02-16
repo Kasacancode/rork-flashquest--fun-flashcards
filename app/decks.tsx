@@ -12,7 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 // useRouter - navigate between screens
 import { useRouter } from 'expo-router';
 // Icons from lucide-react-native
-import { ArrowLeft, BookOpen, Edit, Plus, Sparkles, PenLine } from 'lucide-react-native';
+import { ArrowLeft, BookOpen, Edit, Plus, Sparkles, PenLine, FileText } from 'lucide-react-native';
 import React, { useState, useCallback } from 'react';
 // React Native components
 import {
@@ -54,6 +54,11 @@ export default function DecksPage() {
   const handleScanNotes = useCallback(() => {
     setShowMenu(false);
     router.push('/scan-notes');
+  }, [router]);
+
+  const handleTextToDeck = useCallback(() => {
+    setShowMenu(false);
+    router.push('/text-to-deck');
   }, [router]);
 
   // ============================================
@@ -210,6 +215,21 @@ export default function DecksPage() {
               <View style={styles.menuOptionText}>
                 <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Scan Notes with AI</Text>
                 <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Take a photo and let AI create flashcards</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : 'rgba(59,130,246,0.08)' }]}
+              onPress={handleTextToDeck}
+              activeOpacity={0.8}
+              testID="menuTextToDeck"
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.15)' }]}>
+                <FileText color={isDark ? '#60a5fa' : '#3b82f6'} size={24} strokeWidth={2} />
+              </View>
+              <View style={styles.menuOptionText}>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Text to Deck</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Paste notes or text and AI creates flashcards</Text>
               </View>
             </TouchableOpacity>
 
