@@ -49,17 +49,12 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerBackTitle: "Back", headerShown: false }}>
       {/* Home screen - the main dashboard */}
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      
-      {/* Stats screen - shows user statistics and progress */}
       <Stack.Screen name="stats" options={{ headerShown: false }} />
-      
-      {/* Duel arena - battle mode selection screen */}
+      <Stack.Screen name="profile" options={{ headerShown: false }} />
+      <Stack.Screen name="decks" options={{ headerShown: false }} />
       <Stack.Screen name="duel-arena" options={{ headerShown: false }} />
-      
-      {/* Study screen - flashcard study mode */}
+      <Stack.Screen name="duel-session" options={{ headerShown: false }} />
       <Stack.Screen name="study" options={{ headerShown: false }} />
-      
-      {/* Create/Edit flashcard screen */}
       <Stack.Screen name="create-flashcard" options={{ headerShown: false }} />
       <Stack.Screen name="quest" options={{ headerShown: false }} />
       <Stack.Screen name="quest-session" options={{ headerShown: false }} />
