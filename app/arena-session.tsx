@@ -430,7 +430,7 @@ export default function ArenaSessionScreen() {
         };
 
         router.replace({
-          pathname: '/arena-results',
+          pathname: '/arena-results' as any,
           params: { result: JSON.stringify(matchResult) },
         });
         return;

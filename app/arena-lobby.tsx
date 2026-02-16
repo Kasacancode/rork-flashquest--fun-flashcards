@@ -83,7 +83,7 @@ export default function ArenaLobbyScreen() {
     if (!canStartGame || !lobby?.deckId) return;
     saveLastSettings(lobby.deckId, lobby.settings);
     router.push({
-      pathname: '/arena-session',
+      pathname: '/arena-session' as any,
       params: { lobbyState: JSON.stringify(lobby) },
     });
   };

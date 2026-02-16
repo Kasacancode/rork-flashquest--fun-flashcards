@@ -304,7 +304,7 @@ export default function QuestSessionScreen() {
       };
 
       router.replace({
-        pathname: '/quest-results',
+        pathname: '/quest-results' as any,
         params: { result: JSON.stringify(result) },
       });
       return;

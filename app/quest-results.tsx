@@ -62,7 +62,7 @@ export default function QuestResultsScreen() {
 
   const handlePlayAgain = () => {
     router.replace({
-      pathname: '/quest-session',
+      pathname: '/quest-session' as any,
       params: { settings: JSON.stringify(result.settings) },
     });
   };
@@ -77,7 +77,7 @@ export default function QuestResultsScreen() {
     };
 
     router.replace({
-      pathname: '/quest-session',
+      pathname: '/quest-session' as any,
       params: { 
         settings: JSON.stringify(drillSettings),
         drillCardIds: JSON.stringify(result.missedCardIds),
@@ -86,7 +86,7 @@ export default function QuestResultsScreen() {
   };
 
   const handleBackToMenu = () => {
-    router.replace('/quest');
+    router.replace('/quest' as any);
   };
 
   const handleGoHome = () => {

@@ -40,14 +40,14 @@ export default function ArenaMenuScreen() {
     if (!playerName.trim()) return;
     createRoom(playerName.trim());
     setShowNameModal(false);
-    router.push('/arena-lobby');
+    router.push('/arena-lobby' as any);
   };
 
   const handleConfirmJoin = () => {
     if (!playerName.trim()) return;
     setShowJoinModal(false);
     router.push({
-      pathname: '/arena-lobby',
+      pathname: '/arena-lobby' as any,
       params: { joinMode: 'true', playerName: playerName.trim(), roomCode: roomCode.trim() },
     });
   };

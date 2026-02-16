@@ -153,7 +153,7 @@ export default function CreateFlashcardPage() {
         console.log('Deleting deck:', editingDeckId);
         await deleteDeck(editingDeckId);
         console.log('Deck deleted successfully');
-        router.replace('/decks');
+        router.replace('/decks' as any);
       } catch (error) {
         console.error('Error deleting deck:', error);
         Alert.alert('Error', 'Failed to delete deck. Please try again.');

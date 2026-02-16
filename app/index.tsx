@@ -40,7 +40,7 @@ export default function HomePage() {
             </View>
             <TouchableOpacity
               style={styles.profileButton}
-              onPress={() => router.push('/profile')}
+              onPress={() => router.push('/profile' as any)}
               activeOpacity={0.8}
             >
               <LinearGradient
@@ -74,7 +74,7 @@ export default function HomePage() {
           <View style={styles.actionsGrid}>
             <TouchableOpacity
               style={[styles.actionCard, styles.actionCardMedium]}
-              onPress={() => router.push('/stats')}
+              onPress={() => router.push('/stats' as any)}
               activeOpacity={0.85}
             >
               <LinearGradient
@@ -90,7 +90,7 @@ export default function HomePage() {
 
             <TouchableOpacity
               style={[styles.actionCard, styles.actionCardMedium]}
-              onPress={() => router.push('/decks')}
+              onPress={() => router.push('/decks' as any)}
               activeOpacity={0.85}
             >
               <LinearGradient
@@ -106,7 +106,7 @@ export default function HomePage() {
 
             <TouchableOpacity
               style={[styles.actionCard, styles.actionCardMedium]}
-              onPress={() => router.push('/arena')}
+              onPress={() => router.push('/arena' as any)}
               activeOpacity={0.85}
             >
               <LinearGradient
@@ -122,7 +122,7 @@ export default function HomePage() {
 
             <TouchableOpacity
               style={[styles.actionCard, styles.actionCardMedium]}
-              onPress={() => router.push('/quest')}
+              onPress={() => router.push('/quest' as any)}
               activeOpacity={0.85}
             >
               <LinearGradient
@@ -148,7 +148,7 @@ export default function HomePage() {
                 <TouchableOpacity
                   key={deck.id}
                   style={[styles.deckCard, { backgroundColor: theme.deckCardBg }]}
-                  onPress={() => router.push({ pathname: '/study', params: { deckId: deck.id } })}
+                  onPress={() => router.push({ pathname: '/study' as any, params: { deckId: deck.id } })}
                   activeOpacity={0.9}
                 >
                   <View style={[styles.deckColorStrip, { backgroundColor: deck.color }]} />
@@ -201,7 +201,7 @@ export default function HomePage() {
                       startDuel(deck.id, selectedMode, shouldShuffle);
                       setShowDeckSelector(false);
                       setShouldShuffle(false);
-                      router.push({ pathname: '/duel-session', params: { deckId: deck.id } });
+                      router.push({ pathname: '/duel-session' as any, params: { deckId: deck.id } });
                     }
                   }}
                   activeOpacity={0.7}

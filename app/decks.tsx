@@ -48,17 +48,17 @@ export default function DecksPage() {
 
   const handleCreateManual = useCallback(() => {
     setShowMenu(false);
-    router.push('/create-flashcard');
+    router.push('/create-flashcard' as any);
   }, [router]);
 
   const handleScanNotes = useCallback(() => {
     setShowMenu(false);
-    router.push('/scan-notes');
+    router.push('/scan-notes' as any);
   }, [router]);
 
   const handleTextToDeck = useCallback(() => {
     setShowMenu(false);
-    router.push('/text-to-deck');
+    router.push('/text-to-deck' as any);
   }, [router]);
 
   // ============================================
@@ -68,13 +68,13 @@ export default function DecksPage() {
   // Function to start studying a specific deck
   const handleStudyDeck = (deckId: string) => {
     // Navigate to study screen with the deck ID as parameter
-    router.push({ pathname: '/study', params: { deckId } });
+    router.push({ pathname: '/study' as any, params: { deckId } });
   };
 
   // Function to edit an existing deck
   const handleEditDeck = (deckId: string) => {
     // Navigate to create/edit screen with the deck ID to edit
-    router.push({ pathname: '/create-flashcard', params: { deckId } });
+    router.push({ pathname: '/create-flashcard' as any, params: { deckId } });
   };
 
 

@@ -222,7 +222,7 @@ export default function ScanNotesPage() {
     });
 
     Alert.alert('Deck Created!', `${validCards.length} flashcards generated from your notes.`, [
-      { text: 'View Decks', onPress: () => router.replace('/decks') },
+      { text: 'View Decks', onPress: () => router.replace('/decks' as any) },
     ]);
   }, [deckName, deckDescription, generatedCards, addDeck, router]);
 

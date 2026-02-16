@@ -22,7 +22,7 @@ export default function DuelArenaPage() {
     if (selectedMode) {
       startDuel(deckId, selectedMode);
       setShowDeckSelector(false);
-      router.push({ pathname: '/duel-session', params: { deckId } });
+      router.push({ pathname: '/duel-session' as any, params: { deckId } });
     }
   };
 

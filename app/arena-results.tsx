@@ -87,17 +87,17 @@ export default function ArenaResultsScreen() {
 
   const handlePlayAgain = () => {
     if (!lobby) {
-      router.replace('/arena');
+      router.replace('/arena' as any);
       return;
     }
     router.replace({
-      pathname: '/arena-session',
+      pathname: '/arena-session' as any,
       params: { lobbyState: JSON.stringify(lobby) },
     });
   };
 
   const handleBackToLobby = () => {
-    router.replace('/arena-lobby');
+    router.replace('/arena-lobby' as any);
   };
 
   const handleGoHome = () => {
