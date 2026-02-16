@@ -12,8 +12,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 // useRouter - navigate between screens
 import { useRouter } from 'expo-router';
 // Icons from lucide-react-native
-import { ArrowLeft, BookOpen, Edit, Plus } from 'lucide-react-native';
-import React from 'react';
+import { ArrowLeft, BookOpen, Edit, Plus, Sparkles, PenLine } from 'lucide-react-native';
+import React, { useState, useCallback } from 'react';
 // React Native components
 import {
   View,
@@ -21,6 +21,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Modal,
+  Pressable,
 } from 'react-native';
 // SafeAreaView - ensures content isn't hidden by notch/status bar
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,7 +30,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Context hooks to access app data and theme
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
-// Deck type definition
 import { Deck } from '@/types/flashcard';
 
 // ============================================
@@ -41,8 +42,19 @@ export default function DecksPage() {
   // Get all decks from context
   const { decks } = useFlashQuest();
   
-  // Get current theme colors (light or dark mode)
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
+
+  const [showMenu, setShowMenu] = useState<boolean>(false);
+
+  const handleCreateManual = useCallback(() => {
+    setShowMenu(false);
+    router.push('/create-flashcard');
+  }, [router]);
+
+  const handleScanNotes = useCallback(() => {
+    setShowMenu(false);
+    router.push('/scan-notes');
+  }, [router]);
 
   // ============================================
   // EVENT HANDLERS
@@ -89,10 +101,10 @@ export default function DecksPage() {
           {/* Page title */}
           <Text style={styles.headerTitle}>My Decks</Text>
           
-          {/* Add new deck button */}
           <TouchableOpacity 
             style={styles.addButton}
-            onPress={() => router.push('/create-flashcard')}  // Navigate to create screen
+            onPress={() => setShowMenu(true)}
+            testID="decksAddButton"
           >
             <Plus color="#fff" size={28} strokeWidth={2.5} />
           </TouchableOpacity>
@@ -174,6 +186,58 @@ export default function DecksPage() {
           ))}
         </ScrollView>
       </SafeAreaView>
+
+      <Modal
+        visible={showMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMenu(false)}
+      >
+        <Pressable style={styles.menuOverlay} onPress={() => setShowMenu(false)}>
+          <View style={[styles.menuSheet, { backgroundColor: theme.cardBackground }]}>
+            <View style={styles.menuHandle} />
+            <Text style={[styles.menuTitle, { color: theme.text }]}>Create New Deck</Text>
+
+            <TouchableOpacity
+              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(139,92,246,0.1)' : 'rgba(102,126,234,0.08)' }]}
+              onPress={handleScanNotes}
+              activeOpacity={0.8}
+              testID="menuScanNotes"
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(139,92,246,0.2)' : 'rgba(102,126,234,0.15)' }]}>
+                <Sparkles color={theme.primary} size={24} strokeWidth={2} />
+              </View>
+              <View style={styles.menuOptionText}>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Scan Notes with AI</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Take a photo and let AI create flashcards</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.08)' }]}
+              onPress={handleCreateManual}
+              activeOpacity={0.8}
+              testID="menuCreateManual"
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.15)' }]}>
+                <PenLine color={theme.success} size={24} strokeWidth={2} />
+              </View>
+              <View style={styles.menuOptionText}>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Create Manually</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Type your own questions and answers</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuCancel, { backgroundColor: isDark ? 'rgba(148,163,184,0.1)' : 'rgba(0,0,0,0.04)' }]}
+              onPress={() => setShowMenu(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.menuCancelText, { color: theme.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -340,5 +404,68 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 12,
     backgroundColor: '#f5f5f5',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  menuSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    paddingTop: 14,
+    gap: 14,
+  },
+  menuHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(128,128,128,0.3)',
+    alignSelf: 'center',
+    marginBottom: 6,
+  },
+  menuTitle: {
+    fontSize: 20,
+    fontWeight: '800' as const,
+    marginBottom: 4,
+  },
+  menuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 18,
+    padding: 16,
+    gap: 16,
+  },
+  menuIconWrap: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuOptionText: {
+    flex: 1,
+    gap: 3,
+  },
+  menuOptionTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+  },
+  menuOptionDesc: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    lineHeight: 18,
+  },
+  menuCancel: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  menuCancelText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
   },
 });
