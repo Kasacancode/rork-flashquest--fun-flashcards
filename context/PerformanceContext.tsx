@@ -12,6 +12,7 @@ import {
 } from '@/types/flashcard';
 import { logger } from '@/utils/logger';
 
+// Persists per-card accuracy data so Quest mode can prioritize weak cards
 const STORAGE_KEY = 'flashquest_performance';
 
 const DEFAULT_PERFORMANCE: QuestPerformance = {
@@ -55,6 +56,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     },
   });
 
+  // Sync query data into local state to allow synchronous reads and optimistic updates
   useEffect(() => {
     if (performanceQuery.data) {
       setPerformance(performanceQuery.data);
@@ -146,6 +148,10 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     return stats.correct / stats.attempts;
   }, [performance.deckStatsById]);
 
+  /**
+   * Scores each card by weakness (low accuracy, few attempts, more wrong than right)
+   * and returns the top N weakest card IDs for focused drilling.
+   */
   const getWeakCards = useCallback((deckId: string, cards: Flashcard[], limit: number = 10): string[] => {
     const weakCards: { cardId: string; score: number }[] = [];
 
@@ -156,6 +162,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
       let score = 0;
 
       if (!stats || stats.attempts === 0) {
+        // Never attempted cards are highest priority
         score = 10;
       } else {
         const accuracy = stats.correct / stats.attempts;

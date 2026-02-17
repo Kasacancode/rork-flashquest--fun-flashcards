@@ -6,8 +6,9 @@ const distractorSchema = z.object({
 });
 
 type DistractorCache = Record<string, string[]>;
-
 const cache: DistractorCache = {};
+// Cap cache size to prevent unbounded memory growth during long sessions
+const CACHE_MAX_SIZE = 200;
 
 export async function generateDistractors(
   question: string,
@@ -43,8 +44,11 @@ Generate 3 wrong answers that:
     );
 
     if (distractors.length > 0) {
+      const keys = Object.keys(cache);
+      if (keys.length >= CACHE_MAX_SIZE) {
+        delete cache[keys[0]];
+      }
       cache[cardId] = distractors;
-
       return distractors;
     }
 

@@ -15,8 +15,6 @@ import { QuestSettings, Flashcard, QuestRunResult } from '@/types/flashcard';
 import { selectNextCard, generateOptionsWithAI, checkAnswer, calculateScore } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
 
-
-
 export default function QuestSessionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ settings: string; drillCardIds?: string }>();
@@ -32,6 +30,7 @@ export default function QuestSessionScreen() {
     }
   }, [params.settings]);
 
+  // When navigating from "Drill Missed Cards", only these card IDs are used
   const drillCardIds: string[] | null = useMemo(() => {
     try {
       if (params.drillCardIds) {
@@ -48,6 +47,7 @@ export default function QuestSessionScreen() {
     return deck.flashcards.filter(c => drillCardIds.includes(c.id));
   }, [drillCardIds, deck]);
 
+  // Snap drill run length to nearest valid bucket (5, 10, 20) based on available cards
   const effectiveRunLength = useMemo(() => {
     if (!drillCards) return settings.runLength;
     const len = drillCards.length;
@@ -315,6 +315,7 @@ export default function QuestSessionScreen() {
     if (nextRound >= effectiveRunLength) {
       updateBestStreak(bestStreak);
 
+      // Persist XP and stats via the shared applyGameResult pipeline
       applyGameResult({
         mode: 'quest',
         deckId: settings.deckId,

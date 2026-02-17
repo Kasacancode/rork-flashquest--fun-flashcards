@@ -12,9 +12,11 @@ import {
 } from '@/types/flashcard';
 import { logger } from '@/utils/logger';
 
+// AsyncStorage keys for battle leaderboard and last-used settings
 const LEADERBOARD_KEY = 'flashquest_arena_leaderboard';
 const LAST_SETTINGS_KEY = 'flashquest_arena_last_settings';
 
+// Rotating colors assigned to players as they join the lobby
 const PLAYER_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
   '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',
@@ -27,6 +29,7 @@ const DEFAULT_SETTINGS: ArenaSettings = {
   showExplanationsAtEnd: true,
 };
 
+// 6-digit code displayed in lobby (cosmetic only, no networking)
 const generateRoomCode = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
@@ -66,6 +69,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     },
   });
 
+  // Sync query data into local state to allow optimistic updates via setLeaderboard
   useEffect(() => {
     if (leaderboardQuery.data) {
       setLeaderboard(leaderboardQuery.data);
@@ -239,6 +243,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       completedAt: result.completedAt,
     };
 
+    // Keep only the 50 most recent entries to bound storage size
     const updatedLeaderboard = [entry, ...leaderboard].slice(0, 50);
     setLeaderboard(updatedLeaderboard);
     saveLeaderboard(updatedLeaderboard);

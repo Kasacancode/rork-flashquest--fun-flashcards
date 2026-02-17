@@ -21,16 +21,13 @@ export default function ArenaMenuScreen() {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
-  
 
   const handleCreateRoom = () => {
-    
     setPlayerName('');
     setShowNameModal(true);
   };
 
   const handleJoinRoom = () => {
-    
     setPlayerName('');
     setRoomCode('');
     setShowJoinModal(true);

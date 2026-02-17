@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Camera, ImageIcon, Sparkles, Check, X, Plus, Trash2, Loader } from 'lucide-react-native';
+import { ArrowLeft, Camera, ImageIcon, Sparkles, Check, Plus, Trash2 } from 'lucide-react-native';
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View,

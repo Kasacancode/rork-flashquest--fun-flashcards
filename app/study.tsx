@@ -41,6 +41,7 @@ export default function StudyPage() {
     setShowResults(false);
   }, []);
 
+  // Track each card resolved to update per-deck progress and session counter
   const handleCardResolved = useCallback((cardId: string) => {
     if (selectedDeck) {
       updateProgress(selectedDeck.id);
@@ -48,6 +49,7 @@ export default function StudyPage() {
     }
   }, [selectedDeck, updateProgress]);
 
+  // Award XP (5 per card) and persist stats when the study session ends
   const handleComplete = useCallback(() => {
     if (selectedDeck) {
       const xpEarned = sessionResolved * 5;

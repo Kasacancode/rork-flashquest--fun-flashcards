@@ -1,24 +1,20 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Trophy, BookOpen, Swords, Target, User, Shuffle } from 'lucide-react-native';
-
-import { logger } from '@/utils/logger';
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Modal } from 'react-native';
+import { Trophy, BookOpen, Swords, Target, User } from 'lucide-react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 
+// Screen width used for responsive grid tile sizing
 const { width } = Dimensions.get('window');
 
 export default function HomePage() {
   const router = useRouter();
-  const { stats, decks, startDuel } = useFlashQuest();
+  const { stats, decks } = useFlashQuest();
   const { theme } = useTheme();
-  const [showDeckSelector, setShowDeckSelector] = useState<boolean>(false);
-  const [selectedMode, setSelectedMode] = useState<'ai' | 'multiplayer' | null>(null);
-  const [shouldShuffle, setShouldShuffle] = useState<boolean>(false);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -166,59 +162,6 @@ export default function HomePage() {
           </View>
         </ScrollView>
       </SafeAreaView>
-
-      <Modal
-        visible={showDeckSelector}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowDeckSelector(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>Select a Deck</Text>
-              <TouchableOpacity onPress={() => setShowDeckSelector(false)}>
-                <Text style={[styles.modalClose, { color: theme.textSecondary }]}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.shuffleButton, { backgroundColor: shouldShuffle ? theme.primary : theme.background }]}
-              onPress={() => setShouldShuffle(!shouldShuffle)}
-              activeOpacity={0.7}
-            >
-              <Shuffle color={shouldShuffle ? '#fff' : theme.text} size={20} strokeWidth={2.5} />
-              <Text style={[styles.shuffleText, { color: shouldShuffle ? '#fff' : theme.text }]}>
-                {shouldShuffle ? 'Shuffled' : 'Shuffle Deck'}
-              </Text>
-            </TouchableOpacity>
-
-            <ScrollView style={styles.deckList} showsVerticalScrollIndicator={false}>
-              {decks.map((deck) => (
-                <TouchableOpacity
-                  key={deck.id}
-                  style={[styles.deckOption, { backgroundColor: theme.background }]}
-                  onPress={() => {
-                    if (selectedMode) {
-                      startDuel(deck.id, selectedMode, shouldShuffle);
-                      setShowDeckSelector(false);
-                      setShouldShuffle(false);
-                      router.push({ pathname: '/duel-session' as any, params: { deckId: deck.id } });
-                    }
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
-                  <View style={styles.deckOptionInfo}>
-                    <Text style={[styles.deckOptionName, { color: theme.text }]}>{deck.name}</Text>
-                    <Text style={[styles.deckOptionCards, { color: theme.textSecondary }]}>{deck.flashcards.length} cards</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -332,22 +275,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  actionIcon: {
-    marginBottom: 12,
-  },
-  actionTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: '#fff',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  actionSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.9)',
-    textAlign: 'center',
-    fontWeight: '500' as const,
-  },
   actionTitleMedium: {
     fontSize: 18,
     fontWeight: '700' as const,
@@ -400,81 +327,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     fontWeight: '500' as const,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingTop: 24,
-    paddingBottom: 40,
-    maxHeight: '70%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: '#333',
-  },
-  modalClose: {
-    fontSize: 28,
-    color: '#666',
-    fontWeight: '400' as const,
-  },
-  deckList: {
-    paddingHorizontal: 24,
-  },
-  deckOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  deckColorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 16,
-  },
-  deckOptionInfo: {
-    flex: 1,
-  },
-  deckOptionName: {
-    fontSize: 17,
-    fontWeight: '700' as const,
-    color: '#333',
-    marginBottom: 2,
-  },
-  deckOptionCards: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500' as const,
-  },
-  shuffleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 24,
-    marginBottom: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 16,
-    gap: 10,
-  },
-  shuffleText: {
-    fontSize: 16,
-    fontWeight: '700' as const,
   },
 });

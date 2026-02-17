@@ -9,11 +9,18 @@ const aiDistractorSchema = z.object({
 
 type AIDistractorCache = Record<string, string[]>;
 const aiDistractorCache: AIDistractorCache = {};
+// Cap cache size to prevent unbounded memory growth during long sessions
+const AI_CACHE_MAX_SIZE = 200;
 
 function normalizeAnswer(answer: string): string {
   return answer.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+/**
+ * Weighted random card selection for quest mode.
+ * Prioritizes unseen cards, weak cards (low accuracy), and cards not attempted recently.
+ * Falls back to least-recently-attempted cards when all have been used.
+ */
 export function selectNextCard(params: {
   cards: Flashcard[];
   usedCardIds: Set<string>;
@@ -26,6 +33,7 @@ export function selectNextCard(params: {
 
   let candidates = cards.filter(c => !usedCardIds.has(c.id));
   
+  // When all cards have been used, recycle the least-recently-attempted half
   if (candidates.length === 0) {
     const sortedByLastAttempt = [...cards].sort((a, b) => {
       const aStats = performance.cardStatsById[a.id];
@@ -85,6 +93,10 @@ export function selectNextCard(params: {
   return weighted[weighted.length - 1]?.card || cards[0];
 }
 
+/**
+ * Generates plausible wrong answers by pulling from same-deck cards first,
+ * preferring answers of similar length, then falling back to global cards.
+ */
 export function generateDistractors(params: {
   correctAnswer: string;
   deckCards: Flashcard[];
@@ -223,6 +235,11 @@ Generate 3 wrong answers that:
     );
 
     if (distractors.length > 0) {
+      // Evict oldest entries when cache exceeds max size
+      const keys = Object.keys(aiDistractorCache);
+      if (keys.length >= AI_CACHE_MAX_SIZE) {
+        delete aiDistractorCache[keys[0]];
+      }
       aiDistractorCache[cardId] = distractors;
       logger.log('[QuestUtils] Generated AI distractors for card:', cardId, distractors);
       return distractors;
@@ -268,6 +285,11 @@ export function clearAIDistractorCache() {
   Object.keys(aiDistractorCache).forEach((key) => delete aiDistractorCache[key]);
 }
 
+/**
+ * Calculates points for a single quest answer.
+ * Test mode awards 15 base pts (higher risk), learn mode awards 10.
+ * Streak multiplier rewards consecutive correct answers up to 2x.
+ */
 export function calculateScore(params: {
   isCorrect: boolean;
   mode: 'learn' | 'test';

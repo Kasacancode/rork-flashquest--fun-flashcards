@@ -27,8 +27,6 @@ interface PlayerState {
   answers: ArenaAnswer[];
 }
 
-
-
 export default function ArenaSessionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ lobbyState: string }>();

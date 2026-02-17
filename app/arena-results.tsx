@@ -77,6 +77,7 @@ export default function ArenaResultsScreen() {
     }
   }, [winner]);
 
+  // Award XP once on mount: winner gets 200 XP, others get 100 XP
   useEffect(() => {
     if (result.playerResults && result.playerResults.length > 0) {
       const hostResult = result.playerResults[0];

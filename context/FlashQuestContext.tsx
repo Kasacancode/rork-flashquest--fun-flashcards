@@ -7,12 +7,14 @@ import { SAMPLE_DECKS } from '@/data/sampleDecks';
 import { Deck, Flashcard, UserProgress, UserStats, DuelSession } from '@/types/flashcard';
 import { logger } from '@/utils/logger';
 
+// AsyncStorage keys for persisting app data between sessions
 const STORAGE_KEYS = {
   DECKS: 'flashquest_decks',
   PROGRESS: 'flashquest_progress',
   STATS: 'flashquest_stats',
 };
 
+// Initial stats for new users
 const DEFAULT_STATS: UserStats = {
   totalScore: 0,
   currentStreak: 0,
@@ -23,6 +25,7 @@ const DEFAULT_STATS: UserStats = {
   lastActiveDate: new Date().toISOString().split('T')[0],
 };
 
+// Shared type used by all game modes when recording session results
 export type GameMode = 'study' | 'quest' | 'duel' | 'battle';
 
 export interface GameResultParams {
@@ -34,15 +37,23 @@ export interface GameResultParams {
   timestampISO: string;
 }
 
+/**
+ * Calculates updated streak values based on when the user was last active.
+ * - Same day: no change
+ * - Yesterday: increment streak
+ * - Older: reset to 1
+ */
 function computeStreak(lastActiveDate: string, currentStreak: number, longestStreak: number): { currentStreak: number; longestStreak: number } {
   const today = new Date().toISOString().split('T')[0];
 
+  // Already active today, streak unchanged
   if (lastActiveDate === today) {
     return { currentStreak, longestStreak };
   }
 
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
+  // Active yesterday, continue the streak
   if (lastActiveDate === yesterday) {
     const newStreak = currentStreak + 1;
     return {
@@ -51,6 +62,7 @@ function computeStreak(lastActiveDate: string, currentStreak: number, longestStr
     };
   }
 
+  // Missed a day or more, reset streak to 1
   return {
     currentStreak: 1,
     longestStreak: Math.max(longestStreak, 1),
@@ -80,6 +92,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     },
   });
 
+  // Load stats from storage; reset streak on load if the user missed a day
   const statsQuery = useQuery({
     queryKey: ['stats'],
     queryFn: async () => {
@@ -88,13 +101,11 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
         const stats = JSON.parse(stored) as UserStats;
         const today = new Date().toISOString().split('T')[0];
 
+        // If last active was not today or yesterday, streak is broken
         if (stats.lastActiveDate !== today) {
           const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
           if (stats.lastActiveDate !== yesterday) {
-            return {
-              ...stats,
-              currentStreak: 0,
-            };
+            return { ...stats, currentStreak: 0 };
           }
         }
         return stats;
@@ -136,6 +147,10 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
   });
   const { mutate: saveStatsMutate } = saveStatsMutation;
 
+  /**
+   * Central function called by ALL game modes (study, quest, duel, battle)
+   * after a session ends. Updates XP, cards studied, streak, and persists.
+   */
   const applyGameResult = useCallback((params: GameResultParams) => {
     const currentStats = statsQuery.data || DEFAULT_STATS;
     const today = new Date().toISOString().split('T')[0];
@@ -157,6 +172,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
 
     logger.log('[Context] applyGameResult', params.mode, 'xp:', params.xpEarned, 'cards:', params.cardsAttempted, 'streak:', newStreak);
 
+    // Optimistic update so UI reflects changes immediately
     queryClient.setQueryData(['stats'], updatedStats);
     saveStatsMutate(updatedStats);
   }, [statsQuery.data, saveStatsMutate, queryClient]);
@@ -189,10 +205,13 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     saveDecksMutate(updatedDecks);
   }, [decksQuery.data, queryClient, saveDecksMutate]);
 
+  /**
+   * Deletes a deck with optimistic update and rollback on failure.
+   * Also cleans up any associated progress entries.
+   */
   const deleteDeck = useCallback(async (deckId: string) => {
     logger.log('[Context] Starting delete for deck:', deckId);
     const currentDecks = decksQuery.data || [];
-
     const filteredDecks = currentDecks.filter((deck) => deck.id !== deckId);
 
     if (filteredDecks.length === currentDecks.length) {
@@ -200,17 +219,20 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       return currentDecks;
     }
 
+    // Optimistic update for instant UI feedback
     queryClient.setQueryData(['decks'], filteredDecks);
 
     try {
       await saveDecksMutateAsync(filteredDecks);
       logger.log('[Context] Persisted decks via mutation');
     } catch (error) {
+      // Rollback on failure to keep UI consistent with storage
       logger.error('[Context] Failed to persist decks, rolling back', error);
       queryClient.setQueryData(['decks'], currentDecks);
       throw error;
     }
 
+    // Clean up orphaned progress entries for the deleted deck
     const currentProgress = progressQuery.data || [];
     const filteredProgress = currentProgress.filter((entry) => entry.deckId !== deckId);
     if (filteredProgress.length !== currentProgress.length) {

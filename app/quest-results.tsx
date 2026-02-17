@@ -68,6 +68,11 @@ export default function QuestResultsScreen() {
     });
   };
 
+  /**
+   * Re-launches a quest session using ONLY the missed card IDs.
+   * Run length snaps down to the nearest valid bucket (5/10/20).
+   * focusWeakOnly is disabled because the card pool is already filtered.
+   */
   const handleDrillMissed = () => {
     if (missedCards.length === 0) return;
 

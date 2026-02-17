@@ -1,3 +1,4 @@
+// Only log in development builds to keep production clean and performant
 const isDev = __DEV__;
 
 export const logger = {
@@ -14,6 +15,12 @@ export const logger = {
   error: (...args: unknown[]) => {
     if (isDev) {
       console.error(...args);
+    }
+  },
+  // Verbose logging for tracing execution paths during debugging
+  debug: (...args: unknown[]) => {
+    if (isDev) {
+      console.debug(...args);
     }
   },
 };

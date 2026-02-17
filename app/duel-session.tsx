@@ -12,7 +12,6 @@ import { useTheme } from '@/context/ThemeContext';
 import { generateDistractors, pickDistractor, getOpponentBehavior, clearDistractorCache } from '@/utils/duelAI';
 import { logger } from '@/utils/logger';
 
-
 const QUESTION_TIME = 15;
 
 type GamePhase = 'player-turn' | 'opponent-turn' | 'reveal-results';
@@ -47,7 +46,6 @@ export default function DuelSessionPage() {
   const [player2Result, setPlayer2Result] = useState<PlayerInfo | null>(null);
   const [playerStreak, setPlayerStreak] = useState(0);
   const [distractors, setDistractors] = useState<string[]>([]);
-  const [distractorsLoading, setDistractorsLoading] = useState<boolean>(false);
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -126,14 +124,12 @@ export default function DuelSessionPage() {
     feedbackScale.setValue(0.8);
 
     if (currentDuel?.mode === 'ai') {
-      setDistractorsLoading(true);
       generateDistractors(currentCard.question, currentCard.answer, currentCard.id)
         .then((result) => {
           setDistractors(result);
           logger.log('[Duel] Pre-loaded distractors for card:', currentCard.id);
         })
-        .catch(() => setDistractors([]))
-        .finally(() => setDistractorsLoading(false));
+        .catch(() => setDistractors([]));
     }
   }, [currentCard, feedbackOpacity, feedbackScale, currentDuel?.mode]);
 
