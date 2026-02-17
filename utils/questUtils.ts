@@ -1,6 +1,7 @@
 import * as z from 'zod/v4';
 import { generateObject } from '@rork-ai/toolkit-sdk';
 import { Flashcard, CardStats, QuestPerformance } from '@/types/flashcard';
+import { logger } from '@/utils/logger';
 
 const aiDistractorSchema = z.object({
   distractors: z.array(z.string().describe('A plausible but incorrect answer')).describe('3 plausible wrong answers'),
@@ -193,7 +194,7 @@ export async function generateAIDistractors(
   cardId: string,
 ): Promise<string[]> {
   if (aiDistractorCache[cardId] && aiDistractorCache[cardId].length > 0) {
-    console.log('[QuestUtils] Using cached AI distractors for card:', cardId);
+    logger.log('[QuestUtils] Using cached AI distractors for card:', cardId);
     return aiDistractorCache[cardId];
   }
 
@@ -223,13 +224,13 @@ Generate 3 wrong answers that:
 
     if (distractors.length > 0) {
       aiDistractorCache[cardId] = distractors;
-      console.log('[QuestUtils] Generated AI distractors for card:', cardId, distractors);
+      logger.log('[QuestUtils] Generated AI distractors for card:', cardId, distractors);
       return distractors;
     }
 
     return [];
   } catch (error) {
-    console.log('[QuestUtils] AI distractor generation failed:', error);
+    logger.log('[QuestUtils] AI distractor generation failed:', error);
     return [];
   }
 }

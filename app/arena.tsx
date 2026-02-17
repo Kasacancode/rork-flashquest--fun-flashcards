@@ -77,7 +77,7 @@ export default function ArenaMenuScreen() {
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
             <Swords color="#fff" size={28} />
-            <Text style={styles.headerTitle}>Arena</Text>
+            <Text style={styles.headerTitle}>Battle</Text>
           </View>
           <View style={styles.headerSpacer} />
         </View>
@@ -88,9 +88,9 @@ export default function ArenaMenuScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.heroSection}>
-            <Text style={styles.heroTitle}>Multiplayer Challenge</Text>
+            <Text style={styles.heroTitle}>Local Battle</Text>
             <Text style={styles.heroSubtitle}>
-              Compete with friends on the same device in a quiz battle!
+              Play together on one device in a quiz battle!
             </Text>
           </View>
 
@@ -108,8 +108,8 @@ export default function ArenaMenuScreen() {
               >
                 <Users color="#fff" size={28} />
                 <View style={styles.buttonTextContainer}>
-                  <Text style={styles.buttonTitle}>Create Room</Text>
-                  <Text style={styles.buttonSubtitle}>Host a new game session</Text>
+                  <Text style={styles.buttonTitle}>Start Battle</Text>
+                  <Text style={styles.buttonSubtitle}>Set up a new game session</Text>
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -122,8 +122,8 @@ export default function ArenaMenuScreen() {
               <View style={[styles.buttonGradient, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
                 <Target color="#fff" size={28} />
                 <View style={styles.buttonTextContainer}>
-                  <Text style={styles.buttonTitle}>Join Room</Text>
-                  <Text style={styles.buttonSubtitle}>Enter a room code</Text>
+                  <Text style={styles.buttonTitle}>Add Players</Text>
+                  <Text style={styles.buttonSubtitle}>Join an existing session</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -132,7 +132,7 @@ export default function ArenaMenuScreen() {
           <View style={[styles.leaderboardSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
             <View style={styles.leaderboardHeader}>
               <Trophy color={arenaAccent} size={22} />
-              <Text style={[styles.leaderboardTitle, { color: theme.text }]}>Recent Games</Text>
+              <Text style={[styles.leaderboardTitle, { color: theme.text }]}>Battle History</Text>
             </View>
 
             {leaderboard.length === 0 ? (
@@ -183,10 +183,10 @@ export default function ArenaMenuScreen() {
             <Text style={[styles.infoTitle, { color: theme.text }]}>How to Play</Text>
             <View style={styles.infoList}>
               <Text style={[styles.infoItem, { color: theme.textSecondary }]}>
-                1. Create a room and share the code with friends
+                1. Start a battle and enter your name
               </Text>
               <Text style={[styles.infoItem, { color: theme.textSecondary }]}>
-                2. Add players using the &quot;Add Player&quot; button
+                2. Add players to the same-device party
               </Text>
               <Text style={[styles.infoItem, { color: theme.textSecondary }]}>
                 3. Select a deck and customize game settings
@@ -210,7 +210,7 @@ export default function ArenaMenuScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: isDark ? '#1e293b' : theme.cardBackground }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Enter Your Name</Text>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Your Name</Text>
             <TextInput
               style={[styles.modalInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
               placeholder="Your name"
@@ -254,7 +254,7 @@ export default function ArenaMenuScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: isDark ? '#1e293b' : theme.cardBackground }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Join a Room</Text>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Join Battle</Text>
             <TextInput
               style={[styles.modalInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
               placeholder="Your name"
@@ -265,7 +265,7 @@ export default function ArenaMenuScreen() {
             />
             <TextInput
               style={[styles.modalInput, styles.codeInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
-              placeholder="Room code (6 digits)"
+              placeholder="Session code (optional)"
               placeholderTextColor={theme.textTertiary}
               value={roomCode}
               onChangeText={(text) => setRoomCode(text.replace(/[^0-9]/g, '').slice(0, 6))}
@@ -273,7 +273,7 @@ export default function ArenaMenuScreen() {
               maxLength={6}
             />
             <Text style={[styles.joinNote, { color: theme.textTertiary }]}>
-              Offline demo: Any code will join the local lobby
+              Same-device party: joins the current local session
             </Text>
             <View style={styles.modalButtons}>
               <TouchableOpacity

@@ -104,7 +104,7 @@ export default function ScanNotesPage() {
         processImage(asset.base64 ?? null, asset.uri);
       }
     } catch (error) {
-      console.log('Image picker error:', error);
+      
       setErrorMessage('Failed to pick image. Please try again.');
     }
   }, []);
@@ -121,7 +121,7 @@ export default function ScanNotesPage() {
     setErrorMessage(null);
 
     try {
-      console.log('[ScanNotes] Starting AI extraction...');
+      
 
       const result = await generateObject({
         messages: [
@@ -142,7 +142,7 @@ export default function ScanNotesPage() {
         schema: flashcardSchema,
       });
 
-      console.log('[ScanNotes] AI extraction complete, cards:', result.cards.length);
+      
 
       const cards: GeneratedCard[] = result.cards.map((card, index) => ({
         id: `gen_${Date.now()}_${index}`,
@@ -155,7 +155,7 @@ export default function ScanNotesPage() {
       setDeckDescription(result.deckDescription);
       setStep('review');
     } catch (error) {
-      console.error('[ScanNotes] AI extraction failed:', error);
+      
       setErrorMessage('Failed to extract flashcards. Please try again with a clearer image.');
       setStep('pick');
     } finally {

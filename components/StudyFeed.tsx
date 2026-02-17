@@ -239,7 +239,7 @@ export default function StudyFeed({
 
   const handleGenerateHint = useCallback(async () => {
     if (!currentCard || isGeneratingHint) return;
-    console.log('[StudyFeed] Generating AI hint for card:', currentCard.id);
+
     setIsGeneratingHint(true);
     try {
       const hint = await generateText({
@@ -252,14 +252,14 @@ export default function StudyFeed({
         Alert.alert('Generation Failed', 'Could not generate a hint. Please try again.');
         return;
       }
-      console.log('[StudyFeed] AI hint generated successfully');
+
       onUpdateCard?.(currentCard.id, { hint1: hint.trim() });
       setHintShown(true);
       hintDismissTimer.current = setTimeout(() => {
         dismissHintOverlay();
       }, 3500);
     } catch (error) {
-      console.error('[StudyFeed] Failed to generate hint:', error);
+
       Alert.alert('Generation Failed', 'Could not generate a hint. Please try again.');
     } finally {
       setIsGeneratingHint(false);
@@ -268,7 +268,7 @@ export default function StudyFeed({
 
   const handleGenerateExplanation = useCallback(async () => {
     if (!currentCard || isGeneratingExplanation) return;
-    console.log('[StudyFeed] Generating AI explanation for card:', currentCard.id);
+
     setIsGeneratingExplanation(true);
     try {
       const explanation = await generateText({
@@ -281,10 +281,10 @@ export default function StudyFeed({
         Alert.alert('Generation Failed', 'Could not generate an explanation. Please try again.');
         return;
       }
-      console.log('[StudyFeed] AI explanation generated successfully');
+
       onUpdateCard?.(currentCard.id, { explanation: explanation.trim() });
     } catch (error) {
-      console.error('[StudyFeed] Failed to generate explanation:', error);
+
       Alert.alert('Generation Failed', 'Could not generate an explanation. Please try again.');
     } finally {
       setIsGeneratingExplanation(false);

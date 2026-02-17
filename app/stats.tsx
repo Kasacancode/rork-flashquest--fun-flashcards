@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFlashQuest } from '../context/FlashQuestContext';
 import { useTheme } from '../context/ThemeContext';
+import { logger } from '@/utils/logger';
 
 type ThemeValues = ReturnType<typeof useTheme>['theme'];
 type StatCardConfig = {
@@ -23,17 +24,8 @@ export default function StatsPage() {
   const { theme, isDark } = useTheme();
 
   const totalCardsReviewed = useMemo(() => {
-    console.log('StatsPage totalCardsReviewed computation', { progressCount: progress.length });
     return progress.reduce((sum, entry) => sum + entry.cardsReviewed, 0);
   }, [progress]);
-
-  console.log('StatsPage render', {
-    isDark,
-    totalCardsReviewed,
-    totalDecks: decks.length,
-    progressCount: progress.length,
-    totalScore: stats.totalScore,
-  });
 
   const backgroundGradient = useMemo(
     () => (
@@ -146,7 +138,7 @@ export default function StatsPage() {
               progress.map((item) => {
                 const deck = decks.find((deckItem) => deckItem.id === item.deckId);
                 if (!deck) {
-                  console.warn('StatsPage missing deck for progress entry', { deckId: item.deckId });
+                  logger.warn('StatsPage missing deck for progress entry', item.deckId);
                   return null;
                 }
 

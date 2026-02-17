@@ -10,6 +10,7 @@ import {
   DeckStats,
   Flashcard 
 } from '@/types/flashcard';
+import { logger } from '@/utils/logger';
 
 const STORAGE_KEY = 'flashquest_performance';
 
@@ -42,14 +43,14 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
   const performanceQuery = useQuery({
     queryKey: ['performance'],
     queryFn: async () => {
-      console.log('[Performance] Loading performance data from storage');
+      logger.log('[Performance] Loading performance data from storage');
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as QuestPerformance;
-        console.log('[Performance] Loaded performance:', Object.keys(parsed.cardStatsById).length, 'cards tracked');
+        logger.log('[Performance] Loaded performance:', Object.keys(parsed.cardStatsById).length, 'cards tracked');
         return parsed;
       }
-      console.log('[Performance] No stored performance, using defaults');
+      logger.log('[Performance] No stored performance, using defaults');
       return DEFAULT_PERFORMANCE;
     },
   });
@@ -62,7 +63,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
 
   const savePerformanceMutation = useMutation({
     mutationFn: async (newPerformance: QuestPerformance) => {
-      console.log('[Performance] Saving performance data');
+      logger.log('[Performance] Saving performance data');
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newPerformance));
       return newPerformance;
     },
@@ -80,7 +81,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     correctAnswer: string;
     timeToAnswerMs: number;
   }) => {
-    console.log('[Performance] Logging attempt:', params.cardId, 'correct:', params.isCorrect);
+    logger.log('[Performance] Logging attempt:', params.cardId, 'correct:', params.isCorrect);
     
     setPerformance(prev => {
       const now = Date.now();
@@ -123,7 +124,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     setPerformance(prev => {
       if (runStreak <= prev.bestQuestStreak) return prev;
       
-      console.log('[Performance] New best streak:', runStreak);
+      logger.log('[Performance] New best streak:', runStreak);
       const newPerformance: QuestPerformance = {
         ...prev,
         bestQuestStreak: runStreak,
@@ -175,7 +176,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
   }, [performance.cardStatsById]);
 
   const saveLastQuestSettings = useCallback((settings: QuestSettings) => {
-    console.log('[Performance] Saving last quest settings');
+    logger.log('[Performance] Saving last quest settings');
     setPerformance(prev => {
       const newPerformance: QuestPerformance = {
         ...prev,

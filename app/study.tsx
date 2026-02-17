@@ -16,11 +16,12 @@ import StudyFeed from '@/components/StudyFeed';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { Flashcard } from '@/types/flashcard';
 import { useTheme } from '@/context/ThemeContext';
+import { logger } from '@/utils/logger';
 
 export default function StudyPage() {
   const router = useRouter();
   const params = useLocalSearchParams<{ deckId?: string }>();
-  const { decks, updateProgress, updateFlashcard } = useFlashQuest();
+  const { decks, updateProgress, updateFlashcard, applyGameResult } = useFlashQuest();
   const { theme, isDark } = useTheme();
 
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(!params.deckId);
@@ -48,8 +49,19 @@ export default function StudyPage() {
   }, [selectedDeck, updateProgress]);
 
   const handleComplete = useCallback(() => {
+    if (selectedDeck) {
+      const xpEarned = sessionResolved * 5;
+      applyGameResult({
+        mode: 'study',
+        deckId: selectedDeck.id,
+        xpEarned,
+        cardsAttempted: sessionResolved,
+        timestampISO: new Date().toISOString(),
+      });
+      logger.log('[Study] Session complete, cards:', sessionResolved, 'xp:', xpEarned);
+    }
     setShowResults(true);
-  }, []);
+  }, [selectedDeck, sessionResolved, applyGameResult]);
 
   const handleRestart = useCallback(() => {
     setSessionResolved(0);

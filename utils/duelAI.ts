@@ -44,13 +44,13 @@ Generate 3 wrong answers that:
 
     if (distractors.length > 0) {
       cache[cardId] = distractors;
-      console.log('[DuelAI] Generated distractors for card:', cardId, distractors);
+
       return distractors;
     }
 
     return getFallbackDistractors(correctAnswer);
   } catch (error) {
-    console.log('[DuelAI] Error generating distractors, using fallback:', error);
+
     return getFallbackDistractors(correctAnswer);
   }
 }

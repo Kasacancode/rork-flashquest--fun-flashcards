@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { Flashcard } from '@/types/flashcard';
+import { logger } from '@/utils/logger';
 
 interface CardInput {
   id: string;
@@ -141,21 +142,21 @@ export default function CreateFlashcardPage() {
 
   const handleDeleteDeck = () => {
     if (!editingDeckId) {
-      console.log('Delete failed: No deck ID found');
+      logger.log('Delete failed: No deck ID found');
       Alert.alert('Error', 'Cannot delete deck - no deck ID found');
       return;
     }
 
-    console.log('Attempting to delete deck:', editingDeckId);
+    logger.log('Attempting to delete deck:', editingDeckId);
 
     const performDelete = async () => {
       try {
-        console.log('Deleting deck:', editingDeckId);
+        logger.log('Deleting deck:', editingDeckId);
         await deleteDeck(editingDeckId);
-        console.log('Deck deleted successfully');
+        logger.log('Deck deleted successfully');
         router.replace('/decks' as any);
       } catch (error) {
-        console.error('Error deleting deck:', error);
+        logger.error('Error deleting deck:', error);
         Alert.alert('Error', 'Failed to delete deck. Please try again.');
       }
     };

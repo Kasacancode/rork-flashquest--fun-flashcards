@@ -10,12 +10,13 @@ import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { ArenaMatchResult } from '@/types/flashcard';
+import { logger } from '@/utils/logger';
 
 export default function ArenaResultsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ result: string }>();
   const { theme } = useTheme();
-  const { decks } = useFlashQuest();
+  const { decks, applyGameResult } = useFlashQuest();
   const { saveMatchResult, lobby } = useArena();
 
   const [showMissedCards, setShowMissedCards] = useState(false);
@@ -75,6 +76,22 @@ export default function ArenaResultsScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   }, [winner]);
+
+  useEffect(() => {
+    if (result.playerResults && result.playerResults.length > 0) {
+      const hostResult = result.playerResults[0];
+      const isWinner = hostResult.playerId === sortedResults[0]?.playerId;
+      applyGameResult({
+        mode: 'battle',
+        deckId: result.deckId,
+        xpEarned: isWinner ? 200 : 100,
+        cardsAttempted: result.totalRounds || 0,
+        correctCount: hostResult.correctCount,
+        timestampISO: new Date().toISOString(),
+      });
+      logger.log('[Battle] Applied game result for host player');
+    }
+  }, []);
 
   const handleSaveResult = () => {
     if (!deck || saved) return;
@@ -149,7 +166,7 @@ export default function ArenaResultsScreen() {
         >
           <View style={styles.header}>
             <Trophy color="#FFD700" size={56} />
-            <Text style={styles.title}>Game Over!</Text>
+            <Text style={styles.title}>Battle Over!</Text>
             {winner && (
               <View style={styles.winnerBadge}>
                 <Text style={styles.winnerLabel}>Winner</Text>
@@ -321,7 +338,7 @@ export default function ArenaResultsScreen() {
             >
               <Users color={theme.primary} size={20} />
               <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>
-                Back to Lobby
+                Back to Battle Lobby
               </Text>
             </TouchableOpacity>
 

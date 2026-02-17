@@ -83,7 +83,7 @@ export default function TextToDeckPage() {
     setErrorMessage(null);
 
     try {
-      console.log('[TextToDeck] Starting AI generation, text length:', sourceText.length);
+      
 
       const result = await generateObject({
         messages: [
@@ -95,7 +95,7 @@ export default function TextToDeckPage() {
         schema: flashcardSchema,
       });
 
-      console.log('[TextToDeck] AI generation complete, cards:', result.cards.length);
+      
 
       const cards: GeneratedCard[] = result.cards.map((card, index) => ({
         id: `gen_${Date.now()}_${index}`,
@@ -108,7 +108,7 @@ export default function TextToDeckPage() {
       setDeckDescription(result.deckDescription);
       setStep('review');
     } catch (error) {
-      console.error('[TextToDeck] AI generation failed:', error);
+      
       setErrorMessage('Failed to generate flashcards. Please try again.');
       setStep('input');
     } finally {

@@ -13,14 +13,15 @@ import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { QuestSettings, Flashcard, QuestRunResult } from '@/types/flashcard';
 import { selectNextCard, generateOptionsWithAI, checkAnswer, calculateScore } from '@/utils/questUtils';
+import { logger } from '@/utils/logger';
 
 
 
 export default function QuestSessionScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ settings: string }>();
+  const params = useLocalSearchParams<{ settings: string; drillCardIds?: string }>();
   const { theme } = useTheme();
-  const { decks } = useFlashQuest();
+  const { decks, applyGameResult } = useFlashQuest();
   const { performance, logQuestAttempt, updateBestStreak } = usePerformance();
 
   const settings: QuestSettings = useMemo(() => {
@@ -31,7 +32,30 @@ export default function QuestSessionScreen() {
     }
   }, [params.settings]);
 
+  const drillCardIds: string[] | null = useMemo(() => {
+    try {
+      if (params.drillCardIds) {
+        return JSON.parse(params.drillCardIds) as string[];
+      }
+    } catch {}
+    return null;
+  }, [params.drillCardIds]);
+
   const deck = useMemo(() => decks.find(d => d.id === settings.deckId), [decks, settings.deckId]);
+
+  const drillCards = useMemo(() => {
+    if (!drillCardIds || !deck) return null;
+    return deck.flashcards.filter(c => drillCardIds.includes(c.id));
+  }, [drillCardIds, deck]);
+
+  const effectiveRunLength = useMemo(() => {
+    if (!drillCards) return settings.runLength;
+    const len = drillCards.length;
+    if (len >= 20) return 20;
+    if (len >= 10) return 10;
+    return 5;
+  }, [drillCards, settings.runLength]) as 5 | 10 | 20;
+
   const allCards = useMemo(() => decks.flatMap(d => d.flashcards), [decks]);
 
   const [currentRound, setCurrentRound] = useState(0);
@@ -70,15 +94,16 @@ export default function QuestSessionScreen() {
   const setupNextRound = useCallback(async () => {
     if (!deck) return;
 
+    const cardPool = drillCards || deck.flashcards;
     const nextCard = selectNextCard({
-      cards: deck.flashcards,
+      cards: cardPool,
       usedCardIds: usedCardIdsRef.current,
       performance,
-      focusWeakOnly: settings.focusWeakOnly,
+      focusWeakOnly: drillCards ? false : settings.focusWeakOnly,
     });
 
     if (!nextCard) {
-      console.log('[Quest] No more cards available');
+      logger.log('[Quest] No more cards available');
       return;
     }
 
@@ -287,16 +312,26 @@ export default function QuestSessionScreen() {
   const advanceRound = useCallback(() => {
     const nextRound = currentRound + 1;
     
-    if (nextRound >= settings.runLength) {
+    if (nextRound >= effectiveRunLength) {
       updateBestStreak(bestStreak);
-      
+
+      applyGameResult({
+        mode: 'quest',
+        deckId: settings.deckId,
+        xpEarned: score,
+        cardsAttempted: effectiveRunLength,
+        correctCount,
+        timestampISO: new Date().toISOString(),
+      });
+      logger.log('[Quest] Applied game result, score:', score, 'cards:', effectiveRunLength);
+
       const result: QuestRunResult = {
         deckId: settings.deckId,
-        settings,
+        settings: { ...settings, runLength: effectiveRunLength },
         totalScore: score,
         correctCount,
         incorrectCount: incorrectCount,
-        accuracy: correctCount / settings.runLength,
+        accuracy: correctCount / effectiveRunLength,
         bestStreak,
         totalTimeMs,
         missedCardIds,
@@ -379,7 +414,7 @@ export default function QuestSessionScreen() {
           </TouchableOpacity>
 
           <View style={styles.hudContainer}>
-            <Text style={styles.hudValue}>{currentRound + 1}/{settings.runLength}</Text>
+            <Text style={styles.hudValue}>{currentRound + 1}/{effectiveRunLength}</Text>
             <View style={styles.hudDivider} />
             <Text style={styles.hudValue}>{score} pts</Text>
             <View style={styles.hudDivider} />

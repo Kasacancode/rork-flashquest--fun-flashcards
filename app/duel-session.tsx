@@ -10,6 +10,7 @@ import { TimerProgressBar, StreakIndicator } from '@/components/GameUI';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { generateDistractors, pickDistractor, getOpponentBehavior, clearDistractorCache } from '@/utils/duelAI';
+import { logger } from '@/utils/logger';
 
 
 const QUESTION_TIME = 15;
@@ -32,7 +33,7 @@ interface TurnResult {
 export default function DuelSessionPage() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
-  const { decks, currentDuel, updateDuel, endDuel } = useFlashQuest();
+  const { decks, currentDuel, updateDuel, endDuel, applyGameResult } = useFlashQuest();
   const { theme, isDark } = useTheme();
 
   const [gamePhase, setGamePhase] = useState<GamePhase>('player-turn');
@@ -91,7 +92,7 @@ export default function DuelSessionPage() {
       timeUsed: opponentTime,
     });
 
-    console.log('[Duel] Opponent answered:', opponentCorrect ? 'correct' : wrongAnswer, 'in', opponentTime, 's');
+    logger.log('[Duel] Opponent answered:', opponentCorrect ? 'correct' : wrongAnswer, 'in', opponentTime, 's');
     
     setTimeout(() => {
       Animated.parallel([
@@ -129,7 +130,7 @@ export default function DuelSessionPage() {
       generateDistractors(currentCard.question, currentCard.answer, currentCard.id)
         .then((result) => {
           setDistractors(result);
-          console.log('[Duel] Pre-loaded distractors for card:', currentCard.id);
+          logger.log('[Duel] Pre-loaded distractors for card:', currentCard.id);
         })
         .catch(() => setDistractors([]))
         .finally(() => setDistractorsLoading(false));
@@ -390,6 +391,7 @@ export default function DuelSessionPage() {
 
   if (currentDuel.status === 'completed') {
     const won = currentDuel.playerScore > currentDuel.opponentScore;
+    const duelXp = won ? 50 : 20;
 
     return (
       <View style={styles.container}>
@@ -425,6 +427,15 @@ export default function DuelSessionPage() {
             </View>
 
             <TouchableOpacity style={styles.doneButton} onPress={() => {
+              applyGameResult({
+                mode: 'duel',
+                deckId: deckId,
+                xpEarned: duelXp,
+                cardsAttempted: currentDuel.totalRounds,
+                correctCount: currentDuel.playerScore,
+                timestampISO: new Date().toISOString(),
+              });
+              logger.log('[Duel] Applied game result, xp:', duelXp);
               endDuel();
               router.back();
             }}>

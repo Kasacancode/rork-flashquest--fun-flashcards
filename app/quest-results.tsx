@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { QuestRunResult, QuestSettings } from '@/types/flashcard';
+import { logger } from '@/utils/logger';
 
 export default function QuestResultsScreen() {
   const router = useRouter();
@@ -70,11 +71,19 @@ export default function QuestResultsScreen() {
   const handleDrillMissed = () => {
     if (missedCards.length === 0) return;
 
+    const len = missedCards.length;
+    let drillRunLength: 5 | 10 | 20 = 5;
+    if (len >= 20) drillRunLength = 20;
+    else if (len >= 10) drillRunLength = 10;
+    else drillRunLength = 5;
+
     const drillSettings: QuestSettings = {
       ...result.settings,
-      runLength: Math.min(missedCards.length, 20) as 5 | 10 | 20,
-      focusWeakOnly: true,
+      runLength: drillRunLength,
+      focusWeakOnly: false,
     };
+
+    logger.log('[Quest] Drilling missed cards:', result.missedCardIds.length, 'runLength:', drillRunLength);
 
     router.replace({
       pathname: '/quest-session' as any,

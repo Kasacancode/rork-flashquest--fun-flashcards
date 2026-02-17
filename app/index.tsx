@@ -1,6 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Trophy, BookOpen, Swords, Target, User, Shuffle } from 'lucide-react-native';
+
+import { logger } from '@/utils/logger';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -66,8 +68,8 @@ export default function HomePage() {
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.primary }]}>{decks.length}</Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Decks</Text>
+              <Text style={[styles.statValue, { color: theme.primary }]}>{stats.totalCardsStudied}</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Cards</Text>
             </View>
           </View>
 
@@ -116,7 +118,7 @@ export default function HomePage() {
                 style={styles.actionGradient}
               >
                 <Swords color="#fff" size={36} strokeWidth={2} />
-                <Text style={styles.actionTitleMedium}>Arena</Text>
+                <Text style={styles.actionTitleMedium}>Battle</Text>
               </LinearGradient>
             </TouchableOpacity>
 

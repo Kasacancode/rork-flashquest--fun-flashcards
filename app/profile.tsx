@@ -74,8 +74,6 @@ export default function ProfilePage() {
   const level = Math.floor(stats.totalScore / 300) + 1;
   const xpProgress = stats.totalScore % 300;
   const xpForNextLevel = 300;
-  const winRate = 80;
-  const totalWins = 12;
 
   const selectedAvatarData = AVATARS.find((a) => a.id === selectedAvatar) || AVATARS[0];
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
@@ -181,22 +179,22 @@ export default function ProfilePage() {
                   <View style={[styles.statIcon, { backgroundColor: '#4ECDC4' }]}>
                     <Trophy color="#fff" size={20} strokeWidth={2} />
                   </View>
-                  <Text style={styles.statValue}>{totalWins}</Text>
-                  <Text style={styles.statLabel}>Wins</Text>
+                  <Text style={styles.statValue}>{stats.totalScore}</Text>
+                  <Text style={styles.statLabel}>XP</Text>
                 </View>
                 <View style={styles.statBox}>
                   <View style={[styles.statIcon, { backgroundColor: '#FF6B6B' }]}>
                     <Target color="#fff" size={20} strokeWidth={2} />
                   </View>
-                  <Text style={styles.statValue}>{winRate}%</Text>
-                  <Text style={styles.statLabel}>Win Rate</Text>
+                  <Text style={styles.statValue}>{stats.totalCardsStudied}</Text>
+                  <Text style={styles.statLabel}>Cards</Text>
                 </View>
                 <View style={styles.statBox}>
                   <View style={[styles.statIcon, { backgroundColor: '#667eea' }]}>
                     <BookOpen color="#fff" size={20} strokeWidth={2} />
                   </View>
                   <Text style={styles.statValue}>{decks.length}</Text>
-                  <Text style={styles.statLabel}>Cards</Text>
+                  <Text style={styles.statLabel}>Decks</Text>
                 </View>
                 <View style={styles.statBox}>
                   <View style={[styles.statIcon, { backgroundColor: '#4EC9F0' }]}>
@@ -283,23 +281,6 @@ export default function ProfilePage() {
 
           {activeTab === 'overview' && (
             <View style={styles.tabContent}>
-              <TouchableOpacity style={styles.overviewCard} activeOpacity={0.8}>
-                <LinearGradient
-                  colors={overviewGradients.friends}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.overviewCardGradient}
-                >
-                  <View style={[styles.overviewIcon, { backgroundColor: '#0EA5E9' }]}>
-                    <Users color="#fff" size={24} strokeWidth={2} />
-                  </View>
-                  <View style={styles.overviewInfo}>
-                    <Text style={styles.overviewTitle}>Friends & Social</Text>
-                    <Text style={styles.overviewDescription}>Connect with learners</Text>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-
               <TouchableOpacity style={styles.overviewCard} activeOpacity={0.8} onPress={() => setShowSettings(true)}>
                 <LinearGradient
                   colors={overviewGradients.settings}
@@ -317,7 +298,24 @@ export default function ProfilePage() {
                 </LinearGradient>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.overviewCard} activeOpacity={0.8}>
+              <View style={[styles.overviewCard, { opacity: 0.6 }]}>
+                <LinearGradient
+                  colors={overviewGradients.friends}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.overviewCardGradient}
+                >
+                  <View style={[styles.overviewIcon, { backgroundColor: '#0EA5E9' }]}>
+                    <Users color="#fff" size={24} strokeWidth={2} />
+                  </View>
+                  <View style={styles.overviewInfo}>
+                    <Text style={styles.overviewTitle}>Friends & Social</Text>
+                    <Text style={styles.overviewDescription}>Coming soon</Text>
+                  </View>
+                </LinearGradient>
+              </View>
+
+              <View style={[styles.overviewCard, { opacity: 0.6 }]}>
                 <LinearGradient
                   colors={overviewGradients.leaderboard}
                   start={{ x: 0, y: 0 }}
@@ -329,10 +327,10 @@ export default function ProfilePage() {
                   </View>
                   <View style={styles.overviewInfo}>
                     <Text style={styles.overviewTitle}>Global Leaderboard</Text>
-                    <Text style={styles.overviewDescription}>See your world ranking</Text>
+                    <Text style={styles.overviewDescription}>Coming soon</Text>
                   </View>
                 </LinearGradient>
-              </TouchableOpacity>
+              </View>
             </View>
           )}
 

@@ -90,8 +90,8 @@ export default function ArenaLobbyScreen() {
 
   const handleBack = () => {
     Alert.alert(
-      'Leave Lobby',
-      'Are you sure you want to leave? The lobby will be closed.',
+      'Leave Battle',
+      'Are you sure you want to leave? The session will be closed.',
       [
         { text: 'Stay', style: 'cancel' },
         {
@@ -140,7 +140,7 @@ export default function ArenaLobbyScreen() {
           >
             <ArrowLeft color="#fff" size={24} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Arena Lobby</Text>
+          <Text style={styles.headerTitle}>Battle Lobby</Text>
           <TouchableOpacity
             style={styles.settingsButton}
             onPress={() => setShowSettingsModal(true)}
@@ -156,13 +156,13 @@ export default function ArenaLobbyScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={[styles.codeSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
-            <Text style={[styles.codeLabel, { color: theme.textSecondary }]}>Room Code</Text>
+            <Text style={[styles.codeLabel, { color: theme.textSecondary }]}>Session Code</Text>
             <Text style={[styles.roomCode, { color: theme.text }]}>{lobby.roomCode}</Text>
             <View style={styles.qrContainer}>
               <QRCodeDisplay data={qrData} size={140} />
             </View>
             <Text style={[styles.qrNote, { color: theme.textTertiary }]}>
-              QR code (display only) • Offline lobby
+              QR code (display only) • Same-device party
             </Text>
           </View>
 

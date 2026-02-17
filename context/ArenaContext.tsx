@@ -10,6 +10,7 @@ import {
   ArenaMatchResult,
   ArenaLeaderboardEntry,
 } from '@/types/flashcard';
+import { logger } from '@/utils/logger';
 
 const LEADERBOARD_KEY = 'flashquest_arena_leaderboard';
 const LAST_SETTINGS_KEY = 'flashquest_arena_last_settings';
@@ -43,11 +44,11 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const leaderboardQuery = useQuery({
     queryKey: ['arena-leaderboard'],
     queryFn: async () => {
-      console.log('[Arena] Loading leaderboard from storage');
+      logger.log('[Arena] Loading leaderboard from storage');
       const stored = await AsyncStorage.getItem(LEADERBOARD_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as ArenaLeaderboardEntry[];
-        console.log('[Arena] Loaded', parsed.length, 'leaderboard entries');
+        logger.log('[Arena] Loaded', parsed.length, 'leaderboard entries');
         return parsed;
       }
       return [];
@@ -73,7 +74,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
 
   const saveLeaderboardMutation = useMutation({
     mutationFn: async (entries: ArenaLeaderboardEntry[]) => {
-      console.log('[Arena] Saving leaderboard');
+      logger.log('[Arena] Saving leaderboard');
       await AsyncStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries));
       return entries;
     },
@@ -95,7 +96,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const { mutate: saveLastSettingsMutate } = saveLastSettingsMutation;
 
   const createRoom = useCallback((hostName: string): ArenaLobbyState => {
-    console.log('[Arena] Creating room with host:', hostName);
+    logger.log('[Arena] Creating room with host:', hostName);
     const roomCode = generateRoomCode();
     const hostPlayer: ArenaPlayer = {
       id: generatePlayerId(),
@@ -116,11 +117,11 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   }, []);
 
   const joinRoom = useCallback((playerName: string, _roomCode?: string): ArenaPlayer | null => {
-    console.log('[Arena] Player joining:', playerName);
+    logger.log('[Arena] Player joining:', playerName);
     
     setLobby(prev => {
       if (!prev) {
-        console.log('[Arena] No lobby exists, creating new one');
+        logger.log('[Arena] No lobby exists, creating new one');
         const roomCode = _roomCode || generateRoomCode();
         const newPlayer: ArenaPlayer = {
           id: generatePlayerId(),
@@ -172,7 +173,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       };
     });
 
-    console.log('[Arena] Added player:', playerName);
+    logger.log('[Arena] Added player:', playerName);
     return newPlayer;
   }, [lobby]);
 
@@ -181,7 +182,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       if (!prev) return prev;
       const player = prev.players.find(p => p.id === playerId);
       if (player?.isHost) {
-        console.log('[Arena] Cannot remove host');
+        logger.log('[Arena] Cannot remove host');
         return prev;
       }
       return {
@@ -242,7 +243,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     setLeaderboard(updatedLeaderboard);
     saveLeaderboard(updatedLeaderboard);
 
-    console.log('[Arena] Saved match result, winner:', winner.playerName);
+    logger.log('[Arena] Saved match result, winner:', winner.playerName);
   }, [leaderboard, saveLeaderboard]);
 
   const saveLastSettings = useCallback((deckId: string, settings: ArenaSettings) => {
