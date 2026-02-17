@@ -1,4 +1,13 @@
+import * as z from 'zod/v4';
+import { generateObject } from '@rork-ai/toolkit-sdk';
 import { Flashcard, CardStats, QuestPerformance } from '@/types/flashcard';
+
+const aiDistractorSchema = z.object({
+  distractors: z.array(z.string().describe('A plausible but incorrect answer')).describe('3 plausible wrong answers'),
+});
+
+type AIDistractorCache = Record<string, string[]>;
+const aiDistractorCache: AIDistractorCache = {};
 
 function normalizeAnswer(answer: string): string {
   return answer.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -176,6 +185,86 @@ export function generateOptions(params: {
 
 export function checkAnswer(selected: string, correct: string): boolean {
   return normalizeAnswer(selected) === normalizeAnswer(correct);
+}
+
+export async function generateAIDistractors(
+  question: string,
+  correctAnswer: string,
+  cardId: string,
+): Promise<string[]> {
+  if (aiDistractorCache[cardId] && aiDistractorCache[cardId].length > 0) {
+    console.log('[QuestUtils] Using cached AI distractors for card:', cardId);
+    return aiDistractorCache[cardId];
+  }
+
+  try {
+    const result = await generateObject({
+      messages: [
+        {
+          role: 'user',
+          content: `You are a flashcard quiz game AI. Given a question and its correct answer, generate exactly 3 plausible but WRONG answers. The wrong answers should be believable and similar in style/format to the correct answer, but clearly incorrect.
+
+Question: ${question}
+Correct Answer: ${correctAnswer}
+
+Generate 3 wrong answers that:
+- Match the format/length of the correct answer
+- Sound plausible but are factually wrong
+- Are distinct from each other and from the correct answer
+- Would trick someone who doesn't know the material well`,
+        },
+      ],
+      schema: aiDistractorSchema,
+    });
+
+    const distractors = result.distractors.filter(
+      (d: string) => d.toLowerCase().trim() !== correctAnswer.toLowerCase().trim()
+    );
+
+    if (distractors.length > 0) {
+      aiDistractorCache[cardId] = distractors;
+      console.log('[QuestUtils] Generated AI distractors for card:', cardId, distractors);
+      return distractors;
+    }
+
+    return [];
+  } catch (error) {
+    console.log('[QuestUtils] AI distractor generation failed:', error);
+    return [];
+  }
+}
+
+export async function generateOptionsWithAI(params: {
+  correctAnswer: string;
+  question: string;
+  deckCards: Flashcard[];
+  allCards: Flashcard[];
+  currentCardId: string;
+}): Promise<string[]> {
+  const { correctAnswer, question, deckCards, allCards, currentCardId } = params;
+
+  const aiDistractors = await generateAIDistractors(question, correctAnswer, currentCardId);
+
+  if (aiDistractors.length >= 3) {
+    const options = [correctAnswer, ...aiDistractors.slice(0, 3)];
+    return shuffleArray(options);
+  }
+
+  const fallbackDistractors = generateDistractors({
+    correctAnswer,
+    deckCards,
+    allCards,
+    currentCardId,
+    count: 3 - aiDistractors.length,
+  });
+
+  const combinedDistractors = [...aiDistractors, ...fallbackDistractors].slice(0, 3);
+  const options = [correctAnswer, ...combinedDistractors];
+  return shuffleArray(options);
+}
+
+export function clearAIDistractorCache() {
+  Object.keys(aiDistractorCache).forEach((key) => delete aiDistractorCache[key]);
 }
 
 export function calculateScore(params: {

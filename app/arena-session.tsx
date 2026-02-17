@@ -11,7 +11,7 @@ import { DealerCountdownBar, MiniScoreboard, StreakIndicator } from '@/component
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { ArenaLobbyState, ArenaPlayerResult, ArenaAnswer, ArenaMatchResult, Flashcard } from '@/types/flashcard';
-import { generateOptions, checkAnswer } from '@/utils/questUtils';
+import { generateOptionsWithAI, checkAnswer } from '@/utils/questUtils';
 
 type GamePhase = 'pass-device' | 'question' | 'feedback';
 
@@ -125,7 +125,7 @@ export default function ArenaSessionScreen() {
     }));
   }, [playerStates]);
 
-  const setupQuestion = useCallback(() => {
+  const setupQuestion = useCallback(async () => {
     if (!deck) return;
 
     let nextCard: Flashcard | undefined;
@@ -143,16 +143,7 @@ export default function ArenaSessionScreen() {
     if (!nextCard) return;
 
     usedCardIdsRef.current.add(nextCard.id);
-
-    const newOptions = generateOptions({
-      correctAnswer: nextCard.answer,
-      deckCards: deck.flashcards,
-      allCards,
-      currentCardId: nextCard.id,
-    });
-
     setCurrentCard(nextCard);
-    setOptions(newOptions);
     setSelectedOption(null);
     setIsCorrect(null);
     setInputLocked(false);
@@ -182,6 +173,15 @@ export default function ArenaSessionScreen() {
 
     feedbackOpacity.setValue(0);
     feedbackScale.setValue(0.8);
+
+    const newOptions = await generateOptionsWithAI({
+      correctAnswer: nextCard.answer,
+      question: nextCard.question,
+      deckCards: deck.flashcards,
+      allCards,
+      currentCardId: nextCard.id,
+    });
+    setOptions(newOptions);
   }, [deck, allCards, lobby.settings, cardAnimations, cardScales, shakeAnims, feedbackOpacity, feedbackScale]);
 
   useEffect(() => {

@@ -12,7 +12,7 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { QuestSettings, Flashcard, QuestRunResult } from '@/types/flashcard';
-import { selectNextCard, generateOptions, checkAnswer, calculateScore } from '@/utils/questUtils';
+import { selectNextCard, generateOptionsWithAI, checkAnswer, calculateScore } from '@/utils/questUtils';
 
 
 
@@ -67,7 +67,7 @@ export default function QuestSessionScreen() {
     new Animated.Value(0),
   ]).current;
 
-  const setupNextRound = useCallback(() => {
+  const setupNextRound = useCallback(async () => {
     if (!deck) return;
 
     const nextCard = selectNextCard({
@@ -84,16 +84,7 @@ export default function QuestSessionScreen() {
 
     usedCardIdsRef.current.add(nextCard.id);
     setAskedCardIds(prev => [...prev, nextCard.id]);
-
-    const newOptions = generateOptions({
-      correctAnswer: nextCard.answer,
-      deckCards: deck.flashcards,
-      allCards,
-      currentCardId: nextCard.id,
-    });
-
     setCurrentCard(nextCard);
-    setOptions(newOptions);
     setSelectedOption(null);
     setIsCorrect(null);
     setShowHint(false);
@@ -117,6 +108,15 @@ export default function QuestSessionScreen() {
         useNativeDriver: true,
       }).start();
     });
+
+    const newOptions = await generateOptionsWithAI({
+      correctAnswer: nextCard.answer,
+      question: nextCard.question,
+      deckCards: deck.flashcards,
+      allCards,
+      currentCardId: nextCard.id,
+    });
+    setOptions(newOptions);
   }, [deck, allCards, performance, settings, cardAnimations]);
 
   useEffect(() => {
