@@ -65,13 +65,13 @@ export const lightTheme = {
   profileCard: ['#E0E7FF', '#F3E8FF', '#FFF1F2'] as const,
   
   // Gradient for score display (green shades)
-  scoreGradient: ['#10b981', '#059669'] as const,
+  scoreGradient: ['#0d9668', '#047857'] as const,
   
-  // Gradient for deck cards (purple shades)
-  deckGradient: ['#8b5cf6', '#7c3aed'] as const,
+  // Gradient for deck cards (deeper violet for contrast against purple bg)
+  deckGradient: ['#a855f7', '#7e22ce'] as const,
   
   // Gradient for arena/battle mode (orange shades)
-  arenaGradient: ['#f97316', '#ea580c'] as const,
+  arenaGradient: ['#f97316', '#dc2626'] as const,
   
   // Arena dark surface colors
   arenaSurface: 'rgba(255, 255, 255, 0.95)',
@@ -79,7 +79,7 @@ export const lightTheme = {
   arenaOverlay: 'rgba(255, 255, 255, 0.18)',
   
   // Gradient for quest mode (indigo shades)
-  questGradient: ['#6366f1', '#4f46e5'] as const,
+  questGradient: ['#4f46e5', '#4338ca'] as const,
   
   // Background for deck cards
   deckCardBg: 'rgba(255, 255, 255, 0.95)',
@@ -172,11 +172,11 @@ export const darkTheme = {
   // Gradient colors for profile cards (dark shades)
   profileCard: ['#111827', '#1f2937', '#312e81'] as const,
   
-  // Gradient for score display
-  scoreGradient: ['#10b981', '#059669'] as const,
+  // Gradient for score display (muted green, secondary)
+  scoreGradient: ['#0d9668', '#047857'] as const,
   
-  // Gradient for deck cards
-  deckGradient: ['#6366f1', '#4f46e5'] as const,
+  // Gradient for deck cards (deeper violet for contrast)
+  deckGradient: ['#a855f7', '#7e22ce'] as const,
   
   // Gradient for arena/battle mode (darker amber for dark mode)
   arenaGradient: ['#78350f', '#451a03'] as const,

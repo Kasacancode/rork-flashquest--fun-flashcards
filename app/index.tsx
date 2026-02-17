@@ -59,7 +59,7 @@ export default function HomePage() {
           <View style={[styles.statsCard, { backgroundColor: theme.statsCard }]}>
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: theme.primary }]}>{stats.totalScore}</Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Total Score</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Total XP</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -69,7 +69,7 @@ export default function HomePage() {
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: theme.primary }]}>{stats.totalCardsStudied}</Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Cards</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Cards Studied</Text>
             </View>
           </View>
 
