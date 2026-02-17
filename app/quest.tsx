@@ -1,8 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Target, Zap, Clock, Focus, Lightbulb, BookOpen, RefreshCw, Play, ChevronRight } from 'lucide-react-native';
+import { ArrowLeft, Target, Zap, Clock, Focus, Lightbulb, BookOpen, RefreshCw, Play, ChevronRight, Settings, X } from 'lucide-react-native';
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFlashQuest } from '@/context/FlashQuestContext';
@@ -29,6 +29,7 @@ export default function QuestMenuScreen() {
   const [hintsEnabled, setHintsEnabled] = useState<boolean>(lastSettings?.hintsEnabled ?? (mode === 'learn'));
   const [explanationsEnabled, setExplanationsEnabled] = useState<boolean>(lastSettings?.explanationsEnabled ?? (mode === 'learn'));
   const [secondChanceEnabled, setSecondChanceEnabled] = useState<boolean>(lastSettings?.secondChanceEnabled || false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const selectedDeck = useMemo(() => decks.find(d => d.id === selectedDeckId), [decks, selectedDeckId]);
   
@@ -102,7 +103,13 @@ export default function QuestMenuScreen() {
             <Target color="#fff" size={28} />
             <Text style={styles.headerTitle}>Quest Mode</Text>
           </View>
-          <View style={styles.headerSpacer} />
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => setSettingsOpen(true)}
+            activeOpacity={0.7}
+          >
+            <Settings color="#fff" size={22} />
+          </TouchableOpacity>
         </View>
 
         <ScrollView 
@@ -223,9 +230,76 @@ export default function QuestMenuScreen() {
             </Text>
           </View>
 
-          <View style={[styles.section, { backgroundColor: theme.cardBackground }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Settings</Text>
-            
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[styles.settingsMenuButton, { backgroundColor: theme.cardBackground }]}
+              onPress={() => setSettingsOpen(true)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.settingsMenuButtonLeft}>
+                <Settings color={theme.primary} size={18} />
+                <Text style={[styles.settingsMenuButtonText, { color: theme.text }]}>Quest Settings</Text>
+              </View>
+              <ChevronRight color={theme.textSecondary} size={18} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.startButton, !selectedDeckId && styles.disabledButton]}
+              onPress={handleStartQuest}
+              activeOpacity={0.8}
+              disabled={!selectedDeckId}
+            >
+              <LinearGradient
+                colors={theme.questGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.startButtonGradient}
+              >
+                <Play color="#fff" size={24} fill="#fff" />
+                <Text style={styles.startButtonText}>Start Quest</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {lastSettings && (
+              <TouchableOpacity
+                style={[styles.resumeButton, { borderColor: theme.primary }]}
+                onPress={handleQuickResume}
+                activeOpacity={0.7}
+              >
+                <ChevronRight color={theme.primary} size={20} />
+                <Text style={[styles.resumeButtonText, { color: theme.primary }]}> 
+                  Quick Resume
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </ScrollView>
+
+        <Modal
+          visible={settingsOpen}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setSettingsOpen(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <TouchableOpacity
+              style={styles.modalBackdropDismiss}
+              onPress={() => setSettingsOpen(false)}
+              activeOpacity={1}
+            />
+            <View style={[styles.modalSheet, { backgroundColor: theme.cardBackground }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>Settings</Text>
+                <TouchableOpacity
+                  style={[styles.modalCloseButton, { backgroundColor: theme.background }]}
+                  onPress={() => setSettingsOpen(false)}
+                  activeOpacity={0.7}
+                >
+                  <X color={theme.text} size={20} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.settingRow}>
               <View style={styles.settingLabel}>
                 <Target color={theme.textSecondary} size={18} />
@@ -361,40 +435,10 @@ export default function QuestMenuScreen() {
                 ]} />
               </View>
             </TouchableOpacity>
+              </ScrollView>
+            </View>
           </View>
-
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.startButton, !selectedDeckId && styles.disabledButton]}
-              onPress={handleStartQuest}
-              activeOpacity={0.8}
-              disabled={!selectedDeckId}
-            >
-              <LinearGradient
-                colors={theme.questGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.startButtonGradient}
-              >
-                <Play color="#fff" size={24} fill="#fff" />
-                <Text style={styles.startButtonText}>Start Quest</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            {lastSettings && (
-              <TouchableOpacity
-                style={[styles.resumeButton, { borderColor: theme.primary }]}
-                onPress={handleQuickResume}
-                activeOpacity={0.7}
-              >
-                <ChevronRight color={theme.primary} size={20} />
-                <Text style={[styles.resumeButtonText, { color: theme.primary }]}>
-                  Quick Resume
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </ScrollView>
+        </Modal>
       </SafeAreaView>
     </View>
   );
@@ -432,8 +476,13 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: '#fff',
   },
-  headerSpacer: {
+  settingsButton: {
     width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollView: {
     flex: 1,
@@ -595,6 +644,23 @@ const styles = StyleSheet.create({
     marginTop: 8,
     gap: 12,
   },
+  settingsMenuButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  settingsMenuButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  settingsMenuButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
   startButton: {
     borderRadius: 16,
     overflow: 'hidden',
@@ -631,5 +697,38 @@ const styles = StyleSheet.create({
   resumeButtonText: {
     fontSize: 16,
     fontWeight: '600' as const,
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  modalBackdropDismiss: {
+    flex: 1,
+  },
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 28,
+    maxHeight: '78%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+  },
+  modalCloseButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
