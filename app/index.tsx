@@ -76,33 +76,17 @@ export default function HomePage() {
           <View style={styles.actionsGrid}>
             <TouchableOpacity
               style={[styles.actionCard, styles.actionCardMedium]}
-              onPress={() => router.push('/stats' as any)}
+              onPress={() => router.push('/quest' as any)}
               activeOpacity={0.85}
             >
               <LinearGradient
-                colors={theme.scoreGradient}
+                colors={theme.questGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.actionGradient}
               >
-                <Trophy color="#fff" size={36} strokeWidth={2} />
-                <Text style={styles.actionTitleMedium}>Score</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionCard, styles.actionCardMedium]}
-              onPress={() => router.push('/decks' as any)}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={theme.deckGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.actionGradient}
-              >
-                <BookOpen color="#fff" size={36} strokeWidth={2} />
-                <Text style={styles.actionTitleMedium}>Decks</Text>
+                <Target color="#fff" size={36} strokeWidth={2} />
+                <Text style={styles.actionTitleMedium}>Quest</Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -124,17 +108,33 @@ export default function HomePage() {
 
             <TouchableOpacity
               style={[styles.actionCard, styles.actionCardMedium]}
-              onPress={() => router.push('/quest' as any)}
+              onPress={() => router.push('/stats' as any)}
               activeOpacity={0.85}
             >
               <LinearGradient
-                colors={theme.questGradient}
+                colors={theme.scoreGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.actionGradient}
               >
-                <Target color="#fff" size={36} strokeWidth={2} />
-                <Text style={styles.actionTitleMedium}>Quest</Text>
+                <Trophy color="#fff" size={36} strokeWidth={2} />
+                <Text style={styles.actionTitleMedium}>Stats</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionCard, styles.actionCardMedium]}
+              onPress={() => router.push('/decks' as any)}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={theme.deckGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.actionGradient}
+              >
+                <BookOpen color="#fff" size={36} strokeWidth={2} />
+                <Text style={styles.actionTitleMedium}>Decks</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
