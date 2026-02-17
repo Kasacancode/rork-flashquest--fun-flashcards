@@ -38,7 +38,7 @@ export default function HomePage() {
           <View style={styles.header}>
             <View>
               <Text style={styles.title}>FlashQuest</Text>
-              <Text style={styles.subtitle}>Learn. Battle. Conquer.</Text>
+              <Text style={styles.subtitle}>Deck. Set. Match.</Text>
             </View>
             <TouchableOpacity
               style={styles.profileButton}
