@@ -174,7 +174,7 @@ export default function TextToDeckPage() {
     });
 
     Alert.alert('Deck Created!', `${validCards.length} flashcards generated from your text.`, [
-      { text: 'View Decks', onPress: () => router.replace('/decks') },
+      { text: 'View Decks', onPress: () => router.replace('/decks' as any) },
     ]);
   }, [deckName, deckDescription, generatedCards, addDeck, router]);
 

@@ -64,7 +64,7 @@ export default function QuestMenuScreen() {
     saveLastQuestSettings(settings);
 
     router.push({
-      pathname: '/quest-session',
+      pathname: '/quest-session' as any,
       params: { settings: JSON.stringify(settings) },
     });
   };
@@ -73,7 +73,7 @@ export default function QuestMenuScreen() {
     if (!lastSettings) return;
     
     router.push({
-      pathname: '/quest-session',
+      pathname: '/quest-session' as any,
       params: { settings: JSON.stringify(lastSettings) },
     });
   };
