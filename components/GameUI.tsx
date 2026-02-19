@@ -515,7 +515,7 @@ export function MatchHeader({
         </View>
       </View>
 
-      {currentPlayer && (
+      {currentPlayer != null && (
         <View style={styles.currentPlayerBar}>
           <View style={[styles.currentPlayerDot, { backgroundColor: currentPlayer.color }]} />
           <Text style={styles.currentPlayerName}>{currentPlayer.name}</Text>

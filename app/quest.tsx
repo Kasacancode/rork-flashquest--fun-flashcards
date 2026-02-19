@@ -313,7 +313,7 @@ export default function QuestMenuScreen() {
               </LinearGradient>
             </TouchableOpacity>
 
-            {lastSettings && (
+            {lastSettings != null && (
               <TouchableOpacity
                 style={[styles.resumeButton, { borderColor: theme.primary }]}
                 onPress={handleQuickResume}

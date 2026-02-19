@@ -311,7 +311,7 @@ export default function ArenaSessionScreen() {
             <StreakIndicator streak={myStreak} showMultiplier={false} />
           )}
 
-          {leader && (
+          {leader != null && (
             <View style={styles.leaderBadge}>
               <Crown color="#f59e0b" size={12} />
               <Text style={styles.leaderBadgeText}>

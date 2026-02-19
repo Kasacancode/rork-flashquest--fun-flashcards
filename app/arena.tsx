@@ -130,7 +130,7 @@ export default function ArenaMenuScreen() {
             </Text>
           </View>
 
-          {roomCode && (
+          {!!roomCode && (
             <View style={[styles.activeRoomBanner, { backgroundColor: 'rgba(16, 185, 129, 0.25)' }]}>
               <Wifi color="#10b981" size={20} />
               <View style={styles.activeRoomInfo}>

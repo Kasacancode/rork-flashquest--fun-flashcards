@@ -549,9 +549,7 @@ export default function DuelSessionPage() {
                   styles.submitButtonText,
                   buttonState !== 'idle' && styles.submitButtonTextWhite,
                 ]}>
-                  {buttonState === 'idle' && 'Submit'}
-                  {buttonState === 'correct' && '✓ Correct!'}
-                  {buttonState === 'incorrect' && '✗ Wrong'}
+                  {buttonState === 'idle' ? 'Submit' : buttonState === 'correct' ? '✓ Correct!' : '✗ Wrong'}
                 </Text>
               </TouchableOpacity>
             </Animated.View>

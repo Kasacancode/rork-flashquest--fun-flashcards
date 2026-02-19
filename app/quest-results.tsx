@@ -214,7 +214,7 @@ export default function QuestResultsScreen() {
                       <Text style={[styles.missedAnswer, { color: theme.success }]}>
                         Answer: {card?.answer}
                       </Text>
-                      {card?.explanation && (
+                      {!!card?.explanation && (
                         <Text style={[styles.missedExplanation, { color: theme.textSecondary }]} numberOfLines={3}>
                           {card.explanation}
                         </Text>

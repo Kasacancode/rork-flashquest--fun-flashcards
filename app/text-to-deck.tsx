@@ -225,7 +225,7 @@ export default function TextToDeckPage() {
               </Text>
             </View>
 
-            {errorMessage && (
+            {!!errorMessage && (
               <View style={[styles.errorBanner, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
                 <Text style={[styles.errorText, { color: theme.error }]}>{errorMessage}</Text>
               </View>

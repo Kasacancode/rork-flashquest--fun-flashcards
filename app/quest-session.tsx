@@ -496,7 +496,7 @@ export default function QuestSessionScreen() {
             {currentCard.question}
           </Text>
           
-          {settings.hintsEnabled && currentCard.hint1 && !showHint && !inputLocked && (
+          {settings.hintsEnabled && !!currentCard.hint1 && !showHint && !inputLocked && (
             <TouchableOpacity
               style={[styles.hintButton, { backgroundColor: theme.warning + '20' }]}
               onPress={handleHintPress}
@@ -507,7 +507,7 @@ export default function QuestSessionScreen() {
             </TouchableOpacity>
           )}
           
-          {showHint && currentCard.hint1 && (
+          {showHint && !!currentCard.hint1 && (
             <View style={[styles.hintContainer, { backgroundColor: theme.warning + '15' }]}>
               <Lightbulb color={theme.warning} size={12} />
               <Text style={[styles.hintText, { color: theme.warning }]}>{currentCard.hint1}</Text>
@@ -533,7 +533,7 @@ export default function QuestSessionScreen() {
           </View>
         </View>
 
-        {showExplanation && currentCard.explanation && (
+        {showExplanation && !!currentCard.explanation && (
           <View style={styles.explanationOverlay}>
             <View style={[styles.explanationCard, { backgroundColor: theme.cardBackground }]}>
               <Text style={[styles.explanationTitle, { color: isCorrect ? theme.success : theme.error }]}>

@@ -267,13 +267,13 @@ export default function ScanNotesPage() {
               </Text>
             </View>
 
-            {errorMessage && (
+            {!!errorMessage && (
               <View style={[styles.errorBanner, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
                 <Text style={[styles.errorText, { color: theme.error }]}>{errorMessage}</Text>
               </View>
             )}
 
-            {imageUri && (
+            {!!imageUri && (
               <View style={[styles.previewCard, { backgroundColor: theme.cardBackground }]}>
                 <Image source={{ uri: imageUri }} style={styles.previewImage} resizeMode="cover" />
               </View>
@@ -316,7 +316,7 @@ export default function ScanNotesPage() {
         {step === 'processing' && (
           <View style={styles.processingContainer}>
             <View style={[styles.processingCard, { backgroundColor: theme.cardBackground }]}>
-              {imageUri && (
+              {!!imageUri && (
                 <Animated.View style={[styles.processingImageWrap, { opacity: pulseAnim }]}>
                   <Image source={{ uri: imageUri }} style={styles.processingImage} resizeMode="cover" />
                   <View style={[styles.processingOverlay, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.7)' }]} />
@@ -340,7 +340,7 @@ export default function ScanNotesPage() {
               contentContainerStyle={styles.reviewContent}
               showsVerticalScrollIndicator={false}
             >
-              {imageUri && (
+              {!!imageUri && (
                 <View style={[styles.thumbRow, { backgroundColor: theme.cardBackground }]}>
                   <Image source={{ uri: imageUri }} style={styles.thumbImage} resizeMode="cover" />
                   <View style={styles.thumbInfo}>

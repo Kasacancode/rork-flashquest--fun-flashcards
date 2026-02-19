@@ -217,7 +217,7 @@ export default function ArenaResultsScreen() {
           <View style={styles.header}>
             <Trophy color="#FFD700" size={56} />
             <Text style={styles.title}>Battle Over!</Text>
-            {winner && (
+            {winner != null && (
               <View style={styles.winnerBadge}>
                 <Text style={styles.winnerLabel}>Winner</Text>
                 <Text style={styles.winnerName}>{winner.name}</Text>
