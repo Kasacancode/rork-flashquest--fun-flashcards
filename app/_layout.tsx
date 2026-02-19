@@ -77,7 +77,7 @@ function RootLayoutNav() {
 export default function RootLayout() {
   // Hide the splash screen once the app is ready
   useEffect(() => {
-    SplashScreen.hideAsync();
+    SplashScreen.hideAsync().catch(() => {});
   }, []);
 
   return (
