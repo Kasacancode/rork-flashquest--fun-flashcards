@@ -1,82 +1,38 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { X, Hand, Zap, Trophy, Crown } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { X, Crown, Users, Check, Clock } from 'lucide-react-native';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnswerCard, getSuitForIndex, DealerReaction, getRandomDealerLine, AnswerCardState, CARD_GAP, CARD_PADDING, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
 import { DealerCountdownBar, MiniScoreboard, StreakIndicator } from '@/components/GameUI';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useArena } from '@/context/ArenaContext';
 import { useTheme } from '@/context/ThemeContext';
-import { ArenaLobbyState, ArenaPlayerResult, ArenaAnswer, ArenaMatchResult, Flashcard } from '@/types/flashcard';
-import { generateOptionsWithAI, generateOptions, checkAnswer } from '@/utils/questUtils';
-
-type GamePhase = 'pass-device' | 'question' | 'feedback';
-
-interface PlayerState {
-  playerId: string;
-  playerName: string;
-  playerColor: string;
-  correctCount: number;
-  incorrectCount: number;
-  points: number;
-  currentStreak: number;
-  bestStreak: number;
-  answers: ArenaAnswer[];
-}
+import { logger } from '@/utils/logger';
 
 export default function ArenaSessionScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ lobbyState: string }>();
   const { theme, isDark } = useTheme();
-  const { decks } = useFlashQuest();
+  const {
+    room,
+    playerId,
+    isHost,
+    hasAnsweredCurrent,
+    lastAnswerCorrect,
+    isSubmitting,
+    submitAnswer,
+    disconnect,
+    connectionError,
+  } = useArena();
 
-  const lobby: ArenaLobbyState = useMemo(() => {
-    try {
-      return JSON.parse(params.lobbyState || '{}');
-    } catch {
-      return {} as ArenaLobbyState;
-    }
-  }, [params.lobbyState]);
-
-  const deck = useMemo(() => decks.find(d => d.id === lobby.deckId), [decks, lobby.deckId]);
-  const allCards = useMemo(() => decks.flatMap(d => d.flashcards), [decks]);
-
-  const [gamePhase, setGamePhase] = useState<GamePhase>('pass-device');
-  const [currentRound, setCurrentRound] = useState(0);
-  const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
-  const [currentCard, setCurrentCard] = useState<Flashcard | null>(null);
-  const [options, setOptions] = useState<string[]>([]);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
-  const [roundStartTime, setRoundStartTime] = useState(0);
-  const [inputLocked, setInputLocked] = useState(false);
-
-  const [playerStates, setPlayerStates] = useState<PlayerState[]>(() =>
-    lobby.players?.map(p => ({
-      playerId: p.id,
-      playerName: p.name,
-      playerColor: p.color,
-      correctCount: 0,
-      incorrectCount: 0,
-      points: 0,
-      currentStreak: 0,
-      bestStreak: 0,
-      answers: [],
-    })) || []
-  );
-
-  const usedCardIdsRef = useRef<Set<string>>(new Set());
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const totalQuestionsPerPlayer = lobby.settings?.rounds || 10;
-  const totalQuestions = totalQuestionsPerPlayer * (lobby.players?.length || 1);
-  
   const [dealerLine, setDealerLine] = useState<string>('');
   const [dealerReactionCorrect, setDealerReactionCorrect] = useState<boolean | undefined>(undefined);
   const lastDealerLineRef = useRef<string>('');
+  const prevQuestionIndexRef = useRef<number>(-1);
+  const hasNavigatedToResults = useRef(false);
 
   const cardAnimations = useRef([
     new Animated.Value(0),
@@ -99,395 +55,212 @@ export default function ArenaSessionScreen() {
     new Animated.Value(0),
   ]).current;
 
-  const feedbackOpacity = useRef(new Animated.Value(0)).current;
-  const feedbackScale = useRef(new Animated.Value(0.8)).current;
+  const revealOpacity = useRef(new Animated.Value(0)).current;
+  const waitingPulse = useRef(new Animated.Value(1)).current;
 
-  const currentPlayer = useMemo(() => {
-    return lobby.players?.[currentPlayerIndex];
-  }, [lobby.players, currentPlayerIndex]);
+  const game = room?.game ?? null;
+  const phase = game?.phase ?? null;
+  const currentQuestion = game?.currentQuestion ?? null;
+  const options = currentQuestion?.options ?? [];
+  const questionIndex = game?.currentQuestionIndex ?? 0;
+  const totalQuestions = game?.totalQuestions ?? 0;
+  const scores = game?.scores ?? {};
+  const answeredPlayerIds = game?.answeredPlayerIds ?? [];
+  const currentAnswers = game?.currentAnswers ?? null;
+  const players = room?.players ?? [];
 
-  const currentPlayerState = useMemo(() => {
-    return playerStates[currentPlayerIndex];
-  }, [playerStates, currentPlayerIndex]);
+  const timeRemainingSeconds = useMemo(() => {
+    if (game?.timeRemainingMs != null && game.timeRemainingMs > 0) {
+      return Math.ceil(game.timeRemainingMs / 1000);
+    }
+    return null;
+  }, [game?.timeRemainingMs]);
 
-  const questionNumber = useMemo(() => {
-    return currentRound * (lobby.players?.length || 1) + currentPlayerIndex + 1;
-  }, [currentRound, currentPlayerIndex, lobby.players?.length]);
+  const timerTotal = room?.settings?.timerSeconds ?? 0;
+
+  const myScore = playerId && scores[playerId] ? scores[playerId] : null;
+  const myStreak = myScore?.currentStreak ?? 0;
+
+  const sortedPlayers = useMemo(() => {
+    return [...players].sort((a, b) => {
+      const aScore = scores[a.id]?.points ?? 0;
+      const bScore = scores[b.id]?.points ?? 0;
+      return bScore - aScore;
+    });
+  }, [players, scores]);
 
   const scoreboardPlayers = useMemo(() => {
-    return playerStates.map(ps => ({
-      id: ps.playerId,
-      name: ps.playerName,
-      color: ps.playerColor,
-      points: ps.points,
+    return sortedPlayers.map(p => ({
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      points: scores[p.id]?.points ?? 0,
     }));
-  }, [playerStates]);
+  }, [sortedPlayers, scores]);
 
-  const setupQuestion = useCallback(async () => {
-    if (!deck) return;
+  const leader = sortedPlayers[0];
 
-    let nextCard: Flashcard | undefined;
-    const availableCards = deck.flashcards.filter(c => !usedCardIdsRef.current.has(c.id));
-
-    if (availableCards.length > 0) {
-      const randomIndex = Math.floor(Math.random() * availableCards.length);
-      nextCard = availableCards[randomIndex];
-    } else {
-      usedCardIdsRef.current.clear();
-      const randomIndex = Math.floor(Math.random() * deck.flashcards.length);
-      nextCard = deck.flashcards[randomIndex];
+  useEffect(() => {
+    if (!room || room.status !== 'playing' || !game) {
+      if (!hasNavigatedToResults.current) {
+        logger.log('[Session] No active game, redirecting');
+        router.replace('/arena' as any);
+      }
+      return;
     }
 
-    if (!nextCard) return;
-
-    usedCardIdsRef.current.add(nextCard.id);
-    setCurrentCard(nextCard);
-    setSelectedOption(null);
-    setIsCorrect(null);
-    setInputLocked(false);
-    setRoundStartTime(Date.now());
-    
-    const line = getRandomDealerLine('idle', lastDealerLineRef.current);
-    setDealerLine(line);
-    lastDealerLineRef.current = line;
-    setDealerReactionCorrect(undefined);
-
-    if (lobby.settings.timerSeconds > 0) {
-      setTimeRemaining(lobby.settings.timerSeconds);
+    if (phase === 'finished' && !hasNavigatedToResults.current) {
+      hasNavigatedToResults.current = true;
+      logger.log('[Session] Game finished, navigating to results');
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      setTimeout(() => {
+        router.replace('/arena-results' as any);
+      }, 500);
     }
+  }, [room, game, phase]);
 
-    cardAnimations.forEach((anim, index) => {
-      anim.setValue(0);
-      cardScales[index].setValue(1);
-      shakeAnims[index].setValue(0);
-      Animated.spring(anim, {
+  useEffect(() => {
+    if (connectionError) {
+      Alert.alert('Connection Lost', connectionError, [
+        { text: 'OK', onPress: () => router.replace('/arena' as any) },
+      ]);
+    }
+  }, [connectionError]);
+
+  useEffect(() => {
+    if (questionIndex !== prevQuestionIndexRef.current) {
+      prevQuestionIndexRef.current = questionIndex;
+      setSelectedOption(null);
+      setDealerReactionCorrect(undefined);
+
+      const line = getRandomDealerLine('idle', lastDealerLineRef.current);
+      setDealerLine(line);
+      lastDealerLineRef.current = line;
+
+      revealOpacity.setValue(0);
+
+      cardAnimations.forEach((anim, index) => {
+        anim.setValue(0);
+        cardScales[index].setValue(1);
+        shakeAnims[index].setValue(0);
+        Animated.spring(anim, {
+          toValue: 1,
+          friction: 7,
+          tension: 60,
+          delay: index * 60,
+          useNativeDriver: true,
+        }).start();
+      });
+    }
+  }, [questionIndex, cardAnimations, cardScales, shakeAnims, revealOpacity]);
+
+  useEffect(() => {
+    if (lastAnswerCorrect !== null && selectedOption) {
+      const lineType = lastAnswerCorrect ? 'correct' : 'wrong';
+      const line = getRandomDealerLine(lineType, lastDealerLineRef.current);
+      setDealerLine(line);
+      lastDealerLineRef.current = line;
+      setDealerReactionCorrect(lastAnswerCorrect);
+
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(
+          lastAnswerCorrect ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error
+        );
+      }
+
+      const selectedIndex = options.findIndex(o => o === selectedOption);
+      if (selectedIndex >= 0) {
+        if (lastAnswerCorrect) {
+          Animated.sequence([
+            Animated.timing(cardScales[selectedIndex], { toValue: 1.08, duration: 150, useNativeDriver: true }),
+            Animated.spring(cardScales[selectedIndex], { toValue: 1, friction: 4, useNativeDriver: true }),
+          ]).start();
+        } else {
+          Animated.sequence([
+            Animated.timing(shakeAnims[selectedIndex], { toValue: 10, duration: 50, useNativeDriver: true }),
+            Animated.timing(shakeAnims[selectedIndex], { toValue: -10, duration: 50, useNativeDriver: true }),
+            Animated.timing(shakeAnims[selectedIndex], { toValue: 8, duration: 50, useNativeDriver: true }),
+            Animated.timing(shakeAnims[selectedIndex], { toValue: -8, duration: 50, useNativeDriver: true }),
+            Animated.timing(shakeAnims[selectedIndex], { toValue: 0, duration: 50, useNativeDriver: true }),
+          ]).start();
+        }
+      }
+    }
+  }, [lastAnswerCorrect, selectedOption, options, cardScales, shakeAnims]);
+
+  useEffect(() => {
+    if (phase === 'reveal') {
+      Animated.timing(revealOpacity, {
         toValue: 1,
-        friction: 7,
-        tension: 60,
-        delay: index * 60,
+        duration: 400,
         useNativeDriver: true,
       }).start();
-    });
-
-    feedbackOpacity.setValue(0);
-    feedbackScale.setValue(0.8);
-
-    try {
-      const newOptions = await generateOptionsWithAI({
-        correctAnswer: nextCard.answer,
-        question: nextCard.question,
-        deckCards: deck.flashcards,
-        allCards,
-        currentCardId: nextCard.id,
-      });
-      setOptions(newOptions);
-    } catch {
-      const fallbackOptions = generateOptions({
-        correctAnswer: nextCard.answer,
-        deckCards: deck.flashcards,
-        allCards,
-        currentCardId: nextCard.id,
-      });
-      setOptions(fallbackOptions);
     }
-  }, [deck, allCards, lobby.settings, cardAnimations, cardScales, shakeAnims, feedbackOpacity, feedbackScale]);
+  }, [phase, revealOpacity]);
 
   useEffect(() => {
-    if (lobby.settings?.timerSeconds > 0 && timeRemaining !== null && timeRemaining > 0 && gamePhase === 'question') {
-      timerRef.current = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev === null || prev <= 1) {
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+    if (hasAnsweredCurrent && phase === 'question') {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(waitingPulse, { toValue: 1.03, duration: 800, useNativeDriver: true }),
+          Animated.timing(waitingPulse, { toValue: 1, duration: 800, useNativeDriver: true }),
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    } else {
+      waitingPulse.setValue(1);
     }
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [timeRemaining, gamePhase, lobby.settings?.timerSeconds]);
-
-  useEffect(() => {
-    if (timeRemaining === 0 && gamePhase === 'question' && currentCard && !inputLocked) {
-      handleTimeUp();
-    }
-  }, [timeRemaining, gamePhase, currentCard, inputLocked]);
-
-  const handleTimeUp = useCallback(() => {
-    if (gamePhase !== 'question' || !currentCard || inputLocked) return;
-
-    setInputLocked(true);
-
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-
-    const timeToAnswer = Date.now() - roundStartTime;
-
-    setPlayerStates(prev => {
-      const updated = [...prev];
-      updated[currentPlayerIndex] = {
-        ...updated[currentPlayerIndex],
-        incorrectCount: updated[currentPlayerIndex].incorrectCount + 1,
-        currentStreak: 0,
-        answers: [
-          ...updated[currentPlayerIndex].answers,
-          {
-            cardId: currentCard.id,
-            selectedOption: '',
-            correctAnswer: currentCard.answer,
-            isCorrect: false,
-            timeToAnswerMs: timeToAnswer,
-          },
-        ],
-      };
-      return updated;
-    });
-
-    setIsCorrect(false);
-
-    const correctIndex = options.findIndex(o => checkAnswer(o, currentCard.answer));
-    if (correctIndex >= 0) {
-      Animated.sequence([
-        Animated.timing(cardScales[correctIndex], {
-          toValue: 1.08,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.spring(cardScales[correctIndex], {
-          toValue: 1,
-          friction: 4,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-
-    Animated.parallel([
-      Animated.timing(feedbackOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.spring(feedbackScale, {
-        toValue: 1,
-        friction: 6,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    setGamePhase('feedback');
-    
-    const line = getRandomDealerLine('timeout', lastDealerLineRef.current);
-    setDealerLine(line);
-    lastDealerLineRef.current = line;
-    setDealerReactionCorrect(false);
-
-    if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  }, [gamePhase, currentCard, roundStartTime, currentPlayerIndex, options, inputLocked, cardScales, feedbackOpacity, feedbackScale]);
+  }, [hasAnsweredCurrent, phase, waitingPulse]);
 
   const handleOptionPress = useCallback((option: string, index: number) => {
-    if (gamePhase !== 'question' || !currentCard || inputLocked) return;
-
-    setInputLocked(true);
-
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-
-    const correct = checkAnswer(option, currentCard.answer);
-    const timeToAnswer = Date.now() - roundStartTime;
+    if (hasAnsweredCurrent || isSubmitting || phase !== 'question' || !game) return;
 
     setSelectedOption(option);
-    setIsCorrect(correct);
 
     Animated.sequence([
-      Animated.timing(cardScales[index], {
-        toValue: 0.95,
-        duration: 80,
-        useNativeDriver: true,
-      }),
-      Animated.spring(cardScales[index], {
-        toValue: correct ? 1.05 : 1,
-        friction: 4,
-        useNativeDriver: true,
-      }),
+      Animated.timing(cardScales[index], { toValue: 0.95, duration: 80, useNativeDriver: true }),
+      Animated.spring(cardScales[index], { toValue: 1, friction: 4, useNativeDriver: true }),
     ]).start();
 
-    if (!correct) {
-      Animated.sequence([
-        Animated.timing(shakeAnims[index], { toValue: 10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnims[index], { toValue: -10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnims[index], { toValue: 8, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnims[index], { toValue: -8, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnims[index], { toValue: 0, duration: 50, useNativeDriver: true }),
-      ]).start();
-
-      const correctIndex = options.findIndex(o => checkAnswer(o, currentCard.answer));
-      if (correctIndex >= 0 && correctIndex !== index) {
-        setTimeout(() => {
-          Animated.sequence([
-            Animated.timing(cardScales[correctIndex], {
-              toValue: 1.08,
-              duration: 150,
-              useNativeDriver: true,
-            }),
-            Animated.spring(cardScales[correctIndex], {
-              toValue: 1,
-              friction: 4,
-              useNativeDriver: true,
-            }),
-          ]).start();
-        }, 200);
-      }
-    }
-
-    setPlayerStates(prev => {
-      const updated = [...prev];
-      const playerState = updated[currentPlayerIndex];
-      const newStreak = correct ? playerState.currentStreak + 1 : 0;
-      const points = correct ? 1 : 0;
-
-      updated[currentPlayerIndex] = {
-        ...playerState,
-        correctCount: playerState.correctCount + (correct ? 1 : 0),
-        incorrectCount: playerState.incorrectCount + (correct ? 0 : 1),
-        points: playerState.points + points,
-        currentStreak: newStreak,
-        bestStreak: Math.max(playerState.bestStreak, newStreak),
-        answers: [
-          ...playerState.answers,
-          {
-            cardId: currentCard.id,
-            selectedOption: option,
-            correctAnswer: currentCard.answer,
-            isCorrect: correct,
-            timeToAnswerMs: timeToAnswer,
-          },
-        ],
-      };
-      return updated;
-    });
-
-    Animated.parallel([
-      Animated.timing(feedbackOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.spring(feedbackScale, {
-        toValue: 1,
-        friction: 6,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    setGamePhase('feedback');
-    
-    const lineType = correct ? 'correct' : 'wrong';
-    const line = getRandomDealerLine(lineType, lastDealerLineRef.current);
-    setDealerLine(line);
-    lastDealerLineRef.current = line;
-    setDealerReactionCorrect(correct);
-
-    if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(
-        correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error
-      );
-    }
-  }, [gamePhase, currentCard, roundStartTime, currentPlayerIndex, options, inputLocked, cardScales, shakeAnims, feedbackOpacity, feedbackScale]);
-
-  const handleReadyPress = useCallback(() => {
-    setGamePhase('question');
-    setupQuestion();
-  }, [setupQuestion]);
-
-  const handleContinue = useCallback(() => {
-    const nextPlayerIndex = currentPlayerIndex + 1;
-
-    if (nextPlayerIndex >= (lobby.players?.length || 0)) {
-      const nextRound = currentRound + 1;
-      if (nextRound >= totalQuestionsPerPlayer) {
-        const results: ArenaPlayerResult[] = playerStates.map(ps => ({
-          playerId: ps.playerId,
-          playerName: ps.playerName,
-          playerColor: ps.playerColor,
-          correctCount: ps.correctCount,
-          incorrectCount: ps.incorrectCount,
-          points: ps.points,
-          accuracy: ps.correctCount / totalQuestionsPerPlayer,
-          bestStreak: ps.bestStreak,
-          answers: ps.answers,
-        }));
-
-        const matchResult: ArenaMatchResult = {
-          roomCode: lobby.roomCode,
-          deckId: lobby.deckId!,
-          settings: lobby.settings,
-          playerResults: results,
-          totalRounds: totalQuestionsPerPlayer,
-          completedAt: Date.now(),
-        };
-
-        router.replace({
-          pathname: '/arena-results' as any,
-          params: { result: JSON.stringify(matchResult) },
-        });
-        return;
-      }
-
-      setCurrentRound(nextRound);
-      setCurrentPlayerIndex(0);
-    } else {
-      setCurrentPlayerIndex(nextPlayerIndex);
-    }
-
-    setGamePhase('pass-device');
-  }, [currentPlayerIndex, currentRound, lobby, totalQuestionsPerPlayer, playerStates, router]);
+    submitAnswer(game.currentQuestionIndex, option);
+    logger.log('[Session] Submitted answer:', option);
+  }, [hasAnsweredCurrent, isSubmitting, phase, game, submitAnswer, cardScales]);
 
   const handleQuit = useCallback(() => {
-    router.back();
-  }, [router]);
+    Alert.alert('Leave Game', 'Are you sure you want to leave the game?', [
+      { text: 'Stay', style: 'cancel' },
+      {
+        text: 'Leave',
+        style: 'destructive',
+        onPress: () => {
+          disconnect();
+          router.replace('/arena' as any);
+        },
+      },
+    ]);
+  }, [disconnect, router]);
 
-  const getCardState = (option: string, index: number): AnswerCardState => {
-    if (!selectedOption && isCorrect === null) {
-      return inputLocked ? 'disabled' : 'idle';
+  const getCardState = useCallback((option: string): AnswerCardState => {
+    if (phase === 'reveal' || phase === 'finished') {
+      const isCorrectOption = currentQuestion?.correctAnswer === option;
+      if (isCorrectOption) return 'correct';
+      if (option === selectedOption && !isCorrectOption) return 'wrong';
+      return 'disabled';
     }
 
-    const isSelected = option === selectedOption;
-    const isCorrectOption = currentCard && checkAnswer(option, currentCard.answer);
-
-    if (isCorrectOption) {
-      return 'correct';
+    if (hasAnsweredCurrent) {
+      if (option === selectedOption) return 'disabled';
+      return 'disabled';
     }
-    if (isSelected && !isCorrect) {
-      return 'wrong';
-    }
-    return 'disabled';
-  };
 
-  if (!deck || !lobby.players) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <SafeAreaView style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: theme.text }]}>Loading...</Text>
-        </SafeAreaView>
-      </View>
-    );
-  }
+    if (isSubmitting) return 'disabled';
+    return 'idle';
+  }, [phase, currentQuestion, selectedOption, hasAnsweredCurrent, isSubmitting]);
 
-  if (gamePhase === 'pass-device') {
-    const sortedPlayers = [...playerStates].sort((a, b) => b.points - a.points);
-    const currentRank = sortedPlayers.findIndex(p => p.playerId === currentPlayer?.id) + 1;
-
+  if (!room || !game || phase === 'finished') {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <LinearGradient
@@ -496,78 +269,17 @@ export default function ArenaSessionScreen() {
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-
-        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.quitButton}
-              onPress={handleQuit}
-              activeOpacity={0.7}
-            >
-              <X color="#fff" size={24} />
-            </TouchableOpacity>
-            <View style={styles.progressInfo}>
-              <Text style={styles.progressText}>
-                Q {questionNumber}/{totalQuestions}
-              </Text>
-            </View>
-            <View style={styles.headerSpacer} />
-          </View>
-
-          <View style={styles.passDeviceContainer}>
-            <Hand color="#fff" size={56} />
-            <Text style={styles.passDeviceTitle}>Pass to {currentPlayer?.name}</Text>
-            
-            <View style={[styles.playerAvatarLarge, { backgroundColor: currentPlayer?.color }]}>
-              <Text style={styles.playerInitialLarge}>
-                {currentPlayer?.name.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-
-            <View style={styles.passDeviceStats}>
-              <View style={styles.passDeviceStat}>
-                <Text style={styles.passDeviceStatLabel}>Round</Text>
-                <Text style={styles.passDeviceStatValue}>{currentRound + 1}/{totalQuestionsPerPlayer}</Text>
-              </View>
-              <View style={styles.passDeviceStatDivider} />
-              <View style={styles.passDeviceStat}>
-                <Text style={styles.passDeviceStatLabel}>Rank</Text>
-                <Text style={styles.passDeviceStatValue}>#{currentRank}</Text>
-              </View>
-              <View style={styles.passDeviceStatDivider} />
-              <View style={styles.passDeviceStat}>
-                <Text style={styles.passDeviceStatLabel}>Score</Text>
-                <Text style={styles.passDeviceStatValue}>{currentPlayerState?.points || 0}</Text>
-              </View>
-            </View>
-
-            <View style={styles.passDeviceScoreboard}>
-              <MiniScoreboard 
-                players={scoreboardPlayers} 
-                currentPlayerId={currentPlayer?.id}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={styles.readyButton}
-              onPress={handleReadyPress}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={['#10b981', '#059669']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.readyButtonGradient}
-              >
-                <Zap color="#fff" size={22} />
-                <Text style={styles.readyButtonText}>Ready!</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+        <SafeAreaView style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>
+            {phase === 'finished' ? 'Loading results...' : 'Connecting...'}
+          </Text>
         </SafeAreaView>
       </View>
     );
   }
+
+  const answeredCount = answeredPlayerIds.length;
+  const totalPlayers = players.length;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -585,44 +297,62 @@ export default function ArenaSessionScreen() {
           </TouchableOpacity>
 
           <View style={styles.questionBadge}>
-            <Text style={styles.questionBadgeText}>{questionNumber}/{totalQuestions}</Text>
+            <Text style={styles.questionBadgeText}>{questionIndex + 1}/{totalQuestions}</Text>
           </View>
 
-          {currentPlayerState?.currentStreak > 0 && (
-            <StreakIndicator streak={currentPlayerState.currentStreak} showMultiplier={false} />
+          {myStreak > 0 && (
+            <StreakIndicator streak={myStreak} showMultiplier={false} />
           )}
 
-          <View style={styles.leaderBadge}>
-            <Crown color="#f59e0b" size={12} />
-            <Text style={styles.leaderBadgeText}>
-              {[...playerStates].sort((a, b) => b.points - a.points)[0]?.playerName.slice(0, 5)}: {[...playerStates].sort((a, b) => b.points - a.points)[0]?.points}
+          {leader && (
+            <View style={styles.leaderBadge}>
+              <Crown color="#f59e0b" size={12} />
+              <Text style={styles.leaderBadgeText}>
+                {leader.name.slice(0, 6)}: {scores[leader.id]?.points ?? 0}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {phase === 'question' && hasAnsweredCurrent && (
+          <Animated.View style={[styles.waitingBanner, { transform: [{ scale: waitingPulse }] }]}>
+            <Clock color="rgba(255,255,255,0.8)" size={16} />
+            <Text style={styles.waitingBannerText}>
+              Waiting for others... ({answeredCount}/{totalPlayers})
             </Text>
+          </Animated.View>
+        )}
+
+        {phase === 'question' && !hasAnsweredCurrent && (
+          <View style={styles.answeredIndicator}>
+            <Users color="rgba(255,255,255,0.6)" size={14} />
+            <Text style={styles.answeredText}>{answeredCount}/{totalPlayers} answered</Text>
           </View>
-        </View>
+        )}
 
-        <View style={styles.currentPlayerBanner}>
-          <View style={[styles.currentPlayerDot, { backgroundColor: currentPlayer?.color }]} />
-          <Text style={styles.currentPlayerName}>{currentPlayer?.name}</Text>
-          <Text style={styles.currentPlayerScore}>{currentPlayerState?.points || 0} pts</Text>
-        </View>
+        {phase === 'reveal' && (
+          <Animated.View style={[styles.revealBanner, { opacity: revealOpacity }]}>
+            <Text style={styles.revealBannerText}>Answer Revealed!</Text>
+          </Animated.View>
+        )}
 
-        {dealerLine && gamePhase === 'question' && (
+        {dealerLine && phase === 'question' && !hasAnsweredCurrent && (
           <View style={styles.dealerSection}>
             <DealerReaction text={dealerLine} isCorrect={dealerReactionCorrect} />
           </View>
         )}
 
         <View style={[styles.questionCard, { backgroundColor: isDark ? theme.cardBackground : 'rgba(255,255,255,0.95)' }]}>
-          {lobby.settings.timerSeconds > 0 && timeRemaining !== null && (
+          {timerTotal > 0 && timeRemainingSeconds !== null && phase === 'question' && (
             <View style={styles.inlineTimer}>
-              <DealerCountdownBar 
-                timeRemaining={timeRemaining} 
-                totalTime={lobby.settings.timerSeconds}
+              <DealerCountdownBar
+                timeRemaining={timeRemainingSeconds}
+                totalTime={timerTotal}
               />
             </View>
           )}
           <Text style={[styles.questionText, { color: theme.text }]} numberOfLines={3}>
-            {currentCard?.question}
+            {currentQuestion?.question}
           </Text>
         </View>
 
@@ -631,11 +361,11 @@ export default function ArenaSessionScreen() {
             <View style={styles.optionsGrid}>
               {options.map((option, index) => (
                 <AnswerCard
-                  key={index}
+                  key={`${questionIndex}-${index}`}
                   optionText={option}
                   suit={getSuitForIndex(index)}
                   index={index}
-                  state={getCardState(option, index)}
+                  state={getCardState(option)}
                   onPress={() => handleOptionPress(option, index)}
                   animatedScale={cardScales[index]}
                   animatedShake={shakeAnims[index]}
@@ -645,13 +375,44 @@ export default function ArenaSessionScreen() {
             </View>
           </View>
 
+          {phase === 'reveal' && currentAnswers && (
+            <Animated.View style={[styles.playerAnswers, { opacity: revealOpacity }]}>
+              {players.map(player => {
+                const answer = currentAnswers[player.id];
+                if (!answer) return null;
+                return (
+                  <View key={player.id} style={styles.playerAnswerRow}>
+                    <View style={[styles.playerAnswerDot, { backgroundColor: player.color }]} />
+                    <Text style={styles.playerAnswerName} numberOfLines={1}>{player.name}</Text>
+                    <View style={[
+                      styles.playerAnswerBadge,
+                      { backgroundColor: answer.isCorrect ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)' },
+                    ]}>
+                      {answer.isCorrect ? (
+                        <Check color="#10b981" size={14} />
+                      ) : (
+                        <X color="#ef4444" size={14} />
+                      )}
+                      <Text style={[
+                        styles.playerAnswerStatus,
+                        { color: answer.isCorrect ? '#10b981' : '#ef4444' },
+                      ]}>
+                        {answer.isCorrect ? 'Correct' : 'Wrong'}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </Animated.View>
+          )}
+
           <View style={styles.compactScoreboard}>
-            {scoreboardPlayers.slice(0, 3).map((player, index) => (
-              <View 
-                key={player.id} 
+            {scoreboardPlayers.slice(0, 4).map((player, index) => (
+              <View
+                key={player.id}
                 style={[
                   styles.compactScoreItem,
-                  player.id === currentPlayer?.id && styles.compactScoreItemActive
+                  player.id === playerId && styles.compactScoreItemActive,
                 ]}
               >
                 <Text style={styles.compactRank}>{index === 0 ? '👑' : `#${index + 1}`}</Text>
@@ -662,49 +423,6 @@ export default function ArenaSessionScreen() {
             ))}
           </View>
         </View>
-
-        {gamePhase === 'feedback' && (
-          <Animated.View 
-            style={[
-              styles.feedbackOverlay,
-              { opacity: feedbackOpacity, transform: [{ scale: feedbackScale }] }
-            ]}
-          >
-            <View style={[styles.feedbackCard, { backgroundColor: theme.cardBackground }]}>
-              <View style={[styles.feedbackIconCircle, { backgroundColor: isCorrect ? '#10b981' : '#ef4444' }]}>
-                <Text style={styles.feedbackIconText}>{isCorrect ? '✓' : '✗'}</Text>
-              </View>
-              <Text style={[styles.feedbackTitle, { color: isCorrect ? '#10b981' : '#ef4444' }]}>
-                {isCorrect ? 'Correct!' : timeRemaining === 0 ? "Time's Up!" : 'Incorrect'}
-              </Text>
-              {!isCorrect && currentCard && (
-                <View style={[styles.feedbackAnswerBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
-                  <Text style={[styles.feedbackAnswerLabel, { color: theme.textSecondary }]}>
-                    Correct answer:
-                  </Text>
-                  <Text style={[styles.feedbackAnswer, { color: theme.text }]}>
-                    {currentCard.answer}
-                  </Text>
-                </View>
-              )}
-              {isCorrect && currentPlayerState?.currentStreak > 1 && (
-                <View style={styles.feedbackStreakBadge}>
-                  <Trophy color="#f59e0b" size={18} />
-                  <Text style={styles.feedbackStreakText}>
-                    {currentPlayerState.currentStreak} in a row!
-                  </Text>
-                </View>
-              )}
-              <TouchableOpacity
-                style={[styles.continueButton, { backgroundColor: theme.primary }]}
-                onPress={handleContinue}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.continueButtonText}>Continue</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        )}
       </SafeAreaView>
     </View>
   );
@@ -725,32 +443,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 18,
     fontWeight: '600' as const,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  quitButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  progressInfo: {
-    alignItems: 'center',
-  },
-  progressText: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: '#fff',
+    color: 'rgba(255,255,255,0.8)',
   },
   gameHeader: {
     flexDirection: 'row',
@@ -759,6 +452,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     gap: 8,
+  },
+  quitButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   questionBadge: {
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
@@ -785,46 +486,53 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600' as const,
   },
-  currentPlayerBanner: {
+  waitingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     marginHorizontal: 12,
     marginBottom: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    paddingVertical: 8,
+    backgroundColor: 'rgba(245, 158, 11, 0.3)',
+    paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 12,
   },
-  currentPlayerDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  currentPlayerName: {
+  waitingBannerText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '700' as const,
-  },
-  currentPlayerScore: {
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: 13,
     fontWeight: '600' as const,
-    marginLeft: 'auto',
+  },
+  answeredIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginHorizontal: 12,
+    marginBottom: 6,
+    paddingVertical: 6,
+  },
+  answeredText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+    fontWeight: '500' as const,
+  },
+  revealBanner: {
+    alignItems: 'center',
+    marginHorizontal: 12,
+    marginBottom: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.3)',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+  },
+  revealBannerText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700' as const,
   },
   dealerSection: {
     marginBottom: 4,
-  },
-  gameArea: {
-    flex: 1,
-    justifyContent: 'flex-start',
-  },
-  tableSurface: {
-    backgroundColor: undefined,
-    marginHorizontal: GRID_HORIZONTAL_MARGIN,
-    borderRadius: 14,
-    padding: CARD_PADDING,
   },
   questionCard: {
     marginHorizontal: GRID_HORIZONTAL_MARGIN,
@@ -847,11 +555,56 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
+  gameArea: {
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
+  tableSurface: {
+    marginHorizontal: GRID_HORIZONTAL_MARGIN,
+    borderRadius: 14,
+    padding: CARD_PADDING,
+  },
   optionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: CARD_GAP,
     justifyContent: 'space-between',
+  },
+  playerAnswers: {
+    marginHorizontal: GRID_HORIZONTAL_MARGIN,
+    marginTop: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 12,
+    padding: 10,
+    gap: 6,
+  },
+  playerAnswerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  playerAnswerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  playerAnswerName: {
+    flex: 1,
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontWeight: '500' as const,
+  },
+  playerAnswerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  playerAnswerStatus: {
+    fontSize: 12,
+    fontWeight: '600' as const,
   },
   compactScoreboard: {
     flexDirection: 'row',
@@ -891,166 +644,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#fff',
     fontWeight: '700' as const,
-  },
-  passDeviceContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  passDeviceTitle: {
-    fontSize: 26,
-    fontWeight: '800' as const,
-    color: '#fff',
-    marginTop: 20,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  playerAvatarLarge: {
-    width: 90,
-    height: 90,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-    borderWidth: 4,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  playerInitialLarge: {
-    fontSize: 42,
-    fontWeight: '700' as const,
-    color: '#fff',
-  },
-  passDeviceStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  passDeviceStat: {
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  passDeviceStatLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontWeight: '500' as const,
-    marginBottom: 4,
-  },
-  passDeviceStatValue: {
-    fontSize: 20,
-    color: '#fff',
-    fontWeight: '800' as const,
-  },
-  passDeviceStatDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  passDeviceScoreboard: {
-    width: '100%',
-    marginBottom: 24,
-  },
-  readyButton: {
-    width: '100%',
-    maxWidth: 260,
-    borderRadius: 18,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  readyButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 18,
-  },
-  readyButtonText: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: '#fff',
-  },
-  feedbackOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  feedbackCard: {
-    width: '100%',
-    maxWidth: 340,
-    borderRadius: 28,
-    padding: 32,
-    alignItems: 'center',
-  },
-  feedbackIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  feedbackIconText: {
-    fontSize: 32,
-    fontWeight: '700' as const,
-    color: '#fff',
-  },
-  feedbackTitle: {
-    fontSize: 28,
-    fontWeight: '800' as const,
-    marginBottom: 12,
-  },
-  feedbackAnswerBox: {
-    backgroundColor: undefined,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-    width: '100%',
-    alignItems: 'center',
-  },
-  feedbackAnswerLabel: {
-    fontSize: 13,
-    fontWeight: '500' as const,
-    marginBottom: 6,
-  },
-  feedbackAnswer: {
-    fontSize: 17,
-    fontWeight: '700' as const,
-    textAlign: 'center',
-  },
-  feedbackStreakBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 14,
-    marginBottom: 16,
-  },
-  feedbackStreakText: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: '#f59e0b',
-  },
-  continueButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 48,
-    borderRadius: 16,
-    marginTop: 8,
-  },
-  continueButtonText: {
-    fontSize: 17,
-    fontWeight: '700' as const,
-    color: '#fff',
   },
 });

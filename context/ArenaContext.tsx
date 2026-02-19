@@ -1,314 +1,261 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 
-import {
-  ArenaPlayer,
-  ArenaSettings,
-  ArenaLobbyState,
-  ArenaMatchResult,
-  ArenaLeaderboardEntry,
-} from '@/types/flashcard';
+import { trpc } from '@/lib/trpc';
+import type { ArenaLeaderboardEntry } from '@/types/flashcard';
 import { logger } from '@/utils/logger';
 
-// AsyncStorage keys for battle leaderboard and last-used settings
 const LEADERBOARD_KEY = 'flashquest_arena_leaderboard';
-const LAST_SETTINGS_KEY = 'flashquest_arena_last_settings';
-
-// Rotating colors assigned to players as they join the lobby
-const PLAYER_COLORS = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
-  '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',
-  '#BB8FCE', '#85C1E9', '#F8B500', '#00CED1',
-];
-
-const DEFAULT_SETTINGS: ArenaSettings = {
-  rounds: 10,
-  timerSeconds: 0,
-  showExplanationsAtEnd: true,
-};
-
-// 6-digit code displayed in lobby (cosmetic only, no networking)
-const generateRoomCode = (): string => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
-
-const generatePlayerId = (): string => {
-  return `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-};
+const PLAYER_NAME_KEY = 'flashquest_arena_player_name';
 
 export const [ArenaProvider, useArena] = createContextHook(() => {
   const queryClient = useQueryClient();
 
-  const [lobby, setLobby] = useState<ArenaLobbyState | null>(null);
+  const [roomCode, setRoomCode] = useState<string | null>(null);
+  const [playerId, setPlayerId] = useState<string | null>(null);
+  const [playerName, setPlayerName] = useState<string>('');
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [leaderboard, setLeaderboard] = useState<ArenaLeaderboardEntry[]>([]);
+  const [hasAnsweredCurrent, setHasAnsweredCurrent] = useState(false);
+  const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
+  const prevQuestionIndexRef = useRef<number>(-1);
+
+  useQuery({
+    queryKey: ['arena-player-name'],
+    queryFn: async () => {
+      const stored = await AsyncStorage.getItem(PLAYER_NAME_KEY);
+      if (stored) setPlayerName(stored);
+      return stored || '';
+    },
+  });
 
   const leaderboardQuery = useQuery({
     queryKey: ['arena-leaderboard'],
     queryFn: async () => {
-      logger.log('[Arena] Loading leaderboard from storage');
       const stored = await AsyncStorage.getItem(LEADERBOARD_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as ArenaLeaderboardEntry[];
-        logger.log('[Arena] Loaded', parsed.length, 'leaderboard entries');
-        return parsed;
-      }
-      return [];
+      return stored ? (JSON.parse(stored) as ArenaLeaderboardEntry[]) : [];
     },
   });
 
-  const lastSettingsQuery = useQuery({
-    queryKey: ['arena-last-settings'],
-    queryFn: async () => {
-      const stored = await AsyncStorage.getItem(LAST_SETTINGS_KEY);
-      if (stored) {
-        return JSON.parse(stored) as { deckId: string; settings: ArenaSettings };
-      }
-      return null;
-    },
-  });
-
-  // Sync query data into local state to allow optimistic updates via setLeaderboard
   useEffect(() => {
-    if (leaderboardQuery.data) {
-      setLeaderboard(leaderboardQuery.data);
-    }
+    if (leaderboardQuery.data) setLeaderboard(leaderboardQuery.data);
   }, [leaderboardQuery.data]);
 
-  const saveLeaderboardMutation = useMutation({
+  const saveLeaderboardMut = useMutation({
     mutationFn: async (entries: ArenaLeaderboardEntry[]) => {
-      logger.log('[Arena] Saving leaderboard');
       await AsyncStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries));
       return entries;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['arena-leaderboard'] });
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['arena-leaderboard'] }),
+  });
+
+  const roomQuery = trpc.arena.getRoomState.useQuery(
+    { roomCode: roomCode!, playerId: playerId! },
+    {
+      enabled: !!roomCode && !!playerId,
+      refetchInterval: 1500,
+      retry: 2,
+    },
+  );
+
+  useEffect(() => {
+    if (roomQuery.error) {
+      const msg = roomQuery.error.message;
+      logger.log('[Arena] Poll error:', msg);
+      if (msg.includes('not found') || msg.includes('expired')) {
+        setRoomCode(null);
+        setPlayerId(null);
+        setConnectionError('Room expired or not found');
+      }
+    }
+  }, [roomQuery.error]);
+
+  const room = roomQuery.data?.room ?? null;
+  const isHost = room !== null && room.hostId === playerId;
+  const myPlayer = room?.players.find(p => p.id === playerId) ?? null;
+
+  const currentQuestionIndex = room?.game?.currentQuestionIndex ?? -1;
+  useEffect(() => {
+    if (currentQuestionIndex !== prevQuestionIndexRef.current) {
+      prevQuestionIndexRef.current = currentQuestionIndex;
+      setHasAnsweredCurrent(false);
+      setLastAnswerCorrect(null);
+    }
+  }, [currentQuestionIndex]);
+
+  useEffect(() => {
+    if (room?.game && playerId && room.game.answeredPlayerIds.includes(playerId)) {
+      setHasAnsweredCurrent(true);
+    }
+  }, [room?.game?.answeredPlayerIds, playerId]);
+
+  const createRoomMut = trpc.arena.createRoom.useMutation({
+    onSuccess: (data) => {
+      logger.log('[Arena] Created room:', data.roomCode);
+      setRoomCode(data.roomCode);
+      setPlayerId(data.playerId);
+      setConnectionError(null);
+    },
+    onError: (err) => {
+      logger.log('[Arena] Create error:', err.message);
+      setConnectionError(err.message);
     },
   });
-  const { mutate: saveLeaderboard } = saveLeaderboardMutation;
 
-  const saveLastSettingsMutation = useMutation({
-    mutationFn: async (data: { deckId: string; settings: ArenaSettings }) => {
-      await AsyncStorage.setItem(LAST_SETTINGS_KEY, JSON.stringify(data));
-      return data;
+  const joinRoomMut = trpc.arena.joinRoom.useMutation({
+    onSuccess: (data) => {
+      logger.log('[Arena] Joined room:', data.room.code);
+      setRoomCode(data.room.code);
+      setPlayerId(data.playerId);
+      setConnectionError(null);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['arena-last-settings'] });
+    onError: (err) => {
+      logger.log('[Arena] Join error:', err.message);
+      setConnectionError(err.message);
     },
   });
-  const { mutate: saveLastSettingsMutate } = saveLastSettingsMutation;
 
-  const createRoom = useCallback((hostName: string): ArenaLobbyState => {
-    logger.log('[Arena] Creating room with host:', hostName);
-    const roomCode = generateRoomCode();
-    const hostPlayer: ArenaPlayer = {
-      id: generatePlayerId(),
-      name: hostName,
-      isHost: true,
-      color: PLAYER_COLORS[0],
-    };
+  const leaveMut = trpc.arena.leaveRoom.useMutation();
+  const selectDeckMut = trpc.arena.selectDeck.useMutation();
+  const updateSettingsMut = trpc.arena.updateSettings.useMutation();
+  const startGameMut = trpc.arena.startGame.useMutation({
+    onError: (err) => {
+      logger.log('[Arena] Start game error:', err.message);
+      setConnectionError(err.message);
+    },
+  });
+  const submitAnswerMut = trpc.arena.submitAnswer.useMutation({
+    onSuccess: (data) => {
+      setHasAnsweredCurrent(true);
+      setLastAnswerCorrect(data.isCorrect);
+      logger.log('[Arena] Answer submitted, correct:', data.isCorrect);
+    },
+    onError: (err) => {
+      logger.log('[Arena] Submit error:', err.message);
+    },
+  });
+  const removePlayerMut = trpc.arena.removePlayer.useMutation();
+  const resetRoomMut = trpc.arena.resetRoom.useMutation();
 
-    const newLobby: ArenaLobbyState = {
-      roomCode,
-      players: [hostPlayer],
-      deckId: null,
-      settings: { ...DEFAULT_SETTINGS },
-    };
+  const createRoom = useCallback((name: string) => {
+    setPlayerName(name);
+    AsyncStorage.setItem(PLAYER_NAME_KEY, name).catch(() => {});
+    createRoomMut.mutate({ hostName: name });
+  }, [createRoomMut]);
 
-    setLobby(newLobby);
-    return newLobby;
-  }, []);
+  const joinRoom = useCallback((code: string, name: string) => {
+    setPlayerName(name);
+    AsyncStorage.setItem(PLAYER_NAME_KEY, name).catch(() => {});
+    joinRoomMut.mutate({ roomCode: code, playerName: name });
+  }, [joinRoomMut]);
 
-  const joinRoom = useCallback((playerName: string, _roomCode?: string): ArenaPlayer | null => {
-    logger.log('[Arena] Player joining:', playerName);
-    
-    setLobby(prev => {
-      if (!prev) {
-        logger.log('[Arena] No lobby exists, creating new one');
-        const roomCode = _roomCode || generateRoomCode();
-        const newPlayer: ArenaPlayer = {
-          id: generatePlayerId(),
-          name: playerName,
-          isHost: true,
-          color: PLAYER_COLORS[0],
-        };
-        return {
-          roomCode,
-          players: [newPlayer],
-          deckId: null,
-          settings: { ...DEFAULT_SETTINGS },
-        };
-      }
+  const disconnect = useCallback(() => {
+    if (roomCode && playerId) {
+      leaveMut.mutate({ roomCode, playerId });
+    }
+    setRoomCode(null);
+    setPlayerId(null);
+    setConnectionError(null);
+    setHasAnsweredCurrent(false);
+    setLastAnswerCorrect(null);
+    prevQuestionIndexRef.current = -1;
+    logger.log('[Arena] Disconnected');
+  }, [roomCode, playerId, leaveMut]);
 
-      const colorIndex = prev.players.length % PLAYER_COLORS.length;
-      const newPlayer: ArenaPlayer = {
-        id: generatePlayerId(),
-        name: playerName,
-        isHost: false,
-        color: PLAYER_COLORS[colorIndex],
-      };
+  const selectDeck = useCallback((deckId: string, deckName: string) => {
+    if (!roomCode || !playerId) return;
+    selectDeckMut.mutate({ roomCode, playerId, deckId, deckName });
+  }, [roomCode, playerId, selectDeckMut]);
 
-      return {
-        ...prev,
-        players: [...prev.players, newPlayer],
-      };
-    });
+  const updateSettings = useCallback((settings: { rounds?: number; timerSeconds?: number; showExplanationsAtEnd?: boolean }) => {
+    if (!roomCode || !playerId) return;
+    updateSettingsMut.mutate({ roomCode, playerId, settings });
+  }, [roomCode, playerId, updateSettingsMut]);
 
-    return null;
-  }, []);
+  const startGame = useCallback((questions: Array<{ cardId: string; question: string; correctAnswer: string; options: string[] }>) => {
+    if (!roomCode || !playerId) return;
+    startGameMut.mutate({ roomCode, playerId, questions });
+  }, [roomCode, playerId, startGameMut]);
 
-  const addPlayer = useCallback((playerName: string): ArenaPlayer | null => {
-    if (!lobby) return null;
+  const submitAnswer = useCallback((questionIndex: number, selectedOption: string) => {
+    if (!roomCode || !playerId || hasAnsweredCurrent) return;
+    submitAnswerMut.mutate({ roomCode, playerId, questionIndex, selectedOption });
+  }, [roomCode, playerId, hasAnsweredCurrent, submitAnswerMut]);
 
-    const colorIndex = lobby.players.length % PLAYER_COLORS.length;
-    const newPlayer: ArenaPlayer = {
-      id: generatePlayerId(),
-      name: playerName,
-      isHost: false,
-      color: PLAYER_COLORS[colorIndex],
-    };
+  const removePlayer = useCallback((targetPlayerId: string) => {
+    if (!roomCode || !playerId) return;
+    removePlayerMut.mutate({ roomCode, playerId, targetPlayerId });
+  }, [roomCode, playerId, removePlayerMut]);
 
-    setLobby(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        players: [...prev.players, newPlayer],
-      };
-    });
+  const resetRoom = useCallback(() => {
+    if (!roomCode || !playerId) return;
+    resetRoomMut.mutate({ roomCode, playerId });
+  }, [roomCode, playerId, resetRoomMut]);
 
-    logger.log('[Arena] Added player:', playerName);
-    return newPlayer;
-  }, [lobby]);
-
-  const removePlayer = useCallback((playerId: string) => {
-    setLobby(prev => {
-      if (!prev) return prev;
-      const player = prev.players.find(p => p.id === playerId);
-      if (player?.isHost) {
-        logger.log('[Arena] Cannot remove host');
-        return prev;
-      }
-      return {
-        ...prev,
-        players: prev.players.filter(p => p.id !== playerId),
-      };
-    });
-  }, []);
-
-  const updatePlayerName = useCallback((playerId: string, newName: string) => {
-    setLobby(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        players: prev.players.map(p =>
-          p.id === playerId ? { ...p, name: newName } : p
-        ),
-      };
-    });
-  }, []);
-
-  const selectDeck = useCallback((deckId: string) => {
-    setLobby(prev => {
-      if (!prev) return prev;
-      return { ...prev, deckId };
-    });
-  }, []);
-
-  const updateSettings = useCallback((updates: Partial<ArenaSettings>) => {
-    setLobby(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        settings: { ...prev.settings, ...updates },
-      };
-    });
-  }, []);
-
-  const saveMatchResult = useCallback((result: ArenaMatchResult, deckName: string) => {
-    const winner = result.playerResults.reduce((best, current) =>
-      current.points > best.points ? current : best
-    );
-
-    const entry: ArenaLeaderboardEntry = {
-      id: `arena_${Date.now()}`,
-      deckId: result.deckId,
-      deckName,
-      winnerName: winner.playerName,
-      winnerPoints: winner.points,
-      winnerAccuracy: winner.accuracy,
-      playerCount: result.playerResults.length,
-      rounds: result.totalRounds,
-      timerSeconds: result.settings.timerSeconds,
-      completedAt: result.completedAt,
-    };
-
-    // Keep only the 50 most recent entries to bound storage size
-    const updatedLeaderboard = [entry, ...leaderboard].slice(0, 50);
-    setLeaderboard(updatedLeaderboard);
-    saveLeaderboard(updatedLeaderboard);
-
-    logger.log('[Arena] Saved match result, winner:', winner.playerName);
-  }, [leaderboard, saveLeaderboard]);
-
-  const saveLastSettings = useCallback((deckId: string, settings: ArenaSettings) => {
-    saveLastSettingsMutate({ deckId, settings });
-  }, [saveLastSettingsMutate]);
-
-  const clearLobby = useCallback(() => {
-    setLobby(null);
-  }, []);
+  const saveMatchResult = useCallback((entry: ArenaLeaderboardEntry) => {
+    const updated = [entry, ...leaderboard].slice(0, 50);
+    setLeaderboard(updated);
+    saveLeaderboardMut.mutate(updated);
+  }, [leaderboard, saveLeaderboardMut]);
 
   const canStartGame = useMemo(() => {
-    if (!lobby) return false;
-    return lobby.players.length >= 2 && lobby.deckId !== null;
-  }, [lobby]);
+    if (!room || !isHost) return false;
+    return room.players.length >= 2 && room.deckId !== null;
+  }, [room, isHost]);
 
   const cleanupDeck = useCallback((deckId: string) => {
     logger.log('[Arena] Cleaning up leaderboard entries for deleted deck:', deckId);
     setLeaderboard(prev => {
       const filtered = prev.filter(entry => entry.deckId !== deckId);
       if (filtered.length !== prev.length) {
-        saveLeaderboard(filtered);
+        saveLeaderboardMut.mutate(filtered);
         logger.log('[Arena] Removed', prev.length - filtered.length, 'leaderboard entries');
       }
       return filtered;
     });
-  }, [saveLeaderboard]);
+  }, [saveLeaderboardMut]);
+
+  const clearError = useCallback(() => setConnectionError(null), []);
 
   return useMemo(() => ({
-    lobby,
+    roomCode,
+    playerId,
+    playerName,
+    connectionError,
+    room,
+    isHost,
+    myPlayer,
+    hasAnsweredCurrent,
+    lastAnswerCorrect,
+    canStartGame,
+    isConnecting: createRoomMut.isPending || joinRoomMut.isPending,
+    isStartingGame: startGameMut.isPending,
+    isSubmitting: submitAnswerMut.isPending,
+    createRoom,
+    joinRoom,
+    disconnect,
+    selectDeck,
+    updateSettings,
+    startGame,
+    submitAnswer,
+    removePlayer,
+    resetRoom,
     leaderboard,
-    lastSettings: lastSettingsQuery.data,
+    saveMatchResult,
+    cleanupDeck,
     isLoading: leaderboardQuery.isLoading,
-    canStartGame,
-    createRoom,
-    joinRoom,
-    addPlayer,
-    removePlayer,
-    updatePlayerName,
-    selectDeck,
-    updateSettings,
-    saveMatchResult,
-    saveLastSettings,
-    clearLobby,
-    cleanupDeck,
+    clearError,
   }), [
-    lobby,
-    leaderboard,
-    lastSettingsQuery.data,
-    leaderboardQuery.isLoading,
+    roomCode, playerId, playerName, connectionError,
+    room, isHost, myPlayer, hasAnsweredCurrent, lastAnswerCorrect,
     canStartGame,
-    createRoom,
-    joinRoom,
-    addPlayer,
-    removePlayer,
-    updatePlayerName,
-    selectDeck,
-    updateSettings,
-    saveMatchResult,
-    saveLastSettings,
-    clearLobby,
-    cleanupDeck,
+    createRoomMut.isPending, joinRoomMut.isPending,
+    startGameMut.isPending, submitAnswerMut.isPending,
+    createRoom, joinRoom, disconnect, selectDeck, updateSettings,
+    startGame, submitAnswer, removePlayer, resetRoom,
+    leaderboard, saveMatchResult, cleanupDeck, leaderboardQuery.isLoading,
+    clearError,
   ]);
 });

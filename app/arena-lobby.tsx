@@ -1,15 +1,16 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Users, Plus, X, Play, Settings, Clock, Target, AlertCircle } from 'lucide-react-native';
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
+import { ArrowLeft, Users, X, Play, Settings, Clock, Target, AlertCircle, Wifi, WifiOff, Copy, Check } from 'lucide-react-native';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert, Platform, Animated } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import QRCodeDisplay from '@/components/QRCodeDisplay';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
-import { ArenaSettings } from '@/types/flashcard';
+import { generateOptions, shuffleArray } from '@/utils/questUtils';
+import { logger } from '@/utils/logger';
 
 const ARENA_ACCENT_LIGHT = '#f97316';
 const ARENA_ACCENT_DARK = '#f59e0b';
@@ -19,108 +20,165 @@ type TimerOption = 0 | 5 | 10;
 
 export default function ArenaLobbyScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ joinMode?: string; playerName?: string; roomCode?: string }>();
   const { theme, isDark } = useTheme();
   const arenaAccent = isDark ? ARENA_ACCENT_DARK : ARENA_ACCENT_LIGHT;
   const { decks } = useFlashQuest();
   const {
-    lobby,
+    room,
+    roomCode,
+    playerId,
+    isHost,
     canStartGame,
-    createRoom,
-    addPlayer,
-    removePlayer,
+    isStartingGame,
     selectDeck,
     updateSettings,
-    saveLastSettings,
-    clearLobby,
+    removePlayer,
+    startGame,
+    disconnect,
+    connectionError,
   } = useArena();
 
-  const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [newPlayerName, setNewPlayerName] = useState('');
+  const [codeCopied, setCodeCopied] = useState(false);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const prevStatus = useRef<string | null>(null);
 
   useEffect(() => {
-    if (params.joinMode === 'true' && params.playerName) {
-      if (!lobby) {
-        createRoom(params.playerName);
-      } else {
-        addPlayer(params.playerName);
-      }
+    if (room?.status === 'playing' && prevStatus.current !== 'playing') {
+      logger.log('[Lobby] Game started, navigating to session');
+      router.replace('/arena-session' as any);
     }
-  }, []);
+    prevStatus.current = room?.status ?? null;
+  }, [room?.status]);
 
-  const selectedDeck = useMemo(() => {
-    if (!lobby?.deckId) return null;
-    return decks.find(d => d.id === lobby.deckId);
-  }, [decks, lobby?.deckId]);
+  useEffect(() => {
+    if (!roomCode && !room) {
+      router.replace('/arena' as any);
+    }
+  }, [roomCode, room]);
 
-  const qrData = useMemo(() => {
-    if (!lobby) return '';
-    return JSON.stringify({
-      app: 'flashquest',
-      type: 'arena',
-      roomCode: lobby.roomCode,
-    });
-  }, [lobby]);
+  useEffect(() => {
+    if (connectionError) {
+      Alert.alert('Connection Lost', connectionError, [
+        { text: 'OK', onPress: () => router.replace('/arena' as any) },
+      ]);
+    }
+  }, [connectionError]);
 
-  const handleAddPlayer = () => {
-    if (!newPlayerName.trim()) return;
-    addPlayer(newPlayerName.trim());
-    setNewPlayerName('');
-    setShowAddPlayerModal(false);
-  };
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.05, duration: 1000, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim]);
 
-  const handleRemovePlayer = (playerId: string) => {
-    const player = lobby?.players.find(p => p.id === playerId);
-    if (player?.isHost) {
-      Alert.alert('Cannot Remove', 'The host cannot be removed from the lobby.');
+  const handleCopyCode = useCallback(async () => {
+    if (!roomCode) return;
+    try {
+      await Clipboard.setStringAsync(roomCode);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    } catch {
+      logger.log('[Lobby] Copy failed');
+    }
+  }, [roomCode]);
+
+  const handleRemovePlayer = useCallback((targetId: string) => {
+    const player = room?.players.find(p => p.id === targetId);
+    if (!player || player.isHost) return;
+    Alert.alert('Remove Player', `Remove ${player.name} from the lobby?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => removePlayer(targetId) },
+    ]);
+  }, [room?.players, removePlayer]);
+
+  const handleSelectDeck = useCallback((deckId: string) => {
+    const deck = decks.find(d => d.id === deckId);
+    if (deck) {
+      selectDeck(deck.id, deck.name);
+    }
+  }, [decks, selectDeck]);
+
+  const handleStartGame = useCallback(() => {
+    if (!canStartGame || !room?.deckId) return;
+    const deck = decks.find(d => d.id === room.deckId);
+    if (!deck) {
+      Alert.alert('Error', 'Selected deck not found on this device.');
       return;
     }
-    removePlayer(playerId);
-  };
 
-  const handleStartGame = () => {
-    if (!canStartGame || !lobby?.deckId) return;
-    saveLastSettings(lobby.deckId, lobby.settings);
-    router.push({
-      pathname: '/arena-session' as any,
-      params: { lobbyState: JSON.stringify(lobby) },
-    });
-  };
+    const allCards = decks.flatMap(d => d.flashcards);
+    const numQuestions = Math.min(room.settings.rounds, deck.flashcards.length);
+    const shuffled = shuffleArray([...deck.flashcards]);
+    const selectedCards = shuffled.slice(0, numQuestions);
 
-  const handleBack = () => {
+    const questions = selectedCards.map(card => ({
+      cardId: card.id,
+      question: card.question,
+      correctAnswer: card.answer,
+      options: generateOptions({
+        correctAnswer: card.answer,
+        deckCards: deck.flashcards,
+        allCards,
+        currentCardId: card.id,
+      }),
+    }));
+
+    logger.log('[Lobby] Starting game with', questions.length, 'questions');
+    startGame(questions);
+  }, [canStartGame, room, decks, startGame]);
+
+  const handleBack = useCallback(() => {
     Alert.alert(
-      'Leave Battle',
-      'Are you sure you want to leave? The session will be closed.',
+      'Leave Room',
+      isHost ? 'Leaving will close the room for everyone.' : 'Are you sure you want to leave?',
       [
         { text: 'Stay', style: 'cancel' },
         {
           text: 'Leave',
           style: 'destructive',
           onPress: () => {
-            clearLobby();
-            router.back();
+            disconnect();
+            router.replace('/arena' as any);
           },
         },
       ]
     );
-  };
+  }, [isHost, disconnect, router]);
 
-  const handleSettingsUpdate = (key: keyof ArenaSettings, value: number | boolean) => {
+  const handleSettingsUpdate = useCallback((key: string, value: number | boolean) => {
     updateSettings({ [key]: value });
-  };
+  }, [updateSettings]);
 
-  if (!lobby) {
+  const selectedDeck = useMemo(() => {
+    if (!room?.deckId) return null;
+    return decks.find(d => d.id === room.deckId);
+  }, [decks, room?.deckId]);
+
+  const smallDeckWarning = selectedDeck && selectedDeck.flashcards.length < 8;
+
+  if (!room) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <LinearGradient
+          colors={[theme.arenaGradient[0], theme.arenaGradient[1]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
         <SafeAreaView style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: theme.text }]}>Loading lobby...</Text>
+          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+            <Wifi color="rgba(255,255,255,0.6)" size={48} />
+          </Animated.View>
+          <Text style={styles.loadingText}>Connecting to room...</Text>
         </SafeAreaView>
       </View>
     );
   }
-
-  const smallDeckWarning = selectedDeck && selectedDeck.flashcards.length < 8;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -133,59 +191,61 @@ export default function ArenaLobbyScreen() {
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBack}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
             <ArrowLeft color="#fff" size={24} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Battle Lobby</Text>
-          <TouchableOpacity
-            style={styles.settingsButton}
-            onPress={() => setShowSettingsModal(true)}
-            activeOpacity={0.7}
-          >
-            <Settings color="#fff" size={22} />
-          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{isHost ? 'Your Lobby' : 'Battle Lobby'}</Text>
+          {isHost ? (
+            <TouchableOpacity style={styles.settingsButton} onPress={() => setShowSettingsModal(true)} activeOpacity={0.7}>
+              <Settings color="#fff" size={22} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
         </View>
 
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={[styles.codeSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
-            <Text style={[styles.codeLabel, { color: theme.textSecondary }]}>Session Code</Text>
-            <Text style={[styles.roomCode, { color: theme.text }]}>{lobby.roomCode}</Text>
-            <View style={styles.qrContainer}>
-              <QRCodeDisplay data={qrData} size={140} />
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <TouchableOpacity
+            style={[styles.codeSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}
+            onPress={handleCopyCode}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.codeLabel, { color: theme.textSecondary }]}>Room Code</Text>
+            <Text style={[styles.roomCode, { color: theme.text }]}>{room.code}</Text>
+            <View style={styles.copyRow}>
+              {codeCopied ? (
+                <>
+                  <Check color="#10b981" size={16} />
+                  <Text style={[styles.copyText, { color: '#10b981' }]}>Copied!</Text>
+                </>
+              ) : (
+                <>
+                  <Copy color={theme.textTertiary} size={16} />
+                  <Text style={[styles.copyText, { color: theme.textTertiary }]}>Tap to copy</Text>
+                </>
+              )}
             </View>
-            <Text style={[styles.qrNote, { color: theme.textTertiary }]}>
-              QR code (display only) • Same-device party
+            <Text style={[styles.shareNote, { color: theme.textTertiary }]}>
+              Share this code with friends to join
             </Text>
-          </View>
+          </TouchableOpacity>
 
           <View style={[styles.playersSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
             <View style={styles.playersSectionHeader}>
               <View style={styles.playersHeaderLeft}>
                 <Users color={arenaAccent} size={20} />
                 <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                  Players ({lobby.players.length})
+                  Players ({room.players.length})
                 </Text>
               </View>
-              <TouchableOpacity
-                style={[styles.addPlayerButton, { backgroundColor: arenaAccent }]}
-                onPress={() => setShowAddPlayerModal(true)}
-                activeOpacity={0.7}
-              >
-                <Plus color="#fff" size={18} />
-                <Text style={styles.addPlayerText}>Add</Text>
-              </TouchableOpacity>
+              <View style={[styles.liveBadge, { backgroundColor: '#10b981' }]}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>Live</Text>
+              </View>
             </View>
 
             <View style={styles.playersList}>
-              {lobby.players.map((player, index) => (
+              {room.players.map((player) => (
                 <View
                   key={player.id}
                   style={[styles.playerCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background }]}
@@ -196,19 +256,32 @@ export default function ArenaLobbyScreen() {
                     </Text>
                   </View>
                   <View style={styles.playerInfo}>
-                    <Text style={[styles.playerName, { color: theme.text }]} numberOfLines={1}>
-                      {player.name}
-                    </Text>
-                    {player.isHost && (
-                      <Text style={[styles.hostBadge, { color: theme.warning }]}>Host</Text>
-                    )}
+                    <View style={styles.playerNameRow}>
+                      <Text style={[styles.playerName, { color: theme.text }]} numberOfLines={1}>
+                        {player.name}
+                      </Text>
+                      {player.id === playerId && (
+                        <Text style={[styles.youBadge, { color: theme.primary }]}>(You)</Text>
+                      )}
+                    </View>
+                    <View style={styles.playerMeta}>
+                      {player.isHost && (
+                        <Text style={[styles.hostBadge, { color: theme.warning }]}>Host</Text>
+                      )}
+                      <View style={styles.connectionStatus}>
+                        {player.connected ? (
+                          <Wifi color="#10b981" size={12} />
+                        ) : (
+                          <WifiOff color="#ef4444" size={12} />
+                        )}
+                        <Text style={{ fontSize: 11, color: player.connected ? '#10b981' : '#ef4444', fontWeight: '500' as const }}>
+                          {player.connected ? 'Online' : 'Offline'}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
-                  {!player.isHost && (
-                    <TouchableOpacity
-                      style={styles.removeButton}
-                      onPress={() => handleRemovePlayer(player.id)}
-                      activeOpacity={0.7}
-                    >
+                  {isHost && !player.isHost && (
+                    <TouchableOpacity style={styles.removeButton} onPress={() => handleRemovePlayer(player.id)} activeOpacity={0.7}>
                       <X color={theme.textTertiary} size={18} />
                     </TouchableOpacity>
                   )}
@@ -216,61 +289,62 @@ export default function ArenaLobbyScreen() {
               ))}
             </View>
 
-            {lobby.players.length < 2 && (
+            {room.players.length < 2 && (
               <View style={[styles.warningBox, { backgroundColor: theme.warning + '20' }]}>
                 <AlertCircle color={theme.warning} size={16} />
                 <Text style={[styles.warningText, { color: theme.warning }]}>
-                  Add at least 2 players to start
+                  Waiting for more players to join...
                 </Text>
               </View>
             )}
           </View>
 
-          <View style={[styles.deckSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Select Deck</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.deckList}
-            >
-              {decks.map((deck) => (
-                <TouchableOpacity
-                  key={deck.id}
-                  style={[
-                    styles.deckOption,
-                    { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background },
-                    lobby.deckId === deck.id && { borderColor: arenaAccent, borderWidth: 2 },
-                  ]}
-                  onPress={() => selectDeck(deck.id)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
-                  <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={1}>
-                    {deck.name}
-                  </Text>
-                  <Text style={[styles.deckCardCount, { color: theme.textSecondary }]}>
-                    {deck.flashcards.length} cards
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            {smallDeckWarning && (
-              <View style={[styles.warningBox, { backgroundColor: theme.warning + '20', marginTop: 12 }]}>
-                <AlertCircle color={theme.warning} size={16} />
-                <Text style={[styles.warningText, { color: theme.warning }]}>
-                  Best with 8+ cards for variety
-                </Text>
-              </View>
-            )}
-            {!lobby.deckId && (
-              <View style={[styles.warningBox, { backgroundColor: theme.error + '20', marginTop: 12 }]}>
-                <AlertCircle color={theme.error} size={16} />
-                <Text style={[styles.warningText, { color: theme.error }]}>
-                  Select a deck to continue
-                </Text>
-              </View>
-            )}
-          </View>
+          {isHost ? (
+            <View style={[styles.deckSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Select Deck</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.deckList}>
+                {decks.map((deck) => (
+                  <TouchableOpacity
+                    key={deck.id}
+                    style={[
+                      styles.deckOption,
+                      { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background },
+                      room.deckId === deck.id && { borderColor: arenaAccent, borderWidth: 2 },
+                    ]}
+                    onPress={() => handleSelectDeck(deck.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
+                    <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={1}>{deck.name}</Text>
+                    <Text style={[styles.deckCardCount, { color: theme.textSecondary }]}>{deck.flashcards.length} cards</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              {smallDeckWarning && (
+                <View style={[styles.warningBox, { backgroundColor: theme.warning + '20', marginTop: 12 }]}>
+                  <AlertCircle color={theme.warning} size={16} />
+                  <Text style={[styles.warningText, { color: theme.warning }]}>Best with 8+ cards for variety</Text>
+                </View>
+              )}
+              {!room.deckId && (
+                <View style={[styles.warningBox, { backgroundColor: theme.error + '20', marginTop: 12 }]}>
+                  <AlertCircle color={theme.error} size={16} />
+                  <Text style={[styles.warningText, { color: theme.error }]}>Select a deck to continue</Text>
+                </View>
+              )}
+            </View>
+          ) : (
+            <View style={[styles.deckSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Selected Deck</Text>
+              {room.deckName ? (
+                <View style={[styles.selectedDeckCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background }]}>
+                  <Text style={[styles.selectedDeckName, { color: theme.text }]}>{room.deckName}</Text>
+                </View>
+              ) : (
+                <Text style={[styles.waitingText, { color: theme.textSecondary }]}>Waiting for host to select a deck...</Text>
+              )}
+            </View>
+          )}
 
           <View style={[styles.settingsPreview, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Game Settings</Text>
@@ -278,83 +352,44 @@ export default function ArenaLobbyScreen() {
               <View style={styles.settingItem}>
                 <Target color={theme.textSecondary} size={16} />
                 <Text style={[styles.settingLabel, { color: theme.textSecondary }]}>Rounds</Text>
-                <Text style={[styles.settingValue, { color: theme.text }]}>{lobby.settings.rounds}</Text>
+                <Text style={[styles.settingValue, { color: theme.text }]}>{room.settings.rounds}</Text>
               </View>
               <View style={styles.settingItem}>
                 <Clock color={theme.textSecondary} size={16} />
                 <Text style={[styles.settingLabel, { color: theme.textSecondary }]}>Timer</Text>
                 <Text style={[styles.settingValue, { color: theme.text }]}>
-                  {lobby.settings.timerSeconds === 0 ? 'Off' : `${lobby.settings.timerSeconds}s`}
+                  {room.settings.timerSeconds === 0 ? 'Off' : `${room.settings.timerSeconds}s`}
                 </Text>
               </View>
             </View>
           </View>
 
-          <TouchableOpacity
-            style={[styles.startButton, !canStartGame && styles.disabledButton]}
-            onPress={handleStartGame}
-            activeOpacity={0.85}
-            disabled={!canStartGame}
-          >
-            <LinearGradient
-              colors={canStartGame ? ['#10b981', '#059669'] : ['#9ca3af', '#6b7280']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.startButtonGradient}
+          {isHost ? (
+            <TouchableOpacity
+              style={[styles.startButton, (!canStartGame || isStartingGame) && styles.disabledButton]}
+              onPress={handleStartGame}
+              activeOpacity={0.85}
+              disabled={!canStartGame || isStartingGame}
             >
-              <Play color="#fff" size={24} fill="#fff" />
-              <Text style={styles.startButtonText}>Start Game</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={canStartGame && !isStartingGame ? ['#10b981', '#059669'] : ['#9ca3af', '#6b7280']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.startButtonGradient}
+              >
+                <Play color="#fff" size={24} fill="#fff" />
+                <Text style={styles.startButtonText}>
+                  {isStartingGame ? 'Starting...' : 'Start Game'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : (
+            <Animated.View style={[styles.waitingForHost, { transform: [{ scale: pulseAnim }] }]}>
+              <Text style={styles.waitingForHostText}>Waiting for host to start...</Text>
+            </Animated.View>
+          )}
         </ScrollView>
       </SafeAreaView>
-
-      <Modal
-        visible={showAddPlayerModal}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setShowAddPlayerModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: isDark ? '#1e293b' : theme.cardBackground }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Add Player</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
-              placeholder="Player name"
-              placeholderTextColor={theme.textTertiary}
-              value={newPlayerName}
-              onChangeText={setNewPlayerName}
-              autoFocus
-              maxLength={20}
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: theme.background }]}
-                onPress={() => {
-                  setNewPlayerName('');
-                  setShowAddPlayerModal(false);
-                }}
-              >
-                <Text style={[styles.modalButtonText, { color: theme.textSecondary }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonPrimary]}
-                onPress={handleAddPlayer}
-                disabled={!newPlayerName.trim()}
-              >
-                <LinearGradient
-                  colors={[theme.arenaGradient[0], theme.arenaGradient[1]]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.modalButtonGradient}
-                >
-                  <Text style={styles.modalButtonTextPrimary}>Add</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       <Modal
         visible={showSettingsModal}
@@ -384,15 +419,12 @@ export default function ArenaLobbyScreen() {
                       style={[
                         styles.optionButton,
                         { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : theme.background },
-                        lobby.settings.rounds === val && { backgroundColor: arenaAccent },
+                        room.settings.rounds === val && { backgroundColor: arenaAccent },
                       ]}
                       onPress={() => handleSettingsUpdate('rounds', val)}
                       activeOpacity={0.7}
                     >
-                      <Text style={[
-                        styles.optionText,
-                        { color: lobby.settings.rounds === val ? '#fff' : theme.text },
-                      ]}>
+                      <Text style={[styles.optionText, { color: room.settings.rounds === val ? '#fff' : theme.text }]}>
                         {val}
                       </Text>
                     </TouchableOpacity>
@@ -412,15 +444,12 @@ export default function ArenaLobbyScreen() {
                       style={[
                         styles.optionButton,
                         { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : theme.background },
-                        lobby.settings.timerSeconds === val && { backgroundColor: arenaAccent },
+                        room.settings.timerSeconds === val && { backgroundColor: arenaAccent },
                       ]}
                       onPress={() => handleSettingsUpdate('timerSeconds', val)}
                       activeOpacity={0.7}
                     >
-                      <Text style={[
-                        styles.optionText,
-                        { color: lobby.settings.timerSeconds === val ? '#fff' : theme.text },
-                      ]}>
+                      <Text style={[styles.optionText, { color: room.settings.timerSeconds === val ? '#fff' : theme.text }]}>
                         {val === 0 ? 'Off' : val}
                       </Text>
                     </TouchableOpacity>
@@ -430,20 +459,12 @@ export default function ArenaLobbyScreen() {
 
               <TouchableOpacity
                 style={styles.toggleRow}
-                onPress={() => handleSettingsUpdate('showExplanationsAtEnd', !lobby.settings.showExplanationsAtEnd)}
+                onPress={() => handleSettingsUpdate('showExplanationsAtEnd', !room.settings.showExplanationsAtEnd)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.settingRowLabel, { color: theme.text }]}>
-                  Show Explanations at End
-                </Text>
-                <View style={[
-                  styles.toggle,
-                  { backgroundColor: lobby.settings.showExplanationsAtEnd ? arenaAccent : theme.border },
-                ]}>
-                  <View style={[
-                    styles.toggleKnob,
-                    { transform: [{ translateX: lobby.settings.showExplanationsAtEnd ? 20 : 2 }] },
-                  ]} />
+                <Text style={[styles.settingRowLabel, { color: theme.text }]}>Show Explanations at End</Text>
+                <View style={[styles.toggle, { backgroundColor: room.settings.showExplanationsAtEnd ? arenaAccent : theme.border }]}>
+                  <View style={[styles.toggleKnob, { transform: [{ translateX: room.settings.showExplanationsAtEnd ? 20 : 2 }] }]} />
                 </View>
               </TouchableOpacity>
             </ScrollView>
@@ -473,10 +494,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 16,
   },
   loadingText: {
     fontSize: 16,
-    fontWeight: '500' as const,
+    fontWeight: '600' as const,
+    color: 'rgba(255,255,255,0.8)',
   },
   header: {
     flexDirection: 'row',
@@ -506,6 +529,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerSpacer: {
+    width: 40,
+  },
   scrollView: {
     flex: 1,
   },
@@ -528,12 +554,19 @@ const styles = StyleSheet.create({
     fontSize: 42,
     fontWeight: '800' as const,
     letterSpacing: 8,
-    marginBottom: 20,
-  },
-  qrContainer: {
     marginBottom: 12,
   },
-  qrNote: {
+  copyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  copyText: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+  },
+  shareNote: {
     fontSize: 12,
     fontStyle: 'italic' as const,
   },
@@ -557,17 +590,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
   },
-  addPlayerButton: {
+  liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 10,
   },
-  addPlayerText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#fff',
+  },
+  liveText: {
+    fontSize: 11,
+    fontWeight: '700' as const,
     color: '#fff',
   },
   playersList: {
@@ -595,14 +634,33 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
   },
+  playerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   playerName: {
     fontSize: 15,
     fontWeight: '600' as const,
   },
+  youBadge: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+  },
+  playerMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 2,
+  },
   hostBadge: {
     fontSize: 12,
     fontWeight: '600' as const,
-    marginTop: 2,
+  },
+  connectionStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   removeButton: {
     width: 32,
@@ -622,6 +680,7 @@ const styles = StyleSheet.create({
   warningText: {
     fontSize: 13,
     fontWeight: '500' as const,
+    flex: 1,
   },
   deckSection: {
     borderRadius: 20,
@@ -653,6 +712,21 @@ const styles = StyleSheet.create({
   },
   deckCardCount: {
     fontSize: 12,
+  },
+  selectedDeckCard: {
+    padding: 16,
+    borderRadius: 14,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  selectedDeckName: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  waitingText: {
+    fontSize: 14,
+    marginTop: 12,
+    fontStyle: 'italic' as const,
   },
   settingsPreview: {
     borderRadius: 20,
@@ -700,57 +774,23 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: '#fff',
   },
+  waitingForHost: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 18,
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  waitingForHostText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 340,
-    borderRadius: 24,
-    padding: 24,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    marginBottom: 20,
-  },
-  modalInput: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 16,
-    fontSize: 16,
-    marginBottom: 16,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalButton: {
-    flex: 1,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  modalButtonPrimary: {
-    overflow: 'hidden',
-  },
-  modalButtonGradient: {
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  modalButtonText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    textAlign: 'center',
-    paddingVertical: 14,
-  },
-  modalButtonTextPrimary: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: '#fff',
   },
   settingsModalContent: {
     width: '100%',
@@ -764,6 +804,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
   },
   settingRow: {
     flexDirection: 'row',
