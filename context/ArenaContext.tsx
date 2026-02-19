@@ -264,6 +264,18 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     return lobby.players.length >= 2 && lobby.deckId !== null;
   }, [lobby]);
 
+  const cleanupDeck = useCallback((deckId: string) => {
+    logger.log('[Arena] Cleaning up leaderboard entries for deleted deck:', deckId);
+    setLeaderboard(prev => {
+      const filtered = prev.filter(entry => entry.deckId !== deckId);
+      if (filtered.length !== prev.length) {
+        saveLeaderboard(filtered);
+        logger.log('[Arena] Removed', prev.length - filtered.length, 'leaderboard entries');
+      }
+      return filtered;
+    });
+  }, [saveLeaderboard]);
+
   return useMemo(() => ({
     lobby,
     leaderboard,
@@ -280,6 +292,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     saveMatchResult,
     saveLastSettings,
     clearLobby,
+    cleanupDeck,
   }), [
     lobby,
     leaderboard,
@@ -296,5 +309,6 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     saveMatchResult,
     saveLastSettings,
     clearLobby,
+    cleanupDeck,
   ]);
 });

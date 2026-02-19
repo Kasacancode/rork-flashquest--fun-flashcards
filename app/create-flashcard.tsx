@@ -14,13 +14,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
+import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { Flashcard } from '@/types/flashcard';
 import { logger } from '@/utils/logger';
+import { generateUUID } from '@/utils/uuid';
 
 interface CardInput {
   id: string;
+  originalCardId: string | null;
   question: string;
   answer: string;
 }
@@ -29,12 +33,14 @@ export default function CreateFlashcardPage() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId?: string }>();
   const { addDeck, updateDeck, deleteDeck, decks } = useFlashQuest();
+  const { cleanupDeck: cleanupPerformance } = usePerformance();
+  const { cleanupDeck: cleanupArena } = useArena();
   const { theme, isDark } = useTheme();
 
   const [deckName, setDeckName] = useState<string>('');
   const [deckDescription, setDeckDescription] = useState<string>('');
   const [cards, setCards] = useState<CardInput[]>([
-    { id: '1', question: '', answer: '' },
+    { id: '1', originalCardId: null, question: '', answer: '' },
   ]);
   const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
 
@@ -46,6 +52,7 @@ export default function CreateFlashcardPage() {
         setDeckDescription(deck.description);
         setCards(deck.flashcards.map((f, i) => ({
           id: `${i}`,
+          originalCardId: f.id,
           question: f.question,
           answer: f.answer,
         })));
@@ -55,7 +62,7 @@ export default function CreateFlashcardPage() {
   }, [deckId, decks]);
 
   const addCard = () => {
-    setCards([...cards, { id: Date.now().toString(), question: '', answer: '' }]);
+    setCards([...cards, { id: Date.now().toString(), originalCardId: null, question: '', answer: '' }]);
   };
 
   const removeCard = (id: string) => {
@@ -84,14 +91,29 @@ export default function CreateFlashcardPage() {
     }
 
     if (editingDeckId) {
-      const flashcards: Flashcard[] = validCards.map((c, index) => ({
-        id: `custom_${editingDeckId}_${index}`,
-        question: c.question.trim(),
-        answer: c.answer.trim(),
-        deckId: editingDeckId,
-        difficulty: 'medium',
-        createdAt: Date.now(),
-      }));
+      const existingDeck = decks.find(d => d.id === editingDeckId);
+      const flashcards: Flashcard[] = validCards.map((c) => {
+        if (c.originalCardId) {
+          const existingCard = existingDeck?.flashcards.find(f => f.id === c.originalCardId);
+          return {
+            ...(existingCard || {} as Partial<Flashcard>),
+            id: c.originalCardId,
+            question: c.question.trim(),
+            answer: c.answer.trim(),
+            deckId: editingDeckId,
+            difficulty: existingCard?.difficulty || 'medium' as const,
+            createdAt: existingCard?.createdAt || Date.now(),
+          };
+        }
+        return {
+          id: generateUUID(),
+          question: c.question.trim(),
+          answer: c.answer.trim(),
+          deckId: editingDeckId,
+          difficulty: 'medium' as const,
+          createdAt: Date.now(),
+        };
+      });
 
       updateDeck(editingDeckId, {
         name: deckName.trim(),
@@ -110,8 +132,8 @@ export default function CreateFlashcardPage() {
       const randomColor = colors[Math.floor(Math.random() * colors.length)];
 
       const newDeckId = `deck_${Date.now()}`;
-      const flashcards: Flashcard[] = validCards.map((c, index) => ({
-        id: `custom_${newDeckId}_${index}`,
+      const flashcards: Flashcard[] = validCards.map((c) => ({
+        id: generateUUID(),
         question: c.question.trim(),
         answer: c.answer.trim(),
         deckId: newDeckId,
@@ -152,8 +174,12 @@ export default function CreateFlashcardPage() {
     const performDelete = async () => {
       try {
         logger.log('Deleting deck:', editingDeckId);
+        const deckToDelete = decks.find(d => d.id === editingDeckId);
+        const cardIds = deckToDelete?.flashcards.map(f => f.id) || [];
         await deleteDeck(editingDeckId);
-        logger.log('Deck deleted successfully');
+        cleanupPerformance(editingDeckId, cardIds);
+        cleanupArena(editingDeckId);
+        logger.log('Deck deleted successfully, cleaned up performance & arena data');
         router.replace('/decks' as any);
       } catch (error) {
         logger.error('Error deleting deck:', error);

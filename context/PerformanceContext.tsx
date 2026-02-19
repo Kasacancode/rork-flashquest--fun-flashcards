@@ -211,6 +211,28 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     return totalCorrect / totalAttempts;
   }, [performance.deckStatsById]);
 
+  const cleanupDeck = useCallback((deckId: string, cardIds: string[]) => {
+    logger.log('[Performance] Cleaning up data for deleted deck:', deckId, 'cards:', cardIds.length);
+    setPerformance(prev => {
+      const updatedCardStats = { ...prev.cardStatsById };
+      for (const cardId of cardIds) {
+        delete updatedCardStats[cardId];
+      }
+
+      const updatedDeckStats = { ...prev.deckStatsById };
+      delete updatedDeckStats[deckId];
+
+      const newPerformance: QuestPerformance = {
+        ...prev,
+        cardStatsById: updatedCardStats,
+        deckStatsById: updatedDeckStats,
+      };
+
+      savePerformance(newPerformance);
+      return newPerformance;
+    });
+  }, [savePerformance]);
+
   return useMemo(() => ({
     performance,
     isLoading: performanceQuery.isLoading,
@@ -222,6 +244,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     saveLastQuestSettings,
     getLastQuestSettings,
     getOverallQuestAccuracy,
+    cleanupDeck,
   }), [
     performance,
     performanceQuery.isLoading,
@@ -233,5 +256,6 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     saveLastQuestSettings,
     getLastQuestSettings,
     getOverallQuestAccuracy,
+    cleanupDeck,
   ]);
 });
