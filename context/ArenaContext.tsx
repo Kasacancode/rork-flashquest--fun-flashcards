@@ -22,7 +22,10 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
   const prevQuestionIndexRef = useRef<number>(-1);
   const pollFailCountRef = useRef<number>(0);
-  const MAX_POLL_FAILURES = 4;
+  const connectedAtRef = useRef<number>(0);
+  const lastErrorMsgRef = useRef<string | null>(null);
+  const MAX_POLL_FAILURES = 10;
+  const GRACE_PERIOD_MS = 10000;
 
   useQuery({
     queryKey: ['arena-player-name'],
@@ -57,9 +60,9 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     { roomCode: roomCode!, playerId: playerId! },
     {
       enabled: !!roomCode && !!playerId,
-      refetchInterval: 2000,
-      retry: 3,
-      retryDelay: 1000,
+      refetchInterval: 3000,
+      retry: 5,
+      retryDelay: 2000,
     },
   );
 
@@ -72,7 +75,17 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   useEffect(() => {
     if (roomQuery.error && roomCode) {
       const msg = roomQuery.error.message;
-      pollFailCountRef.current += 1;
+      const timeSinceConnect = Date.now() - connectedAtRef.current;
+      if (timeSinceConnect < GRACE_PERIOD_MS) {
+        logger.log('[Arena] Poll error during grace period, ignoring:', msg);
+        return;
+      }
+      if (msg !== lastErrorMsgRef.current) {
+        pollFailCountRef.current = 1;
+        lastErrorMsgRef.current = msg;
+      } else {
+        pollFailCountRef.current += 1;
+      }
       logger.log('[Arena] Poll error (attempt', pollFailCountRef.current, '/', MAX_POLL_FAILURES, '):', msg);
       if (pollFailCountRef.current >= MAX_POLL_FAILURES) {
         logger.log('[Arena] Max poll failures reached, disconnecting');
@@ -80,6 +93,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
         setPlayerId(null);
         setConnectionError('Room expired or not found');
         pollFailCountRef.current = 0;
+        lastErrorMsgRef.current = null;
       }
     }
   }, [roomQuery.error, roomCode]);
@@ -106,6 +120,9 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const createRoomMut = trpc.arena.initRoom.useMutation({
     onSuccess: (data: any) => {
       logger.log('[Arena] Created room:', data.roomCode);
+      connectedAtRef.current = Date.now();
+      pollFailCountRef.current = 0;
+      lastErrorMsgRef.current = null;
       setRoomCode(data.roomCode);
       setPlayerId(data.playerId);
       setConnectionError(null);
@@ -119,6 +136,9 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const joinRoomMut = trpc.arena.joinRoom.useMutation({
     onSuccess: (data: any) => {
       logger.log('[Arena] Joined room:', data.room.code);
+      connectedAtRef.current = Date.now();
+      pollFailCountRef.current = 0;
+      lastErrorMsgRef.current = null;
       setRoomCode(data.room.code);
       setPlayerId(data.playerId);
       setConnectionError(null);
@@ -155,6 +175,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     setPlayerName(name);
     setConnectionError(null);
     pollFailCountRef.current = 0;
+    lastErrorMsgRef.current = null;
+    connectedAtRef.current = Date.now();
     AsyncStorage.setItem(PLAYER_NAME_KEY, name).catch(() => {});
     createRoomMut.mutate({ name });
   }, [createRoomMut]);
@@ -163,6 +185,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     setPlayerName(name);
     setConnectionError(null);
     pollFailCountRef.current = 0;
+    lastErrorMsgRef.current = null;
+    connectedAtRef.current = Date.now();
     AsyncStorage.setItem(PLAYER_NAME_KEY, name).catch(() => {});
     joinRoomMut.mutate({ roomCode: code, playerName: name });
   }, [joinRoomMut]);
@@ -178,6 +202,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     setLastAnswerCorrect(null);
     prevQuestionIndexRef.current = -1;
     pollFailCountRef.current = 0;
+    lastErrorMsgRef.current = null;
+    connectedAtRef.current = 0;
     logger.log('[Arena] Disconnected');
   }, [roomCode, playerId, leaveMut]);
 
