@@ -12,7 +12,7 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { QuestSettings, Flashcard, QuestRunResult } from '@/types/flashcard';
-import { selectNextCard, generateOptionsWithAI, checkAnswer, calculateScore } from '@/utils/questUtils';
+import { selectNextCard, generateOptionsWithAI, generateOptions, checkAnswer, calculateScore } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
 
 export default function QuestSessionScreen() {
@@ -47,14 +47,14 @@ export default function QuestSessionScreen() {
     return deck.flashcards.filter(c => drillCardIds.includes(c.id));
   }, [drillCardIds, deck]);
 
-  // Snap drill run length to nearest valid bucket (5, 10, 20) based on available cards
   const effectiveRunLength = useMemo(() => {
     if (!drillCards) return settings.runLength;
     const len = drillCards.length;
     if (len >= 20) return 20;
     if (len >= 10) return 10;
-    return 5;
-  }, [drillCards, settings.runLength]) as 5 | 10 | 20;
+    if (len >= 5) return 5;
+    return len > 0 ? len : 1;
+  }, [drillCards, settings.runLength]);
 
   const allCards = useMemo(() => decks.flatMap(d => d.flashcards), [decks]);
 
@@ -103,7 +103,8 @@ export default function QuestSessionScreen() {
     });
 
     if (!nextCard) {
-      logger.log('[Quest] No more cards available');
+      logger.log('[Quest] No more cards available, ending session');
+      finishSessionEarly();
       return;
     }
 
@@ -134,15 +135,61 @@ export default function QuestSessionScreen() {
       }).start();
     });
 
-    const newOptions = await generateOptionsWithAI({
-      correctAnswer: nextCard.answer,
-      question: nextCard.question,
-      deckCards: deck.flashcards,
-      allCards,
-      currentCardId: nextCard.id,
+    try {
+      const newOptions = await generateOptionsWithAI({
+        correctAnswer: nextCard.answer,
+        question: nextCard.question,
+        deckCards: deck.flashcards,
+        allCards,
+        currentCardId: nextCard.id,
+      });
+      setOptions(newOptions);
+    } catch (err) {
+      logger.log('[Quest] AI distractor generation failed, using local fallback:', err);
+      const fallbackOptions = generateOptions({
+        correctAnswer: nextCard.answer,
+        deckCards: deck.flashcards,
+        allCards,
+        currentCardId: nextCard.id,
+      });
+      setOptions(fallbackOptions);
+    }
+  }, [deck, allCards, performance, settings, cardAnimations, drillCards]);
+
+  const finishSessionEarly = useCallback(() => {
+    updateBestStreak(bestStreak);
+
+    const totalRounds = currentRound;
+    const finalAccuracy = totalRounds > 0 ? correctCount / totalRounds : 0;
+
+    recordSessionResult({
+      mode: 'quest',
+      deckId: settings.deckId,
+      xpEarned: score,
+      cardsAttempted: totalRounds,
+      correctCount,
+      timestampISO: new Date().toISOString(),
     });
-    setOptions(newOptions);
-  }, [deck, allCards, performance, settings, cardAnimations]);
+    logger.log('[Quest] Early finish - no more cards. score:', score, 'rounds:', totalRounds);
+
+    const result: QuestRunResult = {
+      deckId: settings.deckId,
+      settings: { ...settings, runLength: effectiveRunLength as 5 | 10 | 20 },
+      totalScore: score,
+      correctCount,
+      incorrectCount,
+      accuracy: finalAccuracy,
+      bestStreak,
+      totalTimeMs,
+      missedCardIds,
+      askedCardIds,
+    };
+
+    router.replace({
+      pathname: '/quest-results' as any,
+      params: { result: JSON.stringify(result) },
+    });
+  }, [currentRound, settings, score, correctCount, incorrectCount, bestStreak, totalTimeMs, missedCardIds, askedCardIds, router, updateBestStreak, recordSessionResult, effectiveRunLength]);
 
   useEffect(() => {
     if (deck) {
@@ -327,7 +374,7 @@ export default function QuestSessionScreen() {
 
       const result: QuestRunResult = {
         deckId: settings.deckId,
-        settings: { ...settings, runLength: effectiveRunLength },
+        settings: { ...settings, runLength: effectiveRunLength as 5 | 10 | 20 },
         totalScore: score,
         correctCount,
         incorrectCount: incorrectCount,
