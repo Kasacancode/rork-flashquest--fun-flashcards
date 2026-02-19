@@ -2,17 +2,34 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
+import { Platform, LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { ArenaProvider } from '@/context/ArenaContext';
 import { FlashQuestProvider } from '@/context/FlashQuestContext';
 import { PerformanceProvider } from '@/context/PerformanceContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { trpc, trpcClient } from '@/lib/trpc';
 
-SplashScreen.preventAutoHideAsync();
+try {
+  SplashScreen.preventAutoHideAsync();
+} catch (e) {
+  console.warn('[Layout] SplashScreen.preventAutoHideAsync failed:', e);
+}
 
-const queryClient = new QueryClient();
+if (Platform.OS !== 'web') {
+  LogBox.ignoreLogs(['Require cycle']);
+}
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 1000 * 60,
+    },
+  },
+});
 
 function RootLayoutNav() {
   return (
@@ -40,24 +57,29 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
-    <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <FlashQuestProvider>
-            <PerformanceProvider>
-              <ArenaProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <RootLayoutNav />
-                </GestureHandlerRootView>
-              </ArenaProvider>
-            </PerformanceProvider>
-          </FlashQuestProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </trpc.Provider>
+    <ErrorBoundary>
+      <trpc.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <FlashQuestProvider>
+              <PerformanceProvider>
+                <ArenaProvider>
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <RootLayoutNav />
+                  </GestureHandlerRootView>
+                </ArenaProvider>
+              </PerformanceProvider>
+            </FlashQuestProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </trpc.Provider>
+    </ErrorBoundary>
   );
 }

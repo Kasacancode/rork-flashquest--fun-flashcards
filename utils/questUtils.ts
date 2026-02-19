@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/v4';
 import { generateObject } from '@rork-ai/toolkit-sdk';
 import { Flashcard, CardStats, QuestPerformance } from '@/types/flashcard';
 import { logger } from '@/utils/logger';

@@ -6,21 +6,40 @@ import superjson from "superjson";
 export const trpc: any = (createTRPCReact as any)();
 
 const getBaseUrl = () => {
-  const url = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
-
-  if (!url) {
-    console.warn("[trpc] EXPO_PUBLIC_RORK_API_BASE_URL not set, multiplayer will not work");
+  try {
+    const url = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
+    if (!url) {
+      console.warn("[trpc] EXPO_PUBLIC_RORK_API_BASE_URL not set, multiplayer will not work");
+      return "";
+    }
+    return url;
+  } catch (e) {
+    console.warn("[trpc] Failed to read env:", e);
     return "";
   }
-
-  return url;
 };
 
-export const trpcClient = trpc.createClient({
-  links: [
-    httpLink({
-      url: `${getBaseUrl()}/api/trpc`,
-      transformer: superjson,
-    }),
-  ],
-});
+let trpcClientInstance: any = null;
+
+try {
+  trpcClientInstance = trpc.createClient({
+    links: [
+      httpLink({
+        url: `${getBaseUrl()}/api/trpc`,
+        transformer: superjson,
+      }),
+    ],
+  });
+} catch (e) {
+  console.error("[trpc] Failed to create client:", e);
+  trpcClientInstance = trpc.createClient({
+    links: [
+      httpLink({
+        url: "/api/trpc",
+        transformer: superjson,
+      }),
+    ],
+  });
+}
+
+export const trpcClient = trpcClientInstance;
