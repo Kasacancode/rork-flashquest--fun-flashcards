@@ -1,8 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Target, Zap, Clock, Focus, Lightbulb, BookOpen, RefreshCw, Play, ChevronRight } from 'lucide-react-native';
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { ArrowLeft, Target, Zap, Clock, Focus, Lightbulb, BookOpen, RefreshCw, Play, ChevronRight, Settings, X } from 'lucide-react-native';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Animated, Dimensions, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFlashQuest } from '@/context/FlashQuestContext';
@@ -12,6 +12,9 @@ import { QuestMode, QuestSettings } from '@/types/flashcard';
 
 type RunLength = 5 | 10 | 20;
 type TimerOption = 0 | 5 | 10;
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SHEET_HEIGHT = SCREEN_HEIGHT * 0.65;
 
 export default function QuestMenuScreen() {
   const router = useRouter();
@@ -30,10 +33,48 @@ export default function QuestMenuScreen() {
   const [explanationsEnabled, setExplanationsEnabled] = useState<boolean>(lastSettings?.explanationsEnabled ?? (mode === 'learn'));
   const [secondChanceEnabled, setSecondChanceEnabled] = useState<boolean>(lastSettings?.secondChanceEnabled || false);
 
+  const [sheetVisible, setSheetVisible] = useState<boolean>(false);
+  const slideAnim = useRef(new Animated.Value(SHEET_HEIGHT)).current;
+  const backdropAnim = useRef(new Animated.Value(0)).current;
+
   const selectedDeck = useMemo(() => decks.find(d => d.id === selectedDeckId), [decks, selectedDeckId]);
-  
+
   const overallAccuracy = getOverallQuestAccuracy();
   const deckAccuracy = selectedDeckId ? getDeckAccuracy(selectedDeckId) : null;
+
+  const openSheet = useCallback(() => {
+    setSheetVisible(true);
+    Animated.parallel([
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        damping: 20,
+        stiffness: 200,
+      }),
+      Animated.timing(backdropAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [slideAnim, backdropAnim]);
+
+  const closeSheet = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: SHEET_HEIGHT,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setSheetVisible(false);
+    });
+  }, [slideAnim, backdropAnim]);
 
   const handleModeChange = (newMode: QuestMode) => {
     setMode(newMode);
@@ -71,7 +112,7 @@ export default function QuestMenuScreen() {
 
   const handleQuickResume = () => {
     if (!lastSettings) return;
-    
+
     router.push({
       pathname: '/quest-session' as any,
       params: { settings: JSON.stringify(lastSettings) },
@@ -79,6 +120,16 @@ export default function QuestMenuScreen() {
   };
 
   const smallDeckWarning = selectedDeck && selectedDeck.flashcards.length < 8;
+
+  const settingsLabel = useMemo(() => {
+    const parts: string[] = [];
+    parts.push(`${runLength} cards`);
+    if (timerSeconds > 0) parts.push(`${timerSeconds}s timer`);
+    if (focusWeakOnly) parts.push('weak focus');
+    if (hintsEnabled) parts.push('hints');
+    if (secondChanceEnabled) parts.push('2nd chance');
+    return parts.join(' · ');
+  }, [runLength, timerSeconds, focusWeakOnly, hintsEnabled, secondChanceEnabled]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -102,10 +153,16 @@ export default function QuestMenuScreen() {
             <Target color="#fff" size={28} />
             <Text style={styles.headerTitle}>Quest Mode</Text>
           </View>
-          <View style={styles.headerSpacer} />
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={openSheet}
+            activeOpacity={0.7}
+          >
+            <Settings color="#fff" size={22} />
+          </TouchableOpacity>
         </View>
 
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -135,8 +192,8 @@ export default function QuestMenuScreen() {
 
           <View style={[styles.section, { backgroundColor: theme.cardBackground }]}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Select Deck</Text>
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.deckList}
             >
@@ -152,8 +209,8 @@ export default function QuestMenuScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
-                  <Text 
-                    style={[styles.deckName, { color: theme.text }]} 
+                  <Text
+                    style={[styles.deckName, { color: theme.text }]}
                     numberOfLines={1}
                   >
                     {deck.name}
@@ -183,9 +240,9 @@ export default function QuestMenuScreen() {
                 onPress={() => handleModeChange('learn')}
                 activeOpacity={0.7}
               >
-                <BookOpen 
-                  color={mode === 'learn' ? '#fff' : theme.text} 
-                  size={20} 
+                <BookOpen
+                  color={mode === 'learn' ? '#fff' : theme.text}
+                  size={20}
                 />
                 <Text style={[
                   styles.modeText,
@@ -203,9 +260,9 @@ export default function QuestMenuScreen() {
                 onPress={() => handleModeChange('test')}
                 activeOpacity={0.7}
               >
-                <Zap 
-                  color={mode === 'test' ? '#fff' : theme.text} 
-                  size={20} 
+                <Zap
+                  color={mode === 'test' ? '#fff' : theme.text}
+                  size={20}
                 />
                 <Text style={[
                   styles.modeText,
@@ -216,152 +273,27 @@ export default function QuestMenuScreen() {
               </TouchableOpacity>
             </View>
             <Text style={[styles.modeDescription, { color: theme.textSecondary }]}>
-              {mode === 'learn' 
+              {mode === 'learn'
                 ? 'Hints ON, explanations ON, no timer, lower points'
                 : 'Hints OFF, explanations at end only, optional timer, higher points'
               }
             </Text>
           </View>
 
-          <View style={[styles.section, { backgroundColor: theme.cardBackground }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Settings</Text>
-            
-            <View style={styles.settingRow}>
-              <View style={styles.settingLabel}>
-                <Target color={theme.textSecondary} size={18} />
-                <Text style={[styles.settingText, { color: theme.text }]}>Run Length</Text>
-              </View>
-              <View style={styles.optionGroup}>
-                {([5, 10, 20] as RunLength[]).map((val) => (
-                  <TouchableOpacity
-                    key={val}
-                    style={[
-                      styles.optionButton,
-                      { backgroundColor: theme.background },
-                      runLength === val && { backgroundColor: theme.primary },
-                    ]}
-                    onPress={() => setRunLength(val)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[
-                      styles.optionText,
-                      { color: runLength === val ? '#fff' : theme.text },
-                    ]}>
-                      {val}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+          {/* Settings summary pill */}
+          <TouchableOpacity
+            style={[styles.settingsSummary, { backgroundColor: theme.cardBackground }]}
+            onPress={openSheet}
+            activeOpacity={0.7}
+          >
+            <View style={styles.settingsSummaryLeft}>
+              <Settings color={theme.textSecondary} size={16} />
+              <Text style={[styles.settingsSummaryText, { color: theme.textSecondary }]}>
+                {settingsLabel}
+              </Text>
             </View>
-
-            <View style={styles.settingRow}>
-              <View style={styles.settingLabel}>
-                <Clock color={theme.textSecondary} size={18} />
-                <Text style={[styles.settingText, { color: theme.text }]}>Timer (sec)</Text>
-              </View>
-              <View style={styles.optionGroup}>
-                {([0, 5, 10] as TimerOption[]).map((val) => (
-                  <TouchableOpacity
-                    key={val}
-                    style={[
-                      styles.optionButton,
-                      { backgroundColor: theme.background },
-                      timerSeconds === val && { backgroundColor: theme.primary },
-                    ]}
-                    onPress={() => setTimerSeconds(val)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[
-                      styles.optionText,
-                      { color: timerSeconds === val ? '#fff' : theme.text },
-                    ]}>
-                      {val === 0 ? 'Off' : val}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <TouchableOpacity 
-              style={styles.toggleRow}
-              onPress={() => setFocusWeakOnly(!focusWeakOnly)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.settingLabel}>
-                <Focus color={theme.textSecondary} size={18} />
-                <Text style={[styles.settingText, { color: theme.text }]}>Focus Weak Cards</Text>
-              </View>
-              <View style={[
-                styles.toggle,
-                { backgroundColor: focusWeakOnly ? theme.primary : theme.border },
-              ]}>
-                <View style={[
-                  styles.toggleKnob,
-                  { transform: [{ translateX: focusWeakOnly ? 20 : 2 }] },
-                ]} />
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.toggleRow}
-              onPress={() => setHintsEnabled(!hintsEnabled)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.settingLabel}>
-                <Lightbulb color={theme.textSecondary} size={18} />
-                <Text style={[styles.settingText, { color: theme.text }]}>Hints</Text>
-              </View>
-              <View style={[
-                styles.toggle,
-                { backgroundColor: hintsEnabled ? theme.primary : theme.border },
-              ]}>
-                <View style={[
-                  styles.toggleKnob,
-                  { transform: [{ translateX: hintsEnabled ? 20 : 2 }] },
-                ]} />
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.toggleRow}
-              onPress={() => setExplanationsEnabled(!explanationsEnabled)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.settingLabel}>
-                <BookOpen color={theme.textSecondary} size={18} />
-                <Text style={[styles.settingText, { color: theme.text }]}>Explanations</Text>
-              </View>
-              <View style={[
-                styles.toggle,
-                { backgroundColor: explanationsEnabled ? theme.primary : theme.border },
-              ]}>
-                <View style={[
-                  styles.toggleKnob,
-                  { transform: [{ translateX: explanationsEnabled ? 20 : 2 }] },
-                ]} />
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.toggleRow}
-              onPress={() => setSecondChanceEnabled(!secondChanceEnabled)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.settingLabel}>
-                <RefreshCw color={theme.textSecondary} size={18} />
-                <Text style={[styles.settingText, { color: theme.text }]}>Second Chance</Text>
-              </View>
-              <View style={[
-                styles.toggle,
-                { backgroundColor: secondChanceEnabled ? theme.primary : theme.border },
-              ]}>
-                <View style={[
-                  styles.toggleKnob,
-                  { transform: [{ translateX: secondChanceEnabled ? 20 : 2 }] },
-                ]} />
-              </View>
-            </TouchableOpacity>
-          </View>
+            <Text style={[styles.settingsSummaryAction, { color: theme.primary }]}>Edit</Text>
+          </TouchableOpacity>
 
           <View style={styles.buttonContainer}>
             <TouchableOpacity
@@ -396,6 +328,196 @@ export default function QuestMenuScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      {/* Settings Bottom Sheet Modal */}
+      <Modal
+        visible={sheetVisible}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closeSheet}
+      >
+        <View style={styles.modalContainer}>
+          <Animated.View
+            style={[
+              styles.backdrop,
+              { opacity: backdropAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.5] }) },
+            ]}
+          >
+            <Pressable style={StyleSheet.absoluteFill} onPress={closeSheet} />
+          </Animated.View>
+
+          <Animated.View
+            style={[
+              styles.sheet,
+              { backgroundColor: theme.cardBackground, transform: [{ translateY: slideAnim }] },
+            ]}
+          >
+            <View style={styles.sheetHandle}>
+              <View style={[styles.handleBar, { backgroundColor: theme.border }]} />
+            </View>
+
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetTitle, { color: theme.text }]}>Settings</Text>
+              <TouchableOpacity onPress={closeSheet} activeOpacity={0.7} style={styles.sheetClose}>
+                <X color={theme.textSecondary} size={22} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.sheetScroll}
+              contentContainerStyle={styles.sheetScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.settingRow}>
+                <View style={styles.settingLabel}>
+                  <Target color={theme.textSecondary} size={18} />
+                  <Text style={[styles.settingText, { color: theme.text }]}>Run Length</Text>
+                </View>
+                <View style={styles.optionGroup}>
+                  {([5, 10, 20] as RunLength[]).map((val) => (
+                    <TouchableOpacity
+                      key={val}
+                      style={[
+                        styles.optionButton,
+                        { backgroundColor: theme.background },
+                        runLength === val && { backgroundColor: theme.primary },
+                      ]}
+                      onPress={() => setRunLength(val)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.optionText,
+                        { color: runLength === val ? '#fff' : theme.text },
+                      ]}>
+                        {val}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.settingRow}>
+                <View style={styles.settingLabel}>
+                  <Clock color={theme.textSecondary} size={18} />
+                  <Text style={[styles.settingText, { color: theme.text }]}>Timer (sec)</Text>
+                </View>
+                <View style={styles.optionGroup}>
+                  {([0, 5, 10] as TimerOption[]).map((val) => (
+                    <TouchableOpacity
+                      key={val}
+                      style={[
+                        styles.optionButton,
+                        { backgroundColor: theme.background },
+                        timerSeconds === val && { backgroundColor: theme.primary },
+                      ]}
+                      onPress={() => setTimerSeconds(val)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.optionText,
+                        { color: timerSeconds === val ? '#fff' : theme.text },
+                      ]}>
+                        {val === 0 ? 'Off' : val}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.toggleRow}
+                onPress={() => setFocusWeakOnly(!focusWeakOnly)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.settingLabel}>
+                  <Focus color={theme.textSecondary} size={18} />
+                  <Text style={[styles.settingText, { color: theme.text }]}>Focus Weak Cards</Text>
+                </View>
+                <View style={[
+                  styles.toggle,
+                  { backgroundColor: focusWeakOnly ? theme.primary : theme.border },
+                ]}>
+                  <View style={[
+                    styles.toggleKnob,
+                    { transform: [{ translateX: focusWeakOnly ? 20 : 2 }] },
+                  ]} />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.toggleRow}
+                onPress={() => setHintsEnabled(!hintsEnabled)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.settingLabel}>
+                  <Lightbulb color={theme.textSecondary} size={18} />
+                  <Text style={[styles.settingText, { color: theme.text }]}>Hints</Text>
+                </View>
+                <View style={[
+                  styles.toggle,
+                  { backgroundColor: hintsEnabled ? theme.primary : theme.border },
+                ]}>
+                  <View style={[
+                    styles.toggleKnob,
+                    { transform: [{ translateX: hintsEnabled ? 20 : 2 }] },
+                  ]} />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.toggleRow}
+                onPress={() => setExplanationsEnabled(!explanationsEnabled)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.settingLabel}>
+                  <BookOpen color={theme.textSecondary} size={18} />
+                  <Text style={[styles.settingText, { color: theme.text }]}>Explanations</Text>
+                </View>
+                <View style={[
+                  styles.toggle,
+                  { backgroundColor: explanationsEnabled ? theme.primary : theme.border },
+                ]}>
+                  <View style={[
+                    styles.toggleKnob,
+                    { transform: [{ translateX: explanationsEnabled ? 20 : 2 }] },
+                  ]} />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.toggleRow, { marginBottom: 0 }]}
+                onPress={() => setSecondChanceEnabled(!secondChanceEnabled)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.settingLabel}>
+                  <RefreshCw color={theme.textSecondary} size={18} />
+                  <Text style={[styles.settingText, { color: theme.text }]}>Second Chance</Text>
+                </View>
+                <View style={[
+                  styles.toggle,
+                  { backgroundColor: secondChanceEnabled ? theme.primary : theme.border },
+                ]}>
+                  <View style={[
+                    styles.toggleKnob,
+                    { transform: [{ translateX: secondChanceEnabled ? 20 : 2 }] },
+                  ]} />
+                </View>
+              </TouchableOpacity>
+            </ScrollView>
+
+            <View style={styles.sheetFooter}>
+              <TouchableOpacity
+                style={[styles.doneButton, { backgroundColor: theme.primary }]}
+                onPress={closeSheet}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.doneButtonText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -432,8 +554,13 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: '#fff',
   },
-  headerSpacer: {
+  settingsButton: {
     width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollView: {
     flex: 1,
@@ -538,58 +665,35 @@ const styles = StyleSheet.create({
     marginTop: 12,
     lineHeight: 18,
   },
-  settingRow: {
+  settingsSummary: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  settingLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  settingText: {
-    fontSize: 15,
-    fontWeight: '500' as const,
-  },
-  optionGroup: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  optionButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
-    minWidth: 50,
-    alignItems: 'center',
-  },
-  optionText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  toggle: {
-    width: 48,
-    height: 28,
     borderRadius: 14,
-    justifyContent: 'center',
-  },
-  toggleKnob: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  settingsSummaryLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  settingsSummaryText: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    flex: 1,
+  },
+  settingsSummaryAction: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    marginLeft: 8,
   },
   buttonContainer: {
     marginTop: 8,
@@ -631,5 +735,128 @@ const styles = StyleSheet.create({
   resumeButtonText: {
     fontSize: 16,
     fontWeight: '600' as const,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+  },
+  sheet: {
+    height: SHEET_HEIGHT,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  sheetHandle: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  sheetTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+  },
+  sheetClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sheetScroll: {
+    flex: 1,
+  },
+  sheetScrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  settingLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  settingText: {
+    fontSize: 15,
+    fontWeight: '500' as const,
+  },
+  optionGroup: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  optionButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+    minWidth: 50,
+    alignItems: 'center',
+  },
+  optionText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  toggle: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+  },
+  toggleKnob: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  sheetFooter: {
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    paddingTop: 8,
+  },
+  doneButton: {
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneButtonText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#fff',
   },
 });
