@@ -88,7 +88,7 @@ export default function ArenaLobbyScreen() {
   }, [roomCode]);
 
   const handleRemovePlayer = useCallback((targetId: string) => {
-    const player = room?.players.find(p => p.id === targetId);
+    const player = room?.players.find((p: any) => p.id === targetId);
     if (!player || player.isHost) return;
     Alert.alert('Remove Player', `Remove ${player.name} from the lobby?`, [
       { text: 'Cancel', style: 'cancel' },
@@ -245,7 +245,7 @@ export default function ArenaLobbyScreen() {
             </View>
 
             <View style={styles.playersList}>
-              {room.players.map((player) => (
+              {room.players.map((player: any) => (
                 <View
                   key={player.id}
                   style={[styles.playerCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background }]}

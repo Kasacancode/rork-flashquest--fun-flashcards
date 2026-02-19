@@ -74,7 +74,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
 
   const room = roomQuery.data?.room ?? null;
   const isHost = room !== null && room.hostId === playerId;
-  const myPlayer = room?.players.find(p => p.id === playerId) ?? null;
+  const myPlayer = room?.players.find((p: any) => p.id === playerId) ?? null;
 
   const currentQuestionIndex = room?.game?.currentQuestionIndex ?? -1;
   useEffect(() => {
@@ -92,26 +92,26 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   }, [room?.game?.answeredPlayerIds, playerId]);
 
   const createRoomMut = trpc.arena.createRoom.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       logger.log('[Arena] Created room:', data.roomCode);
       setRoomCode(data.roomCode);
       setPlayerId(data.playerId);
       setConnectionError(null);
     },
-    onError: (err) => {
+    onError: (err: any) => {
       logger.log('[Arena] Create error:', err.message);
       setConnectionError(err.message);
     },
   });
 
   const joinRoomMut = trpc.arena.joinRoom.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       logger.log('[Arena] Joined room:', data.room.code);
       setRoomCode(data.room.code);
       setPlayerId(data.playerId);
       setConnectionError(null);
     },
-    onError: (err) => {
+    onError: (err: any) => {
       logger.log('[Arena] Join error:', err.message);
       setConnectionError(err.message);
     },
@@ -121,18 +121,18 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const selectDeckMut = trpc.arena.selectDeck.useMutation();
   const updateSettingsMut = trpc.arena.updateSettings.useMutation();
   const startGameMut = trpc.arena.startGame.useMutation({
-    onError: (err) => {
+    onError: (err: any) => {
       logger.log('[Arena] Start game error:', err.message);
       setConnectionError(err.message);
     },
   });
   const submitAnswerMut = trpc.arena.submitAnswer.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       setHasAnsweredCurrent(true);
       setLastAnswerCorrect(data.isCorrect);
       logger.log('[Arena] Answer submitted, correct:', data.isCorrect);
     },
-    onError: (err) => {
+    onError: (err: any) => {
       logger.log('[Arena] Submit error:', err.message);
     },
   });

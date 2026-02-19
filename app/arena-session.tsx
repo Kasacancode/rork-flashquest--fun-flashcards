@@ -170,7 +170,7 @@ export default function ArenaSessionScreen() {
         );
       }
 
-      const selectedIndex = options.findIndex(o => o === selectedOption);
+      const selectedIndex = options.findIndex((o: string) => o === selectedOption);
       if (selectedIndex >= 0) {
         if (lastAnswerCorrect) {
           Animated.sequence([
@@ -359,7 +359,7 @@ export default function ArenaSessionScreen() {
         <View style={styles.gameArea}>
           <View style={[styles.tableSurface, { backgroundColor: theme.arenaTableSurface }]}>
             <View style={styles.optionsGrid}>
-              {options.map((option, index) => (
+              {options.map((option: string, index: number) => (
                 <AnswerCard
                   key={`${questionIndex}-${index}`}
                   optionText={option}
@@ -377,7 +377,7 @@ export default function ArenaSessionScreen() {
 
           {phase === 'reveal' && currentAnswers && (
             <Animated.View style={[styles.playerAnswers, { opacity: revealOpacity }]}>
-              {players.map(player => {
+              {players.map((player: any) => {
                 const answer = currentAnswers[player.id];
                 if (!answer) return null;
                 return (
