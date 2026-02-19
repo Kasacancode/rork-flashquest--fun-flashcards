@@ -561,7 +561,7 @@ export default function DuelSessionPage() {
             <View style={styles.answerSection}>
               <View style={styles.turnIndicator}>
                 <View style={[styles.turnDot, { backgroundColor: '#ef4444' }]} />
-                <Text style={styles.turnText}>{currentDuel.opponentName}&apos;s Turn</Text>
+                <Text style={styles.turnText}>{currentDuel.opponentName}'s Turn</Text>
               </View>
               <View style={styles.waitingCard}>
                 <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>

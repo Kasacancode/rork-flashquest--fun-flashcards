@@ -471,7 +471,7 @@ export function TurnBadge({ playerName, playerColor, isYourTurn = false }: TurnB
       ]}
     >
       <View style={[styles.turnBadgeDot, { backgroundColor: playerColor }]} />
-      <Text style={styles.turnBadgeText}>{playerName}&apos;s Turn</Text>
+      <Text style={styles.turnBadgeText}>{playerName}'s Turn</Text>
     </Animated.View>
   );
 }
