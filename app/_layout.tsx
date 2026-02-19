@@ -92,7 +92,7 @@ export default function RootLayout() {
             {/* 5. Arena Provider - manages multiplayer arena state */}
             <ArenaProvider>
               {/* 6. Gesture Handler - enables touch gestures throughout app */}
-              <GestureHandlerRootView>
+              <GestureHandlerRootView style={{ flex: 1 }}>
                 {/* 7. Navigation - the actual screens */}
                 <RootLayoutNav />
               </GestureHandlerRootView>
