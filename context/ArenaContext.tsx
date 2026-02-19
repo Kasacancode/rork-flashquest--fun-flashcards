@@ -24,8 +24,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const pollFailCountRef = useRef<number>(0);
   const connectedAtRef = useRef<number>(0);
   const lastErrorMsgRef = useRef<string | null>(null);
-  const MAX_POLL_FAILURES = 10;
-  const GRACE_PERIOD_MS = 10000;
+  const MAX_POLL_FAILURES = 20;
+  const GRACE_PERIOD_MS = 20000;
 
   useQuery({
     queryKey: ['arena-player-name'],
@@ -56,12 +56,14 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['arena-leaderboard'] }),
   });
 
+  const [isPlaying, setIsPlaying] = useState(false);
+
   const roomQuery = trpc.arena.getRoomState.useQuery(
     { roomCode: roomCode!, playerId: playerId! },
     {
       enabled: !!roomCode && !!playerId,
-      refetchInterval: 3000,
-      retry: 5,
+      refetchInterval: isPlaying ? 1500 : 3000,
+      retry: 8,
       retryDelay: 2000,
     },
   );
@@ -101,6 +103,10 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const room = roomQuery.data?.room ?? null;
   const isHost = room !== null && room.hostId === playerId;
   const myPlayer = room?.players.find((p: any) => p.id === playerId) ?? null;
+
+  useEffect(() => {
+    setIsPlaying(room?.status === 'playing');
+  }, [room?.status]);
 
   const currentQuestionIndex = room?.game?.currentQuestionIndex ?? -1;
   useEffect(() => {

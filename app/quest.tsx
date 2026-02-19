@@ -221,7 +221,7 @@ export default function QuestMenuScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            {smallDeckWarning && (
+            {!!smallDeckWarning && (
               <Text style={[styles.warningText, { color: theme.warning }]}>
                 For best experience, decks should have at least 8 cards.
               </Text>

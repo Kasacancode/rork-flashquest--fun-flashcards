@@ -7,10 +7,10 @@ const PLAYER_COLORS = [
   '#BB8FCE', '#85C1E9', '#F8B500', '#00CED1',
 ];
 
-const STALE_ROOM_MS = 30 * 60 * 1000;
-const DISCONNECT_MS = 15 * 1000;
-const REVEAL_DURATION_MS = 4000;
-const NO_TIMER_TIMEOUT_MS = 60 * 1000;
+const STALE_ROOM_MS = 60 * 60 * 1000;
+const DISCONNECT_MS = 60 * 1000;
+const REVEAL_DURATION_MS = 3500;
+const NO_TIMER_TIMEOUT_MS = 90 * 1000;
 const PERSIST_FILE = path.join('/tmp', 'arena-rooms.json');
 const SAVE_DEBOUNCE_MS = 500;
 
@@ -362,6 +362,7 @@ class RoomStore {
 
     room.lastActivity = Date.now();
     this.checkAllAnswered(room);
+    this.tick(room.code);
     this.scheduleSave();
     return { room, isCorrect };
   }
@@ -466,10 +467,9 @@ class RoomStore {
     for (const p of room.players) {
       if (room.game.answers[p.id]?.[qi]) continue;
 
-      const disconnected = (now - p.lastSeen) > DISCONNECT_MS;
       const timedOut = (now - room.game.questionStartedAt) > NO_TIMER_TIMEOUT_MS;
 
-      if (disconnected || timedOut) {
+      if (timedOut) {
         if (!room.game.answers[p.id]) room.game.answers[p.id] = {};
         room.game.answers[p.id][qi] = {
           selectedOption: '',
@@ -502,7 +502,10 @@ class RoomStore {
       room.game.questionStartedAt = Date.now();
       room.game.phase = 'question';
       room.game.revealStartedAt = null;
+      console.log(`[RoomStore] Advanced to question ${nextIndex + 1} in room ${room.code}`);
     }
+    room.lastActivity = Date.now();
+    this.scheduleSave();
   }
 
   sanitize(room: Room): SanitizedRoom {

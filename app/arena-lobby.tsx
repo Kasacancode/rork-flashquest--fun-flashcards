@@ -327,7 +327,7 @@ export default function ArenaLobbyScreen() {
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-              {smallDeckWarning && (
+              {!!smallDeckWarning && (
                 <View style={[styles.warningBox, { backgroundColor: theme.warning + '20', marginTop: 12 }]}>
                   <AlertCircle color={theme.warning} size={16} />
                   <Text style={[styles.warningText, { color: theme.warning }]}>Best with 8+ cards for variety</Text>

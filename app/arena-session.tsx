@@ -343,7 +343,7 @@ export default function ArenaSessionScreen() {
           </Animated.View>
         )}
 
-        {dealerLine && phase === 'question' && !hasAnsweredCurrent && (
+        {!!dealerLine && phase === 'question' && !hasAnsweredCurrent && (
           <View style={styles.dealerSection}>
             <DealerReaction text={dealerLine} isCorrect={dealerReactionCorrect} />
           </View>
