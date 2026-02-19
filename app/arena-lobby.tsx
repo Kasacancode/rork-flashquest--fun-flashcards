@@ -36,6 +36,7 @@ export default function ArenaLobbyScreen() {
     startGame,
     disconnect,
     connectionError,
+    clearError,
   } = useArena();
 
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -60,10 +61,16 @@ export default function ArenaLobbyScreen() {
   useEffect(() => {
     if (connectionError) {
       Alert.alert('Connection Lost', connectionError, [
-        { text: 'OK', onPress: () => router.replace('/arena' as any) },
+        {
+          text: 'OK',
+          onPress: () => {
+            clearError();
+            router.replace('/arena' as any);
+          },
+        },
       ]);
     }
-  }, [connectionError]);
+  }, [connectionError, clearError]);
 
   useEffect(() => {
     const loop = Animated.loop(

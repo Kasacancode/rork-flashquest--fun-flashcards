@@ -21,6 +21,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const [hasAnsweredCurrent, setHasAnsweredCurrent] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
   const prevQuestionIndexRef = useRef<number>(-1);
+  const pollFailCountRef = useRef<number>(0);
+  const MAX_POLL_FAILURES = 4;
 
   useQuery({
     queryKey: ['arena-player-name'],
@@ -55,22 +57,32 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     { roomCode: roomCode!, playerId: playerId! },
     {
       enabled: !!roomCode && !!playerId,
-      refetchInterval: 1500,
-      retry: 2,
+      refetchInterval: 2000,
+      retry: 3,
+      retryDelay: 1000,
     },
   );
 
   useEffect(() => {
-    if (roomQuery.error) {
+    if (roomQuery.data && roomCode) {
+      pollFailCountRef.current = 0;
+    }
+  }, [roomQuery.data, roomCode]);
+
+  useEffect(() => {
+    if (roomQuery.error && roomCode) {
       const msg = roomQuery.error.message;
-      logger.log('[Arena] Poll error:', msg);
-      if (msg.includes('not found') || msg.includes('expired')) {
+      pollFailCountRef.current += 1;
+      logger.log('[Arena] Poll error (attempt', pollFailCountRef.current, '/', MAX_POLL_FAILURES, '):', msg);
+      if (pollFailCountRef.current >= MAX_POLL_FAILURES) {
+        logger.log('[Arena] Max poll failures reached, disconnecting');
         setRoomCode(null);
         setPlayerId(null);
         setConnectionError('Room expired or not found');
+        pollFailCountRef.current = 0;
       }
     }
-  }, [roomQuery.error]);
+  }, [roomQuery.error, roomCode]);
 
   const room = roomQuery.data?.room ?? null;
   const isHost = room !== null && room.hostId === playerId;
@@ -141,12 +153,16 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
 
   const createRoom = useCallback((name: string) => {
     setPlayerName(name);
+    setConnectionError(null);
+    pollFailCountRef.current = 0;
     AsyncStorage.setItem(PLAYER_NAME_KEY, name).catch(() => {});
     createRoomMut.mutate({ name });
   }, [createRoomMut]);
 
   const joinRoom = useCallback((code: string, name: string) => {
     setPlayerName(name);
+    setConnectionError(null);
+    pollFailCountRef.current = 0;
     AsyncStorage.setItem(PLAYER_NAME_KEY, name).catch(() => {});
     joinRoomMut.mutate({ roomCode: code, playerName: name });
   }, [joinRoomMut]);
@@ -161,6 +177,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     setHasAnsweredCurrent(false);
     setLastAnswerCorrect(null);
     prevQuestionIndexRef.current = -1;
+    pollFailCountRef.current = 0;
     logger.log('[Arena] Disconnected');
   }, [roomCode, playerId, leaveMut]);
 

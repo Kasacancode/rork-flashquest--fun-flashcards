@@ -25,6 +25,7 @@ export default function ArenaSessionScreen() {
     submitAnswer,
     disconnect,
     connectionError,
+    clearError,
   } = useArena();
 
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -124,10 +125,16 @@ export default function ArenaSessionScreen() {
   useEffect(() => {
     if (connectionError) {
       Alert.alert('Connection Lost', connectionError, [
-        { text: 'OK', onPress: () => router.replace('/arena' as any) },
+        {
+          text: 'OK',
+          onPress: () => {
+            clearError();
+            router.replace('/arena' as any);
+          },
+        },
       ]);
     }
-  }, [connectionError]);
+  }, [connectionError, clearError]);
 
   useEffect(() => {
     if (questionIndex !== prevQuestionIndexRef.current) {

@@ -48,11 +48,14 @@ export default function ArenaMenuScreen() {
 
   useEffect(() => {
     if (connectionError && pendingAction) {
-      Alert.alert('Connection Error', connectionError);
+      const msg = connectionError;
       clearError();
       setPendingAction(null);
+      setShowCreateModal(false);
+      setShowJoinModal(false);
+      Alert.alert('Connection Error', msg);
     }
-  }, [connectionError, pendingAction]);
+  }, [connectionError, pendingAction, clearError]);
 
   const handleCreateRoom = () => {
     setNameInput(savedName || '');
