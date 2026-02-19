@@ -91,7 +91,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     }
   }, [room?.game?.answeredPlayerIds, playerId]);
 
-  const createRoomMut = trpc.arena.createRoom.useMutation({
+  const createRoomMut = trpc.arena.initRoom.useMutation({
     onSuccess: (data: any) => {
       logger.log('[Arena] Created room:', data.roomCode);
       setRoomCode(data.roomCode);
@@ -142,7 +142,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const createRoom = useCallback((name: string) => {
     setPlayerName(name);
     AsyncStorage.setItem(PLAYER_NAME_KEY, name).catch(() => {});
-    createRoomMut.mutate({ hostName: name });
+    createRoomMut.mutate({ name });
   }, [createRoomMut]);
 
   const joinRoom = useCallback((code: string, name: string) => {

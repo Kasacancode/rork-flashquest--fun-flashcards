@@ -19,7 +19,7 @@ app.use(
 );
 
 app.get("/", (c) => {
-  return c.json({ status: "ok", message: "FlashQuest Multiplayer API" });
+  return c.json({ status: "ok", message: "FlashQuest Multiplayer API", v: 2 });
 });
 
 export default app;

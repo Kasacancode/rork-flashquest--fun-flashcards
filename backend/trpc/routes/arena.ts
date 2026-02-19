@@ -9,11 +9,11 @@ export const arenaRouter = createTRPCRouter({
     return { status: "ok", rooms: roomStore.getRoomCount(), timestamp: Date.now() };
   }),
 
-  createRoom: publicProcedure
-    .input(z.object({ hostName: z.string().min(1).max(20) }))
+  initRoom: publicProcedure
+    .input(z.object({ name: z.string().min(1).max(20) }))
     .mutation(({ input }) => {
-      console.log("[Arena] createRoom:", input.hostName);
-      const { room, playerId } = roomStore.createRoom(input.hostName);
+      console.log("[Arena] initRoom:", input.name);
+      const { room, playerId } = roomStore.initRoom(input.name);
       return { roomCode: room.code, playerId, room: roomStore.sanitize(room) };
     }),
 

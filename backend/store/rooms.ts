@@ -139,7 +139,7 @@ class RoomStore {
     }
   }
 
-  createRoom(hostName: string): { room: Room; playerId: string } {
+  initRoom(hostName: string): { room: Room; playerId: string } {
     this.maybeCleanup();
     const code = this.generateCode();
     const playerId = this.generateId();
