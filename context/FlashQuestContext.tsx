@@ -151,7 +151,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
   const { mutate: saveStatsMutate } = saveStatsMutation;
 
   const recordSessionResult = useCallback((params: GameResultParams) => {
-    const currentStats = statsQuery.data || DEFAULT_STATS;
+    const currentStats = queryClient.getQueryData<UserStats>(['stats']) || DEFAULT_STATS;
     const today = new Date().toISOString().split('T')[0];
 
     const { currentStreak: newStreak, longestStreak: newLongest } = computeStreak(
@@ -175,7 +175,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     saveStatsMutate(updatedStats);
 
     if (params.deckId) {
-      const currentProgress = progressQuery.data || [];
+      const currentProgress = queryClient.getQueryData<UserProgress[]>(['progress']) || [];
       const idx = currentProgress.findIndex((p) => p.deckId === params.deckId);
       let updatedProgress: UserProgress[];
 
@@ -202,7 +202,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       queryClient.setQueryData(['progress'], updatedProgress);
       saveProgressMutate(updatedProgress);
     }
-  }, [statsQuery.data, progressQuery.data, saveStatsMutate, saveProgressMutate, queryClient]);
+  }, [saveStatsMutate, saveProgressMutate, queryClient]);
 
   const addDeck = useCallback((deck: Deck) => {
     const currentDecks = decksQuery.data || [];

@@ -11,7 +11,7 @@ import { DealerCountdownBar, MiniScoreboard, StreakIndicator } from '@/component
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { ArenaLobbyState, ArenaPlayerResult, ArenaAnswer, ArenaMatchResult, Flashcard } from '@/types/flashcard';
-import { generateOptionsWithAI, checkAnswer } from '@/utils/questUtils';
+import { generateOptionsWithAI, generateOptions, checkAnswer } from '@/utils/questUtils';
 
 type GamePhase = 'pass-device' | 'question' | 'feedback';
 
@@ -111,7 +111,7 @@ export default function ArenaSessionScreen() {
   }, [playerStates, currentPlayerIndex]);
 
   const questionNumber = useMemo(() => {
-    return currentRound * lobby.players.length + currentPlayerIndex + 1;
+    return currentRound * (lobby.players?.length || 1) + currentPlayerIndex + 1;
   }, [currentRound, currentPlayerIndex, lobby.players?.length]);
 
   const scoreboardPlayers = useMemo(() => {
@@ -172,14 +172,24 @@ export default function ArenaSessionScreen() {
     feedbackOpacity.setValue(0);
     feedbackScale.setValue(0.8);
 
-    const newOptions = await generateOptionsWithAI({
-      correctAnswer: nextCard.answer,
-      question: nextCard.question,
-      deckCards: deck.flashcards,
-      allCards,
-      currentCardId: nextCard.id,
-    });
-    setOptions(newOptions);
+    try {
+      const newOptions = await generateOptionsWithAI({
+        correctAnswer: nextCard.answer,
+        question: nextCard.question,
+        deckCards: deck.flashcards,
+        allCards,
+        currentCardId: nextCard.id,
+      });
+      setOptions(newOptions);
+    } catch {
+      const fallbackOptions = generateOptions({
+        correctAnswer: nextCard.answer,
+        deckCards: deck.flashcards,
+        allCards,
+        currentCardId: nextCard.id,
+      });
+      setOptions(fallbackOptions);
+    }
   }, [deck, allCards, lobby.settings, cardAnimations, cardScales, shakeAnims, feedbackOpacity, feedbackScale]);
 
   useEffect(() => {
@@ -403,7 +413,7 @@ export default function ArenaSessionScreen() {
   const handleContinue = useCallback(() => {
     const nextPlayerIndex = currentPlayerIndex + 1;
 
-    if (nextPlayerIndex >= lobby.players.length) {
+    if (nextPlayerIndex >= (lobby.players?.length || 0)) {
       const nextRound = currentRound + 1;
       if (nextRound >= totalQuestionsPerPlayer) {
         const results: ArenaPlayerResult[] = playerStates.map(ps => ({

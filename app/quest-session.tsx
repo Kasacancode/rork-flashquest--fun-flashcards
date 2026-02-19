@@ -83,6 +83,8 @@ export default function QuestSessionScreen() {
   const usedCardIdsRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const dealerDialogue = useRef<'idle' | 'correct' | 'wrong'>('idle');
+  const advanceRoundRef = useRef<() => void>(() => {});
+  const finishSessionEarlyRef = useRef<() => void>(() => {});
 
   const cardAnimations = useRef([
     new Animated.Value(0),
@@ -104,7 +106,7 @@ export default function QuestSessionScreen() {
 
     if (!nextCard) {
       logger.log('[Quest] No more cards available, ending session');
-      finishSessionEarly();
+      finishSessionEarlyRef.current();
       return;
     }
 
@@ -191,6 +193,8 @@ export default function QuestSessionScreen() {
     });
   }, [currentRound, settings, score, correctCount, incorrectCount, bestStreak, totalTimeMs, missedCardIds, askedCardIds, router, updateBestStreak, recordSessionResult, effectiveRunLength]);
 
+  finishSessionEarlyRef.current = finishSessionEarly;
+
   useEffect(() => {
     if (deck) {
       setupNextRound();
@@ -249,7 +253,7 @@ export default function QuestSessionScreen() {
     }
 
     setTimeout(() => {
-      advanceRound();
+      advanceRoundRef.current();
     }, 1500);
   }, [inputLocked, currentCard, roundStartTime, settings.deckId, logQuestAttempt]);
 
@@ -308,7 +312,7 @@ export default function QuestSessionScreen() {
       if (settings.explanationsEnabled && currentCard.explanation) {
         setTimeout(() => setShowExplanation(true), 600);
       } else {
-        setTimeout(() => advanceRound(), 1000);
+        setTimeout(() => advanceRoundRef.current(), 1000);
       }
     } else {
       setIsCorrect(false);
@@ -351,7 +355,7 @@ export default function QuestSessionScreen() {
       if (settings.explanationsEnabled && currentCard.explanation) {
         setTimeout(() => setShowExplanation(true), 600);
       } else {
-        setTimeout(() => advanceRound(), 1200);
+        setTimeout(() => advanceRoundRef.current(), 1200);
       }
     }
   }, [inputLocked, currentCard, streak, bestStreak, roundStartTime, settings, usedSecondChance, logQuestAttempt]);
@@ -396,6 +400,8 @@ export default function QuestSessionScreen() {
     setShowExplanation(false);
     setupNextRound();
   }, [currentRound, settings, score, correctCount, incorrectCount, bestStreak, totalTimeMs, missedCardIds, askedCardIds, router, updateBestStreak, setupNextRound]);
+
+  advanceRoundRef.current = advanceRound;
 
   const handleHintPress = useCallback(() => {
     if (!settings.hintsEnabled || !currentCard?.hint1 || inputLocked) return;

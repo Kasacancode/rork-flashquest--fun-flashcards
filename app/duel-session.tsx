@@ -53,6 +53,7 @@ export default function DuelSessionPage() {
   const feedbackOpacity = useRef(new Animated.Value(0)).current;
   const feedbackScale = useRef(new Animated.Value(0.8)).current;
   const scorePopAnim = useRef(new Animated.Value(1)).current;
+  const handleTimeUpRef = useRef<() => void>(() => {});
 
   const deck = useMemo(() => decks.find((d) => d.id === deckId), [decks, deckId]);
   
@@ -233,21 +234,26 @@ export default function DuelSessionPage() {
     }
   }, [gamePhase, userAnswer, simulateOpponentAnswer, currentDuel, currentPlayer, triggerShake, feedbackOpacity, feedbackScale]);
 
+  handleTimeUpRef.current = handleTimeUp;
+
   useEffect(() => {
     if (gamePhase === 'reveal-results' || !currentCard) return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
-        if (prev <= 1) {
-          handleTimeUp();
-          return 0;
-        }
+        if (prev <= 1) return 0;
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [currentCard, gamePhase, handleTimeUp]);
+  }, [currentCard, gamePhase]);
+
+  useEffect(() => {
+    if (timeLeft === 0 && gamePhase !== 'reveal-results' && currentCard) {
+      handleTimeUpRef.current();
+    }
+  }, [timeLeft, gamePhase, currentCard]);
 
   if (!deck || !currentDuel || !currentCard) {
     return (
