@@ -8,6 +8,7 @@ import { ArenaProvider } from '@/context/ArenaContext';
 import { FlashQuestProvider } from '@/context/FlashQuestContext';
 import { PerformanceProvider } from '@/context/PerformanceContext';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { trpc, trpcClient } from '@/lib/trpc';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -43,18 +44,20 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <FlashQuestProvider>
-          <PerformanceProvider>
-            <ArenaProvider>
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <RootLayoutNav />
-              </GestureHandlerRootView>
-            </ArenaProvider>
-          </PerformanceProvider>
-        </FlashQuestProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <trpc.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <FlashQuestProvider>
+            <PerformanceProvider>
+              <ArenaProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <RootLayoutNav />
+                </GestureHandlerRootView>
+              </ArenaProvider>
+            </PerformanceProvider>
+          </FlashQuestProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </trpc.Provider>
   );
 }
