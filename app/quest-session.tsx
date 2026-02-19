@@ -19,7 +19,7 @@ export default function QuestSessionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ settings: string; drillCardIds?: string }>();
   const { theme } = useTheme();
-  const { decks, applyGameResult } = useFlashQuest();
+  const { decks, recordSessionResult } = useFlashQuest();
   const { performance, logQuestAttempt, updateBestStreak } = usePerformance();
 
   const settings: QuestSettings = useMemo(() => {
@@ -315,8 +315,7 @@ export default function QuestSessionScreen() {
     if (nextRound >= effectiveRunLength) {
       updateBestStreak(bestStreak);
 
-      // Persist XP and stats via the shared applyGameResult pipeline
-      applyGameResult({
+      recordSessionResult({
         mode: 'quest',
         deckId: settings.deckId,
         xpEarned: score,
@@ -324,7 +323,7 @@ export default function QuestSessionScreen() {
         correctCount,
         timestampISO: new Date().toISOString(),
       });
-      logger.log('[Quest] Applied game result, score:', score, 'cards:', effectiveRunLength);
+      logger.log('[Quest] Recorded session result, score:', score, 'cards:', effectiveRunLength);
 
       const result: QuestRunResult = {
         deckId: settings.deckId,

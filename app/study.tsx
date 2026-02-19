@@ -21,7 +21,7 @@ import { logger } from '@/utils/logger';
 export default function StudyPage() {
   const router = useRouter();
   const params = useLocalSearchParams<{ deckId?: string }>();
-  const { decks, updateProgress, updateFlashcard, applyGameResult } = useFlashQuest();
+  const { decks, updateFlashcard, recordSessionResult } = useFlashQuest();
   const { theme, isDark } = useTheme();
 
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(!params.deckId);
@@ -41,19 +41,16 @@ export default function StudyPage() {
     setShowResults(false);
   }, []);
 
-  // Track each card resolved to update per-deck progress and session counter
   const handleCardResolved = useCallback((cardId: string) => {
     if (selectedDeck) {
-      updateProgress(selectedDeck.id);
       setSessionResolved(prev => prev + 1);
     }
-  }, [selectedDeck, updateProgress]);
+  }, [selectedDeck]);
 
-  // Award XP (5 per card) and persist stats when the study session ends
   const handleComplete = useCallback(() => {
     if (selectedDeck) {
       const xpEarned = sessionResolved * 5;
-      applyGameResult({
+      recordSessionResult({
         mode: 'study',
         deckId: selectedDeck.id,
         xpEarned,
@@ -63,7 +60,7 @@ export default function StudyPage() {
       logger.log('[Study] Session complete, cards:', sessionResolved, 'xp:', xpEarned);
     }
     setShowResults(true);
-  }, [selectedDeck, sessionResolved, applyGameResult]);
+  }, [selectedDeck, sessionResolved, recordSessionResult]);
 
   const handleRestart = useCallback(() => {
     setSessionResolved(0);

@@ -16,7 +16,7 @@ export default function ArenaResultsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ result: string }>();
   const { theme } = useTheme();
-  const { decks, applyGameResult } = useFlashQuest();
+  const { decks, recordSessionResult } = useFlashQuest();
   const { saveMatchResult, lobby } = useArena();
 
   const [showMissedCards, setShowMissedCards] = useState(false);
@@ -82,7 +82,7 @@ export default function ArenaResultsScreen() {
     if (result.playerResults && result.playerResults.length > 0) {
       const hostResult = result.playerResults[0];
       const isWinner = hostResult.playerId === sortedResults[0]?.playerId;
-      applyGameResult({
+      recordSessionResult({
         mode: 'battle',
         deckId: result.deckId,
         xpEarned: isWinner ? 200 : 100,
@@ -90,7 +90,7 @@ export default function ArenaResultsScreen() {
         correctCount: hostResult.correctCount,
         timestampISO: new Date().toISOString(),
       });
-      logger.log('[Battle] Applied game result for host player');
+      logger.log('[Battle] Recorded session result for host player');
     }
   }, []);
 

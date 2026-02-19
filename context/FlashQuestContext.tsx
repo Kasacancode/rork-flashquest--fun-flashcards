@@ -92,7 +92,6 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     },
   });
 
-  // Load stats from storage; reset streak on load if the user missed a day
   const statsQuery = useQuery({
     queryKey: ['stats'],
     queryFn: async () => {
@@ -100,15 +99,19 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       if (stored) {
         const stats = JSON.parse(stored) as UserStats;
         const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
-        // If last active was not today or yesterday, streak is broken
-        if (stats.lastActiveDate !== today) {
-          const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-          if (stats.lastActiveDate !== yesterday) {
-            return { ...stats, currentStreak: 0 };
-          }
+        if (stats.lastActiveDate === today) {
+          return stats;
         }
-        return stats;
+
+        if (stats.lastActiveDate === yesterday) {
+          return stats;
+        }
+
+        const corrected: UserStats = { ...stats, currentStreak: 0 };
+        await AsyncStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(corrected));
+        return corrected;
       }
       return DEFAULT_STATS;
     },
@@ -147,11 +150,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
   });
   const { mutate: saveStatsMutate } = saveStatsMutation;
 
-  /**
-   * Central function called by ALL game modes (study, quest, duel, battle)
-   * after a session ends. Updates XP, cards studied, streak, and persists.
-   */
-  const applyGameResult = useCallback((params: GameResultParams) => {
+  const recordSessionResult = useCallback((params: GameResultParams) => {
     const currentStats = statsQuery.data || DEFAULT_STATS;
     const today = new Date().toISOString().split('T')[0];
 
@@ -170,12 +169,40 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       lastActiveDate: today,
     };
 
-    logger.log('[Context] applyGameResult', params.mode, 'xp:', params.xpEarned, 'cards:', params.cardsAttempted, 'streak:', newStreak);
+    logger.log('[Context] recordSessionResult', params.mode, 'xp:', params.xpEarned, 'cards:', params.cardsAttempted, 'streak:', newStreak);
 
-    // Optimistic update so UI reflects changes immediately
     queryClient.setQueryData(['stats'], updatedStats);
     saveStatsMutate(updatedStats);
-  }, [statsQuery.data, saveStatsMutate, queryClient]);
+
+    if (params.deckId) {
+      const currentProgress = progressQuery.data || [];
+      const idx = currentProgress.findIndex((p) => p.deckId === params.deckId);
+      let updatedProgress: UserProgress[];
+
+      if (idx >= 0) {
+        const existing = currentProgress[idx];
+        updatedProgress = [...currentProgress];
+        updatedProgress[idx] = {
+          ...existing,
+          cardsReviewed: existing.cardsReviewed + params.cardsAttempted,
+          lastStudied: Date.now(),
+        };
+      } else {
+        updatedProgress = [
+          ...currentProgress,
+          {
+            deckId: params.deckId,
+            cardsReviewed: params.cardsAttempted,
+            lastStudied: Date.now(),
+            masteredCards: [],
+          },
+        ];
+      }
+
+      queryClient.setQueryData(['progress'], updatedProgress);
+      saveProgressMutate(updatedProgress);
+    }
+  }, [statsQuery.data, progressQuery.data, saveStatsMutate, saveProgressMutate, queryClient]);
 
   const addDeck = useCallback((deck: Deck) => {
     const currentDecks = decksQuery.data || [];
@@ -319,11 +346,11 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     updateFlashcard,
     deleteDeck,
     updateProgress,
-    applyGameResult,
+    recordSessionResult,
     startDuel,
     updateDuel,
     endDuel,
-  }), [decksQuery.data, progressQuery.data, statsQuery.data, currentDuel, decksQuery.isLoading, progressQuery.isLoading, statsQuery.isLoading, addDeck, updateDeck, updateFlashcard, deleteDeck, updateProgress, applyGameResult, startDuel, updateDuel, endDuel]);
+  }), [decksQuery.data, progressQuery.data, statsQuery.data, currentDuel, decksQuery.isLoading, progressQuery.isLoading, statsQuery.isLoading, addDeck, updateDeck, updateFlashcard, deleteDeck, updateProgress, recordSessionResult, startDuel, updateDuel, endDuel]);
 });
 
 export function useDeckProgress(deckId: string) {

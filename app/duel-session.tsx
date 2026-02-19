@@ -32,7 +32,7 @@ interface TurnResult {
 export default function DuelSessionPage() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
-  const { decks, currentDuel, updateDuel, endDuel, applyGameResult } = useFlashQuest();
+  const { decks, currentDuel, updateDuel, endDuel, recordSessionResult } = useFlashQuest();
   const { theme, isDark } = useTheme();
 
   const [gamePhase, setGamePhase] = useState<GamePhase>('player-turn');
@@ -423,7 +423,7 @@ export default function DuelSessionPage() {
             </View>
 
             <TouchableOpacity style={styles.doneButton} onPress={() => {
-              applyGameResult({
+              recordSessionResult({
                 mode: 'duel',
                 deckId: deckId,
                 xpEarned: duelXp,
@@ -431,7 +431,7 @@ export default function DuelSessionPage() {
                 correctCount: currentDuel.playerScore,
                 timestampISO: new Date().toISOString(),
               });
-              logger.log('[Duel] Applied game result, xp:', duelXp);
+              logger.log('[Duel] Recorded session result, xp:', duelXp);
               endDuel();
               router.back();
             }}>
