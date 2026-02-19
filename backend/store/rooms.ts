@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 const PLAYER_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
   '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',
@@ -8,6 +11,8 @@ const STALE_ROOM_MS = 30 * 60 * 1000;
 const DISCONNECT_MS = 15 * 1000;
 const REVEAL_DURATION_MS = 4000;
 const NO_TIMER_TIMEOUT_MS = 60 * 1000;
+const PERSIST_FILE = path.join('/tmp', 'arena-rooms.json');
+const SAVE_DEBOUNCE_MS = 500;
 
 export interface RoomPlayer {
   id: string;
@@ -114,6 +119,50 @@ function normalizeAnswer(s: string): string {
 class RoomStore {
   private rooms = new Map<string, Room>();
   private lastCleanup = Date.now();
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor() {
+    this.loadFromDisk();
+  }
+
+  private loadFromDisk(): void {
+    try {
+      if (fs.existsSync(PERSIST_FILE)) {
+        const raw = fs.readFileSync(PERSIST_FILE, 'utf-8');
+        const data = JSON.parse(raw) as Record<string, Room>;
+        const now = Date.now();
+        let loaded = 0;
+        for (const [code, room] of Object.entries(data)) {
+          if (now - room.lastActivity < STALE_ROOM_MS) {
+            this.rooms.set(code, room);
+            loaded++;
+          }
+        }
+        console.log(`[RoomStore] Loaded ${loaded} rooms from disk`);
+      }
+    } catch (err) {
+      console.log('[RoomStore] Could not load from disk:', err);
+    }
+  }
+
+  private scheduleSave(): void {
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => {
+      this.saveToDisk();
+    }, SAVE_DEBOUNCE_MS);
+  }
+
+  private saveToDisk(): void {
+    try {
+      const data: Record<string, Room> = {};
+      for (const [code, room] of this.rooms.entries()) {
+        data[code] = room;
+      }
+      fs.writeFileSync(PERSIST_FILE, JSON.stringify(data), 'utf-8');
+    } catch (err) {
+      console.log('[RoomStore] Could not save to disk:', err);
+    }
+  }
 
   private generateCode(): string {
     let code: string;
@@ -137,6 +186,7 @@ class RoomStore {
         this.rooms.delete(code);
       }
     }
+    this.scheduleSave();
   }
 
   initRoom(hostName: string): { room: Room; playerId: string } {
@@ -164,6 +214,7 @@ class RoomStore {
     };
 
     this.rooms.set(code, room);
+    this.scheduleSave();
     console.log(`[RoomStore] Created room ${code} by ${hostName}`);
     return { room, playerId };
   }
@@ -186,6 +237,7 @@ class RoomStore {
 
     room.players.push(player);
     room.lastActivity = Date.now();
+    this.scheduleSave();
     console.log(`[RoomStore] ${playerName} joined room ${code} (${room.players.length} players)`);
     return { player, room };
   }
@@ -197,6 +249,7 @@ class RoomStore {
     if (playerId === room.hostId) {
       console.log(`[RoomStore] Host left, destroying room ${code}`);
       this.rooms.delete(code);
+      this.scheduleSave();
       return null;
     }
 
@@ -205,9 +258,11 @@ class RoomStore {
 
     if (room.players.length === 0) {
       this.rooms.delete(code);
+      this.scheduleSave();
       return null;
     }
 
+    this.scheduleSave();
     return room;
   }
 
@@ -217,6 +272,7 @@ class RoomStore {
 
     room.players = room.players.filter(p => p.id !== targetId);
     room.lastActivity = Date.now();
+    this.scheduleSave();
     console.log(`[RoomStore] Removed player ${targetId} from room ${code}`);
     return room;
   }
@@ -228,6 +284,7 @@ class RoomStore {
     room.deckId = deckId;
     room.deckName = deckName;
     room.lastActivity = Date.now();
+    this.scheduleSave();
     return room;
   }
 
@@ -237,6 +294,7 @@ class RoomStore {
 
     room.settings = { ...room.settings, ...updates };
     room.lastActivity = Date.now();
+    this.scheduleSave();
     return room;
   }
 
@@ -264,6 +322,7 @@ class RoomStore {
 
     room.status = 'playing';
     room.lastActivity = Date.now();
+    this.scheduleSave();
     console.log(`[RoomStore] Game started in room ${code} with ${questions.length} questions`);
     return room;
   }
@@ -303,6 +362,7 @@ class RoomStore {
 
     room.lastActivity = Date.now();
     this.checkAllAnswered(room);
+    this.scheduleSave();
     return { room, isCorrect };
   }
 
@@ -322,6 +382,7 @@ class RoomStore {
     }
 
     room.lastActivity = Date.now();
+    this.scheduleSave();
     return room;
   }
 
@@ -332,6 +393,7 @@ class RoomStore {
     room.status = 'lobby';
     room.game = null;
     room.lastActivity = Date.now();
+    this.scheduleSave();
     console.log(`[RoomStore] Room ${code} reset to lobby`);
     return room;
   }
@@ -343,6 +405,7 @@ class RoomStore {
     const player = room.players.find(p => p.id === playerId);
     if (player) player.lastSeen = Date.now();
     room.lastActivity = Date.now();
+    this.scheduleSave();
   }
 
   tick(code: string): void {
