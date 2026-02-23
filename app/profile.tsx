@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Crown, Target, BookOpen, Calendar, Trophy, Zap, Flame, Shield, User, Award, Settings, Users, Moon, Sun } from 'lucide-react-native';
+import { ArrowLeft, Crown, Target, BookOpen, Calendar, Trophy, Zap, Flame, User, Award, Settings, Users, Moon, Sun, Check } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Modal, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,12 +12,21 @@ import { Theme } from '@/constants/colors';
 const { width } = Dimensions.get('window');
 
 type TabType = 'overview' | 'achievements' | 'avatar';
-type AvatarType = 'lightning' | 'flame' | 'shield';
+type SuitType = 'spades' | 'hearts' | 'diamonds' | 'clubs';
+type ColorType = 'red' | 'blue' | 'orange' | 'green';
 
-const AVATARS = [
-  { id: 'lightning' as const, name: 'Lightning', icon: Zap, color: '#FFB800', gradient: ['#FFD700', '#FFA500'] as const },
-  { id: 'flame' as const, name: 'Flame', icon: Flame, color: '#FF6B6B', gradient: ['#FF6B6B', '#FF8E53'] as const },
-  { id: 'shield' as const, name: 'Shield', icon: Shield, color: '#667eea', gradient: ['#667eea', '#764ba2'] as const },
+const SUITS: { id: SuitType; name: string; symbol: string }[] = [
+  { id: 'spades', name: 'Spades', symbol: '♠' },
+  { id: 'hearts', name: 'Hearts', symbol: '♥' },
+  { id: 'diamonds', name: 'Diamonds', symbol: '♦' },
+  { id: 'clubs', name: 'Clubs', symbol: '♣' },
+];
+
+const AVATAR_COLORS: { id: ColorType; name: string; value: string; light: string }[] = [
+  { id: 'red', name: 'Red', value: '#E53E3E', light: '#FED7D7' },
+  { id: 'blue', name: 'Blue', value: '#3B82F6', light: '#DBEAFE' },
+  { id: 'orange', name: 'Orange', value: '#F97316', light: '#FFEDD5' },
+  { id: 'green', name: 'Green', value: '#22C55E', light: '#DCFCE7' },
 ];
 
 const ACHIEVEMENTS = [
@@ -68,21 +77,19 @@ export default function ProfilePage() {
   const { stats, decks } = useFlashQuest();
   const { theme, isDark, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('achievements');
-  const [selectedAvatar, setSelectedAvatar] = useState<AvatarType>('lightning');
+  const [selectedSuit, setSelectedSuit] = useState<SuitType>('spades');
+  const [selectedColor, setSelectedColor] = useState<ColorType>('blue');
   const [showSettings, setShowSettings] = useState<boolean>(false);
 
   const level = Math.floor(stats.totalScore / 300) + 1;
   const xpProgress = stats.totalScore % 300;
   const xpForNextLevel = 300;
 
-  const selectedAvatarData = AVATARS.find((a) => a.id === selectedAvatar) || AVATARS[0];
+  const selectedSuitData = SUITS.find((s) => s.id === selectedSuit) || SUITS[0];
+  const selectedColorData = AVATAR_COLORS.find((c) => c.id === selectedColor) || AVATAR_COLORS[1];
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const profileGradient = useMemo(
     () => (isDark ? ['#4338CA', '#7C3AED'] as const : ['#667eea', '#F093FB'] as const),
-    [isDark]
-  );
-  const avatarDeselectedGradient = useMemo(
-    () => (isDark ? ['#1f2937', '#0f172a'] as const : ['#F3F4F6', '#E5E7EB'] as const),
     [isDark]
   );
   const overviewGradients = useMemo(
@@ -127,18 +134,9 @@ export default function ProfilePage() {
               style={styles.profileCardGradient}
             >
               <View style={styles.avatarContainer}>
-                <LinearGradient
-                  colors={selectedAvatarData.gradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.avatarGradient}
-                >
-                  {React.createElement(selectedAvatarData.icon, {
-                    color: '#1a1a1a',
-                    size: 48,
-                    strokeWidth: 2.5,
-                  })}
-                </LinearGradient>
+                <View style={[styles.avatarGradient, { backgroundColor: selectedColorData.value }]}>
+                  <Text style={styles.avatarSuitSymbol}>{selectedSuitData.symbol}</Text>
+                </View>
                 <View style={styles.avatarBadge}>
                   <Zap color="#fff" size={12} strokeWidth={3} fill="#FFB800" />
                 </View>
@@ -413,64 +411,82 @@ export default function ProfilePage() {
           {activeTab === 'avatar' && (
             <View style={styles.tabContent}>
               <View style={styles.currentAvatarSection}>
-                <LinearGradient
-                  colors={selectedAvatarData.gradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.currentAvatarContainer}
-                >
-                  {React.createElement(selectedAvatarData.icon, {
-                    color: '#1a1a1a',
-                    size: 64,
-                    strokeWidth: 2.5,
-                  })}
-                </LinearGradient>
-                <Text style={styles.currentAvatarTitle}>{selectedAvatarData.name} Avatar</Text>
-                <Text style={styles.currentAvatarSubtitle}>Your current avatar style</Text>
+                <View style={[styles.currentAvatarContainer, { backgroundColor: selectedColorData.value }]}>
+                  <Text style={styles.currentAvatarSymbol}>{selectedSuitData.symbol}</Text>
+                </View>
+                <Text style={styles.currentAvatarTitle}>{selectedSuitData.name} of {selectedColorData.name}</Text>
+                <Text style={styles.currentAvatarSubtitle}>Your current avatar</Text>
               </View>
 
-              <Text style={styles.sectionTitle}>Choose Your Avatar</Text>
-              <View style={styles.avatarGrid}>
-                {AVATARS.map((avatar) => (
-                  <TouchableOpacity
-                    key={avatar.id}
-                    style={[
-                      styles.avatarOption,
-                      selectedAvatar === avatar.id && styles.avatarOptionSelected,
-                    ]}
-                    onPress={() => setSelectedAvatar(avatar.id)}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={
-                        selectedAvatar === avatar.id
-                          ? avatar.gradient
-                          : avatarDeselectedGradient
-                      }
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.avatarOptionGradient}
+              <Text style={styles.sectionTitle}>Choose Your Suit</Text>
+              <View style={styles.suitGrid}>
+                {SUITS.map((suit) => {
+                  const isSelected = selectedSuit === suit.id;
+                  return (
+                    <TouchableOpacity
+                      key={suit.id}
+                      style={[
+                        styles.suitOption,
+                        isSelected && { borderColor: selectedColorData.value, borderWidth: 3, backgroundColor: selectedColorData.light },
+                        !isSelected && { borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)', borderWidth: 2, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
+                      ]}
+                      onPress={() => setSelectedSuit(suit.id)}
+                      activeOpacity={0.75}
                     >
-                      {React.createElement(avatar.icon, {
-                        color: selectedAvatar === avatar.id ? '#1a1a1a' : '#9CA3AF',
-                        size: 48,
-                        strokeWidth: 2.5,
-                      })}
-                      {selectedAvatar === avatar.id && (
-                        <View style={styles.selectedBadge}>
-                          <Trophy color="#fff" size={12} strokeWidth={3} fill={theme.primary} />
+                      <Text style={[
+                        styles.suitSymbol,
+                        { color: isSelected ? selectedColorData.value : (isDark ? '#6B7280' : '#9CA3AF') },
+                      ]}>
+                        {suit.symbol}
+                      </Text>
+                      <Text style={[
+                        styles.suitName,
+                        { color: isSelected ? selectedColorData.value : theme.textSecondary },
+                        isSelected && { fontWeight: '700' as const },
+                      ]}>
+                        {suit.name}
+                      </Text>
+                      {isSelected && (
+                        <View style={[styles.suitCheckBadge, { backgroundColor: selectedColorData.value }]}>
+                          <Check color="#fff" size={10} strokeWidth={3} />
                         </View>
                       )}
-                    </LinearGradient>
-                    <Text
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={[styles.sectionTitle, { marginTop: 28 }]}>Choose Your Color</Text>
+              <View style={styles.colorRow}>
+                {AVATAR_COLORS.map((col) => {
+                  const isSelected = selectedColor === col.id;
+                  return (
+                    <TouchableOpacity
+                      key={col.id}
                       style={[
-                        styles.avatarOptionName,
-                        selectedAvatar === avatar.id && styles.avatarOptionNameSelected,
+                        styles.colorSwatch,
+                        { backgroundColor: col.value },
+                        isSelected && styles.colorSwatchSelected,
                       ]}
+                      onPress={() => setSelectedColor(col.id)}
+                      activeOpacity={0.8}
                     >
-                      {avatar.name}
-                    </Text>
-                  </TouchableOpacity>
+                      {isSelected && (
+                        <Check color="#fff" size={18} strokeWidth={3} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <View style={styles.colorLabels}>
+                {AVATAR_COLORS.map((col) => (
+                  <Text key={col.id} style={[
+                    styles.colorLabel,
+                    { color: selectedColor === col.id ? col.value : theme.textSecondary },
+                    selectedColor === col.id && { fontWeight: '700' as const },
+                  ]}>
+                    {col.name}
+                  </Text>
                 ))}
               </View>
             </View>
@@ -599,6 +615,11 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       alignItems: 'center',
       borderWidth: 3,
       borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.3)',
+    },
+    avatarSuitSymbol: {
+      fontSize: 42,
+      color: '#fff',
+      lineHeight: 50,
     },
     avatarBadge: {
       position: 'absolute',
@@ -875,13 +896,16 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       justifyContent: 'center',
       alignItems: 'center',
       marginBottom: 16,
-      borderWidth: 4,
-      borderColor: isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.5)',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: isDark ? 0.45 : 0.2,
       shadowRadius: isDark ? 24 : 16,
       elevation: isDark ? 12 : 8,
+    },
+    currentAvatarSymbol: {
+      fontSize: 72,
+      color: '#fff',
+      lineHeight: 84,
     },
     currentAvatarTitle: {
       fontSize: 22,
@@ -900,54 +924,71 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       color: theme.text,
       marginBottom: 16,
     },
-    avatarGrid: {
+    suitGrid: {
       flexDirection: 'row',
-      gap: 16,
+      flexWrap: 'wrap',
+      gap: 12,
     },
-    avatarOption: {
-      flex: 1,
+    suitOption: {
+      width: (width - 64) / 2,
+      paddingVertical: 20,
+      borderRadius: 20,
       alignItems: 'center',
-    },
-    avatarOptionSelected: {
-      opacity: 1,
-    },
-    avatarOptionGradient: {
-      width: (width - 88) / 3,
-      height: (width - 88) / 3,
-      borderRadius: 24,
       justifyContent: 'center',
-      alignItems: 'center',
       position: 'relative',
-      borderWidth: 3,
-      borderColor: 'transparent',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: isDark ? 0.4 : 0.15,
-      shadowRadius: isDark ? 16 : 12,
-      elevation: isDark ? 8 : 4,
     },
-    selectedBadge: {
-      position: 'absolute',
-      top: 8,
-      right: 8,
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      backgroundColor: theme.primary,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 2,
-      borderColor: theme.white,
+    suitSymbol: {
+      fontSize: 52,
+      lineHeight: 60,
+      marginBottom: 8,
     },
-    avatarOptionName: {
-      fontSize: 14,
+    suitName: {
+      fontSize: 15,
       fontWeight: '600' as const,
       color: theme.textSecondary,
-      marginTop: 12,
     },
-    avatarOptionNameSelected: {
-      color: theme.primary,
-      fontWeight: '700' as const,
+    suitCheckBadge: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    colorRow: {
+      flexDirection: 'row',
+      gap: 16,
+      justifyContent: 'center',
+    },
+    colorSwatch: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    colorSwatchSelected: {
+      transform: [{ scale: 1.18 }],
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 6,
+    },
+    colorLabels: {
+      flexDirection: 'row',
+      gap: 16,
+      justifyContent: 'center',
+      marginTop: 10,
+    },
+    colorLabel: {
+      width: 56,
+      fontSize: 12,
+      fontWeight: '600' as const,
+      textAlign: 'center',
+      color: theme.textSecondary,
     },
     settingsOverlay: {
       flex: 1,
