@@ -28,6 +28,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const [hasAnsweredCurrent, setHasAnsweredCurrent] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const prevQuestionIndexRef = useRef<number>(-1);
   const pollFailCountRef = useRef<number>(0);
   const connectedAtRef = useRef<number>(0);
@@ -35,6 +36,17 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const hasAttemptedReconnect = useRef(false);
   const MAX_POLL_FAILURES = 20;
   const GRACE_PERIOD_MS = 20000;
+
+  const saveStoredSession = useCallback((code: string, pid: string, name: string) => {
+    const session: StoredSession = { roomCode: code, playerId: pid, playerName: name };
+    AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session)).catch(() => {});
+    logger.log('[Arena] Session persisted:', code, pid);
+  }, []);
+
+  const clearStoredSession = useCallback(() => {
+    AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
+    logger.log('[Arena] Session cleared');
+  }, []);
 
   const reconnectMut = trpc.arena.reconnectRoom.useMutation({
     onSuccess: (data: any) => {
@@ -110,8 +122,6 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['arena-leaderboard'] }),
   });
 
-  const [isPlaying, setIsPlaying] = useState(false);
-
   const roomQuery = trpc.arena.getRoomState.useQuery(
     { roomCode: roomCode!, playerId: playerId! },
     {
@@ -153,7 +163,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
         lastErrorMsgRef.current = null;
       }
     }
-  }, [roomQuery.error, roomCode]);
+  }, [roomQuery.error, roomCode, clearStoredSession]);
 
   const room = roomQuery.data?.room ?? null;
   const isHost = room !== null && room.hostId === playerId;
@@ -177,17 +187,6 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       setHasAnsweredCurrent(true);
     }
   }, [room?.game?.answeredPlayerIds, playerId]);
-
-  const saveStoredSession = useCallback((code: string, pid: string, name: string) => {
-    const session: StoredSession = { roomCode: code, playerId: pid, playerName: name };
-    AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session)).catch(() => {});
-    logger.log('[Arena] Session persisted:', code, pid);
-  }, []);
-
-  const clearStoredSession = useCallback(() => {
-    AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
-    logger.log('[Arena] Session cleared');
-  }, []);
 
   const createRoomMut = trpc.arena.initRoom.useMutation({
     onSuccess: (data: any) => {
