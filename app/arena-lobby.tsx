@@ -142,7 +142,7 @@ export default function ArenaLobbyScreen() {
   const handleBack = useCallback(() => {
     Alert.alert(
       'Leave Room',
-      'Are you sure you want to leave?',
+      isHost ? 'Leaving will close the room for everyone.' : 'Are you sure you want to leave?',
       [
         { text: 'Stay', style: 'cancel' },
         {
@@ -274,9 +274,6 @@ export default function ArenaLobbyScreen() {
                     <View style={styles.playerMeta}>
                       {player.isHost && (
                         <Text style={[styles.hostBadge, { color: theme.warning }]}>Host</Text>
-                      )}
-                      {player.role === 'spectator' && (
-                        <Text style={[styles.hostBadge, { color: '#8b5cf6' }]}>Spectator</Text>
                       )}
                       <View style={styles.connectionStatus}>
                         {player.connected ? (

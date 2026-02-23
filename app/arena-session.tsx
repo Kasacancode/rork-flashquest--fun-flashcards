@@ -19,7 +19,6 @@ export default function ArenaSessionScreen() {
     room,
     playerId,
     isHost,
-    isSpectator,
     hasAnsweredCurrent,
     lastAnswerCorrect,
     isSubmitting,
@@ -84,13 +83,11 @@ export default function ArenaSessionScreen() {
   const myStreak = myScore?.currentStreak ?? 0;
 
   const sortedPlayers = useMemo(() => {
-    return [...players]
-      .filter((p: any) => p.role === 'player')
-      .sort((a, b) => {
-        const aScore = scores[a.id]?.points ?? 0;
-        const bScore = scores[b.id]?.points ?? 0;
-        return bScore - aScore;
-      });
+    return [...players].sort((a, b) => {
+      const aScore = scores[a.id]?.points ?? 0;
+      const bScore = scores[b.id]?.points ?? 0;
+      return bScore - aScore;
+    });
   }, [players, scores]);
 
   const scoreboardPlayers = useMemo(() => {
@@ -226,7 +223,7 @@ export default function ArenaSessionScreen() {
   }, [hasAnsweredCurrent, phase, waitingPulse]);
 
   const handleOptionPress = useCallback((option: string, index: number) => {
-    if (isSpectator || hasAnsweredCurrent || isSubmitting || phase !== 'question' || !game) return;
+    if (hasAnsweredCurrent || isSubmitting || phase !== 'question' || !game) return;
 
     setSelectedOption(option);
 
@@ -261,8 +258,6 @@ export default function ArenaSessionScreen() {
       return 'disabled';
     }
 
-    if (isSpectator) return 'disabled';
-
     if (hasAnsweredCurrent) {
       if (option === selectedOption) return 'disabled';
       return 'disabled';
@@ -270,7 +265,7 @@ export default function ArenaSessionScreen() {
 
     if (isSubmitting) return 'disabled';
     return 'idle';
-  }, [phase, currentQuestion, selectedOption, hasAnsweredCurrent, isSubmitting, isSpectator]);
+  }, [phase, currentQuestion, selectedOption, hasAnsweredCurrent, isSubmitting]);
 
   if (!room || !game || phase === 'finished') {
     return (
@@ -291,8 +286,7 @@ export default function ArenaSessionScreen() {
   }
 
   const answeredCount = answeredPlayerIds.length;
-  const activePlayers = players.filter((p: any) => p.role === 'player');
-  const totalPlayers = activePlayers.length;
+  const totalPlayers = players.length;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -327,16 +321,7 @@ export default function ArenaSessionScreen() {
           )}
         </View>
 
-        {isSpectator && phase === 'question' && (
-          <View style={[styles.waitingBanner, { backgroundColor: 'rgba(139,92,246,0.3)' }]}>
-            <Users color="rgba(255,255,255,0.8)" size={16} />
-            <Text style={styles.waitingBannerText}>
-              Spectating ({answeredCount}/{totalPlayers} answered)
-            </Text>
-          </View>
-        )}
-
-        {!isSpectator && phase === 'question' && hasAnsweredCurrent && (
+        {phase === 'question' && hasAnsweredCurrent && (
           <Animated.View style={[styles.waitingBanner, { transform: [{ scale: waitingPulse }] }]}>
             <Clock color="rgba(255,255,255,0.8)" size={16} />
             <Text style={styles.waitingBannerText}>
@@ -345,7 +330,7 @@ export default function ArenaSessionScreen() {
           </Animated.View>
         )}
 
-        {!isSpectator && phase === 'question' && !hasAnsweredCurrent && (
+        {phase === 'question' && !hasAnsweredCurrent && (
           <View style={styles.answeredIndicator}>
             <Users color="rgba(255,255,255,0.6)" size={14} />
             <Text style={styles.answeredText}>{answeredCount}/{totalPlayers} answered</Text>

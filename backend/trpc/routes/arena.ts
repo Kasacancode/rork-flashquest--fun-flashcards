@@ -28,10 +28,10 @@ export const arenaRouter = createTRPCRouter({
       if (!result) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Room not found, full, or already finished",
+          message: "Room not found, full, or game already started",
         });
       }
-      return { playerId: result.player.id, role: result.player.role, room: roomStore.sanitize(result.room) };
+      return { playerId: result.player.id, room: roomStore.sanitize(result.room) };
     }),
 
   leaveRoom: publicProcedure
