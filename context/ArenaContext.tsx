@@ -9,6 +9,13 @@ import { logger } from '@/utils/logger';
 
 const LEADERBOARD_KEY = 'flashquest_arena_leaderboard';
 const PLAYER_NAME_KEY = 'flashquest_arena_player_name';
+const SESSION_KEY = 'flashquest_arena_session';
+
+interface StoredSession {
+  roomCode: string;
+  playerId: string;
+  playerName: string;
+}
 
 export const [ArenaProvider, useArena] = createContextHook(() => {
   const queryClient = useQueryClient();
@@ -20,12 +27,32 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const [leaderboard, setLeaderboard] = useState<ArenaLeaderboardEntry[]>([]);
   const [hasAnsweredCurrent, setHasAnsweredCurrent] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const prevQuestionIndexRef = useRef<number>(-1);
   const pollFailCountRef = useRef<number>(0);
   const connectedAtRef = useRef<number>(0);
   const lastErrorMsgRef = useRef<string | null>(null);
+  const hasAttemptedReconnect = useRef(false);
   const MAX_POLL_FAILURES = 20;
   const GRACE_PERIOD_MS = 20000;
+
+  const reconnectMut = trpc.arena.reconnectRoom.useMutation({
+    onSuccess: (data: any) => {
+      logger.log('[Arena] Reconnected successfully to room:', data.room.code);
+      connectedAtRef.current = Date.now();
+      pollFailCountRef.current = 0;
+      lastErrorMsgRef.current = null;
+      setConnectionError(null);
+      setIsReconnecting(false);
+    },
+    onError: (err: any) => {
+      logger.log('[Arena] Reconnect failed:', err.message);
+      setRoomCode(null);
+      setPlayerId(null);
+      clearStoredSession();
+      setIsReconnecting(false);
+    },
+  });
 
   useQuery({
     queryKey: ['arena-player-name'],
@@ -33,6 +60,33 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       const stored = await AsyncStorage.getItem(PLAYER_NAME_KEY);
       if (stored) setPlayerName(stored);
       return stored || '';
+    },
+  });
+
+  useQuery({
+    queryKey: ['arena-session-restore'],
+    queryFn: async () => {
+      if (hasAttemptedReconnect.current) return null;
+      hasAttemptedReconnect.current = true;
+
+      try {
+        const raw = await AsyncStorage.getItem(SESSION_KEY);
+        if (!raw) return null;
+        const session = JSON.parse(raw) as StoredSession;
+        if (!session.roomCode || !session.playerId) return null;
+
+        logger.log('[Arena] Found stored session, attempting reconnect:', session.roomCode);
+        setIsReconnecting(true);
+        setRoomCode(session.roomCode);
+        setPlayerId(session.playerId);
+        setPlayerName(session.playerName);
+        connectedAtRef.current = Date.now();
+        reconnectMut.mutate({ roomCode: session.roomCode, playerId: session.playerId });
+      } catch (e) {
+        logger.log('[Arena] Failed to restore session:', e);
+        clearStoredSession();
+      }
+      return null;
     },
   });
 
@@ -93,6 +147,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
         logger.log('[Arena] Max poll failures reached, disconnecting');
         setRoomCode(null);
         setPlayerId(null);
+        clearStoredSession();
         setConnectionError('Room expired or not found');
         pollFailCountRef.current = 0;
         lastErrorMsgRef.current = null;
@@ -123,6 +178,17 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     }
   }, [room?.game?.answeredPlayerIds, playerId]);
 
+  const saveStoredSession = useCallback((code: string, pid: string, name: string) => {
+    const session: StoredSession = { roomCode: code, playerId: pid, playerName: name };
+    AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session)).catch(() => {});
+    logger.log('[Arena] Session persisted:', code, pid);
+  }, []);
+
+  const clearStoredSession = useCallback(() => {
+    AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
+    logger.log('[Arena] Session cleared');
+  }, []);
+
   const createRoomMut = trpc.arena.initRoom.useMutation({
     onSuccess: (data: any) => {
       logger.log('[Arena] Created room:', data.roomCode);
@@ -132,6 +198,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       setRoomCode(data.roomCode);
       setPlayerId(data.playerId);
       setConnectionError(null);
+      saveStoredSession(data.roomCode, data.playerId, playerName);
     },
     onError: (err: any) => {
       logger.log('[Arena] Create error:', err.message);
@@ -148,6 +215,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       setRoomCode(data.room.code);
       setPlayerId(data.playerId);
       setConnectionError(null);
+      saveStoredSession(data.room.code, data.playerId, playerName);
     },
     onError: (err: any) => {
       logger.log('[Arena] Join error:', err.message);
@@ -203,6 +271,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     }
     setRoomCode(null);
     setPlayerId(null);
+    clearStoredSession();
     setConnectionError(null);
     setHasAnsweredCurrent(false);
     setLastAnswerCorrect(null);
@@ -211,7 +280,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     lastErrorMsgRef.current = null;
     connectedAtRef.current = 0;
     logger.log('[Arena] Disconnected');
-  }, [roomCode, playerId, leaveMut]);
+  }, [roomCode, playerId, leaveMut, clearStoredSession]);
 
   const selectDeck = useCallback((deckId: string, deckName: string) => {
     if (!roomCode || !playerId) return;
@@ -279,7 +348,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     hasAnsweredCurrent,
     lastAnswerCorrect,
     canStartGame,
-    isConnecting: createRoomMut.isPending || joinRoomMut.isPending,
+    isReconnecting,
+    isConnecting: createRoomMut.isPending || joinRoomMut.isPending || isReconnecting,
     isStartingGame: startGameMut.isPending,
     isSubmitting: submitAnswerMut.isPending,
     createRoom,
@@ -300,6 +370,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     roomCode, playerId, playerName, connectionError,
     room, isHost, myPlayer, hasAnsweredCurrent, lastAnswerCorrect,
     canStartGame,
+    isReconnecting,
     createRoomMut.isPending, joinRoomMut.isPending,
     startGameMut.isPending, submitAnswerMut.isPending,
     createRoom, joinRoom, disconnect, selectDeck, updateSettings,

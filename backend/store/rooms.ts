@@ -120,9 +120,32 @@ class RoomStore {
   private rooms = new Map<string, Room>();
   private lastCleanup = Date.now();
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private tickInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     this.loadFromDisk();
+    this.startTickLoop();
+  }
+
+  private startTickLoop(): void {
+    if (this.tickInterval) clearInterval(this.tickInterval);
+    this.tickInterval = setInterval(() => {
+      this.tickAllActive();
+    }, 1000);
+    console.log('[RoomStore] Server-side tick loop started (1s interval)');
+  }
+
+  private tickAllActive(): void {
+    for (const [code, room] of this.rooms.entries()) {
+      if (room.status === 'playing' && room.game) {
+        const phaseBefore = room.game.phase;
+        this.tick(code);
+        if (room.game && room.game.phase !== phaseBefore) {
+          console.log(`[RoomStore][Tick] Room ${code} phase changed: ${phaseBefore} -> ${room.game.phase}`);
+          this.scheduleSave();
+        }
+      }
+    }
   }
 
   private loadFromDisk(): void {
@@ -407,6 +430,20 @@ class RoomStore {
     if (player) player.lastSeen = Date.now();
     room.lastActivity = Date.now();
     this.scheduleSave();
+  }
+
+  reconnectPlayer(code: string, playerId: string): { room: Room; found: boolean } | null {
+    const room = this.rooms.get(code);
+    if (!room) return null;
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) return null;
+
+    player.lastSeen = Date.now();
+    room.lastActivity = Date.now();
+    this.scheduleSave();
+    console.log(`[RoomStore] Player ${player.name} (${playerId}) reconnected to room ${code}`);
+    return { room, found: true };
   }
 
   tick(code: string): void {

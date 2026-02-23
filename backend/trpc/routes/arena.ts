@@ -175,4 +175,18 @@ export const arenaRouter = createTRPCRouter({
       roomStore.heartbeat(input.roomCode, input.playerId);
       return { success: true };
     }),
+
+  reconnectRoom: publicProcedure
+    .input(z.object({ roomCode: z.string(), playerId: z.string() }))
+    .mutation(({ input }) => {
+      console.log("[Arena] reconnectRoom:", input.playerId, "->", input.roomCode);
+      const result = roomStore.reconnectPlayer(input.roomCode, input.playerId);
+      if (!result) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Room not found or player not in room",
+        });
+      }
+      return { room: roomStore.sanitize(result.room) };
+    }),
 });
