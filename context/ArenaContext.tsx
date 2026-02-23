@@ -318,9 +318,12 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     saveLeaderboardMut.mutate(updated);
   }, [leaderboard, saveLeaderboardMut]);
 
+  const isSpectator = myPlayer?.role === 'spectator';
+
   const canStartGame = useMemo(() => {
     if (!room || !isHost) return false;
-    return room.players.length >= 2 && room.deckId !== null;
+    const activePlayers = room.players.filter((p: any) => p.role === 'player');
+    return activePlayers.length >= 2 && room.deckId !== null;
   }, [room, isHost]);
 
   const cleanupDeck = useCallback((deckId: string) => {
@@ -344,6 +347,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     connectionError,
     room,
     isHost,
+    isSpectator,
     myPlayer,
     hasAnsweredCurrent,
     lastAnswerCorrect,
@@ -368,7 +372,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     clearError,
   }), [
     roomCode, playerId, playerName, connectionError,
-    room, isHost, myPlayer, hasAnsweredCurrent, lastAnswerCorrect,
+    room, isHost, isSpectator, myPlayer, hasAnsweredCurrent, lastAnswerCorrect,
     canStartGame,
     isReconnecting,
     createRoomMut.isPending, joinRoomMut.isPending,

@@ -20,6 +20,7 @@ export interface RoomPlayer {
   color: string;
   isHost: boolean;
   lastSeen: number;
+  role: 'player' | 'spectator';
 }
 
 export interface RoomQuestion {
@@ -78,6 +79,7 @@ export interface SanitizedPlayer {
   color: string;
   isHost: boolean;
   connected: boolean;
+  role: 'player' | 'spectator';
 }
 
 export interface SanitizedQuestion {
@@ -226,6 +228,7 @@ class RoomStore {
         color: PLAYER_COLORS[0],
         isHost: true,
         lastSeen: Date.now(),
+        role: 'player',
       }],
       deckId: null,
       deckName: null,
@@ -248,7 +251,10 @@ class RoomStore {
 
   joinRoom(code: string, playerName: string): { player: RoomPlayer; room: Room } | null {
     const room = this.rooms.get(code);
-    if (!room || room.status !== 'lobby' || room.players.length >= 12) return null;
+    if (!room || room.players.length >= 12) return null;
+
+    const isSpectator = room.status === 'playing';
+    if (room.status === 'finished') return null;
 
     const player: RoomPlayer = {
       id: this.generateId(),
@@ -256,12 +262,13 @@ class RoomStore {
       color: PLAYER_COLORS[room.players.length % PLAYER_COLORS.length],
       isHost: false,
       lastSeen: Date.now(),
+      role: isSpectator ? 'spectator' : 'player',
     };
 
     room.players.push(player);
     room.lastActivity = Date.now();
     this.scheduleSave();
-    console.log(`[RoomStore] ${playerName} joined room ${code} (${room.players.length} players)`);
+    console.log(`[RoomStore] ${playerName} joined room ${code} as ${player.role} (${room.players.length} players)`);
     return { player, room };
   }
 
@@ -269,34 +276,62 @@ class RoomStore {
     const room = this.rooms.get(code);
     if (!room) return null;
 
-    if (playerId === room.hostId) {
-      console.log(`[RoomStore] Host left, destroying room ${code}`);
+    room.players = room.players.filter(p => p.id !== playerId);
+    room.lastActivity = Date.now();
+
+    if (room.players.length === 0) {
+      console.log(`[RoomStore] Last player left, destroying room ${code}`);
       this.rooms.delete(code);
       this.scheduleSave();
       return null;
     }
 
-    room.players = room.players.filter(p => p.id !== playerId);
-    room.lastActivity = Date.now();
-
-    if (room.players.length === 0) {
-      this.rooms.delete(code);
-      this.scheduleSave();
-      return null;
+    if (playerId === room.hostId) {
+      this.promoteNewHost(room);
     }
 
     this.scheduleSave();
     return room;
   }
 
+  private promoteNewHost(room: Room): void {
+    const activePlayers = room.players.filter(p => p.role === 'player');
+    const newHost = activePlayers[0] ?? room.players[0];
+    if (!newHost) return;
+
+    room.players.forEach(p => { p.isHost = false; });
+    newHost.isHost = true;
+    newHost.role = 'player';
+    room.hostId = newHost.id;
+    console.log(`[RoomStore] Host migrated to ${newHost.name} (${newHost.id}) in room ${room.code}`);
+  }
+
   removePlayer(code: string, targetId: string, requesterId: string): Room | null {
     const room = this.rooms.get(code);
     if (!room || requesterId !== room.hostId || targetId === room.hostId) return null;
 
+    const target = room.players.find(p => p.id === targetId);
+    if (!target) return null;
+
     room.players = room.players.filter(p => p.id !== targetId);
+
+    if (room.game && target.role === 'player') {
+      const qi = room.game.currentQuestionIndex;
+      if (!room.game.answers[targetId]?.[qi]) {
+        if (!room.game.answers[targetId]) room.game.answers[targetId] = {};
+        room.game.answers[targetId][qi] = {
+          selectedOption: '',
+          isCorrect: false,
+          timeToAnswerMs: Date.now() - room.game.questionStartedAt,
+        };
+      }
+      delete room.game.scores[targetId];
+      this.checkAllAnswered(room);
+    }
+
     room.lastActivity = Date.now();
     this.scheduleSave();
-    console.log(`[RoomStore] Removed player ${targetId} from room ${code}`);
+    console.log(`[RoomStore] Removed player ${targetId} from room ${code} (status: ${room.status})`);
     return room;
   }
 
@@ -323,12 +358,15 @@ class RoomStore {
 
   startGame(code: string, playerId: string, questions: RoomQuestion[]): Room | null {
     const room = this.rooms.get(code);
-    if (!room || playerId !== room.hostId || room.players.length < 2 || !room.deckId) return null;
+    if (!room || playerId !== room.hostId || !room.deckId) return null;
+
+    const activePlayers = room.players.filter(p => p.role === 'player');
+    if (activePlayers.length < 2) return null;
 
     const scores: Record<string, ScoreEntry> = {};
     const answers: Record<string, Record<number, AnswerEntry>> = {};
 
-    for (const p of room.players) {
+    for (const p of activePlayers) {
       scores[p.id] = { correct: 0, incorrect: 0, points: 0, currentStreak: 0, bestStreak: 0 };
       answers[p.id] = {};
     }
@@ -358,6 +396,9 @@ class RoomStore {
   ): { room: Room; isCorrect: boolean } | null {
     const room = this.rooms.get(code);
     if (!room?.game || room.game.phase !== 'question') return null;
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player || player.role === 'spectator') return null;
     if (room.game.currentQuestionIndex !== questionIndex) return null;
     if (room.game.answers[playerId]?.[questionIndex]) return null;
 
@@ -462,8 +503,9 @@ class RoomStore {
   private checkAllAnswered(room: Room): void {
     if (!room.game || room.game.phase !== 'question') return;
     const qi = room.game.currentQuestionIndex;
-    const allAnswered = room.players.every(p => room.game!.answers[p.id]?.[qi] !== undefined);
-    if (allAnswered) {
+    const activePlayers = room.players.filter(p => p.role === 'player');
+    const allAnswered = activePlayers.every(p => room.game!.answers[p.id]?.[qi] !== undefined);
+    if (allAnswered && activePlayers.length > 0) {
       room.game.phase = 'reveal';
       room.game.revealStartedAt = Date.now();
     }
@@ -475,7 +517,8 @@ class RoomStore {
     if (elapsed < room.settings.timerSeconds * 1000) return;
 
     const qi = room.game.currentQuestionIndex;
-    for (const p of room.players) {
+    const activePlayers = room.players.filter(p => p.role === 'player');
+    for (const p of activePlayers) {
       if (!room.game.answers[p.id]?.[qi]) {
         if (!room.game.answers[p.id]) room.game.answers[p.id] = {};
         room.game.answers[p.id][qi] = {
@@ -501,7 +544,8 @@ class RoomStore {
     const now = Date.now();
     let changed = false;
 
-    for (const p of room.players) {
+    const activePlayers = room.players.filter(p => p.role === 'player');
+    for (const p of activePlayers) {
       if (room.game.answers[p.id]?.[qi]) continue;
 
       const timedOut = (now - room.game.questionStartedAt) > NO_TIMER_TIMEOUT_MS;
@@ -554,6 +598,7 @@ class RoomStore {
       color: p.color,
       isHost: p.isHost,
       connected: (now - p.lastSeen) < DISCONNECT_MS,
+      role: p.role,
     }));
 
     if (!room.game) {
@@ -585,11 +630,11 @@ class RoomStore {
         : null;
 
     const answeredPlayerIds = room.players
-      .filter(p => g.answers[p.id]?.[qi] !== undefined)
+      .filter(p => p.role === 'player' && g.answers[p.id]?.[qi] !== undefined)
       .map(p => p.id);
 
     const currentAnswers = isRevealOrDone
-      ? Object.fromEntries(room.players.map(p => [p.id, g.answers[p.id]?.[qi] ?? null]))
+      ? Object.fromEntries(room.players.filter(p => p.role === 'player').map(p => [p.id, g.answers[p.id]?.[qi] ?? null]))
       : null;
 
     const game: SanitizedGameState = {
