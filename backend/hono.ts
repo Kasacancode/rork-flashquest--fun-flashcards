@@ -23,8 +23,8 @@ app.use(
 
 const handleTrpcRequest = async (request: Request) => {
   const pathname = new URL(request.url).pathname;
-  // Hono app is mounted at /api by Rork infrastructure, so internally paths start at /trpc
-  const endpoint = '/trpc';
+  // Hono app is mounted at /api by Rork infrastructure, so full paths are /api/trpc/*
+  const endpoint = '/api/trpc';
 
   console.log('[Backend] FlashQuest battle request', {
     method: request.method,
