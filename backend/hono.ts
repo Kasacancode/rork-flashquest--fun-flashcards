@@ -1,6 +1,6 @@
-import { trpcServer } from "@hono/trpc-server/dist/index.js";
-import { Hono } from "hono/dist/index.js";
-import { cors } from "hono/dist/middleware/cors/index.js";
+import { trpcServer } from "@hono/trpc-server";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
 
 import { appRouter } from "./trpc/app-router.js";
 import { createContext } from "./trpc/create-context.js";
