@@ -9,10 +9,19 @@ const app = new Hono();
 
 app.use("*", cors());
 
+app.use("/trpc/*", async (c, next) => {
+  console.log("[Backend] FlashQuest battle request", {
+    method: c.req.method,
+    pathname: new URL(c.req.url).pathname,
+    endpoint: "/trpc",
+  });
+  await next();
+});
+
 app.use(
   "/trpc/*",
   trpcServer({
-    endpoint: "/api/trpc",
+    endpoint: "/trpc",
     router: appRouter,
     createContext,
   }),
