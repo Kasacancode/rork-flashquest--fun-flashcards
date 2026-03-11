@@ -1,8 +1,26 @@
+import * as ExpoLinking from 'expo-linking';
+import { Platform } from 'react-native';
+
 export const ROOM_CODE_MIN_LENGTH = 4;
-export const ROOM_CODE_MAX_LENGTH = 6;
-export const FLASHQUEST_BATTLE_JOIN_BASE_URL = 'https://flashquest.app/join';
+export const ROOM_CODE_MAX_LENGTH = 4;
 
 const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function normalizeUrlOrigin(value: string): string {
+  return value.replace(/\/+$/, '');
+}
+
+function getWebOrigin(): string | null {
+  if (Platform.OS !== 'web') {
+    return null;
+  }
+
+  if (typeof window === 'undefined' || !window.location?.origin) {
+    return null;
+  }
+
+  return normalizeUrlOrigin(window.location.origin);
+}
 
 export function normalizeRoomCode(value: string): string {
   return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, ROOM_CODE_MAX_LENGTH);
@@ -15,7 +33,19 @@ export function isRoomCodeValid(value: string): boolean {
 
 export function buildBattleInviteUrl(roomCode: string): string {
   const normalizedCode = normalizeRoomCode(roomCode);
-  return `${FLASHQUEST_BATTLE_JOIN_BASE_URL}/${normalizedCode}`;
+  const joinPath = `/join/${normalizedCode}`;
+  const webOrigin = getWebOrigin();
+
+  if (webOrigin) {
+    return `${webOrigin}${joinPath}`;
+  }
+
+  try {
+    return ExpoLinking.createURL(joinPath);
+  } catch (error) {
+    console.warn('[ArenaInvite] Failed to create runtime invite URL:', error);
+    return joinPath;
+  }
 }
 
 export function buildBattleShareMessage(roomCode: string): string {

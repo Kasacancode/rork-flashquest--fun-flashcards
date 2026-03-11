@@ -86,7 +86,7 @@ export default function JoinBattleByLinkScreen() {
     }
 
     setPendingJoin(true);
-    joinRoom(joinCode, trimmedName);
+    void joinRoom(joinCode, trimmedName);
   }, [disconnect, isConnecting, joinCode, joinRoom, nameInput, roomCode]);
 
   const showInvalidLink = !isRoomCodeValid(joinCode);

@@ -297,33 +297,35 @@ export default function ArenaLobbyScreen() {
             <Text style={[styles.inviteCodeLabel, { color: theme.textSecondary }]}>ROOM CODE: {room.code}</Text>
             <Text style={[styles.inviteCode, { color: theme.text }]}>{room.code}</Text>
 
-            <TouchableOpacity
-              style={[styles.shareButton, { backgroundColor: arenaAccent }]}
-              onPress={handleShareBattle}
-              activeOpacity={0.85}
-              testID="battle-share-button"
-            >
-              <Share2 color="#fff" size={18} />
-              <Text style={styles.shareButtonText}>Share Battle</Text>
-            </TouchableOpacity>
+            <View style={styles.inviteActionsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.copyButton,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : theme.background,
+                    borderColor: theme.border,
+                  },
+                ]}
+                onPress={handleCopyCode}
+                activeOpacity={0.8}
+                testID="battle-copy-code-button"
+              >
+                {codeCopied ? <Check color="#10b981" size={16} /> : <Copy color={theme.textSecondary} size={16} />}
+                <Text style={[styles.copyButtonText, { color: codeCopied ? '#10b981' : theme.textSecondary }]}>
+                  {codeCopied ? 'Code Copied' : 'Copy Code'}
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.copyButton,
-                {
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : theme.background,
-                  borderColor: theme.border,
-                },
-              ]}
-              onPress={handleCopyCode}
-              activeOpacity={0.8}
-              testID="battle-copy-code-button"
-            >
-              {codeCopied ? <Check color="#10b981" size={16} /> : <Copy color={theme.textSecondary} size={16} />}
-              <Text style={[styles.copyButtonText, { color: codeCopied ? '#10b981' : theme.textSecondary }]}>
-                {codeCopied ? 'Code Copied' : 'Copy Code'}
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.shareButton, { backgroundColor: arenaAccent }]}
+                onPress={handleShareBattle}
+                activeOpacity={0.85}
+                testID="battle-share-button"
+              >
+                <Share2 color="#fff" size={18} />
+                <Text style={styles.shareButtonText}>Share Battle</Text>
+              </TouchableOpacity>
+            </View>
 
             <Text style={[styles.inviteLink, { color: theme.textTertiary }]} numberOfLines={1}>
               {buildBattleInviteUrl(room.code)}
@@ -725,15 +727,20 @@ const styles = StyleSheet.create({
     letterSpacing: 6,
     marginBottom: 16,
   },
+  inviteActionsRow: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
   shareButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    width: '100%',
     borderRadius: 16,
     paddingVertical: 16,
-    marginBottom: 10,
   },
   shareButtonText: {
     fontSize: 16,
@@ -741,15 +748,14 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   copyButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    width: '100%',
     borderRadius: 14,
     borderWidth: 1,
     paddingVertical: 12,
-    marginBottom: 10,
   },
   copyButtonText: {
     fontSize: 14,

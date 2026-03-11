@@ -72,13 +72,13 @@ export default function ArenaMenuScreen() {
   const handleConfirmCreate = () => {
     if (!nameInput.trim() || isConnecting) return;
     setPendingAction('create');
-    createRoom(nameInput.trim());
+    void createRoom(nameInput.trim());
   };
 
   const handleConfirmJoin = () => {
     if (!nameInput.trim() || !isRoomCodeValid(codeInput) || isConnecting) return;
     setPendingAction('join');
-    joinRoom(normalizeRoomCode(codeInput), nameInput.trim());
+    void joinRoom(normalizeRoomCode(codeInput), nameInput.trim());
   };
 
   const handleRejoin = () => {
@@ -324,6 +324,7 @@ export default function ArenaMenuScreen() {
               maxLength={20}
               editable={!isConnecting}
             />
+            <Text style={[styles.modalHelperText, { color: theme.textSecondary }]}>Enter {ROOM_CODE_MAX_LENGTH}-character code</Text>
             <TextInput
               style={[styles.modalInput, styles.codeInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
               placeholder="M4X9"
@@ -589,6 +590,11 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     textAlign: 'center',
     marginBottom: 20,
+  },
+  modalHelperText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    marginBottom: 8,
   },
   modalInput: {
     borderRadius: 14,
