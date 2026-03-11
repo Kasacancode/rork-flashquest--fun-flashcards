@@ -28,30 +28,45 @@ app.use(
 // so we rewrite the Request URL to use c.req.path (the Hono-matched path).
 const endpoint = '/trpc';
 
-const handleTrpcRequest = async (c: { req: { raw: Request; path: string } }) => {
+// Rork infrastructure mounts this Hono app at /api externally.
+// Hono strips the /api prefix, so Hono routes match on /trpc/*.
+// However, c.req.raw.url still contains the full external path (e.g. /api/trpc/arena.initRoom).
+// fetchRequestHandler requires the Request pathname to start with `endpoint` (/trpc),
+// so we must rewrite the Request URL to use c.req.path (the Hono-matched internal path)
+// before passing it to tRPC. Without this rewrite, tRPC cannot parse the procedure path
+// and returns a non-JSON error response.
+const handleTrpcRequest = async (c: { req: { raw: Request; path: string; url: string; method: string } }) => {
   const originalRequest = c.req.raw;
   const honoPath = c.req.path;
 
-  // Rork mounts this Hono app at /api externally.
-  // c.req.path is the Hono-matched path (e.g. /trpc/arena.initRoom)
-  // but c.req.raw.url still has the full external path (e.g. /api/trpc/arena.initRoom).
-  // fetchRequestHandler needs the Request pathname to match `endpoint`,
-  // so we rewrite the URL to use the Hono-matched path.
   const rewrittenUrl = new URL(originalRequest.url);
   const originalPathname = rewrittenUrl.pathname;
   rewrittenUrl.pathname = honoPath;
 
   console.log('[Backend] tRPC route rewrite', {
     method: originalRequest.method,
+    originalRawUrl: originalRequest.url,
     originalPathname,
     honoPath,
     rewrittenPathname: rewrittenUrl.pathname,
     endpoint,
   });
 
-  // Use the original Request as init to properly transfer method, headers, body, and signal
-  // without running into ReadableStream duplex issues.
-  const rewrittenRequest = new Request(rewrittenUrl.toString(), originalRequest);
+  // Rebuild the Request explicitly to avoid body/duplex issues across runtimes.
+  // Some runtimes fail when using `new Request(url, existingRequest)` for POST with body.
+  const init: RequestInit = {
+    method: originalRequest.method,
+    headers: originalRequest.headers,
+  };
+
+  // Only attach body for non-GET/HEAD requests to avoid "body not allowed" errors
+  if (originalRequest.method !== 'GET' && originalRequest.method !== 'HEAD') {
+    init.body = originalRequest.body;
+    // @ts-ignore — duplex is required in some runtimes for streaming body
+    init.duplex = 'half';
+  }
+
+  const rewrittenRequest = new Request(rewrittenUrl.toString(), init);
 
   return fetchRequestHandler({
     endpoint,
