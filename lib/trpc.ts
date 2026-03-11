@@ -37,6 +37,22 @@ export const trpcClient = trpc.createClient({
     httpLink({
       url: primaryTrpcUrl,
       transformer: superjson,
+      async fetch(url, options) {
+        const response = await globalThis.fetch(url, options);
+        if (__DEV__) {
+          const contentType = response.headers.get('content-type') ?? '';
+          if (!contentType.includes('application/json')) {
+            console.error(
+              '[trpc] Non-JSON response received. Content-Type:',
+              contentType,
+              'URL:',
+              typeof url === 'string' ? url : (url as URL).toString(),
+              '— check that the TRPC endpoint path matches the backend route.',
+            );
+          }
+        }
+        return response;
+      },
     }),
   ],
 });
