@@ -17,6 +17,28 @@ const POLL_REVEAL_MS = 1200;
 const POLL_FINISHED_MS = 10000;
 const HEARTBEAT_INTERVAL_MS = 3000;
 
+function normalizeArenaErrorMessage(message: string | null | undefined): string {
+  const fallbackMessage = 'Could not reach the battle service. Please try again in a few seconds.';
+
+  if (!message) {
+    return fallbackMessage;
+  }
+
+  const trimmedMessage = message.trim();
+  const normalizedMessage = trimmedMessage.toLowerCase();
+
+  if (
+    normalizedMessage === 'failed to fetch'
+    || normalizedMessage.includes('network request failed')
+    || normalizedMessage.includes('networkerror')
+    || normalizedMessage.includes('load failed')
+  ) {
+    return fallbackMessage;
+  }
+
+  return trimmedMessage;
+}
+
 export const [ArenaProvider, useArena] = createContextHook(() => {
   const queryClient = useQueryClient();
 
@@ -102,7 +124,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
         logger.log('[Arena] Max poll failures reached, disconnecting');
         setRoomCode(null);
         setPlayerId(null);
-        setConnectionError('Room expired or not found');
+        setConnectionError('Room expired, was closed, or the battle service is temporarily unavailable.');
         pollFailCountRef.current = 0;
         lastErrorMsgRef.current = null;
       }
@@ -197,8 +219,9 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       setConnectionError(null);
     },
     onError: (err: { message: string }) => {
-      logger.log('[Arena] Create error:', err.message);
-      setConnectionError(err.message);
+      const normalizedMessage = normalizeArenaErrorMessage(err.message);
+      logger.log('[Arena] Create error:', normalizedMessage);
+      setConnectionError(normalizedMessage);
     },
   });
 
@@ -213,8 +236,9 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       setConnectionError(null);
     },
     onError: (err: { message: string }) => {
-      logger.log('[Arena] Join error:', err.message);
-      setConnectionError(err.message);
+      const normalizedMessage = normalizeArenaErrorMessage(err.message);
+      logger.log('[Arena] Join error:', normalizedMessage);
+      setConnectionError(normalizedMessage);
     },
   });
 
@@ -223,8 +247,9 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const updateSettingsMut = trpc.arena.updateSettings.useMutation();
   const startGameMut = trpc.arena.startGame.useMutation({
     onError: (err: { message: string }) => {
-      logger.log('[Arena] Start game error:', err.message);
-      setConnectionError(err.message);
+      const normalizedMessage = normalizeArenaErrorMessage(err.message);
+      logger.log('[Arena] Start game error:', normalizedMessage);
+      setConnectionError(normalizedMessage);
     },
   });
   const submitAnswerMut = trpc.arena.submitAnswer.useMutation({

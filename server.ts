@@ -1,1 +1,1 @@
-export { default } from './backend/hono.js';
+export { default } from './backend/hono';
