@@ -21,10 +21,11 @@ import type {
   SanitizedPlayer,
   SanitizedGameState,
   SanitizedQuestion,
+  PlayerIdentity,
 } from './types';
 
 import {
-  PLAYER_COLORS,
+  PLAYER_IDENTITIES,
   MAX_PLAYERS,
   DISCONNECT_MS,
   REVEAL_DURATION_MS,
@@ -41,6 +42,41 @@ function generatePlayerId(): string {
 
 function normalizeAnswer(s: string): string {
   return s.toLowerCase().trim().replace(/[^a-z0-9\s]/g, '');
+}
+
+function getIdentityByKey(identityKey: string | undefined): PlayerIdentity | null {
+  return PLAYER_IDENTITIES.find((identity) => identity.key === identityKey) ?? null;
+}
+
+function resolvePlayerIdentity(player: RoomPlayer, index: number, usedKeys: Set<string>): RoomPlayer {
+  const existingIdentity = getIdentityByKey(player.identityKey);
+  const fallbackIdentity = PLAYER_IDENTITIES.find((identity) => !usedKeys.has(identity.key))
+    ?? PLAYER_IDENTITIES[index % PLAYER_IDENTITIES.length]!;
+  const identity = existingIdentity && !usedKeys.has(existingIdentity.key) ? existingIdentity : fallbackIdentity;
+
+  usedKeys.add(identity.key);
+
+  return {
+    ...player,
+    color: identity.color,
+    identityKey: identity.key,
+    identityLabel: identity.label,
+    suit: identity.suit,
+  };
+}
+
+function getResolvedPlayers(players: RoomPlayer[]): RoomPlayer[] {
+  const usedKeys = new Set<string>();
+  return players.map((player, index) => resolvePlayerIdentity(player, index, usedKeys));
+}
+
+function normalizeRoomPlayers(room: Room): void {
+  room.players = getResolvedPlayers(room.players);
+}
+
+function getNextAvailableIdentity(room: Room): PlayerIdentity | null {
+  const usedKeys = new Set(getResolvedPlayers(room.players).map((player) => player.identityKey));
+  return PLAYER_IDENTITIES.find((identity) => !usedKeys.has(identity.key)) ?? null;
 }
 
 function calculateCorrectAnswerPoints(room: Room, timeToAnswerMs: number): number {
@@ -60,6 +96,7 @@ function calculateCorrectAnswerPoints(room: Room, timeToAnswerMs: number): numbe
 export function createNewRoom(hostName: string, code: string): { room: Room; playerId: string } {
   const playerId = generatePlayerId();
   const now = Date.now();
+  const hostIdentity = PLAYER_IDENTITIES[0]!;
 
   const room: Room = {
     code,
@@ -67,7 +104,10 @@ export function createNewRoom(hostName: string, code: string): { room: Room; pla
     players: [{
       id: playerId,
       name: hostName,
-      color: PLAYER_COLORS[0],
+      color: hostIdentity.color,
+      identityKey: hostIdentity.key,
+      identityLabel: hostIdentity.label,
+      suit: hostIdentity.suit,
       isHost: true,
       lastSeen: now,
     }],
@@ -92,6 +132,8 @@ export function joinRoom(
   room: Room,
   playerName: string,
 ): { player: RoomPlayer; room: Room } | null {
+  normalizeRoomPlayers(room);
+
   if (room.status !== 'lobby') {
     console.log(`[Engine] Cannot join room ${room.code}: status=${room.status}`);
     return null;
@@ -101,10 +143,19 @@ export function joinRoom(
     return null;
   }
 
+  const nextIdentity = getNextAvailableIdentity(room);
+  if (!nextIdentity) {
+    console.log(`[Engine] Cannot join room ${room.code}: no player identities left`);
+    return null;
+  }
+
   const player: RoomPlayer = {
     id: generatePlayerId(),
     name: playerName,
-    color: PLAYER_COLORS[room.players.length % PLAYER_COLORS.length],
+    color: nextIdentity.color,
+    identityKey: nextIdentity.key,
+    identityLabel: nextIdentity.label,
+    suit: nextIdentity.suit,
     isHost: false,
     lastSeen: Date.now(),
   };
@@ -119,6 +170,8 @@ export function joinRoom(
 // Returns the updated room, or null if room should be destroyed.
 
 export function leaveRoom(room: Room, playerId: string): Room | null {
+  normalizeRoomPlayers(room);
+
   if (playerId === room.hostId) {
     console.log(`[Engine] Host left, destroying room ${room.code}`);
     return null;
@@ -138,6 +191,7 @@ export function removePlayer(
   targetId: string,
   requesterId: string,
 ): Room | null {
+  normalizeRoomPlayers(room);
   if (requesterId !== room.hostId || targetId === room.hostId) return null;
 
   room.players = room.players.filter(p => p.id !== targetId);
@@ -154,6 +208,7 @@ export function selectDeck(
   deckId: string,
   deckName: string,
 ): Room | null {
+  normalizeRoomPlayers(room);
   if (playerId !== room.hostId) return null;
   room.deckId = deckId;
   room.deckName = deckName;
@@ -168,6 +223,7 @@ export function updateSettings(
   playerId: string,
   updates: Partial<RoomSettings>,
 ): Room | null {
+  normalizeRoomPlayers(room);
   if (playerId !== room.hostId) return null;
   room.settings = { ...room.settings, ...updates };
   room.lastActivity = Date.now();
@@ -181,6 +237,7 @@ export function startGame(
   playerId: string,
   questions: RoomQuestion[],
 ): Room | null {
+  normalizeRoomPlayers(room);
   if (playerId !== room.hostId || room.players.length < 2 || !room.deckId) return null;
 
   const scores: Record<string, ScoreEntry> = {};
@@ -215,6 +272,7 @@ export function submitAnswer(
   questionIndex: number,
   selectedOption: string,
 ): { room: Room; isCorrect: boolean } | null {
+  normalizeRoomPlayers(room);
   if (!room.game || room.game.phase !== 'question') return null;
   if (room.game.currentQuestionIndex !== questionIndex) return null;
   if (room.game.answers[playerId]?.[questionIndex]) return null;
@@ -252,6 +310,7 @@ export function submitAnswer(
 // --- Advance question (host, during reveal) ---
 
 export function advanceQuestion(room: Room, playerId: string): Room | null {
+  normalizeRoomPlayers(room);
   if (!room.game || playerId !== room.hostId || room.game.phase !== 'reveal') return null;
 
   const nextIndex = room.game.currentQuestionIndex + 1;
@@ -272,6 +331,7 @@ export function advanceQuestion(room: Room, playerId: string): Room | null {
 // --- Reset room (host) ---
 
 export function resetRoom(room: Room, playerId: string): Room | null {
+  normalizeRoomPlayers(room);
   if (playerId !== room.hostId) return null;
 
   room.status = 'lobby';
@@ -287,6 +347,7 @@ export function resetRoom(room: Room, playerId: string): Room | null {
 // Returns true if room state was mutated and needs to be saved.
 
 export function tick(room: Room): boolean {
+  normalizeRoomPlayers(room);
   if (!room.game) return false;
   let changed = false;
 
@@ -467,10 +528,15 @@ function deriveEffectivePhase(room: Room): DerivedPhaseResult {
 export function sanitizeRoom(room: Room): SanitizedRoom {
   const now = Date.now();
 
-  const players: SanitizedPlayer[] = room.players.map(p => ({
+  const resolvedPlayers = getResolvedPlayers(room.players);
+
+  const players: SanitizedPlayer[] = resolvedPlayers.map(p => ({
     id: p.id,
     name: p.name,
     color: p.color,
+    identityKey: p.identityKey,
+    identityLabel: p.identityLabel,
+    suit: p.suit,
     isHost: p.isHost,
     connected: (now - p.lastSeen) < DISCONNECT_MS,
   }));

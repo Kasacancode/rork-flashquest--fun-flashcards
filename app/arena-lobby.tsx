@@ -18,17 +18,30 @@ const ARENA_ACCENT_DARK = '#f59e0b';
 type RoundsOption = 5 | 10 | 20;
 type TimerOption = 0 | 5 | 10;
 
-const ROUND_OPTIONS: Array<{ value: RoundsOption; label: string }> = [
+const ROUND_OPTIONS: { value: RoundsOption; label: string }[] = [
   { value: 5, label: '5' },
   { value: 10, label: '10' },
   { value: 20, label: '20' },
 ];
 
-const TIMER_OPTIONS: Array<{ value: TimerOption; label: string }> = [
+const TIMER_OPTIONS: { value: TimerOption; label: string }[] = [
   { value: 0, label: 'Off' },
   { value: 5, label: '5s' },
   { value: 10, label: '10s' },
 ];
+
+const MAX_LOBBY_SLOTS = 6;
+
+interface LobbyPlayer {
+  id: string;
+  name: string;
+  color: string;
+  identityKey: string;
+  identityLabel: string;
+  suit: string;
+  isHost: boolean;
+  connected: boolean;
+}
 
 export default function ArenaLobbyScreen() {
   const router = useRouter();
@@ -179,6 +192,9 @@ export default function ArenaLobbyScreen() {
   }, [decks, room?.deckId]);
 
   const smallDeckWarning = selectedDeck && selectedDeck.flashcards.length < 8;
+  const lobbyPlayers = (room?.players ?? []) as LobbyPlayer[];
+  const inviteSlotCount = Math.max(0, MAX_LOBBY_SLOTS - lobbyPlayers.length);
+  const inviteSlots = Array.from({ length: inviteSlotCount }, (_, index) => index);
 
   if (!room) {
     return (
@@ -260,7 +276,7 @@ export default function ArenaLobbyScreen() {
               <View style={styles.playersHeaderLeft}>
                 <Users color={arenaAccent} size={20} />
                 <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                  Players ({room.players.length})
+                  Players ({lobbyPlayers.length} / {MAX_LOBBY_SLOTS})
                 </Text>
               </View>
               <View style={[styles.liveBadge, { backgroundColor: '#10b981' }]}>
@@ -270,25 +286,28 @@ export default function ArenaLobbyScreen() {
             </View>
 
             <View style={styles.playersList}>
-              {room.players.map((player: any) => (
+              {lobbyPlayers.map((player) => (
                 <View
                   key={player.id}
                   style={[styles.playerCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background }]}
                 >
                   <View style={[styles.playerAvatar, { backgroundColor: player.color }]}>
-                    <Text style={styles.playerInitial}>
-                      {player.name.charAt(0).toUpperCase()}
-                    </Text>
+                    <Text style={styles.playerInitial}>{player.suit}</Text>
                   </View>
                   <View style={styles.playerInfo}>
                     <View style={styles.playerNameRow}>
-                      <Text style={[styles.playerName, { color: theme.text }]} numberOfLines={1}>
-                        {player.name}
-                      </Text>
+                      <View style={[styles.identityBadge, { borderColor: player.color, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : theme.cardBackground }]}> 
+                        <Text style={[styles.identityBadgeText, { color: player.color }]} numberOfLines={1}>
+                          {player.identityLabel}
+                        </Text>
+                      </View>
                       {player.id === playerId && (
-                        <Text style={[styles.youBadge, { color: theme.primary }]}>(You)</Text>
+                        <Text style={[styles.youBadge, { color: theme.primary }]}>You</Text>
                       )}
                     </View>
+                    <Text style={[styles.playerName, { color: theme.text }]} numberOfLines={1}>
+                      {player.name}
+                    </Text>
                     <View style={styles.playerMeta}>
                       {player.isHost && (
                         <Text style={[styles.hostBadge, { color: theme.warning }]}>Host</Text>
@@ -312,13 +331,38 @@ export default function ArenaLobbyScreen() {
                   )}
                 </View>
               ))}
+              {inviteSlots.map((slotIndex) => (
+                <TouchableOpacity
+                  key={`invite-${slotIndex}`}
+                  style={[
+                    styles.emptySlotCard,
+                    {
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : theme.background,
+                      borderColor: isDark ? 'rgba(255,255,255,0.08)' : theme.border,
+                    },
+                  ]}
+                  onPress={handleCopyCode}
+                  activeOpacity={0.8}
+                  testID={`battle-lobby-empty-slot-${slotIndex}`}
+                >
+                  <View style={[styles.emptySlotAvatar, { borderColor: arenaAccent }]}> 
+                    <Text style={[styles.emptySlotPlus, { color: arenaAccent }]}>+</Text>
+                  </View>
+                  <View style={styles.playerInfo}>
+                    <Text style={[styles.emptySlotTitle, { color: theme.text }]}>+ Invite</Text>
+                    <Text style={[styles.emptySlotSubtitle, { color: codeCopied ? '#10b981' : theme.textSecondary }]}>
+                      {codeCopied ? 'Room code copied' : `Tap to copy code ${room.code}`}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
 
-            {room.players.length < 2 && (
+            {lobbyPlayers.length < 2 && (
               <View style={[styles.warningBox, { backgroundColor: theme.warning + '20' }]}>
                 <AlertCircle color={theme.warning} size={16} />
                 <Text style={[styles.warningText, { color: theme.warning }]}>
-                  Waiting for more players to join...
+                  Fill an invite slot to start a battle.
                 </Text>
               </View>
             )}
@@ -665,7 +709,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   playerInitial: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700' as const,
     color: '#fff',
   },
@@ -676,7 +720,19 @@ const styles = StyleSheet.create({
   playerNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+    marginBottom: 4,
+    flexWrap: 'wrap' as const,
+  },
+  identityBadge: {
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  identityBadgeText: {
+    fontSize: 11,
+    fontWeight: '700' as const,
   },
   playerName: {
     fontSize: 15,
@@ -707,6 +763,36 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  emptySlotCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  emptySlotAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptySlotPlus: {
+    fontSize: 22,
+    fontWeight: '700' as const,
+    lineHeight: 22,
+  },
+  emptySlotTitle: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    marginBottom: 4,
+  },
+  emptySlotSubtitle: {
+    fontSize: 12,
+    fontWeight: '500' as const,
   },
   warningBox: {
     flexDirection: 'row',

@@ -2,13 +2,28 @@
 // All room, game, and sanitized types live here.
 // Shared by repository, engine, and TRPC routes.
 
-export const PLAYER_COLORS = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
-  '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',
-  '#BB8FCE', '#85C1E9', '#F8B500', '#00CED1',
-] as const;
+export type PlayerSuit = '♠' | '♥' | '♦' | '♣';
 
-export const MAX_PLAYERS = 12;
+export interface PlayerIdentity {
+  key: string;
+  colorName: string;
+  suit: PlayerSuit;
+  label: string;
+  color: string;
+}
+
+export const PLAYER_IDENTITIES = [
+  { key: 'blue-spade', colorName: 'Blue', suit: '♠', label: 'Blue ♠', color: '#2563EB' },
+  { key: 'red-heart', colorName: 'Red', suit: '♥', label: 'Red ♥', color: '#DC2626' },
+  { key: 'green-diamond', colorName: 'Green', suit: '♦', label: 'Green ♦', color: '#16A34A' },
+  { key: 'purple-club', colorName: 'Purple', suit: '♣', label: 'Purple ♣', color: '#7C3AED' },
+  { key: 'gold-spade', colorName: 'Gold', suit: '♠', label: 'Gold ♠', color: '#D97706' },
+  { key: 'pink-heart', colorName: 'Pink', suit: '♥', label: 'Pink ♥', color: '#DB2777' },
+] as const satisfies readonly PlayerIdentity[];
+
+export const PLAYER_COLORS = PLAYER_IDENTITIES.map((identity) => identity.color) as string[];
+
+export const MAX_PLAYERS = 6;
 export const ROOM_TTL_MS = 60 * 60 * 1000;
 export const DISCONNECT_MS = 60 * 1000;
 export const REVEAL_DURATION_MS = 3500;
@@ -18,6 +33,9 @@ export interface RoomPlayer {
   id: string;
   name: string;
   color: string;
+  identityKey: string;
+  identityLabel: string;
+  suit: PlayerSuit;
   isHost: boolean;
   lastSeen: number;
 }
@@ -78,6 +96,9 @@ export interface SanitizedPlayer {
   id: string;
   name: string;
   color: string;
+  identityKey: string;
+  identityLabel: string;
+  suit: PlayerSuit;
   isHost: boolean;
   connected: boolean;
 }

@@ -12,10 +12,21 @@ import { useTheme } from '@/context/ThemeContext';
 import type { ArenaLeaderboardEntry } from '@/types/flashcard';
 import { logger } from '@/utils/logger';
 
+interface ResultPlayer {
+  id: string;
+  name: string;
+  color: string;
+  identityKey: string;
+  identityLabel: string;
+  suit: string;
+  isHost: boolean;
+  connected: boolean;
+}
+
 interface CachedResults {
-  players: Array<{ id: string; name: string; color: string; isHost: boolean; connected: boolean }>;
+  players: ResultPlayer[];
   scores: Record<string, { correct: number; incorrect: number; points: number; currentStreak: number; bestStreak: number }>;
-  allQuestions: Array<{ cardId: string; question: string; correctAnswer: string; options: string[] }> | null;
+  allQuestions: { cardId: string; question: string; correctAnswer: string; options: string[] }[] | null;
   allAnswers: Record<string, Record<number, { selectedOption: string; isCorrect: boolean; timeToAnswerMs: number }>> | null;
   totalQuestions: number;
   deckId: string | null;
@@ -35,7 +46,6 @@ export default function ArenaResultsScreen() {
     disconnect,
     resetRoom,
     saveMatchResult,
-    leaderboard,
   } = useArena();
 
   const [showMissedCards, setShowMissedCards] = useState(false);
@@ -67,7 +77,7 @@ export default function ArenaResultsScreen() {
       logger.log('[Results] Room reset to lobby, navigating');
       router.replace('/arena-lobby' as any);
     }
-  }, [room?.status]);
+  }, [room?.status, router]);
 
   const sortedPlayers = useMemo(() => {
     if (!data) return [];
@@ -83,10 +93,11 @@ export default function ArenaResultsScreen() {
 
   const winner = sortedPlayers[0];
   const winnerScore = data?.scores[winner?.id];
+  const winnerDisplayName = winner ? `${winner.identityLabel} ${winner.name}` : 'Unknown';
 
   const missedQuestions = useMemo(() => {
     if (!data?.allQuestions || !data.allAnswers) return [];
-    const missed: Array<{ question: string; correctAnswer: string; questionIndex: number }> = [];
+    const missed: { question: string; correctAnswer: string; questionIndex: number }[] = [];
     const seenIds = new Set<string>();
 
     for (const [, playerAnswers] of Object.entries(data.allAnswers)) {
@@ -108,7 +119,7 @@ export default function ArenaResultsScreen() {
 
   useEffect(() => {
     if (winner && Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   }, [winner]);
 
@@ -129,7 +140,7 @@ export default function ArenaResultsScreen() {
       });
       logger.log('[Results] Recorded XP:', xp, 'winner:', isWinner);
     }
-  }, [data, playerId, winner]);
+  }, [data, playerId, recordSessionResult, winner]);
 
   const handleSaveResult = () => {
     if (!data || saved) return;
@@ -140,7 +151,7 @@ export default function ArenaResultsScreen() {
       id: `arena_${Date.now()}`,
       deckId: data.deckId || '',
       deckName: data.deckName || 'Unknown',
-      winnerName: winner?.name || 'Unknown',
+      winnerName: winnerDisplayName,
       winnerPoints: winnerData?.points ?? 0,
       winnerAccuracy: totalQ > 0 ? (winnerData?.correct ?? 0) / totalQ : 0,
       playerCount: data.players.length,
@@ -152,7 +163,7 @@ export default function ArenaResultsScreen() {
     saveMatchResult(entry);
     setSaved(true);
     if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
   };
 
@@ -220,6 +231,7 @@ export default function ArenaResultsScreen() {
             {winner != null && (
               <View style={styles.winnerBadge}>
                 <Text style={styles.winnerLabel}>Winner</Text>
+                <Text style={[styles.winnerIdentity, { color: winner.color }]}>{winner.identityLabel}</Text>
                 <Text style={styles.winnerName}>{winner.name}</Text>
               </View>
             )}
@@ -251,17 +263,20 @@ export default function ArenaResultsScreen() {
                         {getMedalEmoji(index)}
                       </Text>
                       <View style={[styles.playerAvatar, { backgroundColor: player.color }]}>
-                        <Text style={styles.playerInitial}>
-                          {player.name.charAt(0).toUpperCase()}
-                        </Text>
+                        <Text style={styles.playerInitial}>{player.suit}</Text>
                       </View>
                       <View style={styles.playerNameCol}>
-                        <Text style={[styles.playerName, { color: theme.text }]} numberOfLines={1}>
-                          {player.name}
+                        <View style={styles.playerLabelRow}>
+                          <Text style={[styles.playerName, { color: theme.text }]} numberOfLines={1}>
+                            {player.name}
+                          </Text>
+                          {player.id === playerId && (
+                            <Text style={[styles.youLabel, { color: theme.primary }]}>(You)</Text>
+                          )}
+                        </View>
+                        <Text style={[styles.playerIdentity, { color: player.color }]} numberOfLines={1}>
+                          {player.identityLabel}
                         </Text>
-                        {player.id === playerId && (
-                          <Text style={[styles.youLabel, { color: theme.primary }]}>(You)</Text>
-                        )}
                       </View>
                     </View>
                     <View style={styles.standingRight}>
@@ -449,6 +464,11 @@ const styles = StyleSheet.create({
     fontWeight: '500' as const,
     marginBottom: 4,
   },
+  winnerIdentity: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    marginBottom: 4,
+  },
   winnerName: {
     fontSize: 24,
     fontWeight: '800' as const,
@@ -515,9 +535,19 @@ const styles = StyleSheet.create({
   playerNameCol: {
     flex: 1,
   },
+  playerLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   playerName: {
     fontSize: 15,
     fontWeight: '600' as const,
+  },
+  playerIdentity: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    marginTop: 2,
   },
   youLabel: {
     fontSize: 11,
