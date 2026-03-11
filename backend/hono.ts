@@ -32,24 +32,26 @@ const handleTrpcRequest = async (c: { req: { raw: Request; path: string } }) => 
   const originalRequest = c.req.raw;
   const honoPath = c.req.path;
 
-  const originalUrl = new URL(originalRequest.url);
+  // Rork mounts this Hono app at /api externally.
+  // c.req.path is the Hono-matched path (e.g. /trpc/arena.initRoom)
+  // but c.req.raw.url still has the full external path (e.g. /api/trpc/arena.initRoom).
+  // fetchRequestHandler needs the Request pathname to match `endpoint`,
+  // so we rewrite the URL to use the Hono-matched path.
   const rewrittenUrl = new URL(originalRequest.url);
+  const originalPathname = rewrittenUrl.pathname;
   rewrittenUrl.pathname = honoPath;
 
   console.log('[Backend] tRPC route rewrite', {
     method: originalRequest.method,
-    originalPathname: originalUrl.pathname,
+    originalPathname,
     honoPath,
     rewrittenPathname: rewrittenUrl.pathname,
     endpoint,
   });
 
-  const rewrittenRequest = new Request(rewrittenUrl.toString(), {
-    method: originalRequest.method,
-    headers: originalRequest.headers,
-    body: originalRequest.body,
-    signal: originalRequest.signal,
-  });
+  // Use the original Request as init to properly transfer method, headers, body, and signal
+  // without running into ReadableStream duplex issues.
+  const rewrittenRequest = new Request(rewrittenUrl.toString(), originalRequest);
 
   return fetchRequestHandler({
     endpoint,
@@ -61,7 +63,6 @@ const handleTrpcRequest = async (c: { req: { raw: Request; path: string } }) => 
         type,
         path: path ?? 'unknown',
         message: error.message,
-        stack: error.stack,
       });
     },
   });
