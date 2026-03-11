@@ -7,7 +7,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useArena } from '@/context/ArenaContext';
 import { useTheme } from '@/context/ThemeContext';
-import { isRoomCodeValid, normalizeRoomCode, ROOM_CODE_MAX_LENGTH } from '@/utils/arenaInvite';
 
 const ARENA_ACCENT_LIGHT = '#f97316';
 const ARENA_ACCENT_DARK = '#f59e0b';
@@ -72,13 +71,13 @@ export default function ArenaMenuScreen() {
   const handleConfirmCreate = () => {
     if (!nameInput.trim() || isConnecting) return;
     setPendingAction('create');
-    void createRoom(nameInput.trim());
+    createRoom(nameInput.trim());
   };
 
   const handleConfirmJoin = () => {
-    if (!nameInput.trim() || !isRoomCodeValid(codeInput) || isConnecting) return;
+    if (!nameInput.trim() || codeInput.length !== 6 || isConnecting) return;
     setPendingAction('join');
-    void joinRoom(normalizeRoomCode(codeInput), nameInput.trim());
+    joinRoom(codeInput.trim(), nameInput.trim());
   };
 
   const handleRejoin = () => {
@@ -324,18 +323,15 @@ export default function ArenaMenuScreen() {
               maxLength={20}
               editable={!isConnecting}
             />
-            <Text style={[styles.modalHelperText, { color: theme.textSecondary }]}>Enter {ROOM_CODE_MAX_LENGTH}-character code</Text>
             <TextInput
               style={[styles.modalInput, styles.codeInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
-              placeholder="M4X9"
+              placeholder="000000"
               placeholderTextColor={theme.textTertiary}
               value={codeInput}
-              onChangeText={(text) => setCodeInput(normalizeRoomCode(text))}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              maxLength={ROOM_CODE_MAX_LENGTH}
+              onChangeText={(text) => setCodeInput(text.replace(/[^0-9]/g, '').slice(0, 6))}
+              keyboardType="number-pad"
+              maxLength={6}
               editable={!isConnecting}
-              testID="battle-join-code-input"
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -348,7 +344,7 @@ export default function ArenaMenuScreen() {
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonPrimary]}
                 onPress={handleConfirmJoin}
-                disabled={!nameInput.trim() || !isRoomCodeValid(codeInput) || isConnecting}
+                disabled={!nameInput.trim() || codeInput.length !== 6 || isConnecting}
               >
                 <LinearGradient
                   colors={[theme.arenaGradient[0], theme.arenaGradient[1]]}
@@ -591,11 +587,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
-  modalHelperText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    marginBottom: 8,
-  },
   modalInput: {
     borderRadius: 14,
     borderWidth: 1,
@@ -606,7 +597,7 @@ const styles = StyleSheet.create({
   codeInput: {
     textAlign: 'center',
     fontSize: 24,
-    letterSpacing: 4,
+    letterSpacing: 8,
     fontWeight: '700' as const,
   },
   modalButtons: {

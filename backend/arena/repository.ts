@@ -1,43 +1,34 @@
-import { Redis } from '@upstash/redis';
+// --- Redis-backed Arena Room Repository ---
+//
+// Key structure:
+//   flashquest:arena:room:{code}  — JSON-serialized Room, with TTL
+//   flashquest:arena:codes        — Redis SET of active room codes (for count + unique code gen)
+//
+// All methods are async. Upstash Redis (HTTP-based) is used as the sole source of truth.
+// No in-memory Map fallback exists.
 
-import { generateBattleRoomCode, normalizeRoomCode } from '../../utils/arenaInvite';
+import { Redis } from '@upstash/redis';
 import type { Room, RoomPlayer } from './types';
 import { ROOM_TTL_MS } from './types';
 
 const ROOM_TTL_SECONDS = Math.ceil(ROOM_TTL_MS / 1000);
 const KEY_PREFIX = 'flashquest:arena:room:';
 const CODES_SET = 'flashquest:arena:codes';
-const REDIS_ENV_ERROR_MESSAGE = 'Arena backend misconfigured: Redis environment variables missing.';
 
 function roomKey(code: string): string {
-  return `${KEY_PREFIX}${normalizeRoomCode(code)}`;
+  return `${KEY_PREFIX}${code}`;
 }
 
 let redisInstance: Redis | null = null;
 
-function getRepositoryErrorMessage(error: unknown, fallbackMessage: string): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return fallbackMessage;
-}
-
 function getRedis(): Redis {
-  if (redisInstance) {
-    return redisInstance;
-  }
+  if (redisInstance) return redisInstance;
 
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
   if (!url || !token) {
-    console.error('[Repo] Arena backend misconfigured: Redis environment variables missing.', {
-      hasRedisUrl: Boolean(url),
-      hasRedisToken: Boolean(token),
-      nodeEnv: process.env.NODE_ENV ?? 'unknown',
-    });
-    throw new Error(REDIS_ENV_ERROR_MESSAGE);
+    throw new Error('[Repo] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN env vars');
   }
 
   redisInstance = new Redis({ url, token });
@@ -48,8 +39,8 @@ function getRedis(): Redis {
 function serialize(room: Room): string {
   try {
     return JSON.stringify(room);
-  } catch (error) {
-    console.error('[Repo] Failed to serialize room:', error);
+  } catch (err) {
+    console.error('[Repo] Failed to serialize room:', err);
     throw new Error('Room serialization failed');
   }
 }
@@ -57,19 +48,15 @@ function serialize(room: Room): string {
 function deserialize(data: unknown): Room | null {
   try {
     const raw = typeof data === 'string' ? JSON.parse(data) : data;
-    if (!raw || typeof raw !== 'object') {
-      return null;
-    }
-
+    if (!raw || typeof raw !== 'object') return null;
     const room = raw as Room;
     if (typeof room.code !== 'string' || typeof room.version !== 'number') {
       console.error('[Repo] Deserialized room has invalid shape');
       return null;
     }
-
     return room;
-  } catch (error) {
-    console.error('[Repo] Failed to deserialize room:', error);
+  } catch (err) {
+    console.error('[Repo] Failed to deserialize room:', err);
     return null;
   }
 }
@@ -82,40 +69,31 @@ function stampVersion(room: Room): Room {
 
 class RoomRepository {
   async getRoom(code: string): Promise<Room | null> {
-    const normalizedCode = normalizeRoomCode(code);
-
     try {
       const redis = getRedis();
-      const data = await redis.get(roomKey(normalizedCode));
-      if (!data) {
-        return null;
-      }
-
+      const data = await redis.get(roomKey(code));
+      if (!data) return null;
       return deserialize(data);
-    } catch (error) {
-      console.error(`[Repo] Error reading room ${normalizedCode}:`, error);
-      throw new Error(getRepositoryErrorMessage(error, `Failed to load room ${normalizedCode}`));
+    } catch (err) {
+      console.error(`[Repo] Error reading room ${code}:`, err);
+      return null;
     }
   }
 
   async saveRoom(room: Room): Promise<Room> {
-    room.code = normalizeRoomCode(room.code);
-
     try {
       const redis = getRedis();
       stampVersion(room);
       room.lastActivity = Date.now();
       await redis.set(roomKey(room.code), serialize(room), { ex: ROOM_TTL_SECONDS });
       return room;
-    } catch (error) {
-      console.error(`[Repo] Error saving room ${room.code}:`, error);
-      throw new Error(getRepositoryErrorMessage(error, `Failed to save room ${room.code}`));
+    } catch (err) {
+      console.error(`[Repo] Error saving room ${room.code}:`, err);
+      throw new Error(`Failed to save room ${room.code}`);
     }
   }
 
   async createRoom(room: Room): Promise<Room> {
-    room.code = normalizeRoomCode(room.code);
-
     try {
       const redis = getRedis();
       room.version = 1;
@@ -129,50 +107,40 @@ class RoomRepository {
 
       console.log(`[Repo] Created room ${room.code}`);
       return room;
-    } catch (error) {
-      console.error(`[Repo] Error creating room ${room.code}:`, error);
-      throw new Error(getRepositoryErrorMessage(error, `Failed to create room ${room.code}`));
+    } catch (err) {
+      console.error(`[Repo] Error creating room ${room.code}:`, err);
+      throw new Error(`Failed to create room ${room.code}`);
     }
   }
 
   async deleteRoom(code: string): Promise<void> {
-    const normalizedCode = normalizeRoomCode(code);
-
     try {
       const redis = getRedis();
       const pipeline = redis.pipeline();
-      pipeline.del(roomKey(normalizedCode));
-      pipeline.srem(CODES_SET, normalizedCode);
+      pipeline.del(roomKey(code));
+      pipeline.srem(CODES_SET, code);
       await pipeline.exec();
-      console.log(`[Repo] Deleted room ${normalizedCode}`);
-    } catch (error) {
-      console.error(`[Repo] Error deleting room ${normalizedCode}:`, error);
-      throw new Error(getRepositoryErrorMessage(error, `Failed to delete room ${normalizedCode}`));
+      console.log(`[Repo] Deleted room ${code}`);
+    } catch (err) {
+      console.error(`[Repo] Error deleting room ${code}:`, err);
     }
   }
 
   async refreshTTL(code: string): Promise<void> {
-    const normalizedCode = normalizeRoomCode(code);
-
     try {
       const redis = getRedis();
-      await redis.expire(roomKey(normalizedCode), ROOM_TTL_SECONDS);
-    } catch (error) {
-      console.error(`[Repo] Error refreshing TTL for room ${normalizedCode}:`, error);
-      throw new Error(getRepositoryErrorMessage(error, `Failed to refresh room ${normalizedCode}`));
+      await redis.expire(roomKey(code), ROOM_TTL_SECONDS);
+    } catch (err) {
+      console.error(`[Repo] Error refreshing TTL for room ${code}:`, err);
     }
   }
 
   async updatePlayerHeartbeat(code: string, playerId: string): Promise<Room | null> {
-    const normalizedCode = normalizeRoomCode(code);
-
     try {
-      const room = await this.getRoom(normalizedCode);
-      if (!room) {
-        return null;
-      }
+      const room = await this.getRoom(code);
+      if (!room) return null;
 
-      const player = room.players.find((item: RoomPlayer) => item.id === playerId);
+      const player = room.players.find((p: RoomPlayer) => p.id === playerId);
       if (player) {
         player.lastSeen = Date.now();
       }
@@ -180,12 +148,12 @@ class RoomRepository {
       room.lastActivity = Date.now();
 
       const redis = getRedis();
-      await redis.set(roomKey(normalizedCode), serialize(room), { ex: ROOM_TTL_SECONDS });
+      await redis.set(roomKey(code), serialize(room), { ex: ROOM_TTL_SECONDS });
 
       return room;
-    } catch (error) {
-      console.error(`[Repo] Error updating heartbeat for ${playerId} in room ${normalizedCode}:`, error);
-      throw new Error(getRepositoryErrorMessage(error, `Failed to update heartbeat for room ${normalizedCode}`));
+    } catch (err) {
+      console.error(`[Repo] Error updating heartbeat for ${playerId} in room ${code}:`, err);
+      return null;
     }
   }
 
@@ -193,9 +161,7 @@ class RoomRepository {
     try {
       const redis = getRedis();
       const codes = await redis.smembers(CODES_SET) as string[];
-      if (!codes || codes.length === 0) {
-        return 0;
-      }
+      if (!codes || codes.length === 0) return 0;
 
       const pipeline = redis.pipeline();
       for (const code of codes) {
@@ -204,21 +170,20 @@ class RoomRepository {
       const results = await pipeline.exec();
 
       let stale = 0;
-      for (let index = 0; index < codes.length; index += 1) {
-        if (results[index] === 0) {
-          stale += 1;
-          await redis.srem(CODES_SET, codes[index] ?? '');
+      for (let i = 0; i < codes.length; i++) {
+        if (results[i] === 0) {
+          stale++;
+          await redis.srem(CODES_SET, codes[i]);
         }
       }
-
       if (stale > 0) {
         console.log(`[Repo] Cleaned ${stale} stale codes from index set`);
       }
 
       return codes.length - stale;
-    } catch (error) {
-      console.error('[Repo] Error getting room count:', error);
-      throw new Error(getRepositoryErrorMessage(error, 'Failed to count rooms'));
+    } catch (err) {
+      console.error('[Repo] Error getting room count:', err);
+      return 0;
     }
   }
 
@@ -226,12 +191,10 @@ class RoomRepository {
     const redis = getRedis();
     const maxAttempts = 100;
 
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-      const code = generateBattleRoomCode();
+    for (let i = 0; i < maxAttempts; i++) {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
       const exists = await redis.exists(roomKey(code));
-      if (!exists) {
-        return code;
-      }
+      if (!exists) return code;
     }
 
     console.error('[Repo] Failed to generate unique code after max attempts');

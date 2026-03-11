@@ -5,7 +5,6 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 
 import { trpc } from '@/lib/trpc';
 import type { ArenaLeaderboardEntry } from '@/types/flashcard';
-import { normalizeRoomCode } from '@/utils/arenaInvite';
 import { logger } from '@/utils/logger';
 
 const LEADERBOARD_KEY = 'flashquest_arena_leaderboard';
@@ -16,21 +15,6 @@ const POLL_QUESTION_MS = 850;
 const POLL_REVEAL_MS = 1200;
 const POLL_FINISHED_MS = 10000;
 const HEARTBEAT_INTERVAL_MS = 3000;
-
-function normalizeArenaErrorMessage(message: string | null | undefined, fallback?: string): string {
-  const fallbackMessage = fallback ?? 'Could not reach the battle service. Please try again in a few seconds.';
-
-  if (!message) {
-    return __DEV__ ? fallbackMessage : fallbackMessage;
-  }
-
-  const trimmedMessage = message.trim();
-  if (!trimmedMessage) {
-    return fallbackMessage;
-  }
-
-  return __DEV__ ? trimmedMessage : fallbackMessage;
-}
 
 export const [ArenaProvider, useArena] = createContextHook(() => {
   const queryClient = useQueryClient();
@@ -117,7 +101,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
         logger.log('[Arena] Max poll failures reached, disconnecting');
         setRoomCode(null);
         setPlayerId(null);
-        setConnectionError('Room expired, was closed, or the battle service is temporarily unavailable.');
+        setConnectionError('Room expired or not found');
         pollFailCountRef.current = 0;
         lastErrorMsgRef.current = null;
       }
@@ -212,9 +196,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       setConnectionError(null);
     },
     onError: (err: { message: string }) => {
-      const normalizedMessage = normalizeArenaErrorMessage(err.message, 'Could not create battle.');
-      logger.log('[Arena] Create error:', err.message, '->', normalizedMessage);
-      setConnectionError(normalizedMessage);
+      logger.log('[Arena] Create error:', err.message);
+      setConnectionError(err.message);
     },
   });
 
@@ -229,9 +212,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       setConnectionError(null);
     },
     onError: (err: { message: string }) => {
-      const normalizedMessage = normalizeArenaErrorMessage(err.message, 'Could not join battle.');
-      logger.log('[Arena] Join error:', err.message, '->', normalizedMessage);
-      setConnectionError(normalizedMessage);
+      logger.log('[Arena] Join error:', err.message);
+      setConnectionError(err.message);
     },
   });
 
@@ -240,9 +222,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const updateSettingsMut = trpc.arena.updateSettings.useMutation();
   const startGameMut = trpc.arena.startGame.useMutation({
     onError: (err: { message: string }) => {
-      const normalizedMessage = normalizeArenaErrorMessage(err.message);
-      logger.log('[Arena] Start game error:', normalizedMessage);
-      setConnectionError(normalizedMessage);
+      logger.log('[Arena] Start game error:', err.message);
+      setConnectionError(err.message);
     },
   });
   const submitAnswerMut = trpc.arena.submitAnswer.useMutation({
@@ -259,34 +240,23 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const resetRoomMut = trpc.arena.resetRoom.useMutation();
 
   const createRoom = useCallback((name: string) => {
-    const trimmedName = name.trim();
-    if (!trimmedName) return;
-
-    logger.log('[Arena] Creating room for:', trimmedName);
-    setPlayerName(trimmedName);
+    setPlayerName(name);
     setConnectionError(null);
     pollFailCountRef.current = 0;
     lastErrorMsgRef.current = null;
     connectedAtRef.current = Date.now();
-    AsyncStorage.setItem(PLAYER_NAME_KEY, trimmedName).catch(() => {});
-
-    createRoomMut.mutate({ name: trimmedName });
+    AsyncStorage.setItem(PLAYER_NAME_KEY, name).catch(() => {});
+    createRoomMut.mutate({ name });
   }, [createRoomMut]);
 
   const joinRoom = useCallback((code: string, name: string) => {
-    const normalizedCode = normalizeRoomCode(code);
-    const trimmedName = name.trim();
-    if (!trimmedName) return;
-
-    logger.log('[Arena] Joining room:', normalizedCode, 'as:', trimmedName);
-    setPlayerName(trimmedName);
+    setPlayerName(name);
     setConnectionError(null);
     pollFailCountRef.current = 0;
     lastErrorMsgRef.current = null;
     connectedAtRef.current = Date.now();
-    AsyncStorage.setItem(PLAYER_NAME_KEY, trimmedName).catch(() => {});
-
-    joinRoomMut.mutate({ roomCode: normalizedCode, playerName: trimmedName });
+    AsyncStorage.setItem(PLAYER_NAME_KEY, name).catch(() => {});
+    joinRoomMut.mutate({ roomCode: code, playerName: name });
   }, [joinRoomMut]);
 
   const disconnect = useCallback(() => {

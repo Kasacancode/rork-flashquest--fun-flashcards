@@ -1,24 +1,25 @@
-import { trpcServer } from '@hono/trpc-server';
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
+import { trpcServer } from "@hono/trpc-server";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
 
-import { appRouter } from './trpc/app-router';
-import { createContext } from './trpc/create-context';
+import { appRouter } from "./trpc/app-router";
+import { createContext } from "./trpc/create-context";
 
 const app = new Hono();
 
-app.use('*', cors());
+app.use("*", cors());
 
 app.use(
-  '/trpc/*',
+  "/trpc/*",
   trpcServer({
+    endpoint: "/api/trpc",
     router: appRouter,
     createContext,
   }),
 );
 
-app.get('/health', (c) => {
-  return c.json({ status: 'ok' as const });
+app.get("/", (c) => {
+  return c.json({ status: "ok", message: "FlashQuest Multiplayer API", v: 2 });
 });
 
 export default app;

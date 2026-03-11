@@ -1,56 +1,45 @@
-import { httpLink } from '@trpc/client';
-import { createTRPCReact } from '@trpc/react-query';
-import { Platform } from 'react-native';
-import superjson from 'superjson';
+import { httpLink } from "@trpc/client";
+import { createTRPCReact } from "@trpc/react-query";
+import superjson from "superjson";
 
-type AppRouter = typeof import('@/backend/trpc/app-router').appRouter;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const trpc: any = (createTRPCReact as any)();
 
-export const trpc = createTRPCReact<AppRouter>();
-
-function getTrpcUrl(): string {
-  if (Platform.OS === 'web') {
-    return '/trpc';
+const getBaseUrl = () => {
+  try {
+    const url = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
+    if (!url) {
+      console.warn("[trpc] EXPO_PUBLIC_RORK_API_BASE_URL not set, multiplayer will not work");
+      return "";
+    }
+    return url;
+  } catch (e) {
+    console.warn("[trpc] Failed to read env:", e);
+    return "";
   }
+};
 
-  const envUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL?.trim();
-  if (!envUrl) {
-    throw new Error('Missing EXPO_PUBLIC_RORK_API_BASE_URL for native TRPC requests.');
-  }
+let trpcClientInstance: any = null;
 
-  return `${envUrl.replace(/\/+$/, '')}/trpc`;
+try {
+  trpcClientInstance = trpc.createClient({
+    links: [
+      httpLink({
+        url: `${getBaseUrl()}/api/trpc`,
+        transformer: superjson,
+      }),
+    ],
+  });
+} catch (e) {
+  console.error("[trpc] Failed to create client:", e);
+  trpcClientInstance = trpc.createClient({
+    links: [
+      httpLink({
+        url: "/api/trpc",
+        transformer: superjson,
+      }),
+    ],
+  });
 }
 
-const trpcUrl = getTrpcUrl();
-
-if (__DEV__) {
-  console.log('[trpc] URL:', trpcUrl);
-}
-
-export const trpcClient = trpc.createClient({
-  links: [
-    httpLink({
-      url: trpcUrl,
-      transformer: superjson,
-      async fetch(url, options) {
-        const response = await globalThis.fetch(url, options);
-
-        if (__DEV__) {
-          const contentType = response.headers.get('content-type') ?? 'unknown';
-          if (!contentType.toLowerCase().includes('application/json')) {
-            const finalUrl =
-              typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
-            console.error('[trpc] TRPC route mismatch likely: received non-JSON response.', {
-              url: finalUrl,
-              contentType,
-            });
-            throw new Error(
-              `TRPC route mismatch likely: received non-JSON response. URL: ${finalUrl} Content-Type: ${contentType}`,
-            );
-          }
-        }
-
-        return response;
-      },
-    }),
-  ],
-});
+export const trpcClient = trpcClientInstance;
