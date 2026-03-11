@@ -10,10 +10,10 @@ import { logger } from '@/utils/logger';
 const LEADERBOARD_KEY = 'flashquest_arena_leaderboard';
 const PLAYER_NAME_KEY = 'flashquest_arena_player_name';
 
-const POLL_LOBBY_MS = 3000;
-const POLL_QUESTION_MS = 1200;
-const POLL_REVEAL_MS = 2000;
-const POLL_FINISHED_MS = 5000;
+const POLL_LOBBY_MS = 2500;
+const POLL_QUESTION_MS = 850;
+const POLL_REVEAL_MS = 1200;
+const POLL_FINISHED_MS = 10000;
 const HEARTBEAT_INTERVAL_MS = 3000;
 
 export const [ArenaProvider, useArena] = createContextHook(() => {
@@ -64,6 +64,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   });
 
   const [pollInterval, setPollInterval] = useState<number>(POLL_LOBBY_MS);
+  const lastVersionRef = useRef<number>(0);
 
   const roomQuery = trpc.arena.getRoomState.useQuery(
     { roomCode: roomCode!, playerId: playerId! },
@@ -119,6 +120,14 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       setPollInterval(POLL_LOBBY_MS);
       return;
     }
+
+    const incomingVersion = room.version ?? 0;
+    if (incomingVersion > 0 && incomingVersion < lastVersionRef.current) {
+      logger.log('[Arena] Ignoring stale room data, version:', incomingVersion, '< last:', lastVersionRef.current);
+      return;
+    }
+    lastVersionRef.current = incomingVersion;
+
     if (room.status === 'lobby') {
       setPollInterval(POLL_LOBBY_MS);
     } else if (room.status === 'finished') {
@@ -129,8 +138,10 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
         setPollInterval(POLL_QUESTION_MS);
       } else if (phase === 'reveal') {
         setPollInterval(POLL_REVEAL_MS);
-      } else {
+      } else if (phase === 'finished') {
         setPollInterval(POLL_FINISHED_MS);
+      } else {
+        setPollInterval(POLL_LOBBY_MS);
       }
     } else {
       setPollInterval(POLL_LOBBY_MS);
@@ -261,6 +272,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     pollFailCountRef.current = 0;
     lastErrorMsgRef.current = null;
     connectedAtRef.current = 0;
+    lastVersionRef.current = 0;
     logger.log('[Arena] Disconnected');
   }, [roomCode, playerId, leaveMut]);
 
