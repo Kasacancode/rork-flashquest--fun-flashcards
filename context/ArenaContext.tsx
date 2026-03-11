@@ -3,6 +3,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 
+import type { RoomSettings, SanitizedRoom } from '@/backend/arena/types';
 import { useAvatar } from '@/context/AvatarContext';
 import { trpc } from '@/lib/trpc';
 import type { ArenaLeaderboardEntry } from '@/types/flashcard';
@@ -26,6 +27,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const [playerName, setPlayerName] = useState<string>('');
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [leaderboard, setLeaderboard] = useState<ArenaLeaderboardEntry[]>([]);
+  const [optimisticSettings, setOptimisticSettings] = useState<Partial<RoomSettings> | null>(null);
   const [hasAnsweredCurrent, setHasAnsweredCurrent] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
   const prevQuestionIndexRef = useRef<number>(-1);
@@ -110,7 +112,24 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     }
   }, [roomQuery.error, roomCode]);
 
-  const room = roomQuery.data?.room ?? null;
+  const serverRoom = roomQuery.data?.room ?? null;
+  const room = useMemo<SanitizedRoom | null>(() => {
+    if (!serverRoom) {
+      return null;
+    }
+
+    if (!optimisticSettings) {
+      return serverRoom;
+    }
+
+    return {
+      ...serverRoom,
+      settings: {
+        ...serverRoom.settings,
+        ...optimisticSettings,
+      },
+    };
+  }, [optimisticSettings, serverRoom]);
   const isHost = room !== null && room.hostId === playerId;
   const myPlayer = room?.players.find((p: { id: string }) => p.id === playerId) ?? null;
 
@@ -221,7 +240,13 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
 
   const leaveMut = trpc.arena.leaveRoom.useMutation();
   const selectDeckMut = trpc.arena.selectDeck.useMutation();
-  const updateSettingsMut = trpc.arena.updateSettings.useMutation();
+  const updateSettingsMut = trpc.arena.updateSettings.useMutation({
+    onError: (err: { message: string }) => {
+      logger.log('[Arena] Update settings error:', err.message);
+      setOptimisticSettings(null);
+      setConnectionError(err.message);
+    },
+  });
   const startGameMut = trpc.arena.startGame.useMutation({
     onError: (err: { message: string }) => {
       logger.log('[Arena] Start game error:', err.message);
@@ -244,6 +269,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const createRoom = useCallback((name: string) => {
     setPlayerName(name);
     setConnectionError(null);
+    setOptimisticSettings(null);
     pollFailCountRef.current = 0;
     lastErrorMsgRef.current = null;
     connectedAtRef.current = Date.now();
@@ -254,6 +280,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const joinRoom = useCallback((code: string, name: string) => {
     setPlayerName(name);
     setConnectionError(null);
+    setOptimisticSettings(null);
     pollFailCountRef.current = 0;
     lastErrorMsgRef.current = null;
     connectedAtRef.current = Date.now();
@@ -268,6 +295,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     setRoomCode(null);
     setPlayerId(null);
     setConnectionError(null);
+    setOptimisticSettings(null);
     setHasAnsweredCurrent(false);
     setLastAnswerCorrect(null);
     prevQuestionIndexRef.current = -1;
@@ -285,8 +313,18 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
 
   const updateSettings = useCallback((settings: { rounds?: number; timerSeconds?: number; showExplanationsAtEnd?: boolean }) => {
     if (!roomCode || !playerId) return;
+
+    if (serverRoom?.settings) {
+      setOptimisticSettings((previousSettings) => ({
+        ...serverRoom.settings,
+        ...previousSettings,
+        ...settings,
+      }));
+    }
+
+    logger.log('[Arena] Updating settings:', settings);
     updateSettingsMut.mutate({ roomCode, playerId, settings });
-  }, [roomCode, playerId, updateSettingsMut]);
+  }, [roomCode, playerId, serverRoom?.settings, updateSettingsMut]);
 
   const startGame = useCallback((questions: Array<{ cardId: string; question: string; correctAnswer: string; options: string[] }>) => {
     if (!roomCode || !playerId) return;
@@ -313,6 +351,26 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     setLeaderboard(updated);
     saveLeaderboardMut.mutate(updated);
   }, [leaderboard, saveLeaderboardMut]);
+
+  useEffect(() => {
+    if (!roomCode) {
+      setOptimisticSettings(null);
+      return;
+    }
+
+    if (!serverRoom?.settings || !optimisticSettings) {
+      return;
+    }
+
+    const serverCaughtUp = Object.entries(optimisticSettings).every(([key, value]) => {
+      const typedKey = key as keyof RoomSettings;
+      return serverRoom.settings[typedKey] === value;
+    });
+
+    if (serverCaughtUp) {
+      setOptimisticSettings(null);
+    }
+  }, [optimisticSettings, roomCode, serverRoom?.settings]);
 
   const canStartGame = useMemo(() => {
     if (!room || !isHost) return false;

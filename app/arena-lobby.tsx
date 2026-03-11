@@ -6,6 +6,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert, Ani
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import type { RoomSettings } from '@/backend/arena/types';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -184,9 +185,22 @@ export default function ArenaLobbyScreen() {
     );
   }, [isHost, disconnect, router]);
 
-  const handleSettingsUpdate = useCallback((key: string, value: number | boolean) => {
-    updateSettings({ [key]: value });
+  const handleRoundsChange = useCallback((rounds: RoundsOption) => {
+    updateSettings({ rounds });
   }, [updateSettings]);
+
+  const handleTimerChange = useCallback((timerSeconds: TimerOption) => {
+    updateSettings({ timerSeconds });
+  }, [updateSettings]);
+
+  const handleExplanationToggle = useCallback(() => {
+    if (!room) {
+      return;
+    }
+
+    const nextValue: RoomSettings['showExplanationsAtEnd'] = !room.settings.showExplanationsAtEnd;
+    updateSettings({ showExplanationsAtEnd: nextValue });
+  }, [room, updateSettings]);
 
   const selectedDeck = useMemo(() => {
     if (!room?.deckId) return null;
@@ -504,7 +518,7 @@ export default function ArenaLobbyScreen() {
       >
         <View style={styles.modalOverlay}>
           <View
-            style={[styles.settingsModalContent, { backgroundColor: isDark ? '#1e293b' : theme.cardBackground }]}
+            style={[styles.settingsModalContent, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}
             testID="battle-settings-modal"
           >
             <View style={styles.settingsModalHeader}>
@@ -522,6 +536,7 @@ export default function ArenaLobbyScreen() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.settingsScrollContent}
+              keyboardShouldPersistTaps="handled"
             >
               <View style={styles.settingRow}>
                 <View style={styles.settingLabelRow}>
@@ -537,8 +552,9 @@ export default function ArenaLobbyScreen() {
                         { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : theme.background },
                         room.settings.rounds === option.value && { backgroundColor: arenaAccent },
                       ]}
-                      onPress={() => handleSettingsUpdate('rounds', option.value)}
+                      onPress={() => handleRoundsChange(option.value)}
                       activeOpacity={0.7}
+                      testID={`battle-settings-rounds-${option.value}`}
                     >
                       <Text style={[styles.optionText, { color: room.settings.rounds === option.value ? '#fff' : theme.text }]}> 
                         {option.label}
@@ -562,8 +578,9 @@ export default function ArenaLobbyScreen() {
                         { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : theme.background },
                         room.settings.timerSeconds === option.value && { backgroundColor: arenaAccent },
                       ]}
-                      onPress={() => handleSettingsUpdate('timerSeconds', option.value)}
+                      onPress={() => handleTimerChange(option.value)}
                       activeOpacity={0.7}
+                      testID={`battle-settings-timer-${option.value}`}
                     >
                       <Text style={[styles.optionText, { color: room.settings.timerSeconds === option.value ? '#fff' : theme.text }]}>
                         {option.label}
@@ -575,8 +592,9 @@ export default function ArenaLobbyScreen() {
 
               <TouchableOpacity
                 style={styles.toggleRow}
-                onPress={() => handleSettingsUpdate('showExplanationsAtEnd', !room.settings.showExplanationsAtEnd)}
+                onPress={handleExplanationToggle}
                 activeOpacity={0.7}
+                testID="battle-settings-explanations-toggle"
               >
                 <Text style={[styles.settingRowLabel, { color: theme.text }]}>Show explanations after match</Text>
                 <View style={styles.toggleGroup}>
@@ -594,6 +612,7 @@ export default function ArenaLobbyScreen() {
               style={[styles.doneButton, { backgroundColor: arenaAccent }]}
               onPress={() => setShowSettingsModal(false)}
               activeOpacity={0.8}
+              testID="battle-settings-done-button"
             >
               <Text style={styles.doneButtonText}>Done</Text>
             </TouchableOpacity>
