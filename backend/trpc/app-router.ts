@@ -1,5 +1,5 @@
-import { createTRPCRouter } from "./create-context";
-import { arenaRouter } from "./routes/arena";
+import { createTRPCRouter } from "./create-context.js";
+import { arenaRouter } from "./routes/arena.js";
 
 export const appRouter = createTRPCRouter({
   arena: arenaRouter,

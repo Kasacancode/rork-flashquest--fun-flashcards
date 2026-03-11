@@ -22,7 +22,7 @@ import type {
   SanitizedGameState,
   SanitizedQuestion,
   PlayerIdentity,
-} from './types';
+} from './types.js';
 
 import {
   PLAYER_IDENTITIES,
@@ -30,7 +30,7 @@ import {
   DISCONNECT_MS,
   REVEAL_DURATION_MS,
   NO_TIMER_TIMEOUT_MS,
-} from './types';
+} from './types.js';
 
 const CORRECT_BASE_POINTS = 100;
 const MAX_SPEED_BONUS_POINTS = 50;

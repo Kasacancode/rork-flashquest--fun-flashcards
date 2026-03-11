@@ -8,9 +8,9 @@
 // No in-memory Map fallback exists.
 
 import { Redis } from '@upstash/redis';
-import { generateBattleRoomCode, normalizeRoomCode } from '../../utils/arenaInvite';
-import type { Room, RoomPlayer } from './types';
-import { ROOM_TTL_MS } from './types';
+import { generateBattleRoomCode, normalizeRoomCode } from '../../utils/arenaInvite.js';
+import type { Room, RoomPlayer } from './types.js';
+import { ROOM_TTL_MS } from './types.js';
 
 const ROOM_TTL_SECONDS = Math.ceil(ROOM_TTL_MS / 1000);
 const KEY_PREFIX = 'flashquest:arena:room:';
