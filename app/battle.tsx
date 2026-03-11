@@ -7,9 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFlashQuest } from '@/context/FlashQuestContext';
 
-export default function DuelArenaPage() {
+export default function BattlePage() {
   const router = useRouter();
-  const { decks, startDuel } = useFlashQuest();
+  const { decks, startBattle } = useFlashQuest();
   const [selectedMode, setSelectedMode] = useState<'ai' | 'multiplayer' | null>(null);
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(false);
 
@@ -20,9 +20,9 @@ export default function DuelArenaPage() {
 
   const handleDeckSelect = (deckId: string) => {
     if (selectedMode) {
-      startDuel(deckId, selectedMode);
+      startBattle(deckId, selectedMode);
       setShowDeckSelector(false);
-      router.push({ pathname: '/duel-session' as any, params: { deckId } });
+      router.push({ pathname: '/battle-session' as any, params: { deckId } });
     }
   };
 
@@ -40,7 +40,7 @@ export default function DuelArenaPage() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <ArrowLeft color="#fff" size={28} strokeWidth={2.5} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Duel Arena</Text>
+          <Text style={styles.headerTitle}>Battle</Text>
           <View style={styles.placeholder} />
         </View>
 
@@ -71,7 +71,7 @@ export default function DuelArenaPage() {
               <View style={styles.modeInfo}>
                 <Text style={styles.modeTitle}>Singleplayer</Text>
                 <Text style={styles.modeDescription}>
-                  Battle against our smart AI in a quick 5-round duel
+                  Battle against our smart AI in a quick 5-round match
                 </Text>
                 <View style={styles.playButton}>
                   <Play color="#fff" size={20} strokeWidth={2.5} fill="#fff" />

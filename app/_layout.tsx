@@ -38,8 +38,8 @@ function RootLayoutNav() {
       <Stack.Screen name="stats" options={{ headerShown: false }} />
       <Stack.Screen name="profile" options={{ headerShown: false }} />
       <Stack.Screen name="decks" options={{ headerShown: false }} />
-      <Stack.Screen name="duel-arena" options={{ headerShown: false }} />
-      <Stack.Screen name="duel-session" options={{ headerShown: false }} />
+      <Stack.Screen name="battle" options={{ headerShown: false }} />
+      <Stack.Screen name="battle-session" options={{ headerShown: false }} />
       <Stack.Screen name="study" options={{ headerShown: false }} />
       <Stack.Screen name="create-flashcard" options={{ headerShown: false }} />
       <Stack.Screen name="quest" options={{ headerShown: false }} />

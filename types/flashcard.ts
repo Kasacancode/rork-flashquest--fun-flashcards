@@ -51,7 +51,7 @@ export interface Achievement {
   maxProgress: number;
 }
 
-export interface DuelSession {
+export interface BattleSession {
   id: string;
   mode: 'ai' | 'multiplayer';
   deckId: string;

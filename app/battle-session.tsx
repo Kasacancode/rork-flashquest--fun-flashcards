@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { TimerProgressBar, StreakIndicator } from '@/components/GameUI';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
-import { generateDistractors, pickDistractor, getOpponentBehavior, clearDistractorCache } from '@/utils/duelAI';
+import { generateDistractors, pickDistractor, getOpponentBehavior, clearDistractorCache } from '@/utils/battleAI';
 import { logger } from '@/utils/logger';
 
 const QUESTION_TIME = 15;
@@ -29,10 +29,10 @@ interface TurnResult {
   timeUsed: number;
 }
 
-export default function DuelSessionPage() {
+export default function BattleSessionPage() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
-  const { decks, currentDuel, updateDuel, endDuel, recordSessionResult } = useFlashQuest();
+  const { decks, currentBattle, updateBattle, endBattle, recordSessionResult } = useFlashQuest();
   const { theme, isDark } = useTheme();
 
   const [gamePhase, setGamePhase] = useState<GamePhase>('player-turn');
@@ -58,23 +58,23 @@ export default function DuelSessionPage() {
   const deck = useMemo(() => decks.find((d) => d.id === deckId), [decks, deckId]);
   
   const shuffledFlashcards = useMemo(() => {
-    if (!deck || !currentDuel?.shuffled) return deck?.flashcards || [];
+    if (!deck || !currentBattle?.shuffled) return deck?.flashcards || [];
     const cards = [...deck.flashcards];
     for (let i = cards.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [cards[i], cards[j]] = [cards[j], cards[i]];
     }
     return cards;
-  }, [deck, currentDuel?.shuffled]);
+  }, [deck, currentBattle?.shuffled]);
   
   const currentCard = useMemo(() => {
-    if (!deck || !currentDuel) return null;
-    return shuffledFlashcards[currentDuel.currentRound];
-  }, [shuffledFlashcards, currentDuel]);
+    if (!deck || !currentBattle) return null;
+    return shuffledFlashcards[currentBattle.currentRound];
+  }, [shuffledFlashcards, currentBattle]);
 
   const simulateOpponentAnswer = useCallback(() => {
     const difficulty = currentCard?.difficulty || 'medium';
-    const behavior = currentDuel?.mode === 'ai'
+    const behavior = currentBattle?.mode === 'ai'
       ? getOpponentBehavior(difficulty)
       : { correctChance: 0.5, minTime: 4, maxTime: 10 };
 
@@ -91,7 +91,7 @@ export default function DuelSessionPage() {
       timeUsed: opponentTime,
     });
 
-    logger.log('[Duel] Opponent answered:', opponentCorrect ? 'correct' : wrongAnswer, 'in', opponentTime, 's');
+    logger.log('[Battle] Opponent answered:', opponentCorrect ? 'correct' : wrongAnswer, 'in', opponentTime, 's');
     
     setTimeout(() => {
       Animated.parallel([
@@ -108,7 +108,7 @@ export default function DuelSessionPage() {
       ]).start();
       setGamePhase('reveal-results');
     }, 1200);
-  }, [currentCard, currentDuel, feedbackOpacity, feedbackScale, distractors]);
+  }, [currentCard, currentBattle, feedbackOpacity, feedbackScale, distractors]);
 
   useEffect(() => {
     if (!currentCard) return;
@@ -124,15 +124,15 @@ export default function DuelSessionPage() {
     feedbackOpacity.setValue(0);
     feedbackScale.setValue(0.8);
 
-    if (currentDuel?.mode === 'ai') {
+    if (currentBattle?.mode === 'ai') {
       generateDistractors(currentCard.question, currentCard.answer, currentCard.id)
         .then((result) => {
           setDistractors(result);
-          logger.log('[Duel] Pre-loaded distractors for card:', currentCard.id);
+          logger.log('[Battle] Pre-loaded distractors for card:', currentCard.id);
         })
         .catch(() => setDistractors([]));
     }
-  }, [currentCard, feedbackOpacity, feedbackScale, currentDuel?.mode]);
+  }, [currentCard, feedbackOpacity, feedbackScale, currentBattle?.mode]);
 
   useEffect(() => {
     if (gamePhase === 'opponent-turn') {
@@ -170,7 +170,7 @@ export default function DuelSessionPage() {
     if (gamePhase === 'player-turn') {
       const correct = false;
       
-      if (currentDuel?.mode === 'multiplayer') {
+      if (currentBattle?.mode === 'multiplayer') {
         if (currentPlayer === 1) {
           setPlayer1Result({
             name: 'Player 1',
@@ -232,7 +232,7 @@ export default function DuelSessionPage() {
     } else if (gamePhase === 'opponent-turn') {
       simulateOpponentAnswer();
     }
-  }, [gamePhase, userAnswer, simulateOpponentAnswer, currentDuel, currentPlayer, triggerShake, feedbackOpacity, feedbackScale]);
+  }, [gamePhase, userAnswer, simulateOpponentAnswer, currentBattle, currentPlayer, triggerShake, feedbackOpacity, feedbackScale]);
 
   handleTimeUpRef.current = handleTimeUp;
 
@@ -255,10 +255,10 @@ export default function DuelSessionPage() {
     }
   }, [timeLeft, gamePhase, currentCard]);
 
-  if (!deck || !currentDuel || !currentCard) {
+  if (!deck || !currentBattle || !currentCard) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>Duel not found</Text>
+        <Text style={styles.errorText}>Battle not found</Text>
       </View>
     );
   }
@@ -270,7 +270,7 @@ export default function DuelSessionPage() {
     const correct = userAnswer.trim().toLowerCase() === currentCard?.answer.toLowerCase();
     const timeUsed = QUESTION_TIME - timeLeft;
 
-    if (currentDuel?.mode === 'multiplayer') {
+    if (currentBattle?.mode === 'multiplayer') {
       if (currentPlayer === 1) {
         setPlayer1Result({
           name: 'Player 1',
@@ -364,10 +364,10 @@ export default function DuelSessionPage() {
   };
 
   const handleNext = () => {
-    if (currentDuel?.mode === 'multiplayer') {
-      updateDuel(player1Result?.isCorrect || false, player2Result?.isCorrect || false);
+    if (currentBattle?.mode === 'multiplayer') {
+      updateBattle(player1Result?.isCorrect || false, player2Result?.isCorrect || false);
     } else {
-      updateDuel(playerResult?.isCorrect || false, opponentResult?.isCorrect || false);
+      updateBattle(playerResult?.isCorrect || false, opponentResult?.isCorrect || false);
     }
     setUserAnswer('');
     setPlayerResult(null);
@@ -387,13 +387,13 @@ export default function DuelSessionPage() {
 
   const handleQuit = () => {
     clearDistractorCache();
-    endDuel();
+    endBattle();
     router.back();
   };
 
-  if (currentDuel.status === 'completed') {
-    const won = currentDuel.playerScore > currentDuel.opponentScore;
-    const duelXp = won ? 50 : 20;
+  if (currentBattle.status === 'completed') {
+    const won = currentBattle.playerScore > currentBattle.opponentScore;
+    const battleXp = won ? 50 : 20;
 
     return (
       <View style={styles.container}>
@@ -419,26 +419,26 @@ export default function DuelSessionPage() {
             <View style={styles.finalScoreCard}>
               <View style={styles.scoreRow}>
                 <Text style={styles.scoreLabel}>You</Text>
-                <Text style={[styles.scoreValue, won && { color: '#10b981' }]}>{currentDuel.playerScore}</Text>
+                <Text style={[styles.scoreValue, won && { color: '#10b981' }]}>{currentBattle.playerScore}</Text>
               </View>
               <View style={styles.scoreDivider} />
               <View style={styles.scoreRow}>
-                <Text style={styles.scoreLabel}>{currentDuel.opponentName}</Text>
-                <Text style={[styles.scoreValue, !won && { color: '#10b981' }]}>{currentDuel.opponentScore}</Text>
+                <Text style={styles.scoreLabel}>{currentBattle.opponentName}</Text>
+                <Text style={[styles.scoreValue, !won && { color: '#10b981' }]}>{currentBattle.opponentScore}</Text>
               </View>
             </View>
 
             <TouchableOpacity style={styles.doneButton} onPress={() => {
               recordSessionResult({
-                mode: 'duel',
+                mode: 'battle',
                 deckId: deckId,
-                xpEarned: duelXp,
-                cardsAttempted: currentDuel.totalRounds,
-                correctCount: currentDuel.playerScore,
+                xpEarned: battleXp,
+                cardsAttempted: currentBattle.totalRounds,
+                correctCount: currentBattle.playerScore,
                 timestampISO: new Date().toISOString(),
               });
-              logger.log('[Duel] Recorded session result, xp:', duelXp);
-              endDuel();
+              logger.log('[Battle] Recorded session result, xp:', battleXp);
+              endBattle();
               router.back();
             }}>
               <Text style={styles.doneButtonText}>Done</Text>
@@ -465,7 +465,7 @@ export default function DuelSessionPage() {
           </TouchableOpacity>
           <View style={styles.roundBadge}>
             <Text style={styles.roundText}>
-              {currentDuel.currentRound + 1}/{currentDuel.totalRounds}
+              {currentBattle.currentRound + 1}/{currentBattle.totalRounds}
             </Text>
           </View>
           {playerStreak > 0 && <StreakIndicator streak={playerStreak} showMultiplier={false} />}
@@ -479,7 +479,7 @@ export default function DuelSessionPage() {
             </View>
             <Text style={styles.scorePlayerLabel}>You</Text>
             <Animated.Text style={[styles.scorePlayerValue, { transform: [{ scale: scorePopAnim }] }]}>
-              {currentDuel.playerScore}
+              {currentBattle.playerScore}
             </Animated.Text>
           </View>
           <View style={styles.vsContainer}>
@@ -489,8 +489,8 @@ export default function DuelSessionPage() {
             <View style={[styles.scoreAvatar, { backgroundColor: '#ef4444' }]}>
               <Bot color="#fff" size={20} />
             </View>
-            <Text style={styles.scorePlayerLabel}>{currentDuel.opponentName}</Text>
-            <Text style={styles.scorePlayerValue}>{currentDuel.opponentScore}</Text>
+            <Text style={styles.scorePlayerLabel}>{currentBattle.opponentName}</Text>
+            <Text style={styles.scorePlayerValue}>{currentBattle.opponentScore}</Text>
           </View>
         </View>
 
@@ -516,7 +516,7 @@ export default function DuelSessionPage() {
               <View style={styles.turnIndicator}>
                 <View style={[styles.turnDot, { backgroundColor: '#10b981' }]} />
                 <Text style={styles.turnText}>
-                  {currentDuel?.mode === 'multiplayer' ? `Player ${currentPlayer}'s Turn` : 'Your Turn'}
+                  {currentBattle?.mode === 'multiplayer' ? `Player ${currentPlayer}'s Turn` : 'Your Turn'}
                 </Text>
               </View>
               <TextInput
@@ -530,7 +530,7 @@ export default function DuelSessionPage() {
                 placeholderTextColor="rgba(255, 255, 255, 0.4)"
                 autoCapitalize="none"
                 autoCorrect={false}
-                editable={currentDuel?.mode === 'multiplayer' ? (currentPlayer === 1 ? !player1Result : !player2Result) : !playerResult}
+                editable={currentBattle?.mode === 'multiplayer' ? (currentPlayer === 1 ? !player1Result : !player2Result) : !playerResult}
                 onSubmitEditing={handleSubmitAnswer}
                 returnKeyType="done"
               />
@@ -542,7 +542,7 @@ export default function DuelSessionPage() {
                   buttonState === 'incorrect' && styles.submitButtonIncorrect,
                 ]}
                 onPress={handleSubmitAnswer}
-                disabled={userAnswer.trim() === '' || (currentDuel?.mode === 'multiplayer' ? (currentPlayer === 1 ? player1Result !== null : player2Result !== null) : playerResult !== null)}
+                disabled={userAnswer.trim() === '' || (currentBattle?.mode === 'multiplayer' ? (currentPlayer === 1 ? player1Result !== null : player2Result !== null) : playerResult !== null)}
                 activeOpacity={0.85}
               >
                 <Text style={[
@@ -559,7 +559,7 @@ export default function DuelSessionPage() {
             <View style={styles.answerSection}>
               <View style={styles.turnIndicator}>
                 <View style={[styles.turnDot, { backgroundColor: '#ef4444' }]} />
-                <Text style={styles.turnText}>{currentDuel.opponentName}'s Turn</Text>
+                <Text style={styles.turnText}>{currentBattle.opponentName}'s Turn</Text>
               </View>
               <View style={styles.waitingCard}>
                 <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
@@ -574,7 +574,7 @@ export default function DuelSessionPage() {
             <Animated.View style={[styles.resultsContainer, { opacity: feedbackOpacity, transform: [{ scale: feedbackScale }] }]}>
               <Text style={styles.resultsTitle}>Round Results</Text>
               
-              {currentDuel?.mode === 'multiplayer' ? (
+              {currentBattle?.mode === 'multiplayer' ? (
                 <>
                   <View style={[styles.resultCard, player1Result?.isCorrect && styles.resultCardCorrect]}>
                     <View style={styles.resultHeader}>
@@ -617,7 +617,7 @@ export default function DuelSessionPage() {
                   <View style={[styles.resultCard, opponentResult?.isCorrect && styles.resultCardCorrect]}>
                     <View style={styles.resultHeader}>
                       <Bot color="#fff" size={18} />
-                      <Text style={styles.resultPlayerName}>{currentDuel.opponentName}</Text>
+                      <Text style={styles.resultPlayerName}>{currentBattle.opponentName}</Text>
                     </View>
                     <View style={[styles.resultBadge, opponentResult?.isCorrect ? styles.resultBadgeCorrect : styles.resultBadgeIncorrect]}>
                       <Text style={styles.resultBadgeText}>

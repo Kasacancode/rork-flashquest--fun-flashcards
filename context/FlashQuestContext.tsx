@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo, useCallback } from 'react';
 
 import { SAMPLE_DECKS } from '@/data/sampleDecks';
-import { Deck, Flashcard, UserProgress, UserStats, DuelSession } from '@/types/flashcard';
+import { Deck, Flashcard, UserProgress, UserStats, BattleSession } from '@/types/flashcard';
 import { logger } from '@/utils/logger';
 
 // AsyncStorage keys for persisting app data between sessions
@@ -26,7 +26,7 @@ const DEFAULT_STATS: UserStats = {
 };
 
 // Shared type used by all game modes when recording session results
-export type GameMode = 'study' | 'quest' | 'duel' | 'battle';
+export type GameMode = 'study' | 'quest' | 'battle';
 
 export interface GameResultParams {
   mode: GameMode;
@@ -71,7 +71,7 @@ function computeStreak(lastActiveDate: string, currentStreak: number, longestStr
 
 export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
   const queryClient = useQueryClient();
-  const [currentDuel, setCurrentDuel] = useState<DuelSession | null>(null);
+  const [currentBattle, setCurrentBattle] = useState<BattleSession | null>(null);
 
   const decksQuery = useQuery({
     queryKey: ['decks'],
@@ -299,9 +299,9 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     saveProgressMutate(updatedProgress);
   }, [progressQuery.data, saveProgressMutate]);
 
-  const startDuel = useCallback((deckId: string, mode: 'ai' | 'multiplayer', shouldShuffle?: boolean) => {
-    const duel: DuelSession = {
-      id: `duel_${Date.now()}`,
+  const startBattle = useCallback((deckId: string, mode: 'ai' | 'multiplayer', shouldShuffle?: boolean) => {
+    const battle: BattleSession = {
+      id: `battle_${Date.now()}`,
       mode,
       deckId,
       playerScore: 0,
@@ -312,33 +312,33 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       opponentName: mode === 'ai' ? 'AI Bot' : 'Opponent',
       shuffled: shouldShuffle || false,
     };
-    setCurrentDuel(duel);
+    setCurrentBattle(battle);
   }, []);
 
-  const updateDuel = useCallback((playerCorrect: boolean, opponentCorrect: boolean) => {
-    if (!currentDuel) return;
+  const updateBattle = useCallback((playerCorrect: boolean, opponentCorrect: boolean) => {
+    if (!currentBattle) return;
 
-    const updated: DuelSession = {
-      ...currentDuel,
-      playerScore: currentDuel.playerScore + (playerCorrect ? 1 : 0),
-      opponentScore: currentDuel.opponentScore + (opponentCorrect ? 1 : 0),
-      currentRound: currentDuel.currentRound + 1,
-      status: currentDuel.currentRound + 1 >= currentDuel.totalRounds ? 'completed' : 'active',
-      completedAt: currentDuel.currentRound + 1 >= currentDuel.totalRounds ? Date.now() : undefined,
+    const updated: BattleSession = {
+      ...currentBattle,
+      playerScore: currentBattle.playerScore + (playerCorrect ? 1 : 0),
+      opponentScore: currentBattle.opponentScore + (opponentCorrect ? 1 : 0),
+      currentRound: currentBattle.currentRound + 1,
+      status: currentBattle.currentRound + 1 >= currentBattle.totalRounds ? 'completed' : 'active',
+      completedAt: currentBattle.currentRound + 1 >= currentBattle.totalRounds ? Date.now() : undefined,
     };
 
-    setCurrentDuel(updated);
-  }, [currentDuel]);
+    setCurrentBattle(updated);
+  }, [currentBattle]);
 
-  const endDuel = useCallback(() => {
-    setCurrentDuel(null);
+  const endBattle = useCallback(() => {
+    setCurrentBattle(null);
   }, []);
 
   return useMemo(() => ({
     decks: decksQuery.data || [],
     progress: progressQuery.data || [],
     stats: statsQuery.data || DEFAULT_STATS,
-    currentDuel,
+    currentBattle,
     isLoading: decksQuery.isLoading || progressQuery.isLoading || statsQuery.isLoading,
 
     addDeck,
@@ -347,10 +347,10 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     deleteDeck,
     updateProgress,
     recordSessionResult,
-    startDuel,
-    updateDuel,
-    endDuel,
-  }), [decksQuery.data, progressQuery.data, statsQuery.data, currentDuel, decksQuery.isLoading, progressQuery.isLoading, statsQuery.isLoading, addDeck, updateDeck, updateFlashcard, deleteDeck, updateProgress, recordSessionResult, startDuel, updateDuel, endDuel]);
+    startBattle,
+    updateBattle,
+    endBattle,
+  }), [decksQuery.data, progressQuery.data, statsQuery.data, currentBattle, decksQuery.isLoading, progressQuery.isLoading, statsQuery.isLoading, addDeck, updateDeck, updateFlashcard, deleteDeck, updateProgress, recordSessionResult, startBattle, updateBattle, endBattle]);
 });
 
 export function useDeckProgress(deckId: string) {
