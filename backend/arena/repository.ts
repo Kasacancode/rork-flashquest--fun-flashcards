@@ -1,9 +1,39 @@
+// --- Redis-backed Arena Room Repository ---
+//
+// Key structure:
+//   flashquest:arena:room:{code}  — JSON-serialized Room, with TTL
+//   flashquest:arena:codes        — Redis SET of active room codes (for count + unique code gen)
+//
+// All methods are async. Upstash Redis (HTTP-based) is used as the sole source of truth.
+// No in-memory Map fallback exists.
+
+import { Redis } from '@upstash/redis';
 import type { Room, RoomPlayer } from './types';
 import { ROOM_TTL_MS } from './types';
 
-interface StoredEntry {
-  data: string;
-  expiresAt: number;
+const ROOM_TTL_SECONDS = Math.ceil(ROOM_TTL_MS / 1000);
+const KEY_PREFIX = 'flashquest:arena:room:';
+const CODES_SET = 'flashquest:arena:codes';
+
+function roomKey(code: string): string {
+  return `${KEY_PREFIX}${code}`;
+}
+
+let redisInstance: Redis | null = null;
+
+function getRedis(): Redis {
+  if (redisInstance) return redisInstance;
+
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) {
+    throw new Error('[Repo] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN env vars');
+  }
+
+  redisInstance = new Redis({ url, token });
+  console.log('[Repo] Upstash Redis client initialized');
+  return redisInstance;
 }
 
 function serialize(room: Room): string {
@@ -15,14 +45,16 @@ function serialize(room: Room): string {
   }
 }
 
-function deserialize(data: string): Room | null {
+function deserialize(data: unknown): Room | null {
   try {
-    const parsed = JSON.parse(data) as Room;
-    if (!parsed || typeof parsed.code !== 'string' || typeof parsed.version !== 'number') {
+    const raw = typeof data === 'string' ? JSON.parse(data) : data;
+    if (!raw || typeof raw !== 'object') return null;
+    const room = raw as Room;
+    if (typeof room.code !== 'string' || typeof room.version !== 'number') {
       console.error('[Repo] Deserialized room has invalid shape');
       return null;
     }
-    return parsed;
+    return room;
   } catch (err) {
     console.error('[Repo] Failed to deserialize room:', err);
     return null;
@@ -35,40 +67,25 @@ function stampVersion(room: Room): Room {
   return room;
 }
 
-function isExpired(entry: StoredEntry): boolean {
-  return Date.now() > entry.expiresAt;
-}
-
 class RoomRepository {
-  private store = new Map<string, StoredEntry>();
-  private lastCleanup = Date.now();
-  private cleanupIntervalMs = 60_000;
-
-  getRoom(code: string): Room | null {
-    this.maybeCleanup();
+  async getRoom(code: string): Promise<Room | null> {
     try {
-      const entry = this.store.get(code);
-      if (!entry) return null;
-      if (isExpired(entry)) {
-        console.log(`[Repo] Room ${code} expired via TTL`);
-        this.store.delete(code);
-        return null;
-      }
-      return deserialize(entry.data);
+      const redis = getRedis();
+      const data = await redis.get(roomKey(code));
+      if (!data) return null;
+      return deserialize(data);
     } catch (err) {
       console.error(`[Repo] Error reading room ${code}:`, err);
       return null;
     }
   }
 
-  saveRoom(room: Room): Room {
+  async saveRoom(room: Room): Promise<Room> {
     try {
+      const redis = getRedis();
       stampVersion(room);
       room.lastActivity = Date.now();
-      this.store.set(room.code, {
-        data: serialize(room),
-        expiresAt: Date.now() + ROOM_TTL_MS,
-      });
+      await redis.set(roomKey(room.code), serialize(room), { ex: ROOM_TTL_SECONDS });
       return room;
     } catch (err) {
       console.error(`[Repo] Error saving room ${room.code}:`, err);
@@ -76,15 +93,18 @@ class RoomRepository {
     }
   }
 
-  createRoom(room: Room): Room {
+  async createRoom(room: Room): Promise<Room> {
     try {
+      const redis = getRedis();
       room.version = 1;
       room.updatedAt = Date.now();
       room.lastActivity = Date.now();
-      this.store.set(room.code, {
-        data: serialize(room),
-        expiresAt: Date.now() + ROOM_TTL_MS,
-      });
+
+      const pipeline = redis.pipeline();
+      pipeline.set(roomKey(room.code), serialize(room), { ex: ROOM_TTL_SECONDS });
+      pipeline.sadd(CODES_SET, room.code);
+      await pipeline.exec();
+
       console.log(`[Repo] Created room ${room.code}`);
       return room;
     } catch (err) {
@@ -93,32 +113,31 @@ class RoomRepository {
     }
   }
 
-  deleteRoom(code: string): void {
+  async deleteRoom(code: string): Promise<void> {
     try {
-      this.store.delete(code);
+      const redis = getRedis();
+      const pipeline = redis.pipeline();
+      pipeline.del(roomKey(code));
+      pipeline.srem(CODES_SET, code);
+      await pipeline.exec();
       console.log(`[Repo] Deleted room ${code}`);
     } catch (err) {
       console.error(`[Repo] Error deleting room ${code}:`, err);
     }
   }
 
-  refreshTTL(code: string): void {
+  async refreshTTL(code: string): Promise<void> {
     try {
-      const entry = this.store.get(code);
-      if (entry && !isExpired(entry)) {
-        entry.expiresAt = Date.now() + ROOM_TTL_MS;
-      }
+      const redis = getRedis();
+      await redis.expire(roomKey(code), ROOM_TTL_SECONDS);
     } catch (err) {
       console.error(`[Repo] Error refreshing TTL for room ${code}:`, err);
     }
   }
 
-  updatePlayerHeartbeat(code: string, playerId: string): Room | null {
+  async updatePlayerHeartbeat(code: string, playerId: string): Promise<Room | null> {
     try {
-      const entry = this.store.get(code);
-      if (!entry || isExpired(entry)) return null;
-
-      const room = deserialize(entry.data);
+      const room = await this.getRoom(code);
       if (!room) return null;
 
       const player = room.players.find((p: RoomPlayer) => p.id === playerId);
@@ -128,8 +147,8 @@ class RoomRepository {
 
       room.lastActivity = Date.now();
 
-      entry.data = serialize(room);
-      entry.expiresAt = Date.now() + ROOM_TTL_MS;
+      const redis = getRedis();
+      await redis.set(roomKey(code), serialize(room), { ex: ROOM_TTL_SECONDS });
 
       return room;
     } catch (err) {
@@ -138,36 +157,48 @@ class RoomRepository {
     }
   }
 
-  getRoomCount(): number {
-    this.maybeCleanup();
-    return this.store.size;
+  async getRoomCount(): Promise<number> {
+    try {
+      const redis = getRedis();
+      const codes = await redis.smembers(CODES_SET) as string[];
+      if (!codes || codes.length === 0) return 0;
+
+      const pipeline = redis.pipeline();
+      for (const code of codes) {
+        pipeline.exists(roomKey(code));
+      }
+      const results = await pipeline.exec();
+
+      let stale = 0;
+      for (let i = 0; i < codes.length; i++) {
+        if (results[i] === 0) {
+          stale++;
+          await redis.srem(CODES_SET, codes[i]);
+        }
+      }
+      if (stale > 0) {
+        console.log(`[Repo] Cleaned ${stale} stale codes from index set`);
+      }
+
+      return codes.length - stale;
+    } catch (err) {
+      console.error('[Repo] Error getting room count:', err);
+      return 0;
+    }
   }
 
-  generateUniqueCode(): string {
+  async generateUniqueCode(): Promise<string> {
+    const redis = getRedis();
     const maxAttempts = 100;
+
     for (let i = 0; i < maxAttempts; i++) {
       const code = Math.floor(100000 + Math.random() * 900000).toString();
-      if (!this.store.has(code)) return code;
+      const exists = await redis.exists(roomKey(code));
+      if (!exists) return code;
     }
+
     console.error('[Repo] Failed to generate unique code after max attempts');
     throw new Error('Could not generate unique room code');
-  }
-
-  private maybeCleanup(): void {
-    const now = Date.now();
-    if (now - this.lastCleanup < this.cleanupIntervalMs) return;
-    this.lastCleanup = now;
-
-    let cleaned = 0;
-    for (const [code, entry] of this.store.entries()) {
-      if (isExpired(entry)) {
-        this.store.delete(code);
-        cleaned++;
-      }
-    }
-    if (cleaned > 0) {
-      console.log(`[Repo] Cleaned ${cleaned} expired rooms`);
-    }
   }
 }
 

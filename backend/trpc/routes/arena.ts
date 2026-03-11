@@ -1,6 +1,7 @@
 // --- Arena TRPC Router ---
 // Thin orchestration layer: parse input → load from repo → delegate to engine → save → respond.
 // All game logic lives in engine.ts, all persistence in repository.ts.
+// Repository is now fully async (Redis-backed).
 
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -9,8 +10,8 @@ import { roomRepository } from "../../arena/repository";
 import * as engine from "../../arena/engine";
 import { createTRPCRouter, publicProcedure } from "../create-context";
 
-function requireRoom(code: string) {
-  const room = roomRepository.getRoom(code);
+async function requireRoom(code: string) {
+  const room = await roomRepository.getRoom(code);
   if (!room) {
     throw new TRPCError({ code: "NOT_FOUND", message: "Room not found or expired" });
   }
@@ -18,17 +19,18 @@ function requireRoom(code: string) {
 }
 
 export const arenaRouter = createTRPCRouter({
-  health: publicProcedure.query(() => {
-    return { status: "ok", rooms: roomRepository.getRoomCount(), timestamp: Date.now() };
+  health: publicProcedure.query(async () => {
+    const rooms = await roomRepository.getRoomCount();
+    return { status: "ok", rooms, timestamp: Date.now() };
   }),
 
   initRoom: publicProcedure
     .input(z.object({ name: z.string().min(1).max(20) }))
-    .mutation(({ input }) => {
+    .mutation(async ({ input }) => {
       console.log("[Arena] initRoom:", input.name);
-      const code = roomRepository.generateUniqueCode();
+      const code = await roomRepository.generateUniqueCode();
       const { room, playerId } = engine.createNewRoom(input.name, code);
-      const saved = roomRepository.createRoom(room);
+      const saved = await roomRepository.createRoom(room);
       return { roomCode: saved.code, playerId, room: engine.sanitizeRoom(saved) };
     }),
 
@@ -37,9 +39,9 @@ export const arenaRouter = createTRPCRouter({
       roomCode: z.string().length(6),
       playerName: z.string().min(1).max(20),
     }))
-    .mutation(({ input }) => {
+    .mutation(async ({ input }) => {
       console.log("[Arena] joinRoom:", input.playerName, "->", input.roomCode);
-      const room = requireRoom(input.roomCode);
+      const room = await requireRoom(input.roomCode);
       const result = engine.joinRoom(room, input.playerName);
       if (!result) {
         throw new TRPCError({
@@ -47,22 +49,22 @@ export const arenaRouter = createTRPCRouter({
           message: "Room not found, full, or game already started",
         });
       }
-      const saved = roomRepository.saveRoom(result.room);
+      const saved = await roomRepository.saveRoom(result.room);
       return { playerId: result.player.id, room: engine.sanitizeRoom(saved) };
     }),
 
   leaveRoom: publicProcedure
     .input(z.object({ roomCode: z.string(), playerId: z.string() }))
-    .mutation(({ input }) => {
+    .mutation(async ({ input }) => {
       console.log("[Arena] leaveRoom:", input.playerId, "from", input.roomCode);
-      const room = roomRepository.getRoom(input.roomCode);
+      const room = await roomRepository.getRoom(input.roomCode);
       if (!room) return { success: true };
 
       const result = engine.leaveRoom(room, input.playerId);
       if (result === null) {
-        roomRepository.deleteRoom(input.roomCode);
+        await roomRepository.deleteRoom(input.roomCode);
       } else {
-        roomRepository.saveRoom(result);
+        await roomRepository.saveRoom(result);
       }
       return { success: true };
     }),
@@ -73,13 +75,13 @@ export const arenaRouter = createTRPCRouter({
       playerId: z.string(),
       targetPlayerId: z.string(),
     }))
-    .mutation(({ input }) => {
-      const room = requireRoom(input.roomCode);
+    .mutation(async ({ input }) => {
+      const room = await requireRoom(input.roomCode);
       const result = engine.removePlayer(room, input.targetPlayerId, input.playerId);
       if (!result) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Cannot remove player" });
       }
-      const saved = roomRepository.saveRoom(result);
+      const saved = await roomRepository.saveRoom(result);
       return { room: engine.sanitizeRoom(saved) };
     }),
 
@@ -90,13 +92,13 @@ export const arenaRouter = createTRPCRouter({
       deckId: z.string(),
       deckName: z.string(),
     }))
-    .mutation(({ input }) => {
-      const room = requireRoom(input.roomCode);
+    .mutation(async ({ input }) => {
+      const room = await requireRoom(input.roomCode);
       const result = engine.selectDeck(room, input.playerId, input.deckId, input.deckName);
       if (!result) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only host can select deck" });
       }
-      const saved = roomRepository.saveRoom(result);
+      const saved = await roomRepository.saveRoom(result);
       return { room: engine.sanitizeRoom(saved) };
     }),
 
@@ -110,13 +112,13 @@ export const arenaRouter = createTRPCRouter({
         showExplanationsAtEnd: z.boolean().optional(),
       }),
     }))
-    .mutation(({ input }) => {
-      const room = requireRoom(input.roomCode);
+    .mutation(async ({ input }) => {
+      const room = await requireRoom(input.roomCode);
       const result = engine.updateSettings(room, input.playerId, input.settings);
       if (!result) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only host can update settings" });
       }
-      const saved = roomRepository.saveRoom(result);
+      const saved = await roomRepository.saveRoom(result);
       return { room: engine.sanitizeRoom(saved) };
     }),
 
@@ -131,9 +133,9 @@ export const arenaRouter = createTRPCRouter({
         options: z.array(z.string()),
       })),
     }))
-    .mutation(({ input }) => {
+    .mutation(async ({ input }) => {
       console.log("[Arena] startGame in room", input.roomCode, "with", input.questions.length, "questions");
-      const room = requireRoom(input.roomCode);
+      const room = await requireRoom(input.roomCode);
       const result = engine.startGame(room, input.playerId, input.questions);
       if (!result) {
         throw new TRPCError({
@@ -141,7 +143,7 @@ export const arenaRouter = createTRPCRouter({
           message: "Cannot start game. Need 2+ players and a selected deck.",
         });
       }
-      const saved = roomRepository.saveRoom(result);
+      const saved = await roomRepository.saveRoom(result);
       return { room: engine.sanitizeRoom(saved) };
     }),
 
@@ -152,8 +154,8 @@ export const arenaRouter = createTRPCRouter({
       questionIndex: z.number(),
       selectedOption: z.string(),
     }))
-    .mutation(({ input }) => {
-      const room = requireRoom(input.roomCode);
+    .mutation(async ({ input }) => {
+      const room = await requireRoom(input.roomCode);
       const result = engine.submitAnswer(room, input.playerId, input.questionIndex, input.selectedOption);
       if (!result) {
         throw new TRPCError({
@@ -162,55 +164,51 @@ export const arenaRouter = createTRPCRouter({
         });
       }
       engine.tick(result.room);
-      const saved = roomRepository.saveRoom(result.room);
+      const saved = await roomRepository.saveRoom(result.room);
       return { isCorrect: result.isCorrect, room: engine.sanitizeRoom(saved) };
     }),
 
   nextQuestion: publicProcedure
     .input(z.object({ roomCode: z.string(), playerId: z.string() }))
-    .mutation(({ input }) => {
-      const room = requireRoom(input.roomCode);
+    .mutation(async ({ input }) => {
+      const room = await requireRoom(input.roomCode);
       const result = engine.advanceQuestion(room, input.playerId);
       if (!result) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot advance question" });
       }
-      const saved = roomRepository.saveRoom(result);
+      const saved = await roomRepository.saveRoom(result);
       return { room: engine.sanitizeRoom(saved) };
     }),
 
   resetRoom: publicProcedure
     .input(z.object({ roomCode: z.string(), playerId: z.string() }))
-    .mutation(({ input }) => {
+    .mutation(async ({ input }) => {
       console.log("[Arena] resetRoom:", input.roomCode);
-      const room = requireRoom(input.roomCode);
+      const room = await requireRoom(input.roomCode);
       const result = engine.resetRoom(room, input.playerId);
       if (!result) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot reset room" });
       }
-      const saved = roomRepository.saveRoom(result);
+      const saved = await roomRepository.saveRoom(result);
       return { room: engine.sanitizeRoom(saved) };
     }),
 
-  // getRoomState is read-only. It does NOT call heartbeat or tick.
-  // Phase transitions are driven by heartbeat (below) and mutations.
   getRoomState: publicProcedure
     .input(z.object({ roomCode: z.string(), playerId: z.string() }))
-    .query(({ input }) => {
-      const room = requireRoom(input.roomCode);
+    .query(async ({ input }) => {
+      const room = await requireRoom(input.roomCode);
       return { room: engine.sanitizeRoom(room) };
     }),
 
-  // Heartbeat: updates player lastSeen, refreshes TTL, and runs tick
-  // to advance game phases. Clients should call this every few seconds.
   heartbeat: publicProcedure
     .input(z.object({ roomCode: z.string(), playerId: z.string() }))
-    .mutation(({ input }) => {
-      const room = roomRepository.updatePlayerHeartbeat(input.roomCode, input.playerId);
+    .mutation(async ({ input }) => {
+      const room = await roomRepository.updatePlayerHeartbeat(input.roomCode, input.playerId);
       if (!room) return { success: true };
 
       const changed = engine.tick(room);
       if (changed) {
-        roomRepository.saveRoom(room);
+        await roomRepository.saveRoom(room);
       }
       return { success: true };
     }),
