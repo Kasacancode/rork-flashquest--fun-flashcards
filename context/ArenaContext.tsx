@@ -5,6 +5,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 
 import { trpc } from '@/lib/trpc';
 import type { ArenaLeaderboardEntry } from '@/types/flashcard';
+import { normalizeRoomCode } from '@/utils/arenaInvite';
 import { logger } from '@/utils/logger';
 
 const LEADERBOARD_KEY = 'flashquest_arena_leaderboard';
@@ -250,13 +251,14 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   }, [createRoomMut]);
 
   const joinRoom = useCallback((code: string, name: string) => {
+    const normalizedCode = normalizeRoomCode(code);
     setPlayerName(name);
     setConnectionError(null);
     pollFailCountRef.current = 0;
     lastErrorMsgRef.current = null;
     connectedAtRef.current = Date.now();
     AsyncStorage.setItem(PLAYER_NAME_KEY, name).catch(() => {});
-    joinRoomMut.mutate({ roomCode: code, playerName: name });
+    joinRoomMut.mutate({ roomCode: normalizedCode, playerName: name });
   }, [joinRoomMut]);
 
   const disconnect = useCallback(() => {

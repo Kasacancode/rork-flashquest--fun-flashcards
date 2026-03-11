@@ -8,6 +8,7 @@
 // No in-memory Map fallback exists.
 
 import { Redis } from '@upstash/redis';
+import { generateBattleRoomCode, normalizeRoomCode } from '../../utils/arenaInvite';
 import type { Room, RoomPlayer } from './types';
 import { ROOM_TTL_MS } from './types';
 
@@ -16,7 +17,7 @@ const KEY_PREFIX = 'flashquest:arena:room:';
 const CODES_SET = 'flashquest:arena:codes';
 
 function roomKey(code: string): string {
-  return `${KEY_PREFIX}${code}`;
+  return `${KEY_PREFIX}${normalizeRoomCode(code)}`;
 }
 
 let redisInstance: Redis | null = null;
@@ -83,6 +84,7 @@ class RoomRepository {
   async saveRoom(room: Room): Promise<Room> {
     try {
       const redis = getRedis();
+      room.code = normalizeRoomCode(room.code);
       stampVersion(room);
       room.lastActivity = Date.now();
       await redis.set(roomKey(room.code), serialize(room), { ex: ROOM_TTL_SECONDS });
@@ -96,6 +98,7 @@ class RoomRepository {
   async createRoom(room: Room): Promise<Room> {
     try {
       const redis = getRedis();
+      room.code = normalizeRoomCode(room.code);
       room.version = 1;
       room.updatedAt = Date.now();
       room.lastActivity = Date.now();
@@ -192,7 +195,7 @@ class RoomRepository {
     const maxAttempts = 100;
 
     for (let i = 0; i < maxAttempts; i++) {
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const code = generateBattleRoomCode();
       const exists = await redis.exists(roomKey(code));
       if (!exists) return code;
     }

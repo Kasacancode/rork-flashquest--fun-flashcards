@@ -9,9 +9,11 @@ import { z } from "zod";
 import { roomRepository } from "../../arena/repository";
 import * as engine from "../../arena/engine";
 import { createTRPCRouter, publicProcedure } from "../create-context";
+import { isRoomCodeValid, normalizeRoomCode, ROOM_CODE_MAX_LENGTH, ROOM_CODE_MIN_LENGTH } from "../../../utils/arenaInvite";
 
 async function requireRoom(code: string) {
-  const room = await roomRepository.getRoom(code);
+  const normalizedCode = normalizeRoomCode(code);
+  const room = await roomRepository.getRoom(normalizedCode);
   if (!room) {
     throw new TRPCError({ code: "NOT_FOUND", message: "Room not found or expired" });
   }
@@ -36,7 +38,7 @@ export const arenaRouter = createTRPCRouter({
 
   joinRoom: publicProcedure
     .input(z.object({
-      roomCode: z.string().length(6),
+      roomCode: z.string().min(ROOM_CODE_MIN_LENGTH).max(ROOM_CODE_MAX_LENGTH).transform(normalizeRoomCode).refine(isRoomCodeValid, 'Invalid room code'),
       playerName: z.string().min(1).max(20),
     }))
     .mutation(async ({ input }) => {
