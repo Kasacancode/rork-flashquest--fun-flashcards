@@ -21,23 +21,39 @@ app.use(
   }),
 );
 
-const handleTrpcRequest = async (request: Request) => {
-  const url = new URL(request.url);
-  // Rork infrastructure mounts this Hono app at /api externally.
-  // Hono receives requests with /api already stripped, so the path seen here is /trpc/...
-  // The fetchRequestHandler endpoint must match the path Hono sees, NOT the external path.
-  const endpoint = '/trpc';
+// Rork infrastructure mounts this Hono app at /api externally.
+// So the external URL is /api/trpc/... but Hono matches on /trpc/... (stripped).
+// c.req.raw.url still contains the full external path (/api/trpc/...).
+// fetchRequestHandler needs the Request pathname to match its `endpoint` value,
+// so we rewrite the Request URL to use c.req.path (the Hono-matched path).
+const endpoint = '/trpc';
 
-  console.log('[Backend] FlashQuest battle request', {
-    method: request.method,
-    fullUrl: url.toString(),
-    pathname: url.pathname,
+const handleTrpcRequest = async (c: { req: { raw: Request; path: string } }) => {
+  const originalRequest = c.req.raw;
+  const honoPath = c.req.path;
+
+  const originalUrl = new URL(originalRequest.url);
+  const rewrittenUrl = new URL(originalRequest.url);
+  rewrittenUrl.pathname = honoPath;
+
+  console.log('[Backend] tRPC route rewrite', {
+    method: originalRequest.method,
+    originalPathname: originalUrl.pathname,
+    honoPath,
+    rewrittenPathname: rewrittenUrl.pathname,
     endpoint,
+  });
+
+  const rewrittenRequest = new Request(rewrittenUrl.toString(), {
+    method: originalRequest.method,
+    headers: originalRequest.headers,
+    body: originalRequest.body,
+    signal: originalRequest.signal,
   });
 
   return fetchRequestHandler({
     endpoint,
-    req: request,
+    req: rewrittenRequest,
     router: appRouter,
     createContext,
     onError({ path, error, type }) {
@@ -51,8 +67,8 @@ const handleTrpcRequest = async (request: Request) => {
   });
 };
 
-app.all('/trpc', (c) => handleTrpcRequest(c.req.raw));
-app.all('/trpc/*', (c) => handleTrpcRequest(c.req.raw));
+app.all('/trpc', (c) => handleTrpcRequest(c));
+app.all('/trpc/*', (c) => handleTrpcRequest(c));
 
 app.get('/', (c) => {
   return c.json({
