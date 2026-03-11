@@ -29,7 +29,7 @@ interface TurnResult {
   timeUsed: number;
 }
 
-export default function BattleSessionPage() {
+export default function PracticeSessionPage() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
   const { decks, currentBattle, updateBattle, endBattle, recordSessionResult } = useFlashQuest();
@@ -70,7 +70,7 @@ export default function BattleSessionPage() {
   const currentCard = useMemo(() => {
     if (!deck || !currentBattle) return null;
     return shuffledFlashcards[currentBattle.currentRound];
-  }, [shuffledFlashcards, currentBattle]);
+  }, [deck, shuffledFlashcards, currentBattle]);
 
   const simulateOpponentAnswer = useCallback(() => {
     const difficulty = currentCard?.difficulty || 'medium';
@@ -91,7 +91,7 @@ export default function BattleSessionPage() {
       timeUsed: opponentTime,
     });
 
-    logger.log('[Battle] Opponent answered:', opponentCorrect ? 'correct' : wrongAnswer, 'in', opponentTime, 's');
+    logger.log('[Practice] Opponent answered:', opponentCorrect ? 'correct' : wrongAnswer, 'in', opponentTime, 's');
     
     setTimeout(() => {
       Animated.parallel([
@@ -128,7 +128,7 @@ export default function BattleSessionPage() {
       generateDistractors(currentCard.question, currentCard.answer, currentCard.id)
         .then((result) => {
           setDistractors(result);
-          logger.log('[Battle] Pre-loaded distractors for card:', currentCard.id);
+          logger.log('[Practice] Pre-loaded distractors for card:', currentCard.id);
         })
         .catch(() => setDistractors([]));
     }
@@ -181,7 +181,7 @@ export default function BattleSessionPage() {
           setButtonState('incorrect');
           triggerShake();
           if (Platform.OS !== 'web') {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           }
           
           setTimeout(() => {
@@ -200,7 +200,7 @@ export default function BattleSessionPage() {
           setButtonState('incorrect');
           triggerShake();
           if (Platform.OS !== 'web') {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           }
           
           setTimeout(() => {
@@ -221,7 +221,7 @@ export default function BattleSessionPage() {
         setPlayerStreak(0);
         triggerShake();
         if (Platform.OS !== 'web') {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
         
         setTimeout(() => {
@@ -258,7 +258,7 @@ export default function BattleSessionPage() {
   if (!deck || !currentBattle || !currentCard) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>Battle not found</Text>
+        <Text style={styles.errorText}>Practice session not found</Text>
       </View>
     );
   }
@@ -281,7 +281,7 @@ export default function BattleSessionPage() {
         setButtonState(correct ? 'correct' : 'incorrect');
 
         if (Platform.OS !== 'web') {
-          Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
+          void Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
         }
 
         if (!correct) triggerShake();
@@ -307,7 +307,7 @@ export default function BattleSessionPage() {
         setButtonState(correct ? 'correct' : 'incorrect');
 
         if (Platform.OS !== 'web') {
-          Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
+          void Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
         }
 
         if (!correct) triggerShake();
@@ -335,7 +335,7 @@ export default function BattleSessionPage() {
       setPlayerStreak(correct ? playerStreak + 1 : 0);
 
       if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
+        void Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
       }
 
       if (correct) {
@@ -393,7 +393,7 @@ export default function BattleSessionPage() {
 
   if (currentBattle.status === 'completed') {
     const won = currentBattle.playerScore > currentBattle.opponentScore;
-    const battleXp = won ? 50 : 20;
+    const practiceXp = won ? 50 : 20;
 
     return (
       <View style={styles.container}>
@@ -432,12 +432,12 @@ export default function BattleSessionPage() {
               recordSessionResult({
                 mode: 'battle',
                 deckId: deckId,
-                xpEarned: battleXp,
+                xpEarned: practiceXp,
                 cardsAttempted: currentBattle.totalRounds,
                 correctCount: currentBattle.playerScore,
                 timestampISO: new Date().toISOString(),
               });
-              logger.log('[Battle] Recorded session result, xp:', battleXp);
+              logger.log('[Practice] Recorded session result, xp:', practiceXp);
               endBattle();
               router.back();
             }}>

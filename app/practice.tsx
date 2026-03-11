@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFlashQuest } from '@/context/FlashQuestContext';
 
-export default function BattlePage() {
+export default function PracticePage() {
   const router = useRouter();
   const { decks, startBattle } = useFlashQuest();
   const [selectedMode, setSelectedMode] = useState<'ai' | 'multiplayer' | null>(null);
@@ -22,7 +22,7 @@ export default function BattlePage() {
     if (selectedMode) {
       startBattle(deckId, selectedMode);
       setShowDeckSelector(false);
-      router.push({ pathname: '/battle-session' as any, params: { deckId } });
+      router.push({ pathname: '/practice-session' as any, params: { deckId } });
     }
   };
 
@@ -40,7 +40,7 @@ export default function BattlePage() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <ArrowLeft color="#fff" size={28} strokeWidth={2.5} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Battle</Text>
+          <Text style={styles.headerTitle}>Practice</Text>
           <View style={styles.placeholder} />
         </View>
 
@@ -50,8 +50,8 @@ export default function BattlePage() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.titleSection}>
-            <Text style={styles.title}>Choose Your Battle</Text>
-            <Text style={styles.subtitle}>Test your knowledge against opponents</Text>
+            <Text style={styles.title}>Choose Your Practice</Text>
+            <Text style={styles.subtitle}>Sharpen your recall solo or with a friend</Text>
           </View>
 
           <TouchableOpacity
@@ -69,13 +69,13 @@ export default function BattlePage() {
                 <Bot color="#fff" size={56} strokeWidth={2} />
               </View>
               <View style={styles.modeInfo}>
-                <Text style={styles.modeTitle}>Singleplayer</Text>
+                <Text style={styles.modeTitle}>Solo Practice</Text>
                 <Text style={styles.modeDescription}>
-                  Battle against our smart AI in a quick 5-round match
+                  Practice against our smart AI in a quick 5-round match
                 </Text>
                 <View style={styles.playButton}>
                   <Play color="#fff" size={20} strokeWidth={2.5} fill="#fff" />
-                  <Text style={styles.playText}>Start Battle</Text>
+                  <Text style={styles.playText}>Start Practice</Text>
                 </View>
               </View>
             </LinearGradient>
@@ -96,13 +96,13 @@ export default function BattlePage() {
                 <Users color="#fff" size={56} strokeWidth={2} />
               </View>
               <View style={styles.modeInfo}>
-                <Text style={styles.modeTitle}>Multiplayer</Text>
+                <Text style={styles.modeTitle}>Local Versus</Text>
                 <Text style={styles.modeDescription}>
-                  Challenge a friend in an async multiplayer match
+                  Pass the device for a local two-player practice match
                 </Text>
                 <View style={styles.playButton}>
                   <Play color="#fff" size={20} strokeWidth={2.5} fill="#fff" />
-                  <Text style={styles.playText}>Start Battle</Text>
+                  <Text style={styles.playText}>Start Practice</Text>
                 </View>
               </View>
             </LinearGradient>
