@@ -72,22 +72,6 @@ export default function HomePage() {
           <View style={styles.actionsGrid}>
             <TouchableOpacity
               style={[styles.actionCard, styles.actionCardMedium]}
-              onPress={() => router.push('/quest' as any)}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={theme.questGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.actionGradient}
-              >
-                <Target color="#fff" size={36} strokeWidth={2} />
-                <Text style={styles.actionTitleMedium}>Quest</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionCard, styles.actionCardMedium]}
               onPress={() => router.push('/arena' as any)}
               activeOpacity={0.85}
             >
@@ -99,6 +83,22 @@ export default function HomePage() {
               >
                 <Swords color="#fff" size={36} strokeWidth={2} />
                 <Text style={styles.actionTitleMedium}>Battle</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionCard, styles.actionCardMedium]}
+              onPress={() => router.push('/quest' as any)}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={theme.questGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.actionGradient}
+              >
+                <Target color="#fff" size={36} strokeWidth={2} />
+                <Text style={styles.actionTitleMedium}>Quest</Text>
               </LinearGradient>
             </TouchableOpacity>
 
