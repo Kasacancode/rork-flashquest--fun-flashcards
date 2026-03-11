@@ -9,7 +9,7 @@ export const trpc = createTRPCReact<AppRouter>();
 
 function getTrpcUrl(): string {
   if (Platform.OS === 'web') {
-    return '/api/trpc';
+    return '/trpc';
   }
 
   const envUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL?.trim();
@@ -17,19 +17,19 @@ function getTrpcUrl(): string {
     throw new Error('Missing EXPO_PUBLIC_RORK_API_BASE_URL for native TRPC requests.');
   }
 
-  return `${envUrl.replace(/\/+$/, '')}/api/trpc`;
+  return `${envUrl.replace(/\/+$/, '')}/trpc`;
 }
 
-const primaryTrpcUrl = getTrpcUrl();
+const trpcUrl = getTrpcUrl();
 
 if (__DEV__) {
-  console.log('[trpc] URL:', primaryTrpcUrl);
+  console.log('[trpc] URL:', trpcUrl);
 }
 
 export const trpcClient = trpc.createClient({
   links: [
     httpLink({
-      url: primaryTrpcUrl,
+      url: trpcUrl,
       transformer: superjson,
       async fetch(url, options) {
         const response = await globalThis.fetch(url, options);
