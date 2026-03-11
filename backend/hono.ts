@@ -9,7 +9,7 @@ const app = new Hono();
 const HEALTH_RESPONSE = {
   status: 'ok',
   service: 'flashquest-battle',
-  v: 5,
+  v: 6,
 } as const;
 
 app.use(
@@ -21,56 +21,32 @@ app.use(
   }),
 );
 
-// Rork infrastructure mounts this Hono app at /api externally.
-// So the external URL is /api/trpc/... but Hono matches on /trpc/... (stripped).
-// c.req.raw.url still contains the full external path (/api/trpc/...).
-// fetchRequestHandler needs the Request pathname to match its `endpoint` value,
-// so we rewrite the Request URL to use c.req.path (the Hono-matched path).
-const endpoint = '/trpc';
+// The Rork platform mounts this Hono app at /api.
+// Depending on the runtime, Hono may or may not see the /api prefix in the path.
+// To handle both cases reliably, we:
+//   1. Register routes for BOTH /trpc/* and /api/trpc/*
+//   2. Dynamically detect the correct endpoint from the raw request URL
+//   3. Pass c.req.raw directly — no URL rewriting needed
+const handleTrpcRequest = async (c: { req: { raw: Request; path: string } }) => {
+  const rawUrl = new URL(c.req.raw.url);
+  const pathname = rawUrl.pathname;
 
-// Rork infrastructure mounts this Hono app at /api externally.
-// Hono strips the /api prefix, so Hono routes match on /trpc/*.
-// However, c.req.raw.url still contains the full external path (e.g. /api/trpc/arena.initRoom).
-// fetchRequestHandler requires the Request pathname to start with `endpoint` (/trpc),
-// so we must rewrite the Request URL to use c.req.path (the Hono-matched internal path)
-// before passing it to tRPC. Without this rewrite, tRPC cannot parse the procedure path
-// and returns a non-JSON error response.
-const handleTrpcRequest = async (c: { req: { raw: Request; path: string; url: string; method: string } }) => {
-  const originalRequest = c.req.raw;
-  const honoPath = c.req.path;
+  // Detect which prefix the raw URL actually has, and use that as the endpoint.
+  // fetchRequestHandler strips `endpoint` from the pathname to get the procedure name.
+  // e.g. pathname="/api/trpc/arena.initRoom" with endpoint="/api/trpc" → procedure="arena.initRoom"
+  // e.g. pathname="/trpc/arena.initRoom" with endpoint="/trpc" → procedure="arena.initRoom"
+  const actualEndpoint = pathname.startsWith('/api/trpc') ? '/api/trpc' : '/trpc';
 
-  const rewrittenUrl = new URL(originalRequest.url);
-  const originalPathname = rewrittenUrl.pathname;
-  rewrittenUrl.pathname = honoPath;
-
-  console.log('[Backend] tRPC route rewrite', {
-    method: originalRequest.method,
-    originalRawUrl: originalRequest.url,
-    originalPathname,
-    honoPath,
-    rewrittenPathname: rewrittenUrl.pathname,
-    endpoint,
+  console.log('[Backend] tRPC request', {
+    method: c.req.raw.method,
+    rawPathname: pathname,
+    honoPath: c.req.path,
+    detectedEndpoint: actualEndpoint,
   });
 
-  // Rebuild the Request explicitly to avoid body/duplex issues across runtimes.
-  // Some runtimes fail when using `new Request(url, existingRequest)` for POST with body.
-  const init: RequestInit = {
-    method: originalRequest.method,
-    headers: originalRequest.headers,
-  };
-
-  // Only attach body for non-GET/HEAD requests to avoid "body not allowed" errors
-  if (originalRequest.method !== 'GET' && originalRequest.method !== 'HEAD') {
-    init.body = originalRequest.body;
-    // @ts-ignore — duplex is required in some runtimes for streaming body
-    init.duplex = 'half';
-  }
-
-  const rewrittenRequest = new Request(rewrittenUrl.toString(), init);
-
   return fetchRequestHandler({
-    endpoint,
-    req: rewrittenRequest,
+    endpoint: actualEndpoint,
+    req: c.req.raw,
     router: appRouter,
     createContext,
     onError({ path, error, type }) {
@@ -83,14 +59,16 @@ const handleTrpcRequest = async (c: { req: { raw: Request; path: string; url: st
   });
 };
 
+// Handle both possible path shapes — covers whether the platform strips /api or not
 app.all('/trpc', (c) => handleTrpcRequest(c));
 app.all('/trpc/*', (c) => handleTrpcRequest(c));
+app.all('/api/trpc', (c) => handleTrpcRequest(c));
+app.all('/api/trpc/*', (c) => handleTrpcRequest(c));
 
 app.get('/', (c) => {
   return c.json({
     ...HEALTH_RESPONSE,
     message: 'FlashQuest Multiplayer API',
-    mountedAt: '/api',
   });
 });
 
@@ -98,6 +76,24 @@ app.get('/health', (c) => {
   return c.json({
     ...HEALTH_RESPONSE,
     timestamp: Date.now(),
+  });
+});
+
+// Debug route — hit /api/trpc-debug or /trpc-debug to verify routing
+app.get('/trpc-debug', (c) => {
+  return c.json({
+    status: 'ok',
+    honoPath: c.req.path,
+    rawUrl: c.req.raw.url,
+    rawPathname: new URL(c.req.raw.url).pathname,
+  });
+});
+app.get('/api/trpc-debug', (c) => {
+  return c.json({
+    status: 'ok',
+    honoPath: c.req.path,
+    rawUrl: c.req.raw.url,
+    rawPathname: new URL(c.req.raw.url).pathname,
   });
 });
 
