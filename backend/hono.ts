@@ -6,11 +6,10 @@ import { appRouter } from './trpc/app-router';
 import { createContext } from './trpc/create-context';
 
 const app = new Hono();
-const TRPC_ENDPOINTS = ['/trpc', '/api/trpc'] as const;
 const HEALTH_RESPONSE = {
   status: 'ok',
   service: 'flashquest-battle',
-  v: 4,
+  v: 5,
 } as const;
 
 app.use(
@@ -22,8 +21,9 @@ app.use(
   }),
 );
 
-const handleTrpcRequest = async (request: Request, endpoint: (typeof TRPC_ENDPOINTS)[number]) => {
+const handleTrpcRequest = async (request: Request) => {
   const pathname = new URL(request.url).pathname;
+  const endpoint = '/api/trpc';
 
   console.log('[Backend] FlashQuest battle request', {
     method: request.method,
@@ -47,10 +47,8 @@ const handleTrpcRequest = async (request: Request, endpoint: (typeof TRPC_ENDPOI
   });
 };
 
-for (const endpoint of TRPC_ENDPOINTS) {
-  app.all(endpoint, (c) => handleTrpcRequest(c.req.raw, endpoint));
-  app.all(`${endpoint}/*`, (c) => handleTrpcRequest(c.req.raw, endpoint));
-}
+app.all('/trpc', (c) => handleTrpcRequest(c.req.raw));
+app.all('/trpc/*', (c) => handleTrpcRequest(c.req.raw));
 
 app.get('/', (c) => {
   return c.json({
