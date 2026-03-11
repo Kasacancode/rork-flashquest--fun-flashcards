@@ -111,8 +111,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const isHost = room !== null && room.hostId === playerId;
   const myPlayer = room?.players.find((p: { id: string }) => p.id === playerId) ?? null;
 
-  const roomVersion = (room as { version?: number } | null)?.version ?? null;
-  const roomUpdatedAt = (room as { updatedAt?: number } | null)?.updatedAt ?? null;
+  const roomVersion = room?.version ?? null;
+  const roomUpdatedAt = room?.updatedAt ?? null;
 
   useEffect(() => {
     if (!room) {

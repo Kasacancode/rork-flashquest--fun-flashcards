@@ -124,55 +124,6 @@ export interface QuestRunResult {
   askedCardIds: string[];
 }
 
-export interface ArenaPlayer {
-  id: string;
-  name: string;
-  isHost: boolean;
-  color: string;
-}
-
-export interface ArenaSettings {
-  rounds: 5 | 10 | 20;
-  timerSeconds: 0 | 5 | 10;
-  showExplanationsAtEnd: boolean;
-}
-
-export interface ArenaLobbyState {
-  roomCode: string;
-  players: ArenaPlayer[];
-  deckId: string | null;
-  settings: ArenaSettings;
-}
-
-export interface ArenaPlayerResult {
-  playerId: string;
-  playerName: string;
-  playerColor: string;
-  correctCount: number;
-  incorrectCount: number;
-  points: number;
-  accuracy: number;
-  bestStreak: number;
-  answers: ArenaAnswer[];
-}
-
-export interface ArenaAnswer {
-  cardId: string;
-  selectedOption: string;
-  correctAnswer: string;
-  isCorrect: boolean;
-  timeToAnswerMs: number;
-}
-
-export interface ArenaMatchResult {
-  roomCode: string;
-  deckId: string;
-  settings: ArenaSettings;
-  playerResults: ArenaPlayerResult[];
-  totalRounds: number;
-  completedAt: number;
-}
-
 export interface ArenaLeaderboardEntry {
   id: string;
   deckId: string;
