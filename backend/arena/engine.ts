@@ -525,21 +525,25 @@ function deriveEffectivePhase(room: Room): DerivedPhaseResult {
 // Derives effective phase from timestamps so clients see accurate state
 // even when no mutation has persisted the transition yet.
 
-export function sanitizeRoom(room: Room): SanitizedRoom {
+export function sanitizeRoom(room: Room, playerLastSeenById?: Record<string, number>): SanitizedRoom {
   const now = Date.now();
 
   const resolvedPlayers = getResolvedPlayers(room.players);
 
-  const players: SanitizedPlayer[] = resolvedPlayers.map(p => ({
-    id: p.id,
-    name: p.name,
-    color: p.color,
-    identityKey: p.identityKey,
-    identityLabel: p.identityLabel,
-    suit: p.suit,
-    isHost: p.isHost,
-    connected: (now - p.lastSeen) < DISCONNECT_MS,
-  }));
+  const players: SanitizedPlayer[] = resolvedPlayers.map((p) => {
+    const lastSeen = playerLastSeenById?.[p.id] ?? p.lastSeen;
+
+    return {
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      identityKey: p.identityKey,
+      identityLabel: p.identityLabel,
+      suit: p.suit,
+      isHost: p.isHost,
+      connected: (now - lastSeen) < DISCONNECT_MS,
+    };
+  });
 
   if (!room.game) {
     return {

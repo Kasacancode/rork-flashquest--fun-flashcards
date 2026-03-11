@@ -50,6 +50,7 @@ export const arenaRouter = createTRPCRouter({
         });
       }
       const saved = await roomRepository.saveRoom(result.room);
+      await roomRepository.updatePlayerHeartbeat(saved.code, result.player.id);
       return { playerId: result.player.id, room: engine.sanitizeRoom(saved) };
     }),
 
@@ -199,7 +200,8 @@ export const arenaRouter = createTRPCRouter({
     .input(z.object({ roomCode: z.string(), playerId: z.string() }))
     .query(async ({ input }) => {
       const room = await requireRoom(input.roomCode);
-      return { room: engine.sanitizeRoom(room) };
+      const heartbeats = await roomRepository.getPlayerHeartbeats(input.roomCode);
+      return { room: engine.sanitizeRoom(room, heartbeats) };
     }),
 
   heartbeat: publicProcedure

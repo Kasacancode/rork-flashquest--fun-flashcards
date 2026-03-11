@@ -8,15 +8,20 @@
 // No in-memory Map fallback exists.
 
 import { Redis } from '@upstash/redis';
-import type { Room, RoomPlayer } from './types';
+import type { Room } from './types';
 import { ROOM_TTL_MS } from './types';
 
 const ROOM_TTL_SECONDS = Math.ceil(ROOM_TTL_MS / 1000);
 const KEY_PREFIX = 'flashquest:arena:room:';
+const PRESENCE_KEY_PREFIX = 'flashquest:arena:presence:';
 const CODES_SET = 'flashquest:arena:codes';
 
 function roomKey(code: string): string {
   return `${KEY_PREFIX}${code}`;
+}
+
+function presenceKey(code: string): string {
+  return `${PRESENCE_KEY_PREFIX}${code}`;
 }
 
 let redisInstance: Redis | null = null;
@@ -105,6 +110,11 @@ class RoomRepository {
       pipeline.sadd(CODES_SET, room.code);
       await pipeline.exec();
 
+      await redis.hset(presenceKey(room.code), {
+        [room.hostId]: room.players[0]?.lastSeen ?? Date.now(),
+      });
+      await redis.expire(presenceKey(room.code), ROOM_TTL_SECONDS);
+
       console.log(`[Repo] Created room ${room.code}`);
       return room;
     } catch (err) {
@@ -118,6 +128,7 @@ class RoomRepository {
       const redis = getRedis();
       const pipeline = redis.pipeline();
       pipeline.del(roomKey(code));
+      pipeline.del(presenceKey(code));
       pipeline.srem(CODES_SET, code);
       await pipeline.exec();
       console.log(`[Repo] Deleted room ${code}`);
@@ -130,30 +141,45 @@ class RoomRepository {
     try {
       const redis = getRedis();
       await redis.expire(roomKey(code), ROOM_TTL_SECONDS);
+      await redis.expire(presenceKey(code), ROOM_TTL_SECONDS);
     } catch (err) {
       console.error(`[Repo] Error refreshing TTL for room ${code}:`, err);
     }
   }
 
-  async updatePlayerHeartbeat(code: string, playerId: string): Promise<Room | null> {
+  async updatePlayerHeartbeat(code: string, playerId: string): Promise<void> {
     try {
-      const room = await this.getRoom(code);
-      if (!room) return null;
-
-      const player = room.players.find((p: RoomPlayer) => p.id === playerId);
-      if (player) {
-        player.lastSeen = Date.now();
-      }
-
-      room.lastActivity = Date.now();
-
       const redis = getRedis();
-      await redis.set(roomKey(code), serialize(room), { ex: ROOM_TTL_SECONDS });
+      const exists = await redis.exists(roomKey(code));
+      if (!exists) return;
 
-      return room;
+      await redis.hset(presenceKey(code), { [playerId]: Date.now() });
+      await redis.expire(roomKey(code), ROOM_TTL_SECONDS);
+      await redis.expire(presenceKey(code), ROOM_TTL_SECONDS);
     } catch (err) {
       console.error(`[Repo] Error updating heartbeat for ${playerId} in room ${code}:`, err);
-      return null;
+    }
+  }
+
+  async getPlayerHeartbeats(code: string): Promise<Record<string, number>> {
+    try {
+      const redis = getRedis();
+      const data = await redis.hgetall(presenceKey(code));
+      if (!data || typeof data !== 'object') {
+        return {};
+      }
+
+      return Object.fromEntries(
+        Object.entries(data as Record<string, unknown>)
+          .map(([id, value]) => {
+            const parsed = typeof value === 'number' ? value : Number(value);
+            return [id, parsed] as const;
+          })
+          .filter((entry) => Number.isFinite(entry[1]))
+      );
+    } catch (err) {
+      console.error(`[Repo] Error getting heartbeats for room ${code}:`, err);
+      return {};
     }
   }
 
