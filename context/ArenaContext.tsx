@@ -3,7 +3,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 
-import { trpc, trpcClient } from '@/lib/trpc';
+import { trpc } from '@/lib/trpc';
 import type { ArenaLeaderboardEntry } from '@/types/flashcard';
 import { normalizeRoomCode } from '@/utils/arenaInvite';
 import { logger } from '@/utils/logger';
@@ -16,14 +16,12 @@ const POLL_QUESTION_MS = 850;
 const POLL_REVEAL_MS = 1200;
 const POLL_FINISHED_MS = 10000;
 const HEARTBEAT_INTERVAL_MS = 3000;
-const ARENA_SERVICE_UNAVAILABLE_MESSAGE = 'Battle service temporarily unavailable.';
-const isDevelopmentEnvironment = process.env.NODE_ENV === 'development';
 
-function normalizeArenaErrorMessage(message: string | null | undefined): string {
-  const fallbackMessage = 'Could not reach the battle service. Please try again in a few seconds.';
+function normalizeArenaErrorMessage(message: string | null | undefined, fallback?: string): string {
+  const fallbackMessage = fallback ?? 'Could not reach the battle service. Please try again in a few seconds.';
 
   if (!message) {
-    return fallbackMessage;
+    return __DEV__ ? fallbackMessage : fallbackMessage;
   }
 
   const trimmedMessage = message.trim();
@@ -31,7 +29,7 @@ function normalizeArenaErrorMessage(message: string | null | undefined): string 
     return fallbackMessage;
   }
 
-  return isDevelopmentEnvironment ? trimmedMessage : fallbackMessage;
+  return __DEV__ ? trimmedMessage : fallbackMessage;
 }
 
 export const [ArenaProvider, useArena] = createContextHook(() => {
@@ -167,9 +165,6 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   }, [room]);
 
   const heartbeatMut = trpc.arena.heartbeat.useMutation();
-  const healthCheckMut = useMutation({
-    mutationFn: async (): Promise<{ status: 'ok' }> => trpcClient.arena.health.query(),
-  });
 
   useEffect(() => {
     if (heartbeatIntervalRef.current) {
@@ -217,8 +212,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       setConnectionError(null);
     },
     onError: (err: { message: string }) => {
-      const normalizedMessage = normalizeArenaErrorMessage(err.message);
-      logger.log('[Arena] Create error:', normalizedMessage);
+      const normalizedMessage = normalizeArenaErrorMessage(err.message, 'Could not create battle.');
+      logger.log('[Arena] Create error:', err.message, '->', normalizedMessage);
       setConnectionError(normalizedMessage);
     },
   });
@@ -234,8 +229,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       setConnectionError(null);
     },
     onError: (err: { message: string }) => {
-      const normalizedMessage = normalizeArenaErrorMessage(err.message);
-      logger.log('[Arena] Join error:', normalizedMessage);
+      const normalizedMessage = normalizeArenaErrorMessage(err.message, 'Could not join battle.');
+      logger.log('[Arena] Join error:', err.message, '->', normalizedMessage);
       setConnectionError(normalizedMessage);
     },
   });
@@ -263,23 +258,11 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const removePlayerMut = trpc.arena.removePlayer.useMutation();
   const resetRoomMut = trpc.arena.resetRoom.useMutation();
 
-  const ensureArenaAvailable = useCallback(async (): Promise<boolean> => {
-    try {
-      logger.log('[Arena] Running health check before room action');
-      const result = await healthCheckMut.mutateAsync();
-      logger.log('[Arena] Health check result:', result.status);
-      return result.status === 'ok';
-    } catch (error) {
-      logger.log('[Arena] Health check failed:', error);
-      setConnectionError(ARENA_SERVICE_UNAVAILABLE_MESSAGE);
-      return false;
-    }
-  }, [healthCheckMut]);
-
-  const createRoom = useCallback(async (name: string) => {
+  const createRoom = useCallback((name: string) => {
     const trimmedName = name.trim();
     if (!trimmedName) return;
 
+    logger.log('[Arena] Creating room for:', trimmedName);
     setPlayerName(trimmedName);
     setConnectionError(null);
     pollFailCountRef.current = 0;
@@ -287,17 +270,15 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     connectedAtRef.current = Date.now();
     AsyncStorage.setItem(PLAYER_NAME_KEY, trimmedName).catch(() => {});
 
-    const isArenaAvailable = await ensureArenaAvailable();
-    if (!isArenaAvailable) return;
-
     createRoomMut.mutate({ name: trimmedName });
-  }, [createRoomMut, ensureArenaAvailable]);
+  }, [createRoomMut]);
 
-  const joinRoom = useCallback(async (code: string, name: string) => {
+  const joinRoom = useCallback((code: string, name: string) => {
     const normalizedCode = normalizeRoomCode(code);
     const trimmedName = name.trim();
     if (!trimmedName) return;
 
+    logger.log('[Arena] Joining room:', normalizedCode, 'as:', trimmedName);
     setPlayerName(trimmedName);
     setConnectionError(null);
     pollFailCountRef.current = 0;
@@ -305,11 +286,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     connectedAtRef.current = Date.now();
     AsyncStorage.setItem(PLAYER_NAME_KEY, trimmedName).catch(() => {});
 
-    const isArenaAvailable = await ensureArenaAvailable();
-    if (!isArenaAvailable) return;
-
     joinRoomMut.mutate({ roomCode: normalizedCode, playerName: trimmedName });
-  }, [ensureArenaAvailable, joinRoomMut]);
+  }, [joinRoomMut]);
 
   const disconnect = useCallback(() => {
     if (roomCode && playerId) {
@@ -394,7 +372,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     hasAnsweredCurrent,
     lastAnswerCorrect,
     canStartGame,
-    isConnecting: healthCheckMut.isPending || createRoomMut.isPending || joinRoomMut.isPending,
+    isConnecting: createRoomMut.isPending || joinRoomMut.isPending,
     isStartingGame: startGameMut.isPending,
     isSubmitting: submitAnswerMut.isPending,
     createRoom,
@@ -417,7 +395,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     roomCode, playerId, playerName, connectionError,
     room, isHost, myPlayer, hasAnsweredCurrent, lastAnswerCorrect,
     canStartGame,
-    healthCheckMut.isPending, createRoomMut.isPending, joinRoomMut.isPending,
+    createRoomMut.isPending, joinRoomMut.isPending,
     startGameMut.isPending, submitAnswerMut.isPending,
     createRoom, joinRoom, disconnect, selectDeck, updateSettings,
     startGame, submitAnswer, removePlayer, resetRoom,

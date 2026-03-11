@@ -57,8 +57,15 @@ async function requireRoom(code: string) {
 }
 
 export const arenaRouter = createTRPCRouter({
-  health: publicProcedure.query(() => {
-    return { status: 'ok' as const };
+  health: publicProcedure.query(async () => {
+    try {
+      const count = await roomRepository.getRoomCount();
+      return { status: 'ok' as const, activeRooms: count };
+    } catch (error) {
+      const message = getArenaInfrastructureMessage(error);
+      console.error('[ArenaRoute] Health check failed:', message);
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message });
+    }
   }),
 
   initRoom: publicProcedure
