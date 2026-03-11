@@ -509,12 +509,20 @@ export default function ArenaLobbyScreen() {
           >
             <View style={styles.settingsModalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>Battle Settings</Text>
-              <TouchableOpacity onPress={() => setShowSettingsModal(false)}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowSettingsModal(false)}
+                activeOpacity={0.7}
+                testID="battle-settings-close-button"
+              >
                 <X color={theme.textSecondary} size={24} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.settingsScrollContent}
+            >
               <View style={styles.settingRow}>
                 <View style={styles.settingLabelRow}>
                   <Target color={theme.textSecondary} size={18} />
@@ -969,25 +977,43 @@ const styles = StyleSheet.create({
   settingsModalContent: {
     width: '100%',
     maxWidth: 400,
-    maxHeight: '80%',
+    maxHeight: '82%',
     borderRadius: 24,
-    padding: 24,
+    padding: 20,
   },
   settingsModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 18,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(148, 163, 184, 0.12)',
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700' as const,
   },
+  settingsScrollContent: {
+    gap: 12,
+    paddingBottom: 8,
+  },
   settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
+    gap: 14,
+    marginBottom: 0,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.18)',
+    backgroundColor: 'rgba(148, 163, 184, 0.08)',
   },
   settingLabelRow: {
     flexDirection: 'row',
@@ -995,34 +1021,47 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   settingRowLabel: {
-    fontSize: 15,
-    fontWeight: '500' as const,
+    fontSize: 16,
+    fontWeight: '600' as const,
+    flexShrink: 1,
   },
   optionGroup: {
     flexDirection: 'row',
-    gap: 8,
+    flexWrap: 'wrap' as const,
+    gap: 10,
   },
   optionButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
-    minWidth: 50,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    minWidth: 0,
+    flexBasis: '47%' as const,
+    flexGrow: 1,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.18)',
   },
   optionText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
+    fontSize: 15,
+    fontWeight: '700' as const,
   },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 0,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.18)',
+    backgroundColor: 'rgba(148, 163, 184, 0.08)',
+    gap: 16,
   },
   toggleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flexShrink: 0,
   },
   toggleStateText: {
     fontSize: 13,
