@@ -7,30 +7,24 @@ type AppRouter = typeof import('@/backend/trpc/app-router').appRouter;
 
 export const trpc = createTRPCReact<AppRouter>();
 
-// URL resolution strategy:
-// - Web: use relative '/api/trpc' (same origin, works with the Hono backend)
-// - Native: use EXPO_PUBLIC_RORK_API_BASE_URL env var with '/api/trpc' appended
 function getTrpcUrl(): string {
   if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && window.location?.origin) {
-      return `${window.location.origin}/api/trpc`;
-    }
     return '/api/trpc';
   }
 
-  const envUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
-  if (envUrl) {
-    const base = envUrl.replace(/\/+$/, '');
-    return `${base}/api/trpc`;
+  const envUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL?.trim();
+  if (!envUrl) {
+    throw new Error('Missing EXPO_PUBLIC_RORK_API_BASE_URL for native TRPC requests.');
   }
 
-  const projectId = process.env.EXPO_PUBLIC_PROJECT_ID ?? '7xpegtpthikn3ezzq9zt0';
-  return `https://dev-${projectId}.rorktest.dev/api/trpc`;
+  return `${envUrl.replace(/\/+$/, '')}/api/trpc`;
 }
 
 const primaryTrpcUrl = getTrpcUrl();
 
-console.log('[trpc] URL:', primaryTrpcUrl);
+if (__DEV__) {
+  console.log('[trpc] URL:', primaryTrpcUrl);
+}
 
 export const trpcClient = trpc.createClient({
   links: [
@@ -39,18 +33,22 @@ export const trpcClient = trpc.createClient({
       transformer: superjson,
       async fetch(url, options) {
         const response = await globalThis.fetch(url, options);
+
         if (__DEV__) {
-          const contentType = response.headers.get('content-type') ?? '';
-          if (!contentType.includes('application/json')) {
-            console.error(
-              '[trpc] Non-JSON response received. Content-Type:',
+          const contentType = response.headers.get('content-type') ?? 'unknown';
+          if (!contentType.toLowerCase().includes('application/json')) {
+            const finalUrl =
+              typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
+            console.error('[trpc] TRPC route mismatch likely: received non-JSON response.', {
+              url: finalUrl,
               contentType,
-              'URL:',
-              typeof url === 'string' ? url : (url as URL).toString(),
-              '— check that the TRPC endpoint path matches the backend route.',
+            });
+            throw new Error(
+              `TRPC route mismatch likely: received non-JSON response. URL: ${finalUrl} Content-Type: ${contentType}`,
             );
           }
         }
+
         return response;
       },
     }),
