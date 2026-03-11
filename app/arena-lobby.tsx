@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Users, X, Play, Settings, Clock, Target, AlertCircle, Wifi, WifiOff, Copy, Check } from 'lucide-react-native';
+import { ArrowLeft, Users, X, Play, Settings, Clock, Target, AlertCircle, Wifi, WifiOff, Copy, Check, Swords } from 'lucide-react-native';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert, Animated } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -67,8 +67,9 @@ export default function ArenaLobbyScreen() {
     clearError,
   } = useArena();
 
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [codeCopied, setCodeCopied] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
+  const [showLeaveModal, setShowLeaveModal] = useState<boolean>(false);
+  const [codeCopied, setCodeCopied] = useState<boolean>(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const prevStatus = useRef<string | null>(null);
 
@@ -168,22 +169,18 @@ export default function ArenaLobbyScreen() {
   }, [canStartGame, room, decks, startGame]);
 
   const handleBack = useCallback(() => {
-    Alert.alert(
-      'Leave Room',
-      isHost ? 'Leaving will close the room for everyone.' : 'Are you sure you want to leave?',
-      [
-        { text: 'Stay', style: 'cancel' },
-        {
-          text: 'Leave',
-          style: 'destructive',
-          onPress: () => {
-            disconnect();
-            router.replace('/arena' as any);
-          },
-        },
-      ]
-    );
-  }, [isHost, disconnect, router]);
+    setShowLeaveModal(true);
+  }, []);
+
+  const handleCloseLeaveModal = useCallback(() => {
+    setShowLeaveModal(false);
+  }, []);
+
+  const handleConfirmLeave = useCallback(() => {
+    setShowLeaveModal(false);
+    disconnect();
+    router.replace('/arena' as any);
+  }, [disconnect, router]);
 
   const handleRoundsChange = useCallback((rounds: RoundsOption) => {
     updateSettings({ rounds });
@@ -241,10 +238,13 @@ export default function ArenaLobbyScreen() {
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7} testID="battle-lobby-back-button">
             <ArrowLeft color="#fff" size={24} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{isHost ? 'Your Lobby' : 'Battle Lobby'}</Text>
+          <View style={styles.headerTitleContainer}>
+            <Swords color="#fff" size={24} />
+            <Text style={styles.headerTitle}>{isHost ? 'Your Lobby' : 'Battle Lobby'}</Text>
+          </View>
           {isHost ? (
             <TouchableOpacity
               style={styles.settingsButton}
@@ -262,9 +262,17 @@ export default function ArenaLobbyScreen() {
 
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <TouchableOpacity
-            style={[styles.codeSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}
+            style={[
+              styles.codeSection,
+              styles.sectionSurface,
+              {
+                backgroundColor: isDark ? 'rgba(15, 23, 42, 0.84)' : 'rgba(255, 248, 240, 0.96)',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.38)',
+              },
+            ]}
             onPress={handleCopyCode}
             activeOpacity={0.7}
+            testID="battle-lobby-room-code-card"
           >
             <Text style={[styles.codeLabel, { color: theme.textSecondary }]}>Room Code</Text>
             <Text style={[styles.roomCode, { color: theme.text }]}>{room.code}</Text>
@@ -286,7 +294,16 @@ export default function ArenaLobbyScreen() {
             </Text>
           </TouchableOpacity>
 
-          <View style={[styles.playersSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
+          <View
+            style={[
+              styles.playersSection,
+              styles.sectionSurface,
+              {
+                backgroundColor: isDark ? 'rgba(15, 23, 42, 0.84)' : 'rgba(255, 248, 240, 0.96)',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.38)',
+              },
+            ]}
+          >
             <View style={styles.playersSectionHeader}>
               <View style={styles.playersHeaderLeft}>
                 <Users color={arenaAccent} size={20} />
@@ -384,7 +401,16 @@ export default function ArenaLobbyScreen() {
           </View>
 
           {isHost ? (
-            <View style={[styles.deckSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
+            <View
+              style={[
+                styles.deckSection,
+                styles.sectionSurface,
+                {
+                  backgroundColor: isDark ? 'rgba(15, 23, 42, 0.84)' : 'rgba(255, 248, 240, 0.96)',
+                  borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.38)',
+                },
+              ]}
+            >
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Select Deck</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.deckList}>
                 {decks.map((deck) => (
@@ -418,7 +444,16 @@ export default function ArenaLobbyScreen() {
               )}
             </View>
           ) : (
-            <View style={[styles.deckSection, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
+            <View
+              style={[
+                styles.deckSection,
+                styles.sectionSurface,
+                {
+                  backgroundColor: isDark ? 'rgba(15, 23, 42, 0.84)' : 'rgba(255, 248, 240, 0.96)',
+                  borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.38)',
+                },
+              ]}
+            >
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Selected Deck</Text>
               {room.deckName ? (
                 <View style={[styles.selectedDeckCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background }]}>
@@ -430,7 +465,16 @@ export default function ArenaLobbyScreen() {
             </View>
           )}
 
-          <View style={[styles.settingsPreview, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
+          <View
+            style={[
+              styles.settingsPreview,
+              styles.sectionSurface,
+              {
+                backgroundColor: isDark ? 'rgba(15, 23, 42, 0.84)' : 'rgba(255, 248, 240, 0.96)',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.38)',
+              },
+            ]}
+          >
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Battle Settings</Text>
             <View style={styles.settingsGrid}>
               <View style={styles.settingItem}>
@@ -480,6 +524,67 @@ export default function ArenaLobbyScreen() {
           )}
         </ScrollView>
       </SafeAreaView>
+
+      <Modal
+        visible={showLeaveModal}
+        animationType="fade"
+        transparent
+        onRequestClose={handleCloseLeaveModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.leaveModalShell}>
+            <LinearGradient
+              colors={isDark ? ['#0f172a', '#111827'] : ['#102033', '#08111d']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.leaveModalContent}
+            >
+              <View style={styles.leaveModalHeader}>
+                <Text style={styles.leaveModalTitle}>Leave Room</Text>
+                <Text style={styles.leaveModalDescription}>
+                  {isHost ? 'Leaving will close the room for everyone.' : 'Are you sure you want to leave this battle room?'}
+                </Text>
+              </View>
+
+              <View style={styles.leaveModalDivider} />
+
+              <View style={styles.leaveModalActions}>
+                <TouchableOpacity
+                  style={styles.leaveStayButton}
+                  onPress={handleCloseLeaveModal}
+                  activeOpacity={0.8}
+                  testID="battle-lobby-stay-button"
+                >
+                  <LinearGradient
+                    colors={['#60a5fa', '#3b82f6']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.leaveButtonGradient}
+                  >
+                    <Text style={styles.leaveStayButtonText}>Stay</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.leaveExitButton}
+                  onPress={handleConfirmLeave}
+                  activeOpacity={0.8}
+                  testID="battle-lobby-leave-button"
+                >
+                  <LinearGradient
+                    colors={['#fb7185', '#ef4444']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.leaveButtonGradient}
+                  >
+                    <Text style={styles.leaveExitButtonText}>Leave</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={showSettingsModal}
@@ -627,8 +732,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700' as const,
     color: '#fff',
   },
@@ -650,8 +760,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 40,
   },
+  sectionSurface: {
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.16,
+    shadowRadius: 22,
+    elevation: 8,
+  },
   codeSection: {
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 24,
     alignItems: 'center',
     marginBottom: 16,
@@ -682,7 +800,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic' as const,
   },
   playersSection: {
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 20,
     marginBottom: 16,
   },
@@ -836,7 +954,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   deckSection: {
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 20,
     marginBottom: 16,
   },
@@ -882,7 +1000,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic' as const,
   },
   settingsPreview: {
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 20,
     marginBottom: 20,
   },
@@ -959,10 +1077,73 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(6, 10, 18, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  leaveModalShell: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 26,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 22 },
+    shadowOpacity: 0.28,
+    shadowRadius: 32,
+    elevation: 18,
+  },
+  leaveModalContent: {
+    paddingTop: 26,
+    paddingHorizontal: 22,
+    paddingBottom: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(251, 146, 60, 0.24)',
+  },
+  leaveModalHeader: {
+    gap: 10,
+  },
+  leaveModalTitle: {
+    fontSize: 18,
+    fontWeight: '800' as const,
+    color: '#f8fafc',
+  },
+  leaveModalDescription: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: 'rgba(226, 232, 240, 0.85)',
+  },
+  leaveModalDivider: {
+    height: 1,
+    backgroundColor: 'rgba(148, 163, 184, 0.22)',
+    marginVertical: 18,
+  },
+  leaveModalActions: {
+    gap: 14,
+  },
+  leaveStayButton: {
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  leaveExitButton: {
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  leaveButtonGradient: {
+    minHeight: 58,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  leaveStayButtonText: {
+    fontSize: 16,
+    fontWeight: '800' as const,
+    color: '#fff',
+  },
+  leaveExitButtonText: {
+    fontSize: 16,
+    fontWeight: '800' as const,
+    color: '#fff',
   },
   settingsModalContent: {
     width: '100%',
@@ -970,6 +1151,13 @@ const styles = StyleSheet.create({
     maxHeight: '82%',
     borderRadius: 24,
     padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.16)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.22,
+    shadowRadius: 28,
+    elevation: 14,
   },
   settingsModalHeader: {
     flexDirection: 'row',
