@@ -15,19 +15,21 @@ import { logger } from '@/utils/logger';
 const ARENA_ACCENT_LIGHT = '#f97316';
 const ARENA_ACCENT_DARK = '#f59e0b';
 
-type RoundsOption = 5 | 10 | 20;
-type TimerOption = 0 | 5 | 10;
+type RoundsOption = 5 | 10 | 15 | 20;
+type TimerOption = 0 | 10 | 15 | 20;
 
 const ROUND_OPTIONS: { value: RoundsOption; label: string }[] = [
   { value: 5, label: '5' },
   { value: 10, label: '10' },
+  { value: 15, label: '15' },
   { value: 20, label: '20' },
 ];
 
 const TIMER_OPTIONS: { value: TimerOption; label: string }[] = [
   { value: 0, label: 'Off' },
-  { value: 5, label: '5s' },
   { value: 10, label: '10s' },
+  { value: 15, label: '15s' },
+  { value: 20, label: '20s' },
 ];
 
 const MAX_LOBBY_SLOTS = 6;

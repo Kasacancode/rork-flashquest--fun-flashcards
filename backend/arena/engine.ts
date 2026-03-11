@@ -120,7 +120,7 @@ export function createNewRoom(hostName: string, code: string, preferredIdentityK
     }],
     deckId: null,
     deckName: null,
-    settings: { rounds: 10, timerSeconds: 5, showExplanationsAtEnd: true },
+    settings: { rounds: 10, timerSeconds: 10, showExplanationsAtEnd: true },
     status: 'lobby',
     game: null,
     createdAt: now,
