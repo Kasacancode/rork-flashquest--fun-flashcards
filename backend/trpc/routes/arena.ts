@@ -6,10 +6,10 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { roomRepository } from "../../arena/repository.js";
-import * as engine from "../../arena/engine.js";
-import { createTRPCRouter, publicProcedure } from "../create-context.js";
-import { isRoomCodeValid, normalizeRoomCode, ROOM_CODE_MAX_LENGTH, ROOM_CODE_MIN_LENGTH } from "../../../utils/arenaInvite.js";
+import { roomRepository } from '../../arena/repository';
+import * as engine from '../../arena/engine';
+import { createTRPCRouter, publicProcedure } from '../create-context';
+import { isRoomCodeValid, normalizeRoomCode, ROOM_CODE_MAX_LENGTH, ROOM_CODE_MIN_LENGTH } from '../../../utils/arenaInvite';
 
 async function requireRoom(code: string) {
   const normalizedCode = normalizeRoomCode(code);

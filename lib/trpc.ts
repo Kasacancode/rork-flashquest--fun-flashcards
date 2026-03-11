@@ -1,28 +1,28 @@
-import { httpLink } from "@trpc/client";
-import { createTRPCReact } from "@trpc/react-query";
-import { Platform } from "react-native";
-import superjson from "superjson";
+import { httpLink } from '@trpc/client';
+import { createTRPCReact } from '@trpc/react-query';
+import { Platform } from 'react-native';
+import superjson from 'superjson';
 
-import type { AppRouter } from "@/backend/trpc/app-router";
+type AppRouter = typeof import('@/backend/trpc/app-router').appRouter;
 
 export const trpc = createTRPCReact<AppRouter>();
 
-const PROJECT_ID_FALLBACK = "7xpegtpthikn3ezzq9zt0";
+const PROJECT_ID_FALLBACK = '7xpegtpthikn3ezzq9zt0';
 
-const normalizeBaseUrl = (value: string): string => value.replace(/\/+$/, "");
+const normalizeUrl = (value: string): string => value.replace(/\/+$/, '');
 
 const isHttpUrl = (value: string): boolean => /^https?:\/\//i.test(value);
 
 const getWindowOrigin = (): string | null => {
-  if (Platform.OS !== "web") {
+  if (Platform.OS !== 'web') {
     return null;
   }
 
-  if (typeof window === "undefined" || !window.location?.origin) {
+  if (typeof window === 'undefined' || !window.location?.origin) {
     return null;
   }
 
-  return normalizeBaseUrl(window.location.origin);
+  return normalizeUrl(window.location.origin);
 };
 
 const buildProjectBaseUrl = (): string => {
@@ -41,32 +41,52 @@ const getCandidateBaseUrls = (): string[] => {
   }
 
   if (envUrl && isHttpUrl(envUrl)) {
-    candidates.push(normalizeBaseUrl(envUrl));
+    candidates.push(normalizeUrl(envUrl));
   }
 
-  if (projectBaseUrl) {
-    candidates.push(projectBaseUrl);
+  if (projectBaseUrl && isHttpUrl(projectBaseUrl)) {
+    candidates.push(normalizeUrl(projectBaseUrl));
   }
 
-  return Array.from(new Set(candidates.map(normalizeBaseUrl).filter(Boolean)));
+  return Array.from(new Set(candidates));
+};
+
+const expandTrpcUrls = (baseUrl: string): string[] => {
+  const normalizedBaseUrl = normalizeUrl(baseUrl);
+
+  if (normalizedBaseUrl.endsWith('/api/trpc')) {
+    const rootBaseUrl = normalizedBaseUrl.slice(0, -'/api/trpc'.length);
+    return [normalizedBaseUrl, `${rootBaseUrl}/trpc`];
+  }
+
+  if (normalizedBaseUrl.endsWith('/trpc')) {
+    const rootBaseUrl = normalizedBaseUrl.slice(0, -'/trpc'.length);
+    return [normalizedBaseUrl, `${rootBaseUrl}/api/trpc`];
+  }
+
+  if (normalizedBaseUrl.endsWith('/api')) {
+    const rootBaseUrl = normalizedBaseUrl.slice(0, -'/api'.length);
+    return [`${normalizedBaseUrl}/trpc`, `${rootBaseUrl}/api/trpc`, `${rootBaseUrl}/trpc`];
+  }
+
+  return [`${normalizedBaseUrl}/api/trpc`, `${normalizedBaseUrl}/trpc`];
 };
 
 const getCandidateTrpcUrls = (): string[] => {
-  const candidateBaseUrls = getCandidateBaseUrls();
-  const absoluteUrls = candidateBaseUrls.map((baseUrl) => `${baseUrl}/api/trpc`);
+  const urls = getCandidateBaseUrls().flatMap(expandTrpcUrls);
 
-  if (Platform.OS === "web") {
-    return Array.from(new Set(["/api/trpc", ...absoluteUrls]));
+  if (Platform.OS === 'web') {
+    urls.unshift('/api/trpc', '/trpc');
   }
 
-  return absoluteUrls;
+  return Array.from(new Set(urls.map(normalizeUrl).filter(Boolean)));
 };
 
 const trpcUrls = getCandidateTrpcUrls();
-const primaryTrpcUrl = trpcUrls[0] ?? "/api/trpc";
+const primaryTrpcUrl = trpcUrls[0] ?? '/api/trpc';
 
 const resilientFetch: typeof fetch = async (input, init) => {
-  const requestedUrl = typeof input === "string"
+  const requestedUrl = typeof input === 'string'
     ? input
     : input instanceof URL
       ? input.toString()
@@ -83,32 +103,32 @@ const resilientFetch: typeof fetch = async (input, init) => {
     const hasFallback = index < orderedUrls.length - 1;
 
     try {
-      console.log("[trpc] Requesting", candidateUrl);
+      console.log('[trpc] Requesting', candidateUrl);
       const response = await globalThis.fetch(candidateUrl, init);
 
       if ((response.status === 404 || response.status >= 500) && hasFallback) {
-        console.warn("[trpc] Retrying with fallback after response", response.status, "from", candidateUrl);
+        console.warn('[trpc] Retrying with fallback after response', response.status, 'from', candidateUrl);
         continue;
       }
 
       if (!response.ok) {
-        console.warn("[trpc] Non-success response", response.status, "from", candidateUrl);
+        console.warn('[trpc] Non-success response', response.status, 'from', candidateUrl);
       }
 
       return response;
     } catch (error) {
       lastError = error;
-      console.warn("[trpc] Request failed for", candidateUrl, error);
+      console.warn('[trpc] Request failed for', candidateUrl, error);
     }
   }
 
   throw lastError instanceof Error
     ? lastError
-    : new Error("Failed to reach the FlashQuest battle service");
+    : new Error('Failed to reach the FlashQuest battle service');
 };
 
-console.log("[trpc] Candidate URLs:", trpcUrls);
-console.log("[trpc] Primary URL:", primaryTrpcUrl);
+console.log('[trpc] Candidate URLs:', trpcUrls);
+console.log('[trpc] Primary URL:', primaryTrpcUrl);
 
 export const trpcClient = trpc.createClient({
   links: [
