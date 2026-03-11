@@ -25,11 +25,14 @@ export const arenaRouter = createTRPCRouter({
   }),
 
   initRoom: publicProcedure
-    .input(z.object({ name: z.string().min(1).max(20) }))
+    .input(z.object({
+      name: z.string().min(1).max(20),
+      preferredIdentityKey: z.string().optional(),
+    }))
     .mutation(async ({ input }) => {
       console.log("[Arena] initRoom:", input.name);
       const code = await roomRepository.generateUniqueCode();
-      const { room, playerId } = engine.createNewRoom(input.name, code);
+      const { room, playerId } = engine.createNewRoom(input.name, code, input.preferredIdentityKey);
       const saved = await roomRepository.createRoom(room);
       return { roomCode: saved.code, playerId, room: engine.sanitizeRoom(saved) };
     }),
@@ -38,11 +41,12 @@ export const arenaRouter = createTRPCRouter({
     .input(z.object({
       roomCode: z.string().length(6),
       playerName: z.string().min(1).max(20),
+      preferredIdentityKey: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
       console.log("[Arena] joinRoom:", input.playerName, "->", input.roomCode);
       const room = await requireRoom(input.roomCode);
-      const result = engine.joinRoom(room, input.playerName);
+      const result = engine.joinRoom(room, input.playerName, input.preferredIdentityKey);
       if (!result) {
         throw new TRPCError({
           code: "NOT_FOUND",

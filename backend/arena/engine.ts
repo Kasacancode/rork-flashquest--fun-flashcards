@@ -31,6 +31,7 @@ import {
   REVEAL_DURATION_MS,
   NO_TIMER_TIMEOUT_MS,
 } from './types';
+import { DEFAULT_AVATAR_IDENTITY, getAvatarIdentityByKey } from '../../constants/avatar';
 
 const CORRECT_BASE_POINTS = 100;
 const MAX_SPEED_BONUS_POINTS = 50;
@@ -45,7 +46,7 @@ function normalizeAnswer(s: string): string {
 }
 
 function getIdentityByKey(identityKey: string | undefined): PlayerIdentity | null {
-  return PLAYER_IDENTITIES.find((identity) => identity.key === identityKey) ?? null;
+  return getAvatarIdentityByKey(identityKey);
 }
 
 function resolvePlayerIdentity(player: RoomPlayer, index: number, usedKeys: Set<string>): RoomPlayer {
@@ -74,8 +75,14 @@ function normalizeRoomPlayers(room: Room): void {
   room.players = getResolvedPlayers(room.players);
 }
 
-function getNextAvailableIdentity(room: Room): PlayerIdentity | null {
+function getNextAvailableIdentity(room: Room, preferredIdentityKey?: string): PlayerIdentity | null {
   const usedKeys = new Set(getResolvedPlayers(room.players).map((player) => player.identityKey));
+  const preferredIdentity = getIdentityByKey(preferredIdentityKey);
+
+  if (preferredIdentity && !usedKeys.has(preferredIdentity.key)) {
+    return preferredIdentity;
+  }
+
   return PLAYER_IDENTITIES.find((identity) => !usedKeys.has(identity.key)) ?? null;
 }
 
@@ -93,10 +100,10 @@ function calculateCorrectAnswerPoints(room: Room, timeToAnswerMs: number): numbe
 
 // --- Room creation ---
 
-export function createNewRoom(hostName: string, code: string): { room: Room; playerId: string } {
+export function createNewRoom(hostName: string, code: string, preferredIdentityKey?: string): { room: Room; playerId: string } {
   const playerId = generatePlayerId();
   const now = Date.now();
-  const hostIdentity = PLAYER_IDENTITIES[0]!;
+  const hostIdentity = getIdentityByKey(preferredIdentityKey) ?? DEFAULT_AVATAR_IDENTITY;
 
   const room: Room = {
     code,
@@ -131,6 +138,7 @@ export function createNewRoom(hostName: string, code: string): { room: Room; pla
 export function joinRoom(
   room: Room,
   playerName: string,
+  preferredIdentityKey?: string,
 ): { player: RoomPlayer; room: Room } | null {
   normalizeRoomPlayers(room);
 
@@ -143,7 +151,7 @@ export function joinRoom(
     return null;
   }
 
-  const nextIdentity = getNextAvailableIdentity(room);
+  const nextIdentity = getNextAvailableIdentity(room, preferredIdentityKey);
   if (!nextIdentity) {
     console.log(`[Engine] Cannot join room ${room.code}: no player identities left`);
     return null;

@@ -7,13 +7,14 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { ArenaProvider } from '@/context/ArenaContext';
+import { AvatarProvider } from '@/context/AvatarContext';
 import { FlashQuestProvider } from '@/context/FlashQuestContext';
 import { PerformanceProvider } from '@/context/PerformanceContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { trpc, trpcClient } from '@/lib/trpc';
 
 try {
-  SplashScreen.preventAutoHideAsync();
+  void SplashScreen.preventAutoHideAsync();
 } catch (e) {
   console.warn('[Layout] SplashScreen.preventAutoHideAsync failed:', e);
 }
@@ -68,15 +69,17 @@ export default function RootLayout() {
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
-            <FlashQuestProvider>
-              <PerformanceProvider>
-                <ArenaProvider>
-                  <GestureHandlerRootView style={{ flex: 1 }}>
-                    <RootLayoutNav />
-                  </GestureHandlerRootView>
-                </ArenaProvider>
-              </PerformanceProvider>
-            </FlashQuestProvider>
+            <AvatarProvider>
+              <FlashQuestProvider>
+                <PerformanceProvider>
+                  <ArenaProvider>
+                    <GestureHandlerRootView style={{ flex: 1 }}>
+                      <RootLayoutNav />
+                    </GestureHandlerRootView>
+                  </ArenaProvider>
+                </PerformanceProvider>
+              </FlashQuestProvider>
+            </AvatarProvider>
           </ThemeProvider>
         </QueryClientProvider>
       </trpc.Provider>

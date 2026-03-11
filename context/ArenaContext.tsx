@@ -3,6 +3,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 
+import { useAvatar } from '@/context/AvatarContext';
 import { trpc } from '@/lib/trpc';
 import type { ArenaLeaderboardEntry } from '@/types/flashcard';
 import { logger } from '@/utils/logger';
@@ -18,6 +19,7 @@ const HEARTBEAT_INTERVAL_MS = 3000;
 
 export const [ArenaProvider, useArena] = createContextHook(() => {
   const queryClient = useQueryClient();
+  const { selectedIdentityKey } = useAvatar();
 
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
@@ -246,8 +248,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     lastErrorMsgRef.current = null;
     connectedAtRef.current = Date.now();
     AsyncStorage.setItem(PLAYER_NAME_KEY, name).catch(() => {});
-    createRoomMut.mutate({ name });
-  }, [createRoomMut]);
+    createRoomMut.mutate({ name, preferredIdentityKey: selectedIdentityKey });
+  }, [createRoomMut, selectedIdentityKey]);
 
   const joinRoom = useCallback((code: string, name: string) => {
     setPlayerName(name);
@@ -256,8 +258,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     lastErrorMsgRef.current = null;
     connectedAtRef.current = Date.now();
     AsyncStorage.setItem(PLAYER_NAME_KEY, name).catch(() => {});
-    joinRoomMut.mutate({ roomCode: code, playerName: name });
-  }, [joinRoomMut]);
+    joinRoomMut.mutate({ roomCode: code, playerName: name, preferredIdentityKey: selectedIdentityKey });
+  }, [joinRoomMut, selectedIdentityKey]);
 
   const disconnect = useCallback(() => {
     if (roomCode && playerId) {

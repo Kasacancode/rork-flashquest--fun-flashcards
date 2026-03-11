@@ -5,6 +5,8 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Modal, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AVATAR_COLORS, AVATAR_SUITS } from '@/constants/avatar';
+import { useAvatar } from '@/context/AvatarContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { Theme } from '@/constants/colors';
@@ -12,22 +14,6 @@ import { Theme } from '@/constants/colors';
 const { width } = Dimensions.get('window');
 
 type TabType = 'overview' | 'achievements' | 'avatar';
-type SuitType = 'spades' | 'hearts' | 'diamonds' | 'clubs';
-type ColorType = 'red' | 'blue' | 'orange' | 'green';
-
-const SUITS: { id: SuitType; name: string; symbol: string }[] = [
-  { id: 'spades', name: 'Spades', symbol: '♠' },
-  { id: 'hearts', name: 'Hearts', symbol: '♥' },
-  { id: 'diamonds', name: 'Diamonds', symbol: '♦' },
-  { id: 'clubs', name: 'Clubs', symbol: '♣' },
-];
-
-const AVATAR_COLORS: { id: ColorType; name: string; value: string; light: string }[] = [
-  { id: 'red', name: 'Red', value: '#E53E3E', light: '#FED7D7' },
-  { id: 'blue', name: 'Blue', value: '#3B82F6', light: '#DBEAFE' },
-  { id: 'orange', name: 'Orange', value: '#F97316', light: '#FFEDD5' },
-  { id: 'green', name: 'Green', value: '#22C55E', light: '#DCFCE7' },
-];
 
 const ACHIEVEMENTS = [
   {
@@ -76,17 +62,16 @@ export default function ProfilePage() {
   const router = useRouter();
   const { stats, decks } = useFlashQuest();
   const { theme, isDark, toggleTheme } = useTheme();
+  const { selectedSuit, selectedColor, setSelectedSuit, setSelectedColor } = useAvatar();
   const [activeTab, setActiveTab] = useState<TabType>('achievements');
-  const [selectedSuit, setSelectedSuit] = useState<SuitType>('spades');
-  const [selectedColor, setSelectedColor] = useState<ColorType>('blue');
   const [showSettings, setShowSettings] = useState<boolean>(false);
 
   const level = Math.floor(stats.totalScore / 300) + 1;
   const xpProgress = stats.totalScore % 300;
   const xpForNextLevel = 300;
 
-  const selectedSuitData = SUITS.find((s) => s.id === selectedSuit) || SUITS[0];
-  const selectedColorData = AVATAR_COLORS.find((c) => c.id === selectedColor) || AVATAR_COLORS[1];
+  const selectedSuitData = AVATAR_SUITS.find((s) => s.id === selectedSuit) ?? AVATAR_SUITS[0]!;
+  const selectedColorData = AVATAR_COLORS.find((c) => c.id === selectedColor) ?? AVATAR_COLORS[1]!;
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const profileGradient = useMemo(
     () => (isDark ? ['#4338CA', '#7C3AED'] as const : ['#667eea', '#F093FB'] as const),
@@ -420,7 +405,7 @@ export default function ProfilePage() {
 
               <Text style={styles.sectionTitle}>Choose Your Suit</Text>
               <View style={styles.suitGrid}>
-                {SUITS.map((suit) => {
+                {AVATAR_SUITS.map((suit) => {
                   const isSelected = selectedSuit === suit.id;
                   return (
                     <TouchableOpacity
@@ -432,6 +417,7 @@ export default function ProfilePage() {
                       ]}
                       onPress={() => setSelectedSuit(suit.id)}
                       activeOpacity={0.75}
+                      testID={`profile-avatar-suit-${suit.id}`}
                     >
                       <Text style={[
                         styles.suitSymbol,
@@ -470,6 +456,7 @@ export default function ProfilePage() {
                       ]}
                       onPress={() => setSelectedColor(col.id)}
                       activeOpacity={0.8}
+                      testID={`profile-avatar-color-${col.id}`}
                     >
                       {isSelected && (
                         <Check color="#fff" size={18} strokeWidth={3} />
