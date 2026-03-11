@@ -31,12 +31,28 @@ import {
   NO_TIMER_TIMEOUT_MS,
 } from './types';
 
+const CORRECT_BASE_POINTS = 100;
+const MAX_SPEED_BONUS_POINTS = 50;
+const NO_TIMER_SPEED_BONUS_WINDOW_MS = 15000;
+
 function generatePlayerId(): string {
   return `p_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
 function normalizeAnswer(s: string): string {
   return s.toLowerCase().trim().replace(/[^a-z0-9\s]/g, '');
+}
+
+function calculateCorrectAnswerPoints(room: Room, timeToAnswerMs: number): number {
+  const bonusWindowMs = room.settings.timerSeconds > 0
+    ? room.settings.timerSeconds * 1000
+    : NO_TIMER_SPEED_BONUS_WINDOW_MS;
+  const clampedElapsedMs = Math.max(0, Math.min(timeToAnswerMs, bonusWindowMs));
+  const speedRatio = 1 - (clampedElapsedMs / bonusWindowMs);
+  const speedBonus = Math.round(MAX_SPEED_BONUS_POINTS * speedRatio);
+
+  // Score = 100 base points for any correct answer + up to 50 bonus points for faster answers.
+  return CORRECT_BASE_POINTS + speedBonus;
 }
 
 // --- Room creation ---
@@ -208,6 +224,7 @@ export function submitAnswer(
 
   const isCorrect = normalizeAnswer(selectedOption) === normalizeAnswer(question.correctAnswer);
   const timeToAnswerMs = Date.now() - room.game.questionStartedAt;
+  const awardedPoints = isCorrect ? calculateCorrectAnswerPoints(room, timeToAnswerMs) : 0;
 
   if (!room.game.answers[playerId]) room.game.answers[playerId] = {};
   room.game.answers[playerId][questionIndex] = { selectedOption, isCorrect, timeToAnswerMs };
@@ -216,7 +233,7 @@ export function submitAnswer(
   if (s) {
     if (isCorrect) {
       s.correct++;
-      s.points++;
+      s.points += awardedPoints;
       s.currentStreak++;
       s.bestStreak = Math.max(s.bestStreak, s.currentStreak);
     } else {
