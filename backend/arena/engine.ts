@@ -73,7 +73,7 @@ export function createNewRoom(hostName: string, code: string): { room: Room; pla
     }],
     deckId: null,
     deckName: null,
-    settings: { rounds: 10, timerSeconds: 0, showExplanationsAtEnd: true },
+    settings: { rounds: 10, timerSeconds: 5, showExplanationsAtEnd: true },
     status: 'lobby',
     game: null,
     createdAt: now,

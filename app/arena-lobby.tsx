@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Users, X, Play, Settings, Clock, Target, AlertCircle, Wifi, WifiOff, Copy, Check } from 'lucide-react-native';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert, Animated } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,6 +17,18 @@ const ARENA_ACCENT_DARK = '#f59e0b';
 
 type RoundsOption = 5 | 10 | 20;
 type TimerOption = 0 | 5 | 10;
+
+const ROUND_OPTIONS: Array<{ value: RoundsOption; label: string }> = [
+  { value: 5, label: '5' },
+  { value: 10, label: '10' },
+  { value: 20, label: '20' },
+];
+
+const TIMER_OPTIONS: Array<{ value: TimerOption; label: string }> = [
+  { value: 0, label: 'Off' },
+  { value: 5, label: '5s' },
+  { value: 10, label: '10s' },
+];
 
 export default function ArenaLobbyScreen() {
   const router = useRouter();
@@ -50,13 +62,13 @@ export default function ArenaLobbyScreen() {
       router.replace('/arena-session' as any);
     }
     prevStatus.current = room?.status ?? null;
-  }, [room?.status]);
+  }, [room?.status, router]);
 
   useEffect(() => {
     if (!roomCode && !room) {
       router.replace('/arena' as any);
     }
-  }, [roomCode, room]);
+  }, [roomCode, room, router]);
 
   useEffect(() => {
     if (connectionError) {
@@ -70,7 +82,7 @@ export default function ArenaLobbyScreen() {
         },
       ]);
     }
-  }, [connectionError, clearError]);
+  }, [connectionError, clearError, router]);
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -203,7 +215,13 @@ export default function ArenaLobbyScreen() {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{isHost ? 'Your Lobby' : 'Battle Lobby'}</Text>
           {isHost ? (
-            <TouchableOpacity style={styles.settingsButton} onPress={() => setShowSettingsModal(true)} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.settingsButton}
+              onPress={() => setShowSettingsModal(true)}
+              activeOpacity={0.7}
+              accessibilityLabel="Open battle settings"
+              testID="battle-lobby-settings-button"
+            >
               <Settings color="#fff" size={22} />
             </TouchableOpacity>
           ) : (
@@ -354,20 +372,26 @@ export default function ArenaLobbyScreen() {
           )}
 
           <View style={[styles.settingsPreview, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.95)' : theme.cardBackground }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Game Settings</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Battle Settings</Text>
             <View style={styles.settingsGrid}>
               <View style={styles.settingItem}>
                 <Target color={theme.textSecondary} size={16} />
-                <Text style={[styles.settingLabel, { color: theme.textSecondary }]}>Rounds</Text>
+                <Text style={[styles.settingLabel, { color: theme.textSecondary }]}>Questions</Text>
                 <Text style={[styles.settingValue, { color: theme.text }]}>{room.settings.rounds}</Text>
               </View>
               <View style={styles.settingItem}>
                 <Clock color={theme.textSecondary} size={16} />
-                <Text style={[styles.settingLabel, { color: theme.textSecondary }]}>Timer</Text>
+                <Text style={[styles.settingLabel, { color: theme.textSecondary }]}>Answer Time</Text>
                 <Text style={[styles.settingValue, { color: theme.text }]}>
                   {room.settings.timerSeconds === 0 ? 'Off' : `${room.settings.timerSeconds}s`}
                 </Text>
               </View>
+            </View>
+            <View style={styles.settingSummaryRow}>
+              <Text style={[styles.settingSummaryLabel, { color: theme.textSecondary }]}>Show explanations after match</Text>
+              <Text style={[styles.settingSummaryValue, { color: room.settings.showExplanationsAtEnd ? arenaAccent : theme.textSecondary }]}>
+                {room.settings.showExplanationsAtEnd ? 'On' : 'Off'}
+              </Text>
             </View>
           </View>
 
@@ -405,9 +429,12 @@ export default function ArenaLobbyScreen() {
         onRequestClose={() => setShowSettingsModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.settingsModalContent, { backgroundColor: isDark ? '#1e293b' : theme.cardBackground }]}>
+          <View
+            style={[styles.settingsModalContent, { backgroundColor: isDark ? '#1e293b' : theme.cardBackground }]}
+            testID="battle-settings-modal"
+          >
             <View style={styles.settingsModalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>Game Settings</Text>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>Battle Settings</Text>
               <TouchableOpacity onPress={() => setShowSettingsModal(false)}>
                 <X color={theme.textSecondary} size={24} />
               </TouchableOpacity>
@@ -417,22 +444,22 @@ export default function ArenaLobbyScreen() {
               <View style={styles.settingRow}>
                 <View style={styles.settingLabelRow}>
                   <Target color={theme.textSecondary} size={18} />
-                  <Text style={[styles.settingRowLabel, { color: theme.text }]}>Rounds</Text>
+                  <Text style={[styles.settingRowLabel, { color: theme.text }]}>Questions</Text>
                 </View>
                 <View style={styles.optionGroup}>
-                  {([5, 10, 20] as RoundsOption[]).map((val) => (
+                  {ROUND_OPTIONS.map((option) => (
                     <TouchableOpacity
-                      key={val}
+                      key={option.value}
                       style={[
                         styles.optionButton,
                         { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : theme.background },
-                        room.settings.rounds === val && { backgroundColor: arenaAccent },
+                        room.settings.rounds === option.value && { backgroundColor: arenaAccent },
                       ]}
-                      onPress={() => handleSettingsUpdate('rounds', val)}
+                      onPress={() => handleSettingsUpdate('rounds', option.value)}
                       activeOpacity={0.7}
                     >
-                      <Text style={[styles.optionText, { color: room.settings.rounds === val ? '#fff' : theme.text }]}>
-                        {val}
+                      <Text style={[styles.optionText, { color: room.settings.rounds === option.value ? '#fff' : theme.text }]}> 
+                        {option.label}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -442,22 +469,22 @@ export default function ArenaLobbyScreen() {
               <View style={styles.settingRow}>
                 <View style={styles.settingLabelRow}>
                   <Clock color={theme.textSecondary} size={18} />
-                  <Text style={[styles.settingRowLabel, { color: theme.text }]}>Timer (sec)</Text>
+                  <Text style={[styles.settingRowLabel, { color: theme.text }]}>Answer Time</Text>
                 </View>
                 <View style={styles.optionGroup}>
-                  {([0, 5, 10] as TimerOption[]).map((val) => (
+                  {TIMER_OPTIONS.map((option) => (
                     <TouchableOpacity
-                      key={val}
+                      key={option.value}
                       style={[
                         styles.optionButton,
                         { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : theme.background },
-                        room.settings.timerSeconds === val && { backgroundColor: arenaAccent },
+                        room.settings.timerSeconds === option.value && { backgroundColor: arenaAccent },
                       ]}
-                      onPress={() => handleSettingsUpdate('timerSeconds', val)}
+                      onPress={() => handleSettingsUpdate('timerSeconds', option.value)}
                       activeOpacity={0.7}
                     >
-                      <Text style={[styles.optionText, { color: room.settings.timerSeconds === val ? '#fff' : theme.text }]}>
-                        {val === 0 ? 'Off' : val}
+                      <Text style={[styles.optionText, { color: room.settings.timerSeconds === option.value ? '#fff' : theme.text }]}>
+                        {option.label}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -469,9 +496,14 @@ export default function ArenaLobbyScreen() {
                 onPress={() => handleSettingsUpdate('showExplanationsAtEnd', !room.settings.showExplanationsAtEnd)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.settingRowLabel, { color: theme.text }]}>Show Explanations at End</Text>
-                <View style={[styles.toggle, { backgroundColor: room.settings.showExplanationsAtEnd ? arenaAccent : theme.border }]}>
-                  <View style={[styles.toggleKnob, { transform: [{ translateX: room.settings.showExplanationsAtEnd ? 20 : 2 }] }]} />
+                <Text style={[styles.settingRowLabel, { color: theme.text }]}>Show explanations after match</Text>
+                <View style={styles.toggleGroup}>
+                  <Text style={[styles.toggleStateText, { color: room.settings.showExplanationsAtEnd ? arenaAccent : theme.textSecondary }]}>
+                    {room.settings.showExplanationsAtEnd ? 'On' : 'Off'}
+                  </Text>
+                  <View style={[styles.toggle, { backgroundColor: room.settings.showExplanationsAtEnd ? arenaAccent : theme.border }]}>
+                    <View style={[styles.toggleKnob, { transform: [{ translateX: room.settings.showExplanationsAtEnd ? 20 : 2 }] }]} />
+                  </View>
                 </View>
               </TouchableOpacity>
             </ScrollView>
@@ -757,6 +789,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700' as const,
   },
+  settingSummaryRow: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(148, 163, 184, 0.2)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  settingSummaryLabel: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    flex: 1,
+  },
+  settingSummaryValue: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+  },
   startButton: {
     borderRadius: 18,
     overflow: 'hidden',
@@ -851,6 +902,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 20,
+  },
+  toggleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  toggleStateText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
   },
   toggle: {
     width: 48,
