@@ -156,6 +156,7 @@ export const arenaRouter = createTRPCRouter({
     }))
     .mutation(async ({ input }) => {
       const room = await requireRoom(input.roomCode);
+      engine.tick(room);
       const result = engine.submitAnswer(room, input.playerId, input.questionIndex, input.selectedOption);
       if (!result) {
         throw new TRPCError({
@@ -172,6 +173,7 @@ export const arenaRouter = createTRPCRouter({
     .input(z.object({ roomCode: z.string(), playerId: z.string() }))
     .mutation(async ({ input }) => {
       const room = await requireRoom(input.roomCode);
+      engine.tick(room);
       const result = engine.advanceQuestion(room, input.playerId);
       if (!result) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot advance question" });
@@ -203,13 +205,7 @@ export const arenaRouter = createTRPCRouter({
   heartbeat: publicProcedure
     .input(z.object({ roomCode: z.string(), playerId: z.string() }))
     .mutation(async ({ input }) => {
-      const room = await roomRepository.updatePlayerHeartbeat(input.roomCode, input.playerId);
-      if (!room) return { success: true };
-
-      const changed = engine.tick(room);
-      if (changed) {
-        await roomRepository.saveRoom(room);
-      }
+      await roomRepository.updatePlayerHeartbeat(input.roomCode, input.playerId);
       return { success: true };
     }),
 });

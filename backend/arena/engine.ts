@@ -2,6 +2,13 @@
 // Pure game logic. Functions take a Room, apply rules, return modified Room or null.
 // No persistence concerns here — the TRPC router handles load/save via repository.
 // This separation makes future websocket support straightforward.
+//
+// Phase progression model:
+//   - Time-based transitions (timer expiry, reveal advance) are NOT driven by heartbeat.
+//   - Mutations that depend on accurate phase call tick() to persist pending transitions.
+//   - sanitizeRoom() derives the effective phase from timestamps for read-only display,
+//     so clients always see the correct phase even between mutations.
+//   - getRoomState is strictly read-only. heartbeat only updates presence/TTL.
 
 import type {
   Room,
@@ -258,7 +265,8 @@ export function resetRoom(room: Room, playerId: string): Room | null {
 }
 
 // --- Tick: advance game phases based on time ---
-// Called during heartbeat and after submitAnswer to drive phase transitions.
+// Called on MUTATION paths only (submitAnswer, nextQuestion) to persist pending transitions.
+// Never called from read paths (getRoomState) or heartbeat.
 // Returns true if room state was mutated and needs to be saved.
 
 export function tick(room: Room): boolean {
@@ -367,8 +375,77 @@ function checkRevealAdvance(room: Room): boolean {
   return true;
 }
 
+// --- Derive effective phase from timestamps (read-only, no mutation) ---
+// Computes what phase the game should be in based on persisted timestamps.
+// Used by sanitizeRoom so clients see accurate state without requiring mutations.
+
+interface DerivedPhaseResult {
+  phase: 'question' | 'reveal' | 'finished';
+  currentQuestionIndex: number;
+  revealStartedAt: number | null;
+  questionStartedAt: number;
+}
+
+function deriveEffectivePhase(room: Room): DerivedPhaseResult {
+  const g = room.game!;
+  let phase = g.phase;
+  let qi = g.currentQuestionIndex;
+  let revealStartedAt = g.revealStartedAt;
+  let questionStartedAt = g.questionStartedAt;
+  const now = Date.now();
+
+  const maxIterations = g.questions.length * 2;
+  let iterations = 0;
+
+  while (iterations++ < maxIterations) {
+    if (phase === 'question') {
+      const timerMs = room.settings.timerSeconds * 1000;
+      const elapsed = now - questionStartedAt;
+      const timerExpired = room.settings.timerSeconds > 0 && elapsed >= timerMs;
+      const allAnswered = room.players.every(p => g.answers[p.id]?.[qi] !== undefined);
+      const noTimerTimeout = room.settings.timerSeconds === 0 && elapsed >= NO_TIMER_TIMEOUT_MS;
+
+      if (timerExpired || allAnswered || noTimerTimeout) {
+        phase = 'reveal';
+        if (!revealStartedAt) {
+          revealStartedAt = timerExpired
+            ? questionStartedAt + timerMs
+            : noTimerTimeout
+              ? questionStartedAt + NO_TIMER_TIMEOUT_MS
+              : now;
+        }
+      } else {
+        break;
+      }
+    }
+
+    if (phase === 'reveal' && revealStartedAt) {
+      if ((now - revealStartedAt) >= REVEAL_DURATION_MS) {
+        const nextIdx = qi + 1;
+        if (nextIdx >= g.questions.length) {
+          phase = 'finished';
+          break;
+        } else {
+          qi = nextIdx;
+          questionStartedAt = revealStartedAt + REVEAL_DURATION_MS;
+          revealStartedAt = null;
+          phase = 'question';
+        }
+      } else {
+        break;
+      }
+    }
+
+    if (phase === 'finished') break;
+  }
+
+  return { phase, currentQuestionIndex: qi, revealStartedAt, questionStartedAt };
+}
+
 // --- Sanitize room for client consumption ---
 // Hides correct answers until reveal/finished phase.
+// Derives effective phase from timestamps so clients see accurate state
+// even when no mutation has persisted the transition yet.
 
 export function sanitizeRoom(room: Room): SanitizedRoom {
   const now = Date.now();
@@ -397,26 +474,32 @@ export function sanitizeRoom(room: Room): SanitizedRoom {
   }
 
   const g = room.game;
-  const qi = g.currentQuestionIndex;
-  const q = g.questions[qi];
-  const isRevealOrDone = g.phase === 'reveal' || g.phase === 'finished';
+  const derived = deriveEffectivePhase(room);
+  const effectivePhase = derived.phase;
+  const effectiveQi = derived.currentQuestionIndex;
+  const effectiveRevealStartedAt = derived.revealStartedAt;
+  const effectiveQuestionStartedAt = derived.questionStartedAt;
+
+  const q = g.questions[effectiveQi];
+  const isRevealOrDone = effectivePhase === 'reveal' || effectivePhase === 'finished';
+  const effectiveStatus = effectivePhase === 'finished' ? 'finished' as const : room.status;
 
   const timeRemainingMs =
-    room.settings.timerSeconds > 0 && g.phase === 'question'
-      ? Math.max(0, room.settings.timerSeconds * 1000 - (now - g.questionStartedAt))
+    room.settings.timerSeconds > 0 && effectivePhase === 'question'
+      ? Math.max(0, room.settings.timerSeconds * 1000 - (now - effectiveQuestionStartedAt))
       : null;
 
   const revealTimeRemainingMs =
-    g.phase === 'reveal' && g.revealStartedAt
-      ? Math.max(0, REVEAL_DURATION_MS - (now - g.revealStartedAt))
+    effectivePhase === 'reveal' && effectiveRevealStartedAt
+      ? Math.max(0, REVEAL_DURATION_MS - (now - effectiveRevealStartedAt))
       : null;
 
   const answeredPlayerIds = room.players
-    .filter(p => g.answers[p.id]?.[qi] !== undefined)
+    .filter(p => g.answers[p.id]?.[effectiveQi] !== undefined)
     .map(p => p.id);
 
   const currentAnswers = isRevealOrDone
-    ? Object.fromEntries(room.players.map(p => [p.id, g.answers[p.id]?.[qi] ?? null]))
+    ? Object.fromEntries(room.players.map(p => [p.id, g.answers[p.id]?.[effectiveQi] ?? null]))
     : null;
 
   const currentQuestion: SanitizedQuestion | null = q
@@ -429,17 +512,17 @@ export function sanitizeRoom(room: Room): SanitizedRoom {
     : null;
 
   const game: SanitizedGameState = {
-    currentQuestionIndex: qi,
+    currentQuestionIndex: effectiveQi,
     totalQuestions: g.questions.length,
-    phase: g.phase,
+    phase: effectivePhase,
     timeRemainingMs,
     revealTimeRemainingMs,
     scores: g.scores,
     currentQuestion,
     answeredPlayerIds,
     currentAnswers,
-    allAnswers: g.phase === 'finished' ? g.answers : null,
-    allQuestions: g.phase === 'finished' ? g.questions : null,
+    allAnswers: effectivePhase === 'finished' ? g.answers : null,
+    allQuestions: effectivePhase === 'finished' ? g.questions : null,
   };
 
   return {
@@ -449,7 +532,7 @@ export function sanitizeRoom(room: Room): SanitizedRoom {
     deckId: room.deckId,
     deckName: room.deckName,
     settings: room.settings,
-    status: room.status,
+    status: effectiveStatus,
     game,
     version: room.version,
     updatedAt: room.updatedAt,
