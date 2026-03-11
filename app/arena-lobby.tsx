@@ -209,8 +209,7 @@ export default function ArenaLobbyScreen() {
 
   const smallDeckWarning = selectedDeck && selectedDeck.flashcards.length < 8;
   const lobbyPlayers = (room?.players ?? []) as LobbyPlayer[];
-  const inviteSlotCount = Math.max(0, MAX_LOBBY_SLOTS - lobbyPlayers.length);
-  const inviteSlots = Array.from({ length: inviteSlotCount }, (_, index) => index);
+  const hasInviteSlot = lobbyPlayers.length < MAX_LOBBY_SLOTS;
 
   if (!room) {
     return (
@@ -347,66 +346,38 @@ export default function ArenaLobbyScreen() {
                   )}
                 </View>
               ))}
-              {inviteSlots.map((slotIndex) => {
-                const isInviteSlot = slotIndex === 0;
-
-                if (isInviteSlot) {
-                  return (
-                    <TouchableOpacity
-                      key={`invite-${slotIndex}`}
-                      style={[
-                        styles.emptySlotCard,
-                        {
-                          backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : theme.background,
-                          borderColor: isDark ? 'rgba(255,255,255,0.08)' : theme.border,
-                        },
-                      ]}
-                      onPress={handleCopyCode}
-                      activeOpacity={0.8}
-                      testID={`battle-lobby-empty-slot-${slotIndex}`}
-                    >
-                      <View style={[styles.emptySlotAvatar, { borderColor: arenaAccent }]}> 
-                        <Text style={[styles.emptySlotPlus, { color: arenaAccent }]}>+</Text>
-                      </View>
-                      <View style={styles.playerInfo}>
-                        <Text style={[styles.emptySlotTitle, { color: theme.text }]}>+ Invite</Text>
-                        <Text style={[styles.emptySlotSubtitle, { color: codeCopied ? '#10b981' : theme.textSecondary }]}> 
-                          {codeCopied ? 'Room code copied' : `Tap to copy code ${room.code}`}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                }
-
-                return (
-                  <View
-                    key={`invite-${slotIndex}`}
-                    style={[
-                      styles.emptySlotCard,
-                      {
-                        backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : theme.background,
-                        borderColor: isDark ? 'rgba(255,255,255,0.08)' : theme.border,
-                      },
-                    ]}
-                    testID={`battle-lobby-empty-slot-${slotIndex}`}
-                  >
-                    <View style={[styles.emptySlotAvatar, { borderColor: theme.border }]}> 
-                      <Text style={[styles.emptySlotPlus, { color: theme.textTertiary }]}>+</Text>
-                    </View>
-                    <View style={styles.playerInfo}>
-                      <Text style={[styles.emptySlotTitle, { color: theme.text }]}>Empty slot</Text>
-                      <Text style={[styles.emptySlotSubtitle, { color: theme.textSecondary }]}>Waiting for another player</Text>
-                    </View>
+              {hasInviteSlot && (
+                <TouchableOpacity
+                  key="invite-slot"
+                  style={[
+                    styles.emptySlotCard,
+                    {
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : theme.background,
+                      borderColor: isDark ? 'rgba(255,255,255,0.08)' : theme.border,
+                    },
+                  ]}
+                  onPress={handleCopyCode}
+                  activeOpacity={0.8}
+                  testID="battle-lobby-empty-slot-0"
+                >
+                  <View style={[styles.emptySlotAvatar, { borderColor: arenaAccent }]}> 
+                    <Text style={[styles.emptySlotPlus, { color: arenaAccent }]}>+</Text>
                   </View>
-                );
-              })}
+                  <View style={styles.playerInfo}>
+                    <Text style={[styles.emptySlotTitle, { color: theme.text }]}>+ Invite</Text>
+                    <Text style={[styles.emptySlotSubtitle, { color: codeCopied ? '#10b981' : theme.textSecondary }]}> 
+                      {codeCopied ? 'Room code copied' : `Tap to copy code ${room.code}`}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
 
             {lobbyPlayers.length < 2 && (
               <View style={[styles.warningBox, { backgroundColor: theme.warning + '20' }]}>
                 <AlertCircle color={theme.warning} size={16} />
                 <Text style={[styles.warningText, { color: theme.warning }]}>
-                  Fill an invite slot to start a battle.
+                  Invite at least one more player to start a battle.
                 </Text>
               </View>
             )}
