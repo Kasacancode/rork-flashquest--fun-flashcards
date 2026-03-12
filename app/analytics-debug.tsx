@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,8 +11,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import type { AnalyticsSummary } from '@/backend/analytics/types';
 import { useTheme } from '@/context/ThemeContext';
-import { trpc } from '@/lib/trpc';
+import { trpcClient } from '@/lib/trpc';
+
+const ANALYTICS_QUERY_TIMEOUT_MS = 10000;
 
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) {
@@ -25,17 +29,41 @@ function formatValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
+async function fetchAnalyticsSummary(input: { day?: string } | undefined): Promise<AnalyticsSummary> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    const timeoutPromise = new Promise<AnalyticsSummary>((_, reject) => {
+      timeoutHandle = setTimeout(() => {
+        reject(new Error('Analytics summary request timed out.'));
+      }, ANALYTICS_QUERY_TIMEOUT_MS);
+    });
+
+    return await Promise.race([
+      trpcClient.analytics.summary.query(input),
+      timeoutPromise,
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
+
 export default function AnalyticsDebugScreen() {
   const { theme } = useTheme();
   const [dayInput, setDayInput] = useState<string>('');
   const [requestedDay, setRequestedDay] = useState<string | undefined>(undefined);
 
-  const queryInput = useMemo(() => {
+  const queryInput = useMemo<{ day?: string } | undefined>(() => {
     return requestedDay ? { day: requestedDay } : undefined;
   }, [requestedDay]);
 
-  const summaryQuery = trpc.analytics.summary.useQuery(queryInput, {
+  const summaryQuery = useQuery<AnalyticsSummary, Error>({
+    queryKey: ['analytics-summary', requestedDay ?? 'today'],
+    queryFn: () => fetchAnalyticsSummary(queryInput),
     enabled: __DEV__,
+    networkMode: 'always',
     retry: 1,
     refetchOnMount: 'always',
     refetchOnReconnect: true,
@@ -173,15 +201,14 @@ export default function AnalyticsDebugScreen() {
 
         <View style={sectionStyle}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Status</Text>
-          {summaryQuery.isLoading ? (
+          {summaryQuery.fetchStatus === 'fetching' ? (
             <View style={styles.statusRow}>
               <ActivityIndicator color={theme.primary} />
               <Text style={[styles.metaText, { color: theme.textSecondary }]}>Loading analytics summary...</Text>
             </View>
           ) : null}
-          {!summaryQuery.isLoading ? (
-            <Text style={[styles.metaText, { color: theme.textSecondary }]}>Resolved day: {summaryQuery.data?.day ?? '--'}</Text>
-          ) : null}
+          <Text style={[styles.metaText, { color: theme.textSecondary }]}>Resolved day: {summaryQuery.data?.day ?? '--'}</Text>
+          <Text style={[styles.metaText, { color: theme.textSecondary }]}>Query status: {summaryQuery.status} / {summaryQuery.fetchStatus}</Text>
           {summaryQuery.error ? (
             <Text style={[styles.errorText, { color: theme.error }]}>{summaryQuery.error.message}</Text>
           ) : null}
