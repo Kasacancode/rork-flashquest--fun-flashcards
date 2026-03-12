@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import {
   ArrowLeft,
   Award,
@@ -153,6 +153,7 @@ function getLevelEntry(level: number): LevelItem {
 
 export default function ProfilePage() {
   const navigation = useRouter();
+  const isAnalyticsDebugEnabled = __DEV__;
   const { width } = useWindowDimensions();
   const { stats } = useFlashQuest();
   const { theme, isDark, toggleTheme, setTheme } = useTheme();
@@ -229,9 +230,14 @@ export default function ProfilePage() {
   }, []);
 
   const handleOpenAnalyticsDebug = useCallback(() => {
+    if (!isAnalyticsDebugEnabled) {
+      logger.log('[Profile] Analytics debug blocked outside dev mode');
+      return;
+    }
+
     logger.log('[Profile] Opening analytics debug screen');
-    router.push('/analytics-debug');
-  }, []);
+    navigation.push('/analytics-debug');
+  }, [isAnalyticsDebugEnabled, navigation]);
 
   const handleComingSoon = useCallback((label: string) => {
     logger.log('[Profile] Coming soon pressed', label);
@@ -470,14 +476,16 @@ export default function ProfilePage() {
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
-                style={styles.debugButton}
-                onPress={handleOpenAnalyticsDebug}
-                activeOpacity={0.84}
-                testID="profile-open-analytics-debug"
-              >
-                <Text style={styles.debugButtonText}>Analytics Debug</Text>
-              </TouchableOpacity>
+              {isAnalyticsDebugEnabled ? (
+                <TouchableOpacity
+                  style={styles.debugButton}
+                  onPress={handleOpenAnalyticsDebug}
+                  activeOpacity={0.84}
+                  testID="profile-open-analytics-debug"
+                >
+                  <Text style={styles.debugButtonText}>Analytics Debug</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           )}
 
