@@ -5,7 +5,6 @@ import {
   Award,
   BookOpen,
   Check,
-  ChevronRight,
   Crown,
   Flame,
   Moon,
@@ -397,33 +396,6 @@ export default function ProfilePage() {
                   end={{ x: 1, y: 1 }}
                   style={styles.appearanceCard}
                 >
-                  <View style={styles.appearanceHeader}>
-                    <View style={styles.appearanceIntro}>
-                      <View
-                        style={[
-                          styles.appearanceIconWrap,
-                          { backgroundColor: isDark ? 'rgba(129, 140, 248, 0.22)' : 'rgba(102, 126, 234, 0.12)' },
-                        ]}
-                      >
-                        <Settings color={theme.primary} size={20} strokeWidth={2.3} />
-                      </View>
-                      <View style={styles.appearanceTextWrap}>
-                        <Text style={styles.cardTitle}>Appearance</Text>
-                        <Text style={styles.cardDescription}>Theme, profile style, and menu preferences.</Text>
-                      </View>
-                    </View>
-
-                    <TouchableOpacity
-                      style={styles.inlineActionButton}
-                      onPress={handleOpenSettings}
-                      activeOpacity={0.84}
-                      testID="profile-card-settings"
-                    >
-                      <Text style={styles.inlineActionButtonText}>Open</Text>
-                      <ChevronRight color={theme.textSecondary} size={15} strokeWidth={2.5} />
-                    </TouchableOpacity>
-                  </View>
-
                   <View style={styles.toggleCard}>
                     <View style={styles.toggleLeadingIcon}>
                       {isDark ? (
