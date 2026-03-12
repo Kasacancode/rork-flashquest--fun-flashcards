@@ -9,12 +9,102 @@ const aiDistractorSchema = z.object({
 });
 
 type AIDistractorCache = Record<string, string[]>;
+type DistractorCandidate = {
+  answer: string;
+  normalized: string;
+  freshnessPenalty: number;
+  score: number;
+};
+
 const aiDistractorCache: AIDistractorCache = {};
 // Cap cache size to prevent unbounded memory growth during long sessions
 const AI_CACHE_MAX_SIZE = 200;
 
 function normalizeAnswer(answer: string): string {
   return answer.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function getWordCount(value: string): number {
+  return value.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function buildRecentPenaltyMap(recentDistractors: string[]): Map<string, number> {
+  const recentPenaltyMap = new Map<string, number>();
+  const recentWindow = recentDistractors.slice(-12).reverse();
+
+  recentWindow.forEach((answer, index) => {
+    const normalized = normalizeAnswer(answer);
+    if (!recentPenaltyMap.has(normalized)) {
+      const penalty = Math.max(1, 4 - Math.floor(index / 3));
+      recentPenaltyMap.set(normalized, penalty);
+    }
+  });
+
+  return recentPenaltyMap;
+}
+
+function scoreDistractorCandidate(params: {
+  answer: string;
+  correctAnswer: string;
+  sourceBonus: number;
+  freshnessPenalty: number;
+}): number {
+  const { answer, correctAnswer, sourceBonus, freshnessPenalty } = params;
+  const correctWordCount = getWordCount(correctAnswer);
+  const answerWordCount = getWordCount(answer);
+  const lengthDelta = Math.abs(answer.length - correctAnswer.length);
+  const wordDelta = Math.abs(answerWordCount - correctWordCount);
+  const punctuationBonus = Number(answer.includes(',') === correctAnswer.includes(',')) +
+    Number(answer.includes('(') === correctAnswer.includes('(')) +
+    Number(answer.includes('/') === correctAnswer.includes('/'));
+
+  return sourceBonus +
+    Math.max(0, 3 - (lengthDelta / Math.max(4, correctAnswer.length * 0.25))) +
+    Math.max(0, 2 - wordDelta) +
+    punctuationBonus -
+    (freshnessPenalty * 3) +
+    Math.random();
+}
+
+function createCandidatePool(params: {
+  cards: Flashcard[];
+  correctAnswer: string;
+  currentCardId: string;
+  recentPenaltyMap: Map<string, number>;
+  sourceBonus: number;
+}): DistractorCandidate[] {
+  const { cards, correctAnswer, currentCardId, recentPenaltyMap, sourceBonus } = params;
+  const normalizedCorrect = normalizeAnswer(correctAnswer);
+  const seen = new Set<string>();
+
+  return shuffleArray(cards)
+    .filter(card => card.id !== currentCardId)
+    .map(card => card.answer.trim())
+    .filter(answer => answer !== '')
+    .filter(answer => {
+      const normalized = normalizeAnswer(answer);
+      if (normalized === normalizedCorrect || seen.has(normalized)) {
+        return false;
+      }
+      seen.add(normalized);
+      return true;
+    })
+    .map(answer => {
+      const normalized = normalizeAnswer(answer);
+      const freshnessPenalty = recentPenaltyMap.get(normalized) ?? 0;
+
+      return {
+        answer,
+        normalized,
+        freshnessPenalty,
+        score: scoreDistractorCandidate({
+          answer,
+          correctAnswer,
+          sourceBonus,
+          freshnessPenalty,
+        }),
+      };
+    });
 }
 
 /**
@@ -103,71 +193,54 @@ export function generateDistractors(params: {
   deckCards: Flashcard[];
   allCards: Flashcard[];
   currentCardId: string;
+  recentDistractors?: string[];
   count?: number;
 }): string[] {
-  const { correctAnswer, deckCards, allCards, currentCardId, count = 3 } = params;
-  const normalizedCorrect = normalizeAnswer(correctAnswer);
+  const { correctAnswer, deckCards, allCards, currentCardId, recentDistractors = [], count = 3 } = params;
   const distractors: string[] = [];
-  const usedNormalized = new Set<string>([normalizedCorrect]);
+  const usedNormalized = new Set<string>([normalizeAnswer(correctAnswer)]);
+  const recentPenaltyMap = buildRecentPenaltyMap(recentDistractors);
 
-  const correctLength = correctAnswer.length;
-  const minLength = correctLength * 0.5;
-  const maxLength = correctLength * 1.5;
+  const candidatePool = [
+    ...createCandidatePool({
+      cards: deckCards,
+      correctAnswer,
+      currentCardId,
+      recentPenaltyMap,
+      sourceBonus: 4,
+    }),
+    ...createCandidatePool({
+      cards: allCards,
+      correctAnswer,
+      currentCardId,
+      recentPenaltyMap,
+      sourceBonus: 1,
+    }),
+  ];
 
-  const deckAnswers = deckCards
-    .filter(c => c.id !== currentCardId)
-    .map(c => c.answer)
-    .filter(a => {
-      const norm = normalizeAnswer(a);
-      return a.trim() !== '' && !usedNormalized.has(norm);
-    });
+  const freshCandidates = shuffleArray(
+    candidatePool.filter(candidate => candidate.freshnessPenalty === 0)
+  ).sort((a, b) => b.score - a.score);
+  const recycledCandidates = shuffleArray(
+    candidatePool.filter(candidate => candidate.freshnessPenalty > 0)
+  ).sort((a, b) => b.score - a.score);
 
-  const preferredDeck = deckAnswers.filter(a => 
-    a.length >= minLength && a.length <= maxLength
-  );
-  
-  const otherDeck = deckAnswers.filter(a => 
-    a.length < minLength || a.length > maxLength
-  );
-
-  for (const answer of preferredDeck) {
-    if (distractors.length >= count) break;
-    const norm = normalizeAnswer(answer);
-    if (!usedNormalized.has(norm)) {
-      distractors.push(answer);
-      usedNormalized.add(norm);
-    }
-  }
-
-  for (const answer of otherDeck) {
-    if (distractors.length >= count) break;
-    const norm = normalizeAnswer(answer);
-    if (!usedNormalized.has(norm)) {
-      distractors.push(answer);
-      usedNormalized.add(norm);
-    }
-  }
-
-  if (distractors.length < count) {
-    const globalAnswers = allCards
-      .filter(c => c.id !== currentCardId)
-      .map(c => c.answer)
-      .filter(a => {
-        const norm = normalizeAnswer(a);
-        return a.trim() !== '' && !usedNormalized.has(norm);
-      });
-
-    for (const answer of globalAnswers) {
-      if (distractors.length >= count) break;
-      const norm = normalizeAnswer(answer);
-      if (!usedNormalized.has(norm)) {
-        distractors.push(answer);
-        usedNormalized.add(norm);
+  for (const pool of [freshCandidates, recycledCandidates]) {
+    for (const candidate of pool) {
+      if (distractors.length >= count) {
+        break;
       }
+
+      if (usedNormalized.has(candidate.normalized)) {
+        continue;
+      }
+
+      distractors.push(candidate.answer);
+      usedNormalized.add(candidate.normalized);
     }
   }
 
-  return distractors;
+  return distractors.slice(0, count);
 }
 
 export function shuffleArray<T>(array: T[]): T[] {
@@ -184,14 +257,34 @@ export function generateOptions(params: {
   deckCards: Flashcard[];
   allCards: Flashcard[];
   currentCardId: string;
+  recentDistractors?: string[];
 }): string[] {
-  const distractors = generateDistractors({
+  const cachedAIDistractors = aiDistractorCache[params.currentCardId] ?? [];
+  const fallbackDistractors = generateDistractors({
     correctAnswer: params.correctAnswer,
     deckCards: params.deckCards,
     allCards: params.allCards,
     currentCardId: params.currentCardId,
+    recentDistractors: params.recentDistractors,
     count: 3,
   });
+
+  const usedNormalized = new Set<string>([normalizeAnswer(params.correctAnswer)]);
+  const distractors: string[] = [];
+
+  for (const answer of [...cachedAIDistractors, ...fallbackDistractors]) {
+    const normalized = normalizeAnswer(answer);
+    if (usedNormalized.has(normalized)) {
+      continue;
+    }
+
+    distractors.push(answer);
+    usedNormalized.add(normalized);
+
+    if (distractors.length >= 3) {
+      break;
+    }
+  }
 
   const options = [params.correctAnswer, ...distractors];
   return shuffleArray(options);

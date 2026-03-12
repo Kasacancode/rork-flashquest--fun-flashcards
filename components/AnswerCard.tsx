@@ -55,12 +55,22 @@ export function AnswerCard({
   animatedOpacity,
 }: AnswerCardProps) {
   const localScale = useRef(new Animated.Value(1)).current;
-  const tiltAnim = useRef(new Animated.Value(0)).current;
+  const pressDepthAnim = useRef(new Animated.Value(0)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
-  
+
   const scale = animatedScale || localScale;
   const shake = animatedShake || new Animated.Value(0);
   const opacity = animatedOpacity || new Animated.Value(1);
+
+  useEffect(() => {
+    pressDepthAnim.stopAnimation();
+    pressDepthAnim.setValue(0);
+
+    if (!animatedScale) {
+      localScale.stopAnimation();
+      localScale.setValue(1);
+    }
+  }, [optionText, state, animatedScale, localScale, pressDepthAnim]);
 
   useEffect(() => {
     if (state === 'correct') {
@@ -79,8 +89,8 @@ export function AnswerCard({
   const handlePressIn = () => {
     if (state === 'idle') {
       Animated.parallel([
-        Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 50 }),
-        Animated.timing(tiltAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 50 }),
+        Animated.timing(pressDepthAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
       ]).start();
     }
   };
@@ -89,7 +99,7 @@ export function AnswerCard({
     if (state === 'idle') {
       Animated.parallel([
         Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4 }),
-        Animated.timing(tiltAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
+        Animated.timing(pressDepthAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
       ]).start();
     }
   };
@@ -98,7 +108,7 @@ export function AnswerCard({
     if (state !== 'idle') return;
     
     if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     
     Animated.sequence([
@@ -149,9 +159,9 @@ export function AnswerCard({
 
   const cardStyle = getCardStyle();
 
-  const rotate = tiltAnim.interpolate({
+  const translateY = pressDepthAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '-2deg'],
+    outputRange: [0, -2],
   });
 
   const glowOpacity = glowAnim.interpolate({
@@ -168,7 +178,7 @@ export function AnswerCard({
           transform: [
             { scale },
             { translateX: shake },
-            { rotate },
+            { translateY },
           ],
         },
       ]}

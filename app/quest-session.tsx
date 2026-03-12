@@ -90,6 +90,7 @@ export default function QuestSessionScreen() {
   const finishSessionEarlyRef = useRef<() => void>(() => {});
   const performanceRef = useRef(performance);
   const initializedDeckIdRef = useRef<string | null>(null);
+  const recentDistractorHistoryRef = useRef<string[]>([]);
 
   const cardAnimations = useRef([
     new Animated.Value(0),
@@ -124,7 +125,14 @@ export default function QuestSessionScreen() {
       deckCards: deck.flashcards,
       allCards,
       currentCardId: nextCard.id,
+      recentDistractors: recentDistractorHistoryRef.current,
     });
+    const roundDistractors = immediateOptions.filter(option => !checkAnswer(option, nextCard.answer));
+
+    recentDistractorHistoryRef.current = [
+      ...recentDistractorHistoryRef.current,
+      ...roundDistractors,
+    ].slice(-12);
 
     logger.log('[Quest] Starting round with card:', nextCard.id, 'options ready:', immediateOptions.length);
 
@@ -224,6 +232,7 @@ export default function QuestSessionScreen() {
     }
 
     initializedDeckIdRef.current = deck.id;
+    recentDistractorHistoryRef.current = [];
     logger.log('[Quest] Initializing session for deck:', deck.id);
     setupNextRound();
   }, [deck, setupNextRound]);
@@ -555,7 +564,7 @@ export default function QuestSessionScreen() {
             <View style={styles.optionsGrid}>
               {options.map((option, index) => (
                 <AnswerCard
-                  key={index}
+                  key={`${currentCard.id}-${index}`}
                   optionText={option}
                   suit={getSuitForIndex(index)}
                   index={index}
