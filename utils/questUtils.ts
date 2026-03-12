@@ -1,5 +1,6 @@
 import * as z from 'zod/v4';
 import { generateObject } from '@rork-ai/toolkit-sdk';
+
 import type { Flashcard } from '@/types/flashcard';
 import type { CardStats, QuestPerformance } from '@/types/performance';
 import { logger } from '@/utils/logger';
@@ -9,23 +10,65 @@ const aiDistractorSchema = z.object({
 });
 
 type AIDistractorCache = Record<string, string[]>;
+type DistractorSource = 'deck' | 'global' | 'ai';
+
 type DistractorCandidate = {
   answer: string;
   normalized: string;
+  source: DistractorSource;
   freshnessPenalty: number;
+  cardReusePenalty: number;
   score: number;
 };
 
+type AnswerProfile = {
+  wordCount: number;
+  isNumeric: boolean;
+  hasComma: boolean;
+  hasParenthesis: boolean;
+  hasSlash: boolean;
+  hasQuestionMark: boolean;
+};
+
 const aiDistractorCache: AIDistractorCache = {};
-// Cap cache size to prevent unbounded memory growth during long sessions
+const distractorHistoryByCard: Record<string, string[]> = {};
 const AI_CACHE_MAX_SIZE = 200;
+const DISTRACTOR_HISTORY_LIMIT = 18;
+
+function normalizeText(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
 
 function normalizeAnswer(answer: string): string {
-  return answer.trim().toLowerCase().replace(/\s+/g, ' ');
+  return normalizeText(answer);
+}
+
+function tokenize(value: string): string[] {
+  return normalizeText(value)
+    .split(/[^a-z0-9]+/)
+    .filter(token => token.length > 1);
 }
 
 function getWordCount(value: string): number {
   return value.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function buildAnswerProfile(value: string): AnswerProfile {
+  const trimmed = value.trim();
+
+  return {
+    wordCount: getWordCount(trimmed),
+    isNumeric: /^\d+(?:[.,\-/]\d+)*$/.test(trimmed),
+    hasComma: trimmed.includes(','),
+    hasParenthesis: trimmed.includes('(') || trimmed.includes(')'),
+    hasSlash: trimmed.includes('/'),
+    hasQuestionMark: trimmed.includes('?') || trimmed.includes('¿'),
+  };
 }
 
 function buildRecentPenaltyMap(recentDistractors: string[]): Map<string, number> {
@@ -35,7 +78,7 @@ function buildRecentPenaltyMap(recentDistractors: string[]): Map<string, number>
   recentWindow.forEach((answer, index) => {
     const normalized = normalizeAnswer(answer);
     if (!recentPenaltyMap.has(normalized)) {
-      const penalty = Math.max(1, 4 - Math.floor(index / 3));
+      const penalty = Math.max(1, 5 - Math.floor(index / 2));
       recentPenaltyMap.set(normalized, penalty);
     }
   });
@@ -43,44 +86,214 @@ function buildRecentPenaltyMap(recentDistractors: string[]): Map<string, number>
   return recentPenaltyMap;
 }
 
+function buildCardHistoryPenaltyMap(cardId: string): Map<string, number> {
+  const cardHistoryPenaltyMap = new Map<string, number>();
+  const history = (distractorHistoryByCard[cardId] ?? []).slice(-12).reverse();
+
+  history.forEach((answer, index) => {
+    const normalized = normalizeAnswer(answer);
+    if (!cardHistoryPenaltyMap.has(normalized)) {
+      const penalty = Math.max(1, 6 - Math.floor(index / 2));
+      cardHistoryPenaltyMap.set(normalized, penalty);
+    }
+  });
+
+  return cardHistoryPenaltyMap;
+}
+
+function getQuestionSimilarityScore(candidateQuestion: string, currentQuestion: string): number {
+  const candidateTokens = new Set<string>(tokenize(candidateQuestion));
+  const currentTokens = new Set<string>(tokenize(currentQuestion));
+
+  if (candidateTokens.size === 0 || currentTokens.size === 0) {
+    return 0;
+  }
+
+  let overlapCount = 0;
+  currentTokens.forEach((token) => {
+    if (candidateTokens.has(token)) {
+      overlapCount += 1;
+    }
+  });
+
+  return Math.min(3, overlapCount * 0.8);
+}
+
+function getTagOverlapScore(candidateTags?: string[], currentTags?: string[]): number {
+  if (!candidateTags?.length || !currentTags?.length) {
+    return 0;
+  }
+
+  const currentTagSet = new Set<string>(currentTags.map(tag => normalizeText(tag)));
+  const overlapCount = candidateTags.reduce((count, tag) => {
+    return count + Number(currentTagSet.has(normalizeText(tag)));
+  }, 0);
+
+  return Math.min(3, overlapCount * 1.5);
+}
+
+function getAnswerSimilarityScore(answer: string, correctAnswer: string): number {
+  const answerProfile = buildAnswerProfile(answer);
+  const correctProfile = buildAnswerProfile(correctAnswer);
+  const lengthDelta = Math.abs(answer.length - correctAnswer.length);
+  const wordDelta = Math.abs(answerProfile.wordCount - correctProfile.wordCount);
+
+  if (answerProfile.isNumeric !== correctProfile.isNumeric) {
+    return -5;
+  }
+
+  let score = 0;
+  score += Math.max(0, 3 - wordDelta);
+  score += Math.max(0, 3 - (lengthDelta / Math.max(4, correctAnswer.length * 0.2)));
+  score += Number(answerProfile.hasComma === correctProfile.hasComma);
+  score += Number(answerProfile.hasParenthesis === correctProfile.hasParenthesis);
+  score += Number(answerProfile.hasSlash === correctProfile.hasSlash);
+  score += Number(answerProfile.hasQuestionMark === correctProfile.hasQuestionMark) * 0.5;
+
+  return score;
+}
+
+function isReasonableGlobalFallback(answer: string, correctAnswer: string): boolean {
+  const answerProfile = buildAnswerProfile(answer);
+  const correctProfile = buildAnswerProfile(correctAnswer);
+
+  if (answerProfile.isNumeric !== correctProfile.isNumeric) {
+    return false;
+  }
+
+  if (Math.abs(answerProfile.wordCount - correctProfile.wordCount) > 3) {
+    return false;
+  }
+
+  if (correctAnswer.length > 10 && Math.abs(answer.length - correctAnswer.length) > Math.max(12, Math.round(correctAnswer.length * 0.8))) {
+    return false;
+  }
+
+  return true;
+}
+
 function scoreDistractorCandidate(params: {
   answer: string;
   correctAnswer: string;
+  source: DistractorSource;
   sourceBonus: number;
   freshnessPenalty: number;
+  cardReusePenalty: number;
+  questionSimilarity: number;
+  tagOverlap: number;
+  difficultyBonus: number;
 }): number {
-  const { answer, correctAnswer, sourceBonus, freshnessPenalty } = params;
-  const correctWordCount = getWordCount(correctAnswer);
-  const answerWordCount = getWordCount(answer);
-  const lengthDelta = Math.abs(answer.length - correctAnswer.length);
-  const wordDelta = Math.abs(answerWordCount - correctWordCount);
-  const punctuationBonus = Number(answer.includes(',') === correctAnswer.includes(',')) +
-    Number(answer.includes('(') === correctAnswer.includes('(')) +
-    Number(answer.includes('/') === correctAnswer.includes('/'));
+  const {
+    answer,
+    correctAnswer,
+    source,
+    sourceBonus,
+    freshnessPenalty,
+    cardReusePenalty,
+    questionSimilarity,
+    tagOverlap,
+    difficultyBonus,
+  } = params;
+
+  const answerSimilarity = getAnswerSimilarityScore(answer, correctAnswer);
+  const sourceVariationBonus = source === 'deck' ? 1.5 : source === 'ai' ? 1 : 0;
 
   return sourceBonus +
-    Math.max(0, 3 - (lengthDelta / Math.max(4, correctAnswer.length * 0.25))) +
-    Math.max(0, 2 - wordDelta) +
-    punctuationBonus -
-    (freshnessPenalty * 3) +
-    Math.random();
+    sourceVariationBonus +
+    answerSimilarity +
+    questionSimilarity +
+    tagOverlap +
+    difficultyBonus -
+    (freshnessPenalty * 3.5) -
+    (cardReusePenalty * 4) +
+    (Math.random() * 2.5);
+}
+
+function getCurrentCard(currentCardId: string, deckCards: Flashcard[], allCards: Flashcard[]): Flashcard | null {
+  return deckCards.find(card => card.id === currentCardId) ?? allCards.find(card => card.id === currentCardId) ?? null;
 }
 
 function createCandidatePool(params: {
   cards: Flashcard[];
   correctAnswer: string;
   currentCardId: string;
+  currentCard: Flashcard | null;
   recentPenaltyMap: Map<string, number>;
+  cardHistoryPenaltyMap: Map<string, number>;
+  source: DistractorSource;
   sourceBonus: number;
 }): DistractorCandidate[] {
-  const { cards, correctAnswer, currentCardId, recentPenaltyMap, sourceBonus } = params;
+  const {
+    cards,
+    correctAnswer,
+    currentCardId,
+    currentCard,
+    recentPenaltyMap,
+    cardHistoryPenaltyMap,
+    source,
+    sourceBonus,
+  } = params;
   const normalizedCorrect = normalizeAnswer(correctAnswer);
   const seen = new Set<string>();
 
   return shuffleArray(cards)
     .filter(card => card.id !== currentCardId)
-    .map(card => card.answer.trim())
+    .filter(card => source !== 'global' || card.deckId !== currentCard?.deckId)
+    .filter(card => source !== 'global' || isReasonableGlobalFallback(card.answer, correctAnswer))
+    .map(card => ({ card, answer: card.answer.trim() }))
+    .filter(({ answer }) => answer !== '')
+    .filter(({ answer }) => {
+      const normalized = normalizeAnswer(answer);
+      if (normalized === normalizedCorrect || seen.has(normalized)) {
+        return false;
+      }
+      seen.add(normalized);
+      return true;
+    })
+    .map(({ card, answer }) => {
+      const normalized = normalizeAnswer(answer);
+      const freshnessPenalty = recentPenaltyMap.get(normalized) ?? 0;
+      const cardReusePenalty = cardHistoryPenaltyMap.get(normalized) ?? 0;
+      const questionSimilarity = currentCard ? getQuestionSimilarityScore(card.question, currentCard.question) : 0;
+      const tagOverlap = currentCard ? getTagOverlapScore(card.tags, currentCard.tags) : 0;
+      const difficultyBonus = currentCard && card.difficulty === currentCard.difficulty ? 0.75 : 0;
+
+      return {
+        answer,
+        normalized,
+        source,
+        freshnessPenalty,
+        cardReusePenalty,
+        score: scoreDistractorCandidate({
+          answer,
+          correctAnswer,
+          source,
+          sourceBonus,
+          freshnessPenalty,
+          cardReusePenalty,
+          questionSimilarity,
+          tagOverlap,
+          difficultyBonus,
+        }),
+      } satisfies DistractorCandidate;
+    });
+}
+
+function createAICandidatePool(params: {
+  answers: string[];
+  correctAnswer: string;
+  currentCardId: string;
+  recentPenaltyMap: Map<string, number>;
+  cardHistoryPenaltyMap: Map<string, number>;
+}): DistractorCandidate[] {
+  const { answers, correctAnswer, currentCardId, recentPenaltyMap, cardHistoryPenaltyMap } = params;
+  const normalizedCorrect = normalizeAnswer(correctAnswer);
+  const seen = new Set<string>();
+
+  return shuffleArray(answers)
+    .map(answer => answer.trim())
     .filter(answer => answer !== '')
+    .filter(answer => isReasonableGlobalFallback(answer, correctAnswer))
     .filter(answer => {
       const normalized = normalizeAnswer(answer);
       if (normalized === normalizedCorrect || seen.has(normalized)) {
@@ -92,26 +305,137 @@ function createCandidatePool(params: {
     .map(answer => {
       const normalized = normalizeAnswer(answer);
       const freshnessPenalty = recentPenaltyMap.get(normalized) ?? 0;
+      const cardReusePenalty = cardHistoryPenaltyMap.get(normalized) ?? 0;
 
       return {
         answer,
         normalized,
+        source: 'ai',
         freshnessPenalty,
+        cardReusePenalty,
         score: scoreDistractorCandidate({
           answer,
           correctAnswer,
-          sourceBonus,
+          source: 'ai',
+          sourceBonus: 6,
           freshnessPenalty,
-        }),
-      };
+          cardReusePenalty,
+          questionSimilarity: 1,
+          tagOverlap: 0,
+          difficultyBonus: 0,
+        }) + (currentCardId.length > 0 ? 0 : 0),
+      } satisfies DistractorCandidate;
     });
 }
 
-/**
- * Weighted random card selection for quest mode.
- * Prioritizes unseen cards, weak cards (low accuracy), and cards not attempted recently.
- * Falls back to least-recently-attempted cards when all have been used.
- */
+function dedupeCandidates(candidates: DistractorCandidate[]): DistractorCandidate[] {
+  const candidateMap = new Map<string, DistractorCandidate>();
+
+  candidates.forEach((candidate) => {
+    const existing = candidateMap.get(candidate.normalized);
+    if (!existing || candidate.score > existing.score) {
+      candidateMap.set(candidate.normalized, candidate);
+    }
+  });
+
+  return Array.from(candidateMap.values());
+}
+
+function pickWeightedCandidate(candidates: DistractorCandidate[]): DistractorCandidate | null {
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const weights = candidates.map(candidate => Math.max(0.25, candidate.score));
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+
+  if (totalWeight <= 0) {
+    return candidates[0] ?? null;
+  }
+
+  let random = Math.random() * totalWeight;
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    random -= weights[index] ?? 0;
+    if (random <= 0) {
+      return candidates[index] ?? null;
+    }
+  }
+
+  return candidates[candidates.length - 1] ?? null;
+}
+
+function selectDistractors(params: {
+  candidates: DistractorCandidate[];
+  count: number;
+}): string[] {
+  const { candidates, count } = params;
+  const selected: string[] = [];
+  let remaining = dedupeCandidates(candidates);
+
+  while (selected.length < count && remaining.length > 0) {
+    const sorted = [...remaining].sort((a, b) => b.score - a.score);
+    const tierSize = Math.min(Math.max(count * 3, 6), sorted.length);
+    const tier = sorted.slice(0, tierSize);
+    const picked = pickWeightedCandidate(tier);
+
+    if (!picked) {
+      break;
+    }
+
+    selected.push(picked.answer);
+    remaining = remaining.filter(candidate => candidate.normalized !== picked.normalized);
+  }
+
+  return selected.slice(0, count);
+}
+
+function rememberDistractors(cardId: string, distractors: string[]): void {
+  const existing = distractorHistoryByCard[cardId] ?? [];
+  distractorHistoryByCard[cardId] = [...existing, ...distractors].slice(-DISTRACTOR_HISTORY_LIMIT);
+}
+
+function buildFallbackDistractorCandidates(params: {
+  correctAnswer: string;
+  deckCards: Flashcard[];
+  allCards: Flashcard[];
+  currentCardId: string;
+  recentDistractors?: string[];
+}): DistractorCandidate[] {
+  const { correctAnswer, deckCards, allCards, currentCardId, recentDistractors = [] } = params;
+  const recentPenaltyMap = buildRecentPenaltyMap(recentDistractors);
+  const cardHistoryPenaltyMap = buildCardHistoryPenaltyMap(currentCardId);
+  const currentCard = getCurrentCard(currentCardId, deckCards, allCards);
+
+  const deckCandidates = createCandidatePool({
+    cards: deckCards,
+    correctAnswer,
+    currentCardId,
+    currentCard,
+    recentPenaltyMap,
+    cardHistoryPenaltyMap,
+    source: 'deck',
+    sourceBonus: 8,
+  });
+
+  if (deckCandidates.length >= 3) {
+    return deckCandidates;
+  }
+
+  const globalCandidates = createCandidatePool({
+    cards: allCards,
+    correctAnswer,
+    currentCardId,
+    currentCard,
+    recentPenaltyMap,
+    cardHistoryPenaltyMap,
+    source: 'global',
+    sourceBonus: 1.5,
+  });
+
+  return [...deckCandidates, ...globalCandidates];
+}
+
 export function selectNextCard(params: {
   cards: Flashcard[];
   usedCardIds: Set<string>;
@@ -119,12 +443,11 @@ export function selectNextCard(params: {
   focusWeakOnly: boolean;
 }): Flashcard | null {
   const { cards, usedCardIds, performance, focusWeakOnly } = params;
-  
+
   if (cards.length === 0) return null;
 
   let candidates = cards.filter(c => !usedCardIds.has(c.id));
-  
-  // When all cards have been used, recycle the least-recently-attempted half
+
   if (candidates.length === 0) {
     const sortedByLastAttempt = [...cards].sort((a, b) => {
       const aStats = performance.cardStatsById[a.id];
@@ -145,7 +468,7 @@ export function selectNextCard(params: {
       if (stats.incorrect > stats.correct) return true;
       return false;
     });
-    
+
     if (weakCandidates.length >= 1) {
       candidates = weakCandidates;
     }
@@ -160,11 +483,11 @@ export function selectNextCard(params: {
     } else {
       if (stats.attempts < 3) weight += 2;
       if (stats.incorrect > stats.correct) weight += 3;
-      
+
       const accuracy = stats.correct / stats.attempts;
       if (accuracy < 0.6) weight += 3;
       if (stats.streakCorrect >= 3) weight -= 3;
-      
+
       const daysSinceAttempt = (Date.now() - stats.lastAttemptAt) / (1000 * 60 * 60 * 24);
       if (daysSinceAttempt > 7) weight += 1;
     }
@@ -184,10 +507,6 @@ export function selectNextCard(params: {
   return weighted[weighted.length - 1]?.card || cards[0];
 }
 
-/**
- * Generates plausible wrong answers by pulling from same-deck cards first,
- * preferring answers of similar length, then falling back to global cards.
- */
 export function generateDistractors(params: {
   correctAnswer: string;
   deckCards: Flashcard[];
@@ -196,51 +515,14 @@ export function generateDistractors(params: {
   recentDistractors?: string[];
   count?: number;
 }): string[] {
-  const { correctAnswer, deckCards, allCards, currentCardId, recentDistractors = [], count = 3 } = params;
-  const distractors: string[] = [];
-  const usedNormalized = new Set<string>([normalizeAnswer(correctAnswer)]);
-  const recentPenaltyMap = buildRecentPenaltyMap(recentDistractors);
+  const { count = 3, currentCardId } = params;
+  const candidates = buildFallbackDistractorCandidates(params);
+  const distractors = selectDistractors({ candidates, count });
 
-  const candidatePool = [
-    ...createCandidatePool({
-      cards: deckCards,
-      correctAnswer,
-      currentCardId,
-      recentPenaltyMap,
-      sourceBonus: 4,
-    }),
-    ...createCandidatePool({
-      cards: allCards,
-      correctAnswer,
-      currentCardId,
-      recentPenaltyMap,
-      sourceBonus: 1,
-    }),
-  ];
+  rememberDistractors(currentCardId, distractors);
+  logger.log('[QuestUtils] Generated deck-aware distractors for card:', currentCardId, distractors);
 
-  const freshCandidates = shuffleArray(
-    candidatePool.filter(candidate => candidate.freshnessPenalty === 0)
-  ).sort((a, b) => b.score - a.score);
-  const recycledCandidates = shuffleArray(
-    candidatePool.filter(candidate => candidate.freshnessPenalty > 0)
-  ).sort((a, b) => b.score - a.score);
-
-  for (const pool of [freshCandidates, recycledCandidates]) {
-    for (const candidate of pool) {
-      if (distractors.length >= count) {
-        break;
-      }
-
-      if (usedNormalized.has(candidate.normalized)) {
-        continue;
-      }
-
-      distractors.push(candidate.answer);
-      usedNormalized.add(candidate.normalized);
-    }
-  }
-
-  return distractors.slice(0, count);
+  return distractors;
 }
 
 export function shuffleArray<T>(array: T[]): T[] {
@@ -260,31 +542,32 @@ export function generateOptions(params: {
   recentDistractors?: string[];
 }): string[] {
   const cachedAIDistractors = aiDistractorCache[params.currentCardId] ?? [];
-  const fallbackDistractors = generateDistractors({
+  const recentPenaltyMap = buildRecentPenaltyMap(params.recentDistractors ?? []);
+  const cardHistoryPenaltyMap = buildCardHistoryPenaltyMap(params.currentCardId);
+
+  const aiCandidates = createAICandidatePool({
+    answers: cachedAIDistractors,
+    correctAnswer: params.correctAnswer,
+    currentCardId: params.currentCardId,
+    recentPenaltyMap,
+    cardHistoryPenaltyMap,
+  });
+
+  const fallbackCandidates = buildFallbackDistractorCandidates({
     correctAnswer: params.correctAnswer,
     deckCards: params.deckCards,
     allCards: params.allCards,
     currentCardId: params.currentCardId,
     recentDistractors: params.recentDistractors,
+  });
+
+  const distractors = selectDistractors({
+    candidates: [...aiCandidates, ...fallbackCandidates],
     count: 3,
   });
 
-  const usedNormalized = new Set<string>([normalizeAnswer(params.correctAnswer)]);
-  const distractors: string[] = [];
-
-  for (const answer of [...cachedAIDistractors, ...fallbackDistractors]) {
-    const normalized = normalizeAnswer(answer);
-    if (usedNormalized.has(normalized)) {
-      continue;
-    }
-
-    distractors.push(answer);
-    usedNormalized.add(normalized);
-
-    if (distractors.length >= 3) {
-      break;
-    }
-  }
+  rememberDistractors(params.currentCardId, distractors);
+  logger.log('[QuestUtils] Generated options for card:', params.currentCardId, distractors);
 
   const options = [params.correctAnswer, ...distractors];
   return shuffleArray(options);
@@ -309,16 +592,17 @@ export async function generateAIDistractors(
       messages: [
         {
           role: 'user',
-          content: `You are a flashcard quiz game AI. Given a question and its correct answer, generate exactly 3 plausible but WRONG answers. The wrong answers should be believable and similar in style/format to the correct answer, but clearly incorrect.
+          content: `You are a flashcard quiz game AI. Given a question and its correct answer, generate exactly 3 plausible but WRONG answers. The wrong answers should stay in the same topic as the question and match the answer format.
 
 Question: ${question}
 Correct Answer: ${correctAnswer}
 
 Generate 3 wrong answers that:
-- Match the format/length of the correct answer
+- Stay in the same subject area as the deck/question
+- Match the format and approximate length of the correct answer
 - Sound plausible but are factually wrong
 - Are distinct from each other and from the correct answer
-- Would trick someone who doesn't know the material well`,
+- Do not include explanations or labels`,
         },
       ],
       schema: aiDistractorSchema,
@@ -329,7 +613,6 @@ Generate 3 wrong answers that:
     );
 
     if (distractors.length > 0) {
-      // Evict oldest entries when cache exceeds max size
       const keys = Object.keys(aiDistractorCache);
       if (keys.length >= AI_CACHE_MAX_SIZE) {
         delete aiDistractorCache[keys[0]];
@@ -355,35 +638,21 @@ export async function generateOptionsWithAI(params: {
 }): Promise<string[]> {
   const { correctAnswer, question, deckCards, allCards, currentCardId } = params;
 
-  const aiDistractors = await generateAIDistractors(question, correctAnswer, currentCardId);
+  await generateAIDistractors(question, correctAnswer, currentCardId);
 
-  if (aiDistractors.length >= 3) {
-    const options = [correctAnswer, ...aiDistractors.slice(0, 3)];
-    return shuffleArray(options);
-  }
-
-  const fallbackDistractors = generateDistractors({
+  return generateOptions({
     correctAnswer,
     deckCards,
     allCards,
     currentCardId,
-    count: 3 - aiDistractors.length,
   });
-
-  const combinedDistractors = [...aiDistractors, ...fallbackDistractors].slice(0, 3);
-  const options = [correctAnswer, ...combinedDistractors];
-  return shuffleArray(options);
 }
 
 export function clearAIDistractorCache() {
   Object.keys(aiDistractorCache).forEach((key) => delete aiDistractorCache[key]);
+  Object.keys(distractorHistoryByCard).forEach((key) => delete distractorHistoryByCard[key]);
 }
 
-/**
- * Calculates points for a single quest answer.
- * Test mode awards 15 base pts (higher risk), learn mode awards 10.
- * Streak multiplier rewards consecutive correct answers up to 2x.
- */
 export function calculateScore(params: {
   isCorrect: boolean;
   mode: 'learn' | 'test';
@@ -392,7 +661,7 @@ export function calculateScore(params: {
   if (!params.isCorrect) return 0;
 
   const basePoints = params.mode === 'test' ? 15 : 10;
-  
+
   let multiplier = 1.0;
   if (params.currentStreak >= 4) multiplier = 2.0;
   else if (params.currentStreak >= 3) multiplier = 1.6;
