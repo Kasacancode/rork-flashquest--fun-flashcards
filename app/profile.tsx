@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { router, useRouter } from 'expo-router';
 import {
   ArrowLeft,
   Award,
@@ -152,7 +152,7 @@ function getLevelEntry(level: number): LevelItem {
 }
 
 export default function ProfilePage() {
-  const router = useRouter();
+  const navigation = useRouter();
   const { width } = useWindowDimensions();
   const { stats } = useFlashQuest();
   const { theme, isDark, toggleTheme, setTheme } = useTheme();
@@ -200,8 +200,8 @@ export default function ProfilePage() {
 
   const handleBack = useCallback(() => {
     logger.log('[Profile] Navigating back');
-    router.back();
-  }, [router]);
+    navigation.back();
+  }, [navigation]);
 
   const handleSelectTab = useCallback((tab: TabType) => {
     logger.log('[Profile] Switching tab to', tab);
@@ -226,6 +226,11 @@ export default function ProfilePage() {
   const handleCloseLevels = useCallback(() => {
     logger.log('[Profile] Closing levels modal');
     setShowLevels(false);
+  }, []);
+
+  const handleOpenAnalyticsDebug = useCallback(() => {
+    logger.log('[Profile] Opening analytics debug screen');
+    router.push('/analytics-debug');
   }, []);
 
   const handleComingSoon = useCallback((label: string) => {
@@ -464,6 +469,15 @@ export default function ProfilePage() {
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
+
+              <TouchableOpacity
+                style={styles.debugButton}
+                onPress={handleOpenAnalyticsDebug}
+                activeOpacity={0.84}
+                testID="profile-open-analytics-debug"
+              >
+                <Text style={styles.debugButtonText}>Analytics Debug</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -1126,6 +1140,20 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       color: theme.textSecondary,
       textTransform: 'uppercase' as const,
       letterSpacing: 0.5,
+    },
+    debugButton: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.2)' : 'rgba(15, 23, 42, 0.08)',
+      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.42)' : 'rgba(255, 255, 255, 0.72)',
+    },
+    debugButtonText: {
+      fontSize: 13,
+      fontWeight: '700' as const,
+      color: theme.text,
     },
     toggleCard: {
       flexDirection: 'row',
