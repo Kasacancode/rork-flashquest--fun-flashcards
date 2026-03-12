@@ -30,9 +30,16 @@ export type AnalyticsEventInput = Omit<AnalyticsEvent, 'timestamp'> & {
 
 export type AnalyticsSummaryCounts = Record<AnalyticsEventName, number>;
 
+export interface AnalyticsArenaMetrics {
+  battleStartRate: number;
+  battleCompletionRate: number;
+  rematchRate: number;
+}
+
 export interface AnalyticsSummary {
   day: string;
   counts: AnalyticsSummaryCounts;
+  metrics: AnalyticsArenaMetrics;
   deckCounts: Record<string, number>;
 }
 
@@ -41,6 +48,14 @@ export function createEmptyAnalyticsSummaryCounts(): AnalyticsSummaryCounts {
     accumulator[eventName] = 0;
     return accumulator;
   }, {} as AnalyticsSummaryCounts);
+}
+
+export function createEmptyAnalyticsArenaMetrics(): AnalyticsArenaMetrics {
+  return {
+    battleStartRate: 0,
+    battleCompletionRate: 0,
+    rematchRate: 0,
+  };
 }
 
 export function getAnalyticsDay(timestamp: number): string {

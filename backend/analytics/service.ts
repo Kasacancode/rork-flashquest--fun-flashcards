@@ -1,10 +1,53 @@
 import { analyticsRepository } from './repository';
-import type { AnalyticsEvent, AnalyticsEventInput, AnalyticsSummary } from './types';
-import { createEmptyAnalyticsSummaryCounts, getAnalyticsDay, isValidAnalyticsDay } from './types';
+import type {
+  AnalyticsArenaMetrics,
+  AnalyticsEvent,
+  AnalyticsEventInput,
+  AnalyticsSummary,
+  AnalyticsSummaryCounts,
+} from './types';
+import {
+  createEmptyAnalyticsArenaMetrics,
+  createEmptyAnalyticsSummaryCounts,
+  getAnalyticsDay,
+  isValidAnalyticsDay,
+} from './types';
 
 function normalizeOptionalString(value: string | undefined): string | undefined {
   const normalizedValue = value?.trim();
   return normalizedValue ? normalizedValue : undefined;
+}
+
+function roundMetric(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  const clampedValue = Math.min(1, Math.max(0, value));
+  return Math.round(clampedValue * 1000) / 1000;
+}
+
+function safeRate(numerator: number, denominator: number): number {
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) {
+    return 0;
+  }
+
+  return roundMetric(numerator / denominator);
+}
+
+export function computeArenaMetrics(
+  counts: Pick<Partial<AnalyticsSummaryCounts>, 'battle_created' | 'battle_started' | 'battle_finished' | 'rematch_started'> | undefined,
+): AnalyticsArenaMetrics {
+  const battleCreatedCount = counts?.battle_created ?? 0;
+  const battleStartedCount = counts?.battle_started ?? 0;
+  const battleFinishedCount = counts?.battle_finished ?? 0;
+  const rematchStartedCount = counts?.rematch_started ?? 0;
+
+  return {
+    battleStartRate: safeRate(battleStartedCount, battleCreatedCount),
+    battleCompletionRate: safeRate(battleFinishedCount, battleStartedCount),
+    rematchRate: safeRate(rematchStartedCount, battleFinishedCount),
+  };
 }
 
 function normalizeEvent(event: AnalyticsEventInput): AnalyticsEvent {
@@ -58,6 +101,7 @@ class AnalyticsService {
     return {
       day: resolvedDay,
       counts,
+      metrics: computeArenaMetrics(counts),
       deckCounts,
     };
   }
@@ -70,6 +114,7 @@ class AnalyticsService {
     return {
       day: resolvedDay,
       counts: createEmptyAnalyticsSummaryCounts(),
+      metrics: createEmptyAnalyticsArenaMetrics(),
       deckCounts: {},
     };
   }

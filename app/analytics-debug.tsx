@@ -29,6 +29,11 @@ function formatValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function formatMetricPercentage(value: number | undefined): string {
+  const normalizedValue = typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  return `${(normalizedValue * 100).toFixed(1)}%`;
+}
+
 async function fetchAnalyticsSummary(input: { day?: string } | undefined): Promise<AnalyticsSummary> {
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
@@ -212,6 +217,28 @@ export default function AnalyticsDebugScreen() {
           {summaryQuery.error ? (
             <Text style={[styles.errorText, { color: theme.error }]}>{summaryQuery.error.message}</Text>
           ) : null}
+        </View>
+
+        <View style={sectionStyle}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Arena Metrics</Text>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Battle Start Rate</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatMetricPercentage(summaryQuery.data?.metrics?.battleStartRate)}
+            </Text>
+          </View>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Battle Completion Rate</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatMetricPercentage(summaryQuery.data?.metrics?.battleCompletionRate)}
+            </Text>
+          </View>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Rematch Rate</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatMetricPercentage(summaryQuery.data?.metrics?.rematchRate)}
+            </Text>
+          </View>
         </View>
 
         <View style={sectionStyle}>
