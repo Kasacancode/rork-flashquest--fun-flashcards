@@ -1,20 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useMemo, useCallback } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
 
 import { SAMPLE_DECKS } from '@/data/sampleDecks';
-import { Deck, Flashcard, UserProgress, UserStats, BattleSession } from '@/types/flashcard';
+import type { Deck, Flashcard, UserProgress, UserStats } from '@/types/flashcard';
+import type { GameResultParams } from '@/types/game';
 import { logger } from '@/utils/logger';
 
-// AsyncStorage keys for persisting app data between sessions
 const STORAGE_KEYS = {
   DECKS: 'flashquest_decks',
   PROGRESS: 'flashquest_progress',
   STATS: 'flashquest_stats',
-};
+} as const;
 
-// Initial stats for new users
 const DEFAULT_STATS: UserStats = {
   totalScore: 0,
   currentStreak: 0,
@@ -25,35 +24,19 @@ const DEFAULT_STATS: UserStats = {
   lastActiveDate: new Date().toISOString().split('T')[0],
 };
 
-// Shared type used by all game modes when recording session results
-export type GameMode = 'study' | 'quest' | 'battle';
-
-export interface GameResultParams {
-  mode: GameMode;
-  deckId?: string;
-  xpEarned: number;
-  cardsAttempted: number;
-  correctCount?: number;
-  timestampISO: string;
-}
-
-/**
- * Calculates updated streak values based on when the user was last active.
- * - Same day: no change
- * - Yesterday: increment streak
- * - Older: reset to 1
- */
-function computeStreak(lastActiveDate: string, currentStreak: number, longestStreak: number): { currentStreak: number; longestStreak: number } {
+function computeStreak(
+  lastActiveDate: string,
+  currentStreak: number,
+  longestStreak: number,
+): { currentStreak: number; longestStreak: number } {
   const today = new Date().toISOString().split('T')[0];
 
-  // Already active today, streak unchanged
   if (lastActiveDate === today) {
     return { currentStreak, longestStreak };
   }
 
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
-  // Active yesterday, continue the streak
   if (lastActiveDate === yesterday) {
     const newStreak = currentStreak + 1;
     return {
@@ -62,7 +45,6 @@ function computeStreak(lastActiveDate: string, currentStreak: number, longestStr
     };
   }
 
-  // Missed a day or more, reset streak to 1
   return {
     currentStreak: 1,
     longestStreak: Math.max(longestStreak, 1),
@@ -71,7 +53,6 @@ function computeStreak(lastActiveDate: string, currentStreak: number, longestStr
 
 export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
   const queryClient = useQueryClient();
-  const [currentBattle, setCurrentBattle] = useState<BattleSession | null>(null);
 
   const decksQuery = useQuery({
     queryKey: ['decks'],
@@ -101,11 +82,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
-        if (stats.lastActiveDate === today) {
-          return stats;
-        }
-
-        if (stats.lastActiveDate === yesterday) {
+        if (stats.lastActiveDate === today || stats.lastActiveDate === yesterday) {
           return stats;
         }
 
@@ -123,7 +100,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       return decks;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['decks'] });
+      void queryClient.invalidateQueries({ queryKey: ['decks'] });
     },
   });
   const { mutate: saveDecksMutate, mutateAsync: saveDecksMutateAsync } = saveDecksMutation;
@@ -134,7 +111,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       return progress;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['progress'] });
+      void queryClient.invalidateQueries({ queryKey: ['progress'] });
     },
   });
   const { mutate: saveProgressMutate } = saveProgressMutation;
@@ -145,19 +122,19 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       return stats;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
   const { mutate: saveStatsMutate } = saveStatsMutation;
 
   const recordSessionResult = useCallback((params: GameResultParams) => {
-    const currentStats = queryClient.getQueryData<UserStats>(['stats']) || DEFAULT_STATS;
+    const currentStats = queryClient.getQueryData<UserStats>(['stats']) ?? DEFAULT_STATS;
     const today = new Date().toISOString().split('T')[0];
 
     const { currentStreak: newStreak, longestStreak: newLongest } = computeStreak(
       currentStats.lastActiveDate,
       currentStats.currentStreak,
-      currentStats.longestStreak
+      currentStats.longestStreak,
     );
 
     const updatedStats: UserStats = {
@@ -169,20 +146,29 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       lastActiveDate: today,
     };
 
-    logger.log('[Context] recordSessionResult', params.mode, 'xp:', params.xpEarned, 'cards:', params.cardsAttempted, 'streak:', newStreak);
+    logger.log(
+      '[FlashQuest] recordSessionResult',
+      params.mode,
+      'xp:',
+      params.xpEarned,
+      'cards:',
+      params.cardsAttempted,
+      'streak:',
+      newStreak,
+    );
 
     queryClient.setQueryData(['stats'], updatedStats);
     saveStatsMutate(updatedStats);
 
     if (params.deckId) {
-      const currentProgress = queryClient.getQueryData<UserProgress[]>(['progress']) || [];
-      const idx = currentProgress.findIndex((p) => p.deckId === params.deckId);
+      const currentProgress = queryClient.getQueryData<UserProgress[]>(['progress']) ?? [];
+      const existingIndex = currentProgress.findIndex((entry) => entry.deckId === params.deckId);
       let updatedProgress: UserProgress[];
 
-      if (idx >= 0) {
-        const existing = currentProgress[idx];
+      if (existingIndex >= 0) {
+        const existing = currentProgress[existingIndex];
         updatedProgress = [...currentProgress];
-        updatedProgress[idx] = {
+        updatedProgress[existingIndex] = {
           ...existing,
           cardsReviewed: existing.cardsReviewed + params.cardsAttempted,
           lastStudied: Date.now(),
@@ -202,65 +188,62 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       queryClient.setQueryData(['progress'], updatedProgress);
       saveProgressMutate(updatedProgress);
     }
-  }, [saveStatsMutate, saveProgressMutate, queryClient]);
+  }, [queryClient, saveProgressMutate, saveStatsMutate]);
 
   const addDeck = useCallback((deck: Deck) => {
-    const currentDecks = decksQuery.data || [];
+    const currentDecks = decksQuery.data ?? [];
     saveDecksMutate([...currentDecks, deck]);
   }, [decksQuery.data, saveDecksMutate]);
 
   const updateDeck = useCallback((deckId: string, updates: Partial<Deck>) => {
-    const currentDecks = decksQuery.data || [];
-    const updatedDecks = currentDecks.map(deck =>
+    const currentDecks = decksQuery.data ?? [];
+    const updatedDecks = currentDecks.map((deck) => (
       deck.id === deckId ? { ...deck, ...updates } : deck
-    );
+    ));
     saveDecksMutate(updatedDecks);
   }, [decksQuery.data, saveDecksMutate]);
 
   const updateFlashcard = useCallback((deckId: string, cardId: string, updates: Partial<Flashcard>) => {
-    const currentDecks = decksQuery.data || [];
-    const updatedDecks = currentDecks.map(deck => {
-      if (deck.id !== deckId) return deck;
+    const currentDecks = decksQuery.data ?? [];
+    const updatedDecks = currentDecks.map((deck) => {
+      if (deck.id !== deckId) {
+        return deck;
+      }
+
       return {
         ...deck,
-        flashcards: deck.flashcards.map(card =>
+        flashcards: deck.flashcards.map((card) => (
           card.id === cardId ? { ...card, ...updates } : card
-        ),
+        )),
       };
     });
+
     queryClient.setQueryData(['decks'], updatedDecks);
     saveDecksMutate(updatedDecks);
   }, [decksQuery.data, queryClient, saveDecksMutate]);
 
-  /**
-   * Deletes a deck with optimistic update and rollback on failure.
-   * Also cleans up any associated progress entries.
-   */
   const deleteDeck = useCallback(async (deckId: string) => {
-    logger.log('[Context] Starting delete for deck:', deckId);
-    const currentDecks = decksQuery.data || [];
+    logger.log('[FlashQuest] Starting delete for deck:', deckId);
+    const currentDecks = decksQuery.data ?? [];
     const filteredDecks = currentDecks.filter((deck) => deck.id !== deckId);
 
     if (filteredDecks.length === currentDecks.length) {
-      logger.log('[Context] Deck not found, aborting delete');
+      logger.log('[FlashQuest] Deck not found, aborting delete');
       return currentDecks;
     }
 
-    // Optimistic update for instant UI feedback
     queryClient.setQueryData(['decks'], filteredDecks);
 
     try {
       await saveDecksMutateAsync(filteredDecks);
-      logger.log('[Context] Persisted decks via mutation');
+      logger.log('[FlashQuest] Persisted decks via mutation');
     } catch (error) {
-      // Rollback on failure to keep UI consistent with storage
-      logger.error('[Context] Failed to persist decks, rolling back', error);
+      logger.error('[FlashQuest] Failed to persist decks, rolling back', error);
       queryClient.setQueryData(['decks'], currentDecks);
       throw error;
     }
 
-    // Clean up orphaned progress entries for the deleted deck
-    const currentProgress = progressQuery.data || [];
+    const currentProgress = progressQuery.data ?? [];
     const filteredProgress = currentProgress.filter((entry) => entry.deckId !== deckId);
     if (filteredProgress.length !== currentProgress.length) {
       queryClient.setQueryData(['progress'], filteredProgress);
@@ -271,15 +254,14 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
   }, [decksQuery.data, progressQuery.data, queryClient, saveDecksMutateAsync, saveProgressMutate]);
 
   const updateProgress = useCallback((deckId: string) => {
-    const currentProgress = progressQuery.data || [];
-
-    const deckProgressIndex = currentProgress.findIndex((p) => p.deckId === deckId);
+    const currentProgress = progressQuery.data ?? [];
+    const existingIndex = currentProgress.findIndex((entry) => entry.deckId === deckId);
     let updatedProgress: UserProgress[];
 
-    if (deckProgressIndex >= 0) {
-      const existing = currentProgress[deckProgressIndex];
+    if (existingIndex >= 0) {
+      const existing = currentProgress[existingIndex];
       updatedProgress = [...currentProgress];
-      updatedProgress[deckProgressIndex] = {
+      updatedProgress[existingIndex] = {
         ...existing,
         cardsReviewed: existing.cardsReviewed + 1,
         lastStudied: Date.now(),
@@ -299,64 +281,38 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     saveProgressMutate(updatedProgress);
   }, [progressQuery.data, saveProgressMutate]);
 
-  const startBattle = useCallback((deckId: string, mode: 'ai' | 'multiplayer', shouldShuffle?: boolean) => {
-    const battle: BattleSession = {
-      id: `battle_${Date.now()}`,
-      mode,
-      deckId,
-      playerScore: 0,
-      opponentScore: 0,
-      currentRound: 0,
-      totalRounds: 5,
-      status: 'active',
-      opponentName: mode === 'ai' ? 'AI Bot' : 'Opponent',
-      shuffled: shouldShuffle || false,
-    };
-    setCurrentBattle(battle);
-  }, []);
-
-  const updateBattle = useCallback((playerCorrect: boolean, opponentCorrect: boolean) => {
-    if (!currentBattle) return;
-
-    const updated: BattleSession = {
-      ...currentBattle,
-      playerScore: currentBattle.playerScore + (playerCorrect ? 1 : 0),
-      opponentScore: currentBattle.opponentScore + (opponentCorrect ? 1 : 0),
-      currentRound: currentBattle.currentRound + 1,
-      status: currentBattle.currentRound + 1 >= currentBattle.totalRounds ? 'completed' : 'active',
-      completedAt: currentBattle.currentRound + 1 >= currentBattle.totalRounds ? Date.now() : undefined,
-    };
-
-    setCurrentBattle(updated);
-  }, [currentBattle]);
-
-  const endBattle = useCallback(() => {
-    setCurrentBattle(null);
-  }, []);
-
   return useMemo(() => ({
-    decks: decksQuery.data || [],
-    progress: progressQuery.data || [],
-    stats: statsQuery.data || DEFAULT_STATS,
-    currentBattle,
+    decks: decksQuery.data ?? [],
+    progress: progressQuery.data ?? [],
+    stats: statsQuery.data ?? DEFAULT_STATS,
     isLoading: decksQuery.isLoading || progressQuery.isLoading || statsQuery.isLoading,
-
     addDeck,
     updateDeck,
     updateFlashcard,
     deleteDeck,
     updateProgress,
     recordSessionResult,
-    startBattle,
-    updateBattle,
-    endBattle,
-  }), [decksQuery.data, progressQuery.data, statsQuery.data, currentBattle, decksQuery.isLoading, progressQuery.isLoading, statsQuery.isLoading, addDeck, updateDeck, updateFlashcard, deleteDeck, updateProgress, recordSessionResult, startBattle, updateBattle, endBattle]);
+  }), [
+    decksQuery.data,
+    progressQuery.data,
+    statsQuery.data,
+    decksQuery.isLoading,
+    progressQuery.isLoading,
+    statsQuery.isLoading,
+    addDeck,
+    updateDeck,
+    updateFlashcard,
+    deleteDeck,
+    updateProgress,
+    recordSessionResult,
+  ]);
 });
 
 export function useDeckProgress(deckId: string) {
   const { progress } = useFlashQuest();
+
   return useMemo(
-    () => progress.find((p) => p.deckId === deckId),
-    [progress, deckId]
+    () => progress.find((entry) => entry.deckId === deckId),
+    [progress, deckId],
   );
 }

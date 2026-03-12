@@ -14,7 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import StudyFeed from '@/components/StudyFeed';
 import { useFlashQuest } from '@/context/FlashQuestContext';
-import { Flashcard } from '@/types/flashcard';
+import type { Flashcard } from '@/types/flashcard';
+import { GAME_MODE } from '@/types/game';
 import { useTheme } from '@/context/ThemeContext';
 import { logger } from '@/utils/logger';
 
@@ -41,7 +42,7 @@ export default function StudyPage() {
     setShowResults(false);
   }, []);
 
-  const handleCardResolved = useCallback((cardId: string) => {
+  const handleCardResolved = useCallback((_cardId: string) => {
     if (selectedDeck) {
       setSessionResolved(prev => prev + 1);
     }
@@ -51,7 +52,7 @@ export default function StudyPage() {
     if (selectedDeck) {
       const xpEarned = sessionResolved * 5;
       recordSessionResult({
-        mode: 'study',
+        mode: GAME_MODE.STUDY,
         deckId: selectedDeck.id,
         xpEarned,
         cardsAttempted: sessionResolved,

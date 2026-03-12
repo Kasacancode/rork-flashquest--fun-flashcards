@@ -30,9 +30,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   AVATAR_COLORS,
   AVATAR_SUITS,
-  type AvatarColorId,
-  type AvatarSuitId,
 } from '@/constants/avatar';
+import type { AvatarColorId, AvatarSuitId } from '@/types/avatar';
 import { type Theme } from '@/constants/colors';
 import { useAvatar } from '@/context/AvatarContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';

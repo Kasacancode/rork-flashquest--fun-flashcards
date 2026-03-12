@@ -9,7 +9,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
-import type { ArenaLeaderboardEntry } from '@/types/flashcard';
+import type { ArenaLeaderboardEntry } from '@/types/arena';
+import { GAME_MODE } from '@/types/game';
 import { logger } from '@/utils/logger';
 
 interface ResultPlayer {
@@ -131,7 +132,7 @@ export default function ArenaResultsScreen() {
       const xp = isWinner ? 200 : 100;
 
       recordSessionResult({
-        mode: 'battle',
+        mode: GAME_MODE.ARENA,
         deckId: data.deckId || '',
         xpEarned: xp,
         cardsAttempted: data.totalQuestions,

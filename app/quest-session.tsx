@@ -11,7 +11,9 @@ import DealerPlaceholder from '@/components/DealerPlaceholder';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
-import { QuestSettings, Flashcard, QuestRunResult } from '@/types/flashcard';
+import type { Flashcard } from '@/types/flashcard';
+import { GAME_MODE } from '@/types/game';
+import type { QuestRunResult, QuestSettings } from '@/types/performance';
 import { selectNextCard, generateOptionsWithAI, generateOptions, checkAnswer, calculateScore } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
 
@@ -165,7 +167,7 @@ export default function QuestSessionScreen() {
     const finalAccuracy = totalRounds > 0 ? correctCount / totalRounds : 0;
 
     recordSessionResult({
-      mode: 'quest',
+      mode: GAME_MODE.QUEST,
       deckId: settings.deckId,
       xpEarned: score,
       cardsAttempted: totalRounds,
@@ -197,9 +199,9 @@ export default function QuestSessionScreen() {
 
   useEffect(() => {
     if (deck) {
-      setupNextRound();
+      void setupNextRound();
     }
-  }, []);
+  }, [deck, setupNextRound]);
 
   useEffect(() => {
     if (settings.timerSeconds > 0 && timeRemaining !== null && timeRemaining > 0 && !inputLocked) {
@@ -249,7 +251,7 @@ export default function QuestSessionScreen() {
     });
 
     if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
 
     setTimeout(() => {
@@ -306,7 +308,7 @@ export default function QuestSessionScreen() {
       });
 
       if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
 
       if (settings.explanationsEnabled && currentCard.explanation) {
@@ -330,7 +332,7 @@ export default function QuestSessionScreen() {
         }
 
         if (Platform.OS !== 'web') {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
         return;
       }
@@ -349,7 +351,7 @@ export default function QuestSessionScreen() {
       });
 
       if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
 
       if (settings.explanationsEnabled && currentCard.explanation) {
@@ -367,7 +369,7 @@ export default function QuestSessionScreen() {
       updateBestStreak(bestStreak);
 
       recordSessionResult({
-        mode: 'quest',
+        mode: GAME_MODE.QUEST,
         deckId: settings.deckId,
         xpEarned: score,
         cardsAttempted: effectiveRunLength,
@@ -398,8 +400,8 @@ export default function QuestSessionScreen() {
 
     setCurrentRound(nextRound);
     setShowExplanation(false);
-    setupNextRound();
-  }, [currentRound, settings, score, correctCount, incorrectCount, bestStreak, totalTimeMs, missedCardIds, askedCardIds, router, updateBestStreak, setupNextRound]);
+    void setupNextRound();
+  }, [currentRound, settings, score, correctCount, incorrectCount, bestStreak, totalTimeMs, missedCardIds, askedCardIds, router, updateBestStreak, setupNextRound, effectiveRunLength, recordSessionResult]);
 
   advanceRoundRef.current = advanceRound;
 
@@ -407,7 +409,7 @@ export default function QuestSessionScreen() {
     if (!settings.hintsEnabled || !currentCard?.hint1 || inputLocked) return;
     setShowHint(true);
     if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   }, [settings.hintsEnabled, currentCard, inputLocked]);
 

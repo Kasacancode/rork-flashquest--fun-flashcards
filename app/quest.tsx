@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
-import { QuestMode, QuestSettings } from '@/types/flashcard';
+import type { QuestMode, QuestSettings } from '@/types/performance';
 
 type RunLength = 5 | 10 | 20;
 type TimerOption = 0 | 5 | 10;

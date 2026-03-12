@@ -2,7 +2,8 @@
 // All room, game, and sanitized types live here.
 // Shared by repository, engine, and TRPC routes.
 
-import { PLAYER_IDENTITIES, type AvatarIdentity, type PlayerSuit } from '../../constants/avatar';
+import { PLAYER_IDENTITIES } from '../../constants/avatar';
+import type { AvatarIdentity, PlayerSuit } from '../../types/avatar';
 
 export type { PlayerSuit };
 export type PlayerIdentity = AvatarIdentity;

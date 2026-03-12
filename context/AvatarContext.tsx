@@ -7,9 +7,8 @@ import {
   DEFAULT_AVATAR_IDENTITY,
   getAvatarIdentityByKey,
   getAvatarIdentityBySelection,
-  type AvatarColorId,
-  type AvatarSuitId,
 } from '@/constants/avatar';
+import type { AvatarColorId, AvatarSuitId } from '@/types/avatar';
 
 const STORAGE_KEY = 'flashquest_avatar_identity';
 

@@ -3,13 +3,13 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 
-import { 
-  QuestPerformance, 
-  QuestSettings, 
-  CardStats, 
+import type { Flashcard } from '@/types/flashcard';
+import type {
+  CardStats,
   DeckStats,
-  Flashcard 
-} from '@/types/flashcard';
+  QuestPerformance,
+  QuestSettings,
+} from '@/types/performance';
 import { logger } from '@/utils/logger';
 
 // Persists per-card accuracy data so Quest mode can prioritize weak cards
@@ -70,7 +70,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
       return newPerformance;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['performance'] });
+      void queryClient.invalidateQueries({ queryKey: ['performance'] });
     },
   });
   const { mutate: savePerformance } = savePerformanceMutation;

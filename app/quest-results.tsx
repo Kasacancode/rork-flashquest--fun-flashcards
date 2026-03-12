@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
-import { QuestRunResult, QuestSettings } from '@/types/flashcard';
+import type { QuestRunResult, QuestSettings } from '@/types/performance';
 import { logger } from '@/utils/logger';
 
 export default function QuestResultsScreen() {

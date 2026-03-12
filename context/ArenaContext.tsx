@@ -6,7 +6,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type { RoomSettings, SanitizedRoom } from '@/backend/arena/types';
 import { useAvatar } from '@/context/AvatarContext';
 import { trpc } from '@/lib/trpc';
-import type { ArenaLeaderboardEntry } from '@/types/flashcard';
+import type { ArenaLeaderboardEntry } from '@/types/arena';
 import { logger } from '@/utils/logger';
 
 const LEADERBOARD_KEY = 'flashquest_arena_leaderboard';

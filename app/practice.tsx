@@ -6,23 +6,23 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFlashQuest } from '@/context/FlashQuestContext';
+import type { PracticeMode } from '@/types/practice';
 
 export default function PracticePage() {
   const router = useRouter();
-  const { decks, startBattle } = useFlashQuest();
-  const [selectedMode, setSelectedMode] = useState<'ai' | 'multiplayer' | null>(null);
+  const { decks } = useFlashQuest();
+  const [selectedMode, setSelectedMode] = useState<PracticeMode | null>(null);
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(false);
 
-  const handleModeSelect = (mode: 'ai' | 'multiplayer') => {
+  const handleModeSelect = (mode: PracticeMode) => {
     setSelectedMode(mode);
     setShowDeckSelector(true);
   };
 
   const handleDeckSelect = (deckId: string) => {
     if (selectedMode) {
-      startBattle(deckId, selectedMode);
       setShowDeckSelector(false);
-      router.push({ pathname: '/practice-session' as any, params: { deckId } });
+      router.push({ pathname: '/practice-session' as any, params: { deckId, mode: selectedMode } });
     }
   };
 

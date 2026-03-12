@@ -9,6 +9,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { TimerProgressBar, StreakIndicator } from '@/components/GameUI';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
+import { GAME_MODE } from '@/types/game';
+import type { PracticeMode, PracticeSessionState } from '@/types/practice';
 import { generateDistractors, pickDistractor, getOpponentBehavior, clearDistractorCache } from '@/utils/battleAI';
 import { logger } from '@/utils/logger';
 
@@ -29,11 +31,34 @@ interface TurnResult {
   timeUsed: number;
 }
 
+function createPracticeSession(deckId: string, mode: PracticeMode): PracticeSessionState {
+  return {
+    id: `practice_${Date.now()}`,
+    mode,
+    deckId,
+    playerScore: 0,
+    opponentScore: 0,
+    currentRound: 0,
+    totalRounds: 5,
+    status: 'active',
+    opponentName: mode === 'ai' ? 'AI Bot' : 'Opponent',
+    shuffled: false,
+  };
+}
+
 export default function PracticeSessionPage() {
   const router = useRouter();
-  const { deckId } = useLocalSearchParams<{ deckId: string }>();
-  const { decks, currentBattle, updateBattle, endBattle, recordSessionResult } = useFlashQuest();
+  const params = useLocalSearchParams<{ deckId?: string | string[]; mode?: PracticeMode | PracticeMode[] }>();
+  const { decks, recordSessionResult } = useFlashQuest();
   const { theme, isDark } = useTheme();
+  const deckId = useMemo(() => (Array.isArray(params.deckId) ? params.deckId[0] : params.deckId), [params.deckId]);
+  const practiceMode = useMemo<PracticeMode>(() => {
+    const rawMode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
+    return rawMode === 'multiplayer' ? 'multiplayer' : 'ai';
+  }, [params.mode]);
+  const [currentBattle, setCurrentBattle] = useState<PracticeSessionState | null>(() => (
+    deckId ? createPracticeSession(deckId, practiceMode) : null
+  ));
 
   const [gamePhase, setGamePhase] = useState<GamePhase>('player-turn');
   const [userAnswer, setUserAnswer] = useState<string>('');
@@ -54,6 +79,39 @@ export default function PracticeSessionPage() {
   const feedbackScale = useRef(new Animated.Value(0.8)).current;
   const scorePopAnim = useRef(new Animated.Value(1)).current;
   const handleTimeUpRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    if (!deckId) {
+      setCurrentBattle(null);
+      return;
+    }
+
+    setCurrentBattle(createPracticeSession(deckId, practiceMode));
+  }, [deckId, practiceMode]);
+
+  const updateBattle = useCallback((playerCorrect: boolean, opponentCorrect: boolean) => {
+    setCurrentBattle((previousBattle) => {
+      if (!previousBattle) {
+        return previousBattle;
+      }
+
+      const nextRound = previousBattle.currentRound + 1;
+      const isComplete = nextRound >= previousBattle.totalRounds;
+
+      return {
+        ...previousBattle,
+        playerScore: previousBattle.playerScore + (playerCorrect ? 1 : 0),
+        opponentScore: previousBattle.opponentScore + (opponentCorrect ? 1 : 0),
+        currentRound: nextRound,
+        status: isComplete ? 'completed' : 'active',
+        completedAt: isComplete ? Date.now() : undefined,
+      };
+    });
+  }, []);
+
+  const endBattle = useCallback(() => {
+    setCurrentBattle(null);
+  }, []);
 
   const deck = useMemo(() => decks.find((d) => d.id === deckId), [decks, deckId]);
   
@@ -430,7 +488,7 @@ export default function PracticeSessionPage() {
 
             <TouchableOpacity style={styles.doneButton} onPress={() => {
               recordSessionResult({
-                mode: 'battle',
+                mode: GAME_MODE.PRACTICE,
                 deckId: deckId,
                 xpEarned: practiceXp,
                 cardsAttempted: currentBattle.totalRounds,
