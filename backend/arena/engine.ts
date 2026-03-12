@@ -30,6 +30,7 @@ import {
   DISCONNECT_MS,
   REVEAL_DURATION_MS,
   NO_TIMER_TIMEOUT_MS,
+  DEFAULT_ARENA_SETTINGS,
 } from './types';
 import { DEFAULT_AVATAR_IDENTITY, getAvatarIdentityByKey } from '../../constants/avatar';
 
@@ -120,7 +121,7 @@ export function createNewRoom(hostName: string, code: string, preferredIdentityK
     }],
     deckId: null,
     deckName: null,
-    settings: { rounds: 10, timerSeconds: 10, showExplanationsAtEnd: true },
+    settings: { ...DEFAULT_ARENA_SETTINGS },
     status: 'lobby',
     game: null,
     createdAt: now,

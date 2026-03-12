@@ -6,7 +6,13 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert, Ani
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import type { RoomSettings } from '@/backend/arena/types';
+import {
+  ARENA_ROUND_OPTIONS,
+  ARENA_TIMER_OPTIONS,
+  type ArenaRoundOption,
+  type ArenaTimerOption,
+  type RoomSettings,
+} from '@/backend/arena/types';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -16,22 +22,15 @@ import { logger } from '@/utils/logger';
 const ARENA_ACCENT_LIGHT = '#f97316';
 const ARENA_ACCENT_DARK = '#f59e0b';
 
-type RoundsOption = 5 | 10 | 15 | 20;
-type TimerOption = 0 | 10 | 15 | 20;
+const ROUND_OPTIONS: { value: ArenaRoundOption; label: string }[] = ARENA_ROUND_OPTIONS.map((value) => ({
+  value,
+  label: String(value),
+}));
 
-const ROUND_OPTIONS: { value: RoundsOption; label: string }[] = [
-  { value: 5, label: '5' },
-  { value: 10, label: '10' },
-  { value: 15, label: '15' },
-  { value: 20, label: '20' },
-];
-
-const TIMER_OPTIONS: { value: TimerOption; label: string }[] = [
-  { value: 0, label: 'Off' },
-  { value: 10, label: '10s' },
-  { value: 15, label: '15s' },
-  { value: 20, label: '20s' },
-];
+const TIMER_OPTIONS: { value: ArenaTimerOption; label: string }[] = ARENA_TIMER_OPTIONS.map((value) => ({
+  value,
+  label: value === 0 ? 'Off' : `${value}s`,
+}));
 
 const MAX_LOBBY_SLOTS = 6;
 
@@ -184,11 +183,11 @@ export default function ArenaLobbyScreen() {
     router.replace('/arena' as any);
   }, [disconnect, router]);
 
-  const handleRoundsChange = useCallback((rounds: RoundsOption) => {
+  const handleRoundsChange = useCallback((rounds: ArenaRoundOption) => {
     updateSettings({ rounds });
   }, [updateSettings]);
 
-  const handleTimerChange = useCallback((timerSeconds: TimerOption) => {
+  const handleTimerChange = useCallback((timerSeconds: ArenaTimerOption) => {
     updateSettings({ timerSeconds });
   }, [updateSettings]);
 

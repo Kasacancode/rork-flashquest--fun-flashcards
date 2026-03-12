@@ -14,7 +14,7 @@ export const PLAYER_COLORS = PLAYER_IDENTITIES.map((identity) => identity.color)
 export const MAX_PLAYERS = 6;
 export const ROOM_TTL_MS = 60 * 60 * 1000;
 export const DISCONNECT_MS = 60 * 1000;
-export const REVEAL_DURATION_MS = 3500;
+export const REVEAL_DURATION_MS = 2000;
 export const NO_TIMER_TIMEOUT_MS = 90 * 1000;
 
 export interface RoomPlayer {
@@ -66,6 +66,18 @@ export interface RoomSettings {
   timerSeconds: number;
   showExplanationsAtEnd: boolean;
 }
+
+export const ARENA_ROUND_OPTIONS = [5, 10, 15, 20] as const;
+export const ARENA_TIMER_OPTIONS = [0, 10, 15, 20] as const;
+
+export type ArenaRoundOption = (typeof ARENA_ROUND_OPTIONS)[number];
+export type ArenaTimerOption = (typeof ARENA_TIMER_OPTIONS)[number];
+
+export const DEFAULT_ARENA_SETTINGS: RoomSettings = {
+  rounds: 10,
+  timerSeconds: 10,
+  showExplanationsAtEnd: true,
+};
 
 export interface Room {
   code: string;
