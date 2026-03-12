@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -123,6 +124,10 @@ export default function AnalyticsDebugScreen() {
     setRequestedDay(undefined);
   }, [requestedDay, summaryQuery]);
 
+  const handleClose = useCallback(() => {
+    router.back();
+  }, []);
+
   const containerStyle = [styles.container, { backgroundColor: theme.background }];
   const sectionStyle = [styles.section, { backgroundColor: theme.cardBackground, borderColor: theme.border }];
   const inputStyle = [
@@ -134,14 +139,22 @@ export default function AnalyticsDebugScreen() {
     },
   ];
   const secondaryButtonStyle = [styles.secondaryButton, { borderColor: theme.border }];
+  const closeButtonStyle = [styles.closeButton, { backgroundColor: theme.cardBackground, borderColor: theme.border }];
 
   if (!__DEV__) {
     return (
       <SafeAreaView style={containerStyle} edges={['top', 'bottom']}>
+        <View style={styles.content}>
+          <Pressable
+            onPress={handleClose}
+            style={({ pressed }) => [closeButtonStyle, { opacity: pressed ? 0.75 : 1 }]}
+            testID="analytics-debug-close-button"
+          >
+            <Text style={[styles.closeButtonText, { color: theme.text }]}>×</Text>
+          </Pressable>
+        </View>
         <View style={styles.centeredState} testID="analytics-debug-unavailable">
-          <Text style={[styles.message, { color: theme.textSecondary }]}>
-            Not available.
-          </Text>
+          <Text style={[styles.message, { color: theme.textSecondary }]}>Not available.</Text>
         </View>
       </SafeAreaView>
     );
@@ -156,6 +169,13 @@ export default function AnalyticsDebugScreen() {
         testID="analytics-debug-screen"
       >
         <View style={styles.header}>
+          <Pressable
+            onPress={handleClose}
+            style={({ pressed }) => [closeButtonStyle, { opacity: pressed ? 0.75 : 1 }]}
+            testID="analytics-debug-close-button"
+          >
+            <Text style={[styles.closeButtonText, { color: theme.text }]}>×</Text>
+          </Pressable>
           <Text style={[styles.devBadge, { color: theme.warning, borderColor: theme.warning }]}>DEV ONLY</Text>
           <Text style={[styles.title, { color: theme.text }]}>Analytics Debug</Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Loads trpc.analytics.summary for quick inspection.</Text>
@@ -290,6 +310,20 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: 8,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+  },
+  closeButtonText: {
+    fontSize: 24,
+    lineHeight: 24,
+    fontWeight: '500' as const,
   },
   devBadge: {
     alignSelf: 'flex-start',
