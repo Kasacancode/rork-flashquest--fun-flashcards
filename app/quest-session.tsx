@@ -14,7 +14,7 @@ import { useTheme } from '@/context/ThemeContext';
 import type { Flashcard } from '@/types/flashcard';
 import { GAME_MODE } from '@/types/game';
 import type { QuestRunResult, QuestSettings } from '@/types/performance';
-import { selectNextCard, generateOptionsWithAI, generateOptions, checkAnswer, calculateScore } from '@/utils/questUtils';
+import { selectNextCard, generateAIDistractors, generateOptions, checkAnswer, calculateScore } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
 
 export default function QuestSessionScreen() {
@@ -84,6 +84,7 @@ export default function QuestSessionScreen() {
 
   const usedCardIdsRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dealerDialogue = useRef<'idle' | 'correct' | 'wrong'>('idle');
   const advanceRoundRef = useRef<() => void>(() => {});
   const finishSessionEarlyRef = useRef<() => void>(() => {});
@@ -95,7 +96,7 @@ export default function QuestSessionScreen() {
     new Animated.Value(0),
   ]).current;
 
-  const setupNextRound = useCallback(async () => {
+  const setupNextRound = useCallback(() => {
     if (!deck) return;
 
     const cardPool = drillCards || deck.flashcards;
@@ -112,9 +113,19 @@ export default function QuestSessionScreen() {
       return;
     }
 
+    const immediateOptions = generateOptions({
+      correctAnswer: nextCard.answer,
+      deckCards: deck.flashcards,
+      allCards,
+      currentCardId: nextCard.id,
+    });
+
+    logger.log('[Quest] Starting round with card:', nextCard.id, 'options ready:', immediateOptions.length);
+
     usedCardIdsRef.current.add(nextCard.id);
     setAskedCardIds(prev => [...prev, nextCard.id]);
     setCurrentCard(nextCard);
+    setOptions(immediateOptions);
     setSelectedOption(null);
     setIsCorrect(null);
     setShowHint(false);
@@ -123,10 +134,7 @@ export default function QuestSessionScreen() {
     setUsedSecondChance(false);
     dealerDialogue.current = 'idle';
     setRoundStartTime(Date.now());
-
-    if (settings.timerSeconds > 0) {
-      setTimeRemaining(settings.timerSeconds);
-    }
+    setTimeRemaining(settings.timerSeconds > 0 ? settings.timerSeconds : null);
 
     cardAnimations.forEach((anim, index) => {
       anim.setValue(0);
@@ -139,26 +147,29 @@ export default function QuestSessionScreen() {
       }).start();
     });
 
-    try {
-      const newOptions = await generateOptionsWithAI({
-        correctAnswer: nextCard.answer,
-        question: nextCard.question,
-        deckCards: deck.flashcards,
-        allCards,
-        currentCardId: nextCard.id,
+    void generateAIDistractors(nextCard.question, nextCard.answer, nextCard.id)
+      .then(() => {
+        logger.log('[Quest] Warmed AI distractors for card:', nextCard.id);
+      })
+      .catch((err) => {
+        logger.log('[Quest] AI distractor warmup failed:', err);
       });
-      setOptions(newOptions);
-    } catch (err) {
-      logger.log('[Quest] AI distractor generation failed, using local fallback:', err);
-      const fallbackOptions = generateOptions({
-        correctAnswer: nextCard.answer,
-        deckCards: deck.flashcards,
-        allCards,
-        currentCardId: nextCard.id,
-      });
-      setOptions(fallbackOptions);
+  }, [deck, allCards, performance, settings.focusWeakOnly, settings.timerSeconds, cardAnimations, drillCards]);
+
+  const clearAdvanceTimeout = useCallback(() => {
+    if (advanceTimeoutRef.current) {
+      clearTimeout(advanceTimeoutRef.current);
+      advanceTimeoutRef.current = null;
     }
-  }, [deck, allCards, performance, settings, cardAnimations, drillCards]);
+  }, []);
+
+  const scheduleAdvance = useCallback((delayMs: number) => {
+    clearAdvanceTimeout();
+    advanceTimeoutRef.current = setTimeout(() => {
+      advanceTimeoutRef.current = null;
+      advanceRoundRef.current();
+    }, delayMs);
+  }, [clearAdvanceTimeout]);
 
   const finishSessionEarly = useCallback(() => {
     updateBestStreak(bestStreak);
@@ -199,7 +210,7 @@ export default function QuestSessionScreen() {
 
   useEffect(() => {
     if (deck) {
-      void setupNextRound();
+      setupNextRound();
     }
   }, [deck, setupNextRound]);
 
@@ -223,8 +234,16 @@ export default function QuestSessionScreen() {
     };
   }, [timeRemaining, inputLocked, settings.timerSeconds]);
 
+  useEffect(() => {
+    return () => {
+      clearAdvanceTimeout();
+    };
+  }, [clearAdvanceTimeout]);
+
   const handleTimeUp = useCallback(() => {
     if (inputLocked || !currentCard) return;
+
+    clearAdvanceTimeout();
 
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -254,10 +273,8 @@ export default function QuestSessionScreen() {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
 
-    setTimeout(() => {
-      advanceRoundRef.current();
-    }, 1500);
-  }, [inputLocked, currentCard, roundStartTime, settings.deckId, logQuestAttempt]);
+    scheduleAdvance(1500);
+  }, [inputLocked, currentCard, roundStartTime, settings.deckId, logQuestAttempt, scheduleAdvance, clearAdvanceTimeout]);
 
   useEffect(() => {
     if (timeRemaining === 0 && !inputLocked && currentCard) {
@@ -267,6 +284,8 @@ export default function QuestSessionScreen() {
 
   const handleOptionPress = useCallback((option: string) => {
     if (inputLocked || !currentCard) return;
+
+    clearAdvanceTimeout();
 
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -314,7 +333,7 @@ export default function QuestSessionScreen() {
       if (settings.explanationsEnabled && currentCard.explanation) {
         setTimeout(() => setShowExplanation(true), 600);
       } else {
-        setTimeout(() => advanceRoundRef.current(), 1000);
+        scheduleAdvance(1000);
       }
     } else {
       setIsCorrect(false);
@@ -357,10 +376,10 @@ export default function QuestSessionScreen() {
       if (settings.explanationsEnabled && currentCard.explanation) {
         setTimeout(() => setShowExplanation(true), 600);
       } else {
-        setTimeout(() => advanceRoundRef.current(), 1200);
+        scheduleAdvance(1200);
       }
     }
-  }, [inputLocked, currentCard, streak, bestStreak, roundStartTime, settings, usedSecondChance, logQuestAttempt]);
+  }, [inputLocked, currentCard, streak, bestStreak, roundStartTime, settings, usedSecondChance, logQuestAttempt, scheduleAdvance, clearAdvanceTimeout]);
 
   const advanceRound = useCallback(() => {
     const nextRound = currentRound + 1;
@@ -400,7 +419,7 @@ export default function QuestSessionScreen() {
 
     setCurrentRound(nextRound);
     setShowExplanation(false);
-    void setupNextRound();
+    setupNextRound();
   }, [currentRound, settings, score, correctCount, incorrectCount, bestStreak, totalTimeMs, missedCardIds, askedCardIds, router, updateBestStreak, setupNextRound, effectiveRunLength, recordSessionResult]);
 
   advanceRoundRef.current = advanceRound;
