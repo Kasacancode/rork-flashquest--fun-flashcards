@@ -1,8 +1,22 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Award, BookOpen, Check, ChevronRight, Crown, Flame, Moon, Settings, Sun, User, Zap } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  Award,
+  BookOpen,
+  Check,
+  ChevronRight,
+  Crown,
+  Flame,
+  Moon,
+  Settings,
+  Sun,
+  User,
+  Zap,
+} from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
+  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -20,13 +34,15 @@ import {
   type AvatarColorId,
   type AvatarSuitId,
 } from '@/constants/avatar';
-import { Theme } from '@/constants/colors';
+import { type Theme } from '@/constants/colors';
 import { useAvatar } from '@/context/AvatarContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { logger } from '@/utils/logger';
 
-type TabType = 'overview' | 'achievements' | 'avatar';
+type TabType = 'overview' | 'avatar' | 'awards';
+
+type GradientTriplet = readonly [string, string, string];
 
 type IconComponent = React.ComponentType<{
   color?: string;
@@ -45,11 +61,18 @@ interface AchievementItem {
   icon: IconComponent;
 }
 
+interface LevelItem {
+  level: number;
+  title: string;
+  subtitle: string;
+  xpRequired: number;
+}
+
 const PROFILE_TABS: ReadonlyArray<{ id: TabType; label: string; icon: IconComponent }> = [
   { id: 'overview', label: 'Overview', icon: User },
-  { id: 'achievements', label: 'Awards', icon: Award },
   { id: 'avatar', label: 'Avatar', icon: Zap },
-];
+  { id: 'awards', label: 'Awards', icon: Award },
+] as const;
 
 const ACHIEVEMENTS: readonly AchievementItem[] = [
   {
@@ -94,24 +117,40 @@ const ACHIEVEMENTS: readonly AchievementItem[] = [
   },
 ] as const;
 
-function getRankTitle(level: number): string {
-  if (level >= 20) {
-    return 'Legend of the Deck';
-  }
+const LEVELS: readonly LevelItem[] = [
+  { level: 1, title: 'Rookie Explorer', subtitle: 'Your first steps into FlashQuest.', xpRequired: 0 },
+  { level: 2, title: 'Card Scout', subtitle: 'A quick learner with growing momentum.', xpRequired: 300 },
+  { level: 3, title: 'Deck Runner', subtitle: 'Moving fast across every deck.', xpRequired: 600 },
+  { level: 4, title: 'Combo Builder', subtitle: 'Stringing together confident sessions.', xpRequired: 900 },
+  { level: 5, title: 'Quest Challenger', subtitle: 'Ready for tougher streaks and faster rounds.', xpRequired: 1200 },
+  { level: 6, title: 'Memory Smith', subtitle: 'Sharpening recall into a real skill.', xpRequired: 1500 },
+  { level: 7, title: 'Arena Strategist', subtitle: 'Calm under pressure and hard to beat.', xpRequired: 1800 },
+  { level: 8, title: 'Ranked Scholar', subtitle: 'A reliable force in every session.', xpRequired: 2100 },
+  { level: 9, title: 'Mythic Scholar', subtitle: 'Study habits turning into mastery.', xpRequired: 2400 },
+  { level: 10, title: 'Legend of the Deck', subtitle: 'Top-tier focus, speed, and consistency.', xpRequired: 2700 },
+] as const;
 
-  if (level >= 14) {
-    return 'Mythic Scholar';
-  }
+const HERO_GRADIENTS: Record<AvatarColorId, { light: GradientTriplet; dark: GradientTriplet }> = {
+  red: {
+    light: ['#4F46E5', '#E53E3E', '#F97316'],
+    dark: ['#312E81', '#991B1B', '#C2410C'],
+  },
+  blue: {
+    light: ['#4338CA', '#3B82F6', '#38BDF8'],
+    dark: ['#1E3A8A', '#1D4ED8', '#0F766E'],
+  },
+  orange: {
+    light: ['#7C3AED', '#F97316', '#F59E0B'],
+    dark: ['#4C1D95', '#C2410C', '#92400E'],
+  },
+  green: {
+    light: ['#0F766E', '#22C55E', '#14B8A6'],
+    dark: ['#064E3B', '#15803D', '#0F766E'],
+  },
+};
 
-  if (level >= 9) {
-    return 'Arena Strategist';
-  }
-
-  if (level >= 5) {
-    return 'Quest Challenger';
-  }
-
-  return 'Rookie Explorer';
+function getLevelEntry(level: number): LevelItem {
+  return [...LEVELS].reverse().find((item) => level >= item.level) ?? LEVELS[0]!;
 }
 
 export default function ProfilePage() {
@@ -122,44 +161,34 @@ export default function ProfilePage() {
   const { selectedSuit, selectedColor, setSelectedSuit, setSelectedColor } = useAvatar();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [showLevels, setShowLevels] = useState<boolean>(false);
 
-  const level = Math.floor(stats.totalScore / 300) + 1;
+  const level = Math.max(1, Math.floor(stats.totalScore / 300) + 1);
+  const levelEntry = useMemo(() => getLevelEntry(level), [level]);
   const selectedSuitData = AVATAR_SUITS.find((suit) => suit.id === selectedSuit) ?? AVATAR_SUITS[0]!;
-  const selectedColorData = AVATAR_COLORS.find((color) => color.id === selectedColor) ?? AVATAR_COLORS[1]!;
+  const selectedColorData = AVATAR_COLORS.find((color) => color.id === selectedColor) ?? AVATAR_COLORS[0]!;
 
   const styles = useMemo(() => createStyles(theme, isDark, width), [theme, isDark, width]);
 
   const screenGradient = useMemo(
-    () => [theme.gradientStart, theme.gradientMid, theme.gradientEnd] as [string, string, string],
+    () => [theme.gradientStart, theme.gradientMid, theme.gradientEnd] as GradientTriplet,
     [theme.gradientStart, theme.gradientMid, theme.gradientEnd]
   );
 
-  const heroGradient = useMemo(
-    () => [theme.questGradient[0], theme.questGradient[1], theme.arenaGradient[0]] as [string, string, string],
-    [theme.questGradient, theme.arenaGradient]
-  );
+  const heroGradient = useMemo(() => {
+    const palette = HERO_GRADIENTS[selectedColor] ?? HERO_GRADIENTS.blue;
+    return isDark ? palette.dark : palette.light;
+  }, [isDark, selectedColor]);
 
   const surfaceGradient = useMemo(
     () =>
       (
         isDark
-          ? ['rgba(30, 41, 59, 0.96)', 'rgba(15, 23, 42, 0.94)']
-          : ['rgba(255, 255, 255, 0.96)', 'rgba(255, 255, 255, 0.9)']
+          ? ['rgba(15, 23, 42, 0.96)', 'rgba(15, 23, 42, 0.84)']
+          : ['rgba(255, 255, 255, 0.96)', 'rgba(255, 255, 255, 0.88)']
       ) as [string, string],
     [isDark]
   );
-
-  const awardsGradient = useMemo(
-    () =>
-      (
-        isDark
-          ? ['rgba(79, 70, 229, 0.42)', 'rgba(249, 115, 22, 0.28)']
-          : ['rgba(99, 102, 241, 0.22)', 'rgba(249, 115, 22, 0.18)']
-      ) as [string, string],
-    [isDark]
-  );
-
-  const rankTitle = useMemo(() => getRankTitle(level), [level]);
 
   const completedAchievements = useMemo(
     () => ACHIEVEMENTS.filter((achievement) => achievement.progress >= achievement.total).length,
@@ -189,6 +218,21 @@ export default function ProfilePage() {
   const handleCloseSettings = useCallback(() => {
     logger.log('[Profile] Closing settings sheet');
     setShowSettings(false);
+  }, []);
+
+  const handleOpenLevels = useCallback(() => {
+    logger.log('[Profile] Opening levels modal');
+    setShowLevels(true);
+  }, []);
+
+  const handleCloseLevels = useCallback(() => {
+    logger.log('[Profile] Closing levels modal');
+    setShowLevels(false);
+  }, []);
+
+  const handleComingSoon = useCallback((label: string) => {
+    logger.log('[Profile] Coming soon pressed', label);
+    Alert.alert(label, `${label} is coming soon.`);
   }, []);
 
   const handleSelectSuit = useCallback(
@@ -228,8 +272,8 @@ export default function ProfilePage() {
       <LinearGradient
         colors={
           isDark
-            ? ['rgba(2, 6, 23, 0.16)', 'rgba(2, 6, 23, 0.56)', 'rgba(2, 6, 23, 0.84)']
-            : ['rgba(255, 255, 255, 0.05)', 'rgba(255, 255, 255, 0.12)', 'rgba(255, 255, 255, 0.18)']
+            ? ['rgba(2, 6, 23, 0.18)', 'rgba(2, 6, 23, 0.5)', 'rgba(2, 6, 23, 0.72)']
+            : ['rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.16)']
         }
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
@@ -241,7 +285,7 @@ export default function ProfilePage() {
           <TouchableOpacity
             onPress={handleBack}
             style={styles.iconButton}
-            activeOpacity={0.82}
+            activeOpacity={0.84}
             testID="profile-back-button"
           >
             <ArrowLeft color="#fff" size={20} strokeWidth={2.5} />
@@ -255,7 +299,7 @@ export default function ProfilePage() {
           <TouchableOpacity
             onPress={handleOpenSettings}
             style={styles.iconButton}
-            activeOpacity={0.82}
+            activeOpacity={0.84}
             testID="profile-open-settings"
           >
             <Settings color="#fff" size={19} strokeWidth={2.4} />
@@ -286,30 +330,24 @@ export default function ProfilePage() {
                   <View style={styles.heroIdentityText}>
                     <Text style={styles.heroEyebrow}>FlashQuest Profile</Text>
                     <Text style={styles.heroName}>FlashQuest Player</Text>
-                    <Text style={styles.heroSubtitle}>{rankTitle}</Text>
+                    <Text style={styles.heroSubtitle}>{levelEntry.title}</Text>
                   </View>
                 </View>
 
-                <View style={styles.heroLevelBadge}>
+                <TouchableOpacity
+                  style={styles.heroLevelBadge}
+                  onPress={handleOpenLevels}
+                  activeOpacity={0.86}
+                  testID="profile-open-levels"
+                >
                   <Text style={styles.heroLevelBadgeText}>Lv {level}</Text>
-                </View>
+                </TouchableOpacity>
               </View>
 
               <View style={styles.heroBottomRow}>
                 <View style={styles.heroMetaPill}>
-                  <Text style={styles.heroMetaText}>
-                    {selectedColorData.name} {selectedSuitData.name}
-                  </Text>
+                  <Text style={styles.heroMetaText}>{selectedColorData.name} {selectedSuitData.name}</Text>
                 </View>
-
-                <TouchableOpacity
-                  style={styles.heroEditButton}
-                  onPress={() => handleSelectTab('avatar')}
-                  activeOpacity={0.84}
-                  testID="profile-hero-edit-avatar"
-                >
-                  <Text style={styles.heroEditButtonText}>Customize</Text>
-                </TouchableOpacity>
               </View>
             </LinearGradient>
           </View>
@@ -324,7 +362,7 @@ export default function ProfilePage() {
                   key={tab.id}
                   style={styles.tab}
                   onPress={() => handleSelectTab(tab.id)}
-                  activeOpacity={0.82}
+                  activeOpacity={0.84}
                   testID={`profile-tab-${tab.id}`}
                 >
                   {isActive && (
@@ -352,145 +390,109 @@ export default function ProfilePage() {
 
           {activeTab === 'overview' && (
             <View style={styles.tabContent}>
-              <View style={styles.quickActionsRow}>
+              <View style={styles.cardShell}>
+                <LinearGradient
+                  colors={surfaceGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.appearanceCard}
+                >
+                  <View style={styles.appearanceHeader}>
+                    <View style={styles.appearanceIntro}>
+                      <View
+                        style={[
+                          styles.appearanceIconWrap,
+                          { backgroundColor: isDark ? 'rgba(129, 140, 248, 0.22)' : 'rgba(102, 126, 234, 0.12)' },
+                        ]}
+                      >
+                        <Settings color={theme.primary} size={20} strokeWidth={2.3} />
+                      </View>
+                      <View style={styles.appearanceTextWrap}>
+                        <Text style={styles.cardTitle}>Appearance</Text>
+                        <Text style={styles.cardDescription}>Theme, profile style, and menu preferences.</Text>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.inlineActionButton}
+                      onPress={handleOpenSettings}
+                      activeOpacity={0.84}
+                      testID="profile-card-settings"
+                    >
+                      <Text style={styles.inlineActionButtonText}>Open</Text>
+                      <ChevronRight color={theme.textSecondary} size={15} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.toggleCard}>
+                    <View style={styles.toggleLeadingIcon}>
+                      {isDark ? (
+                        <Moon color={theme.primary} size={17} strokeWidth={2.3} />
+                      ) : (
+                        <Sun color={theme.primary} size={17} strokeWidth={2.3} />
+                      )}
+                    </View>
+                    <View style={styles.toggleTextWrap}>
+                      <Text style={styles.toggleTitle}>Dark mode</Text>
+                      <Text style={styles.toggleSubtitle}>
+                        {isDark ? 'Enabled for a low-light look.' : 'Switch on for a darker theme.'}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={isDark}
+                      onValueChange={toggleTheme}
+                      trackColor={{ false: isDark ? '#475569' : '#CBD5E1', true: theme.primary }}
+                      thumbColor={theme.white}
+                      ios_backgroundColor={isDark ? '#475569' : '#CBD5E1'}
+                      testID="dark-mode-switch"
+                    />
+                  </View>
+                </LinearGradient>
+              </View>
+
+              <View style={styles.utilityGrid}>
                 <TouchableOpacity
-                  style={styles.overviewCard}
-                  onPress={handleOpenSettings}
-                  activeOpacity={0.9}
-                  testID="profile-card-settings"
+                  style={styles.utilityCard}
+                  onPress={() => handleComingSoon('Friends')}
+                  activeOpacity={0.88}
+                  testID="profile-card-friends"
                 >
                   <LinearGradient
                     colors={surfaceGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={styles.overviewCardGradient}
+                    style={styles.utilityCardGradient}
                   >
-                    <View
-                      style={[
-                        styles.overviewCardIcon,
-                        { backgroundColor: isDark ? 'rgba(129, 140, 248, 0.24)' : 'rgba(102, 126, 234, 0.14)' },
-                      ]}
-                    >
-                      <Settings color={theme.primary} size={20} strokeWidth={2.3} />
+                    <View style={styles.utilityIconWrap}>
+                      <User color={theme.primary} size={18} strokeWidth={2.3} />
                     </View>
-                    <Text style={styles.overviewCardTitle}>Appearance</Text>
-                    <Text style={styles.overviewCardDescription} numberOfLines={2}>
-                      Theme, mode, and profile preferences.
-                    </Text>
-                    <View style={styles.overviewCardFooter}>
-                      <Text style={styles.overviewCardFooterText}>Open settings</Text>
-                      <ChevronRight color={theme.textSecondary} size={16} strokeWidth={2.4} />
-                    </View>
+                    <Text style={styles.utilityTitle}>Friends</Text>
+                    <Text style={styles.utilityDescription}>Follow classmates and compare progress soon.</Text>
+                    <Text style={styles.utilityTag}>Coming soon</Text>
                   </LinearGradient>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.overviewCard}
-                  onPress={() => handleSelectTab('achievements')}
-                  activeOpacity={0.9}
-                  testID="profile-card-achievement-summary"
+                  style={styles.utilityCard}
+                  onPress={() => handleComingSoon('Leaderboard')}
+                  activeOpacity={0.88}
+                  testID="profile-card-leaderboard"
                 >
                   <LinearGradient
-                    colors={awardsGradient}
+                    colors={surfaceGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={styles.overviewCardGradient}
+                    style={styles.utilityCardGradient}
                   >
-                    <View style={[styles.overviewCardIcon, styles.overviewCardIconWarm]}>
-                      <Award color="#fff" size={20} strokeWidth={2.3} />
+                    <View style={styles.utilityIconWrap}>
+                      <Crown color={theme.primary} size={18} strokeWidth={2.3} />
                     </View>
-                    <Text style={styles.overviewCardTitleLight}>Awards</Text>
-                    <Text style={styles.overviewCardDescriptionLight} numberOfLines={2}>
-                      {completedAchievements}/{ACHIEVEMENTS.length} unlocked
-                      {nextAchievement ? ` · Next: ${nextAchievement.name}` : ' · All complete'}
-                    </Text>
-                    <View style={styles.overviewCardFooter}>
-                      <Text style={styles.overviewCardFooterTextLight}>View progress</Text>
-                      <ChevronRight color="#fff" size={16} strokeWidth={2.4} />
-                    </View>
+                    <Text style={styles.utilityTitle}>Leaderboard</Text>
+                    <Text style={styles.utilityDescription}>Rank up against other players in future updates.</Text>
+                    <Text style={styles.utilityTag}>Coming soon</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
-            </View>
-          )}
-
-          {activeTab === 'achievements' && (
-            <View style={styles.tabContent}>
-              <View style={styles.sectionBanner}>
-                <View>
-                  <Text style={styles.sectionBannerEyebrow}>Milestones</Text>
-                  <Text style={styles.sectionBannerTitle}>Awards</Text>
-                </View>
-                <View style={styles.sectionBannerBadge}>
-                  <Text style={styles.sectionBannerBadgeText}>{completedAchievements} complete</Text>
-                </View>
-              </View>
-
-              {ACHIEVEMENTS.map((achievement) => {
-                const isCompleted = achievement.progress >= achievement.total;
-                const progressPercent = Math.min((achievement.progress / achievement.total) * 100, 100);
-                const AchievementIcon = achievement.icon;
-
-                return (
-                  <View key={achievement.id} style={styles.achievementCard}>
-                    <LinearGradient
-                      colors={
-                        isCompleted
-                          ? (isDark
-                              ? ['rgba(16, 185, 129, 0.28)', 'rgba(6, 95, 70, 0.5)']
-                              : ['#ECFDF5', '#D1FAE5'])
-                          : (theme.achievementBaseGradient as [string, string])
-                      }
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.achievementCardGradient}
-                    >
-                      <View style={styles.achievementHeader}>
-                        <View style={[styles.achievementIconWrap, { backgroundColor: achievement.color }]}> 
-                          <AchievementIcon color="#fff" size={20} strokeWidth={2.2} />
-                        </View>
-
-                        <View style={styles.achievementTextWrap}>
-                          <Text style={styles.achievementName}>{achievement.name}</Text>
-                          <Text style={styles.achievementDescription}>{achievement.description}</Text>
-                        </View>
-
-                        <View style={[styles.achievementXpBadge, isCompleted && styles.achievementXpBadgeCompleted]}>
-                          <Text style={styles.achievementXpText}>+{achievement.xp}</Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.achievementTrack}>
-                        <View
-                          style={[
-                            styles.achievementFill,
-                            {
-                              width: `${progressPercent}%`,
-                              backgroundColor: isCompleted ? '#10B981' : achievement.color,
-                            },
-                          ]}
-                        />
-                      </View>
-
-                      <View style={styles.achievementFooter}>
-                        <Text style={styles.achievementProgressText}>
-                          {achievement.progress}/{achievement.total}
-                        </Text>
-                        {isCompleted ? (
-                          <View style={styles.achievementCompletedPill}>
-                            <Check color="#fff" size={11} strokeWidth={3} />
-                            <Text style={styles.achievementCompletedPillText}>Unlocked</Text>
-                          </View>
-                        ) : (
-                          <Text style={styles.achievementRemainingText}>
-                            {achievement.total - achievement.progress} to go
-                          </Text>
-                        )}
-                      </View>
-                    </LinearGradient>
-                  </View>
-                );
-              })}
             </View>
           )}
 
@@ -569,7 +571,7 @@ export default function ProfilePage() {
                       </Text>
                       <Text style={styles.optionDescription}>Tap to equip</Text>
                       {isSelected && (
-                        <View style={[styles.optionCheckBadge, { backgroundColor: selectedColorData.value }]}>
+                        <View style={[styles.optionCheckBadge, { backgroundColor: selectedColorData.value }]}> 
                           <Check color="#fff" size={10} strokeWidth={3} />
                         </View>
                       )}
@@ -580,7 +582,7 @@ export default function ProfilePage() {
 
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Choose a color</Text>
-                <Text style={styles.sectionSubtitle}>This tint carries through your cards and player marker.</Text>
+                <Text style={styles.sectionSubtitle}>Your hero card adapts to the color you equip.</Text>
               </View>
 
               <View style={styles.optionGrid}>
@@ -612,7 +614,7 @@ export default function ProfilePage() {
                       </Text>
                       <Text style={styles.optionDescription}>Tap to equip</Text>
                       {isSelected && (
-                        <View style={[styles.optionCheckBadge, { backgroundColor: color.value }]}>
+                        <View style={[styles.optionCheckBadge, { backgroundColor: color.value }]}> 
                           <Check color="#fff" size={10} strokeWidth={3} />
                         </View>
                       )}
@@ -620,6 +622,89 @@ export default function ProfilePage() {
                   );
                 })}
               </View>
+            </View>
+          )}
+
+          {activeTab === 'awards' && (
+            <View style={styles.tabContent}>
+              <View style={styles.sectionBanner}>
+                <View style={styles.sectionBannerTextWrap}>
+                  <Text style={styles.sectionBannerEyebrow}>Milestones</Text>
+                  <Text style={styles.sectionBannerTitle}>Awards</Text>
+                  <Text style={styles.sectionBannerSubtitle}>
+                    {nextAchievement ? `Next up: ${nextAchievement.name}` : 'Every current award is unlocked.'}
+                  </Text>
+                </View>
+                <View style={styles.sectionBannerBadge}>
+                  <Text style={styles.sectionBannerBadgeText}>{completedAchievements}/{ACHIEVEMENTS.length}</Text>
+                </View>
+              </View>
+
+              {ACHIEVEMENTS.map((achievement) => {
+                const isCompleted = achievement.progress >= achievement.total;
+                const progressPercent = Math.min((achievement.progress / achievement.total) * 100, 100);
+                const AchievementIcon = achievement.icon;
+
+                return (
+                  <View key={achievement.id} style={styles.achievementCard}>
+                    <LinearGradient
+                      colors={
+                        isCompleted
+                          ? (isDark
+                              ? ['rgba(16, 185, 129, 0.28)', 'rgba(6, 95, 70, 0.5)']
+                              : ['#ECFDF5', '#D1FAE5'])
+                          : (surfaceGradient as [string, string])
+                      }
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.achievementCardGradient}
+                    >
+                      <View style={styles.achievementHeader}>
+                        <View style={[styles.achievementIconWrap, { backgroundColor: achievement.color }]}> 
+                          <AchievementIcon color="#fff" size={19} strokeWidth={2.2} />
+                        </View>
+
+                        <View style={styles.achievementTextWrap}>
+                          <Text style={styles.achievementName}>{achievement.name}</Text>
+                          <Text style={styles.achievementDescription}>{achievement.description}</Text>
+                        </View>
+
+                        <View style={[styles.achievementXpBadge, isCompleted && styles.achievementXpBadgeCompleted]}>
+                          <Text style={styles.achievementXpText}>+{achievement.xp}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.achievementTrack}>
+                        <View
+                          style={[
+                            styles.achievementFill,
+                            {
+                              width: `${progressPercent}%`,
+                              backgroundColor: isCompleted ? '#10B981' : achievement.color,
+                            },
+                          ]}
+                        />
+                      </View>
+
+                      <View style={styles.achievementFooter}>
+                        <Text style={styles.achievementProgressText}>
+                          {achievement.progress}/{achievement.total}
+                        </Text>
+                        {isCompleted ? (
+                          <View style={styles.achievementCompletedPill}>
+                            <Check color="#fff" size={11} strokeWidth={3} />
+                            <Text style={styles.achievementCompletedPillText}>Unlocked</Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.achievementRemainingText}>
+                            {achievement.total - achievement.progress} to go
+                          </Text>
+                        )}
+                      </View>
+                    </LinearGradient>
+                  </View>
+                );
+              })}
             </View>
           )}
         </ScrollView>
@@ -702,9 +787,86 @@ export default function ProfilePage() {
                 trackColor={{ false: isDark ? '#475569' : '#CBD5E1', true: theme.primary }}
                 thumbColor={theme.white}
                 ios_backgroundColor={isDark ? '#475569' : '#CBD5E1'}
-                testID="dark-mode-switch"
+                testID="dark-mode-switch-settings"
               />
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showLevels}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseLevels}
+      >
+        <View style={styles.levelModalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={handleCloseLevels}
+            testID="profile-levels-overlay"
+          />
+
+          <View style={[styles.levelModalCard, { backgroundColor: theme.cardBackground }]} testID="profile-levels-modal">
+            <View style={styles.levelModalHeader}>
+              <View style={styles.levelModalTitleWrap}>
+                <Text style={styles.levelModalEyebrow}>Rank progression</Text>
+                <Text style={styles.levelModalTitle}>Levels & titles</Text>
+                <Text style={styles.levelModalSubtitle}>Current rank: Lv {level} · {levelEntry.title}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.settingsCloseButton}
+                onPress={handleCloseLevels}
+                activeOpacity={0.8}
+                testID="profile-close-levels"
+              >
+                <Text style={styles.settingsCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.levelList}
+            >
+              {LEVELS.map((item) => {
+                const isCurrent = item.level === levelEntry.level;
+                const isReached = level >= item.level;
+
+                return (
+                  <View
+                    key={item.level}
+                    style={[
+                      styles.levelRow,
+                      isCurrent && styles.levelRowCurrent,
+                      !isCurrent && isReached && styles.levelRowReached,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.levelBadge,
+                        isCurrent && { backgroundColor: theme.primary },
+                        !isCurrent && isReached && styles.levelBadgeReached,
+                      ]}
+                    >
+                      <Text style={[styles.levelBadgeText, isCurrent && styles.levelBadgeTextCurrent]}>Lv {item.level}</Text>
+                    </View>
+
+                    <View style={styles.levelRowTextWrap}>
+                      <Text style={styles.levelRowTitle}>{item.title}</Text>
+                      <Text style={styles.levelRowSubtitle}>{item.subtitle}</Text>
+                      <Text style={styles.levelRowMeta}>{item.xpRequired} XP unlock</Text>
+                    </View>
+
+                    {isReached && (
+                      <View style={styles.levelReachedPill}>
+                        <Check color="#fff" size={10} strokeWidth={3} />
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -713,8 +875,9 @@ export default function ProfilePage() {
 }
 
 const createStyles = (theme: Theme, isDark: boolean, width: number) => {
-  const cardSurface = isDark ? 'rgba(15, 23, 42, 0.74)' : 'rgba(255, 255, 255, 0.94)';
-  const optionWidth = Math.min(Math.max((width - 56) / 2, 136), 220);
+  const cardSurface = isDark ? 'rgba(15, 23, 42, 0.78)' : 'rgba(255, 255, 255, 0.94)';
+  const optionWidth = Math.min(Math.max((width - 56) / 2, 138), 220);
+  const stackUtilityCards = width < 390;
 
   return StyleSheet.create({
     container: {
@@ -853,11 +1016,13 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     heroLevelBadge: {
       paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingVertical: 9,
       borderRadius: 14,
       backgroundColor: 'rgba(255, 255, 255, 0.16)',
       borderWidth: 1,
       borderColor: 'rgba(255, 255, 255, 0.18)',
+      minWidth: 66,
+      alignItems: 'center',
     },
     heroLevelBadgeText: {
       fontSize: 12,
@@ -869,14 +1034,12 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     heroBottomRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 12,
     },
     heroMetaPill: {
       flex: 1,
       borderRadius: 999,
       paddingHorizontal: 12,
-      paddingVertical: 9,
+      paddingVertical: 10,
       backgroundColor: 'rgba(255, 255, 255, 0.14)',
       borderWidth: 1,
       borderColor: 'rgba(255, 255, 255, 0.16)',
@@ -885,19 +1048,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       fontSize: 12,
       fontWeight: '700' as const,
       color: 'rgba(255, 255, 255, 0.92)',
-    },
-    heroEditButton: {
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      borderRadius: 12,
-      backgroundColor: 'rgba(255, 255, 255, 0.18)',
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.2)',
-    },
-    heroEditButtonText: {
-      fontSize: 12,
-      fontWeight: '700' as const,
-      color: '#fff',
+      textAlign: 'center' as const,
     },
     tabs: {
       flexDirection: 'row',
@@ -940,87 +1091,162 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     tabContent: {
       gap: 12,
     },
-    quickActionsRow: {
+    cardShell: {
+      borderRadius: 24,
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: isDark ? 0.22 : 0.08,
+      shadowRadius: 18,
+      elevation: isDark ? 7 : 3,
+    },
+    appearanceCard: {
+      padding: 18,
+      gap: 16,
+    },
+    appearanceHeader: {
       flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
       gap: 12,
     },
-    overviewCard: {
+    appearanceIntro: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+    },
+    appearanceIconWrap: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    appearanceTextWrap: {
+      flex: 1,
+      gap: 4,
+    },
+    cardTitle: {
+      fontSize: 20,
+      fontWeight: '800' as const,
+      color: theme.text,
+      letterSpacing: -0.4,
+    },
+    cardDescription: {
+      fontSize: 13,
+      fontWeight: '500' as const,
+      color: theme.textSecondary,
+      lineHeight: 18,
+    },
+    inlineActionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: 12,
+      backgroundColor: isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(15, 23, 42, 0.05)',
+      alignSelf: 'flex-start',
+    },
+    inlineActionButtonText: {
+      fontSize: 12,
+      fontWeight: '700' as const,
+      color: theme.textSecondary,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.5,
+    },
+    toggleCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      borderRadius: 18,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(15, 23, 42, 0.08)',
+      backgroundColor: isDark ? 'rgba(2, 6, 23, 0.18)' : 'rgba(99, 102, 241, 0.05)',
+    },
+    toggleLeadingIcon: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      backgroundColor: isDark ? 'rgba(129, 140, 248, 0.12)' : 'rgba(102, 126, 234, 0.12)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    toggleTextWrap: {
+      flex: 1,
+      gap: 3,
+    },
+    toggleTitle: {
+      fontSize: 15,
+      fontWeight: '800' as const,
+      color: theme.text,
+    },
+    toggleSubtitle: {
+      fontSize: 12,
+      fontWeight: '500' as const,
+      color: theme.textSecondary,
+      lineHeight: 17,
+    },
+    utilityGrid: {
+      flexDirection: stackUtilityCards ? 'column' : 'row',
+      gap: 12,
+    },
+    utilityCard: {
       flex: 1,
       borderRadius: 22,
       overflow: 'hidden',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: isDark ? 0.22 : 0.08,
+      shadowOpacity: isDark ? 0.2 : 0.07,
       shadowRadius: 16,
       elevation: isDark ? 6 : 3,
     },
-    overviewCardGradient: {
-      minHeight: 152,
+    utilityCardGradient: {
+      minHeight: 156,
       padding: 16,
-      justifyContent: 'space-between',
       gap: 10,
+      justifyContent: 'space-between',
     },
-    overviewCardIcon: {
+    utilityIconWrap: {
       width: 40,
       height: 40,
       borderRadius: 14,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: 'rgba(255, 255, 255, 0.16)',
+      backgroundColor: isDark ? 'rgba(129, 140, 248, 0.12)' : 'rgba(102, 126, 234, 0.1)',
     },
-    overviewCardIconWarm: {
-      backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    },
-    overviewCardTitle: {
+    utilityTitle: {
       fontSize: 18,
       fontWeight: '800' as const,
       color: theme.text,
       letterSpacing: -0.4,
     },
-    overviewCardTitleLight: {
-      fontSize: 18,
-      fontWeight: '800' as const,
-      color: '#fff',
-      letterSpacing: -0.4,
-    },
-    overviewCardDescription: {
+    utilityDescription: {
       fontSize: 13,
       fontWeight: '500' as const,
       color: theme.textSecondary,
       lineHeight: 18,
+      flex: 1,
     },
-    overviewCardDescriptionLight: {
-      fontSize: 13,
-      fontWeight: '500' as const,
-      color: 'rgba(255, 255, 255, 0.86)',
-      lineHeight: 18,
-    },
-    overviewCardFooter: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 8,
-    },
-    overviewCardFooterText: {
+    utilityTag: {
       fontSize: 11,
       fontWeight: '800' as const,
-      color: theme.textSecondary,
-      letterSpacing: 0.8,
+      color: theme.primary,
       textTransform: 'uppercase' as const,
-    },
-    overviewCardFooterTextLight: {
-      fontSize: 11,
-      fontWeight: '800' as const,
-      color: 'rgba(255, 255, 255, 0.86)',
       letterSpacing: 0.8,
-      textTransform: 'uppercase' as const,
     },
     sectionBanner: {
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'space-between',
       gap: 12,
       marginTop: 2,
+    },
+    sectionBannerTextWrap: {
+      flex: 1,
+      gap: 3,
     },
     sectionBannerEyebrow: {
       fontSize: 11,
@@ -1028,13 +1254,18 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       color: 'rgba(255, 255, 255, 0.72)',
       textTransform: 'uppercase' as const,
       letterSpacing: 0.9,
-      marginBottom: 3,
     },
     sectionBannerTitle: {
       fontSize: 24,
       fontWeight: '800' as const,
       color: '#fff',
       letterSpacing: -0.6,
+    },
+    sectionBannerSubtitle: {
+      fontSize: 13,
+      fontWeight: '500' as const,
+      color: 'rgba(255, 255, 255, 0.76)',
+      lineHeight: 18,
     },
     sectionBannerBadge: {
       paddingHorizontal: 12,
@@ -1054,9 +1285,9 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       overflow: 'hidden',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: isDark ? 0.24 : 0.08,
+      shadowOpacity: isDark ? 0.2 : 0.07,
       shadowRadius: 16,
-      elevation: isDark ? 7 : 3,
+      elevation: isDark ? 6 : 3,
     },
     achievementCardGradient: {
       padding: 16,
@@ -1183,6 +1414,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       fontSize: 12,
       fontWeight: '600' as const,
       color: 'rgba(255, 255, 255, 0.86)',
+      textAlign: 'right' as const,
     },
     avatarShowcaseBody: {
       flexDirection: 'row',
@@ -1277,6 +1509,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       fontSize: 12,
       fontWeight: '500' as const,
       color: theme.textSecondary,
+      textAlign: 'center' as const,
     },
     optionCheckBadge: {
       position: 'absolute',
@@ -1412,6 +1645,125 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       fontSize: 13,
       fontWeight: '500' as const,
       color: theme.textSecondary,
+    },
+    levelModalOverlay: {
+      flex: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+      backgroundColor: theme.modalOverlay,
+    },
+    levelModalCard: {
+      borderRadius: 28,
+      padding: 18,
+      maxHeight: '78%',
+      gap: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 14 },
+      shadowOpacity: 0.24,
+      shadowRadius: 22,
+      elevation: 12,
+    },
+    levelModalHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    levelModalTitleWrap: {
+      flex: 1,
+      gap: 4,
+    },
+    levelModalEyebrow: {
+      fontSize: 11,
+      fontWeight: '700' as const,
+      color: theme.textTertiary,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.9,
+    },
+    levelModalTitle: {
+      fontSize: 24,
+      fontWeight: '800' as const,
+      color: theme.text,
+      letterSpacing: -0.6,
+    },
+    levelModalSubtitle: {
+      fontSize: 13,
+      fontWeight: '500' as const,
+      color: theme.textSecondary,
+      lineHeight: 18,
+    },
+    levelList: {
+      gap: 10,
+      paddingBottom: 4,
+    },
+    levelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      padding: 14,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.08)',
+      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.46)' : 'rgba(15, 23, 42, 0.03)',
+    },
+    levelRowCurrent: {
+      borderColor: theme.primary,
+      backgroundColor: isDark ? 'rgba(99, 102, 241, 0.16)' : 'rgba(102, 126, 234, 0.1)',
+    },
+    levelRowReached: {
+      borderColor: isDark ? 'rgba(16, 185, 129, 0.22)' : 'rgba(16, 185, 129, 0.14)',
+    },
+    levelBadge: {
+      minWidth: 58,
+      paddingHorizontal: 10,
+      paddingVertical: 9,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)',
+    },
+    levelBadgeReached: {
+      backgroundColor: isDark ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.1)',
+    },
+    levelBadgeText: {
+      fontSize: 12,
+      fontWeight: '800' as const,
+      color: theme.textSecondary,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.4,
+    },
+    levelBadgeTextCurrent: {
+      color: '#fff',
+    },
+    levelRowTextWrap: {
+      flex: 1,
+      gap: 2,
+    },
+    levelRowTitle: {
+      fontSize: 15,
+      fontWeight: '800' as const,
+      color: theme.text,
+    },
+    levelRowSubtitle: {
+      fontSize: 12,
+      fontWeight: '500' as const,
+      color: theme.textSecondary,
+      lineHeight: 17,
+    },
+    levelRowMeta: {
+      fontSize: 11,
+      fontWeight: '700' as const,
+      color: theme.textTertiary,
+      letterSpacing: 0.3,
+      textTransform: 'uppercase' as const,
+    },
+    levelReachedPill: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: '#10B981',
+      justifyContent: 'center',
+      alignItems: 'center',
     },
   });
 };
