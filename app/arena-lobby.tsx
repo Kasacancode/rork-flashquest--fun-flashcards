@@ -57,6 +57,7 @@ export default function ArenaLobbyScreen() {
     playerId,
     isHost,
     canStartGame,
+    isSelectingDeck,
     isStartingGame,
     selectDeck,
     updateSettings,
@@ -135,6 +136,7 @@ export default function ArenaLobbyScreen() {
   const handleSelectDeck = useCallback((deckId: string) => {
     const deck = decks.find(d => d.id === deckId);
     if (deck) {
+      logger.log('[Lobby] Selecting deck from lobby:', deck.id, deck.name);
       selectDeck(deck.id, deck.name);
     }
   }, [decks, selectDeck]);
@@ -204,6 +206,14 @@ export default function ArenaLobbyScreen() {
     return decks.find(d => d.id === room.deckId);
   }, [decks, room?.deckId]);
 
+  const deckSelectionWarning = useMemo(() => {
+    if (room?.deckId) {
+      return null;
+    }
+
+    return isSelectingDeck ? 'Saving deck selection...' : 'Select a deck to continue';
+  }, [isSelectingDeck, room?.deckId]);
+
   const smallDeckWarning = selectedDeck && selectedDeck.flashcards.length < 8;
   const lobbyPlayers = (room?.players ?? []) as LobbyPlayer[];
   const hasInviteSlot = lobbyPlayers.length < MAX_LOBBY_SLOTS;
@@ -260,7 +270,12 @@ export default function ArenaLobbyScreen() {
           )}
         </View>
 
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <TouchableOpacity
             style={[
               styles.codeSection,
@@ -412,7 +427,13 @@ export default function ArenaLobbyScreen() {
               ]}
             >
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Select Deck</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.deckList}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.deckList}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+              >
                 {decks.map((deck) => (
                   <TouchableOpacity
                     key={deck.id}
@@ -423,6 +444,7 @@ export default function ArenaLobbyScreen() {
                     ]}
                     onPress={() => handleSelectDeck(deck.id)}
                     activeOpacity={0.7}
+                    testID={`battle-lobby-deck-option-${deck.id}`}
                   >
                     <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
                     <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={1}>{deck.name}</Text>
@@ -436,10 +458,10 @@ export default function ArenaLobbyScreen() {
                   <Text style={[styles.warningText, { color: theme.warning }]}>Best with 8+ cards for variety</Text>
                 </View>
               )}
-              {!room.deckId && (
-                <View style={[styles.warningBox, { backgroundColor: theme.error + '20', marginTop: 12 }]}>
-                  <AlertCircle color={theme.error} size={16} />
-                  <Text style={[styles.warningText, { color: theme.error }]}>Select a deck to continue</Text>
+              {!!deckSelectionWarning && (
+                <View style={[styles.warningBox, { backgroundColor: isSelectingDeck ? theme.primary + '20' : theme.error + '20', marginTop: 12 }]}>
+                  <AlertCircle color={isSelectingDeck ? theme.primary : theme.error} size={16} />
+                  <Text style={[styles.warningText, { color: isSelectingDeck ? theme.primary : theme.error }]}>{deckSelectionWarning}</Text>
                 </View>
               )}
             </View>
@@ -500,20 +522,20 @@ export default function ArenaLobbyScreen() {
 
           {isHost ? (
             <TouchableOpacity
-              style={[styles.startButton, (!canStartGame || isStartingGame) && styles.disabledButton]}
+              style={[styles.startButton, (!canStartGame || isStartingGame || isSelectingDeck) && styles.disabledButton]}
               onPress={handleStartGame}
               activeOpacity={0.85}
-              disabled={!canStartGame || isStartingGame}
+              disabled={!canStartGame || isStartingGame || isSelectingDeck}
             >
               <LinearGradient
-                colors={canStartGame && !isStartingGame ? ['#10b981', '#059669'] : ['#9ca3af', '#6b7280']}
+                colors={canStartGame && !isStartingGame && !isSelectingDeck ? ['#10b981', '#059669'] : ['#9ca3af', '#6b7280']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.startButtonGradient}
               >
                 <Play color="#fff" size={24} fill="#fff" />
                 <Text style={styles.startButtonText}>
-                  {isStartingGame ? 'Starting...' : 'Start Game'}
+                  {isSelectingDeck ? 'Saving Deck...' : isStartingGame ? 'Starting...' : 'Start Game'}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>

@@ -18,6 +18,11 @@ const POLL_REVEAL_MS = 1200;
 const POLL_FINISHED_MS = 10000;
 const HEARTBEAT_INTERVAL_MS = 3000;
 
+type PendingDeckSelection = {
+  deckId: string;
+  deckName: string;
+};
+
 export const [ArenaProvider, useArena] = createContextHook(() => {
   const queryClient = useQueryClient();
   const { selectedIdentityKey } = useAvatar();
@@ -28,6 +33,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [leaderboard, setLeaderboard] = useState<ArenaLeaderboardEntry[]>([]);
   const [optimisticSettings, setOptimisticSettings] = useState<Partial<RoomSettings> | null>(null);
+  const [optimisticDeckSelection, setOptimisticDeckSelection] = useState<PendingDeckSelection | null>(null);
   const [hasAnsweredCurrent, setHasAnsweredCurrent] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
   const prevQuestionIndexRef = useRef<number>(-1);
@@ -118,18 +124,22 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       return null;
     }
 
-    if (!optimisticSettings) {
+    if (!optimisticSettings && !optimisticDeckSelection) {
       return serverRoom;
     }
 
     return {
       ...serverRoom,
-      settings: {
-        ...serverRoom.settings,
-        ...optimisticSettings,
-      },
+      deckId: optimisticDeckSelection?.deckId ?? serverRoom.deckId,
+      deckName: optimisticDeckSelection?.deckName ?? serverRoom.deckName,
+      settings: optimisticSettings
+        ? {
+            ...serverRoom.settings,
+            ...optimisticSettings,
+          }
+        : serverRoom.settings,
     };
-  }, [optimisticSettings, serverRoom]);
+  }, [optimisticDeckSelection, optimisticSettings, serverRoom]);
   const isHost = room !== null && room.hostId === playerId;
   const myPlayer = room?.players.find((p: { id: string }) => p.id === playerId) ?? null;
 
@@ -239,7 +249,17 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   });
 
   const leaveMut = trpc.arena.leaveRoom.useMutation();
-  const selectDeckMut = trpc.arena.selectDeck.useMutation();
+  const selectDeckMut = trpc.arena.selectDeck.useMutation({
+    onSuccess: () => {
+      logger.log('[Arena] Deck selection saved');
+      void roomQuery.refetch();
+    },
+    onError: (err: { message: string }) => {
+      logger.log('[Arena] Select deck error:', err.message);
+      setOptimisticDeckSelection(null);
+      setConnectionError(err.message);
+    },
+  });
   const updateSettingsMut = trpc.arena.updateSettings.useMutation({
     onError: (err: { message: string }) => {
       logger.log('[Arena] Update settings error:', err.message);
@@ -270,6 +290,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     setPlayerName(name);
     setConnectionError(null);
     setOptimisticSettings(null);
+    setOptimisticDeckSelection(null);
     pollFailCountRef.current = 0;
     lastErrorMsgRef.current = null;
     connectedAtRef.current = Date.now();
@@ -281,6 +302,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     setPlayerName(name);
     setConnectionError(null);
     setOptimisticSettings(null);
+    setOptimisticDeckSelection(null);
     pollFailCountRef.current = 0;
     lastErrorMsgRef.current = null;
     connectedAtRef.current = Date.now();
@@ -296,6 +318,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     setPlayerId(null);
     setConnectionError(null);
     setOptimisticSettings(null);
+    setOptimisticDeckSelection(null);
     setHasAnsweredCurrent(false);
     setLastAnswerCorrect(null);
     prevQuestionIndexRef.current = -1;
@@ -308,6 +331,9 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
 
   const selectDeck = useCallback((deckId: string, deckName: string) => {
     if (!roomCode || !playerId) return;
+    setConnectionError(null);
+    setOptimisticDeckSelection({ deckId, deckName });
+    logger.log('[Arena] Selecting deck:', deckId, deckName);
     selectDeckMut.mutate({ roomCode, playerId, deckId, deckName });
   }, [roomCode, playerId, selectDeckMut]);
 
@@ -372,6 +398,24 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     }
   }, [optimisticSettings, roomCode, serverRoom?.settings]);
 
+  useEffect(() => {
+    if (!roomCode) {
+      setOptimisticDeckSelection(null);
+      return;
+    }
+
+    if (!optimisticDeckSelection) {
+      return;
+    }
+
+    const serverCaughtUp = serverRoom?.deckId === optimisticDeckSelection.deckId
+      && serverRoom?.deckName === optimisticDeckSelection.deckName;
+
+    if (serverCaughtUp) {
+      setOptimisticDeckSelection(null);
+    }
+  }, [optimisticDeckSelection, roomCode, serverRoom?.deckId, serverRoom?.deckName]);
+
   const canStartGame = useMemo(() => {
     if (!room || !isHost) return false;
     return room.players.length >= 2 && room.deckId !== null;
@@ -403,6 +447,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     lastAnswerCorrect,
     canStartGame,
     isConnecting: createRoomMut.isPending || joinRoomMut.isPending,
+    isSelectingDeck: selectDeckMut.isPending,
     isStartingGame: startGameMut.isPending,
     isSubmitting: submitAnswerMut.isPending,
     createRoom,
@@ -426,7 +471,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     room, isHost, myPlayer, hasAnsweredCurrent, lastAnswerCorrect,
     canStartGame,
     createRoomMut.isPending, joinRoomMut.isPending,
-    startGameMut.isPending, submitAnswerMut.isPending,
+    selectDeckMut.isPending, startGameMut.isPending, submitAnswerMut.isPending,
     createRoom, joinRoom, disconnect, selectDeck, updateSettings,
     startGame, submitAnswer, removePlayer, resetRoom,
     leaderboard, saveMatchResult, cleanupDeck, leaderboardQuery.isLoading,
