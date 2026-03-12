@@ -11,6 +11,7 @@ import DealerPlaceholder from '@/components/DealerPlaceholder';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
+import { trackEvent } from '@/lib/analytics';
 import type { Flashcard } from '@/types/flashcard';
 import { GAME_MODE } from '@/types/game';
 import type { QuestRunResult, QuestSettings } from '@/types/performance';
@@ -92,10 +93,29 @@ export default function QuestSessionScreen() {
   const performanceRef = useRef(performance);
   const initializedDeckIdRef = useRef<string | null>(null);
   const recentDistractorHistoryRef = useRef<string[]>([]);
+  const analyticsTrackedRef = useRef(false);
 
   useEffect(() => {
     performanceRef.current = performance;
   }, [performance]);
+
+  useEffect(() => {
+    if (!deck || analyticsTrackedRef.current) {
+      return;
+    }
+
+    analyticsTrackedRef.current = true;
+    trackEvent({
+      event: 'deck_played',
+      deckId: deck.id,
+      properties: {
+        deck_name: deck.name,
+        mode: GAME_MODE.QUEST,
+        rounds: effectiveRunLength,
+        timer_seconds: settings.timerSeconds,
+      },
+    });
+  }, [deck, effectiveRunLength, settings.timerSeconds]);
 
   const setupNextRound = useCallback(() => {
     if (!deck) return;

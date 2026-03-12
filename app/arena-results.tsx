@@ -6,6 +6,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { trackEvent } from '@/lib/analytics';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -30,6 +31,8 @@ interface CachedResults {
   allQuestions: { cardId: string; question: string; correctAnswer: string; options: string[] }[] | null;
   allAnswers: Record<string, Record<number, { selectedOption: string; isCorrect: boolean; timeToAnswerMs: number }>> | null;
   totalQuestions: number;
+  startedAt: number;
+  finishedAt: number | null;
   deckId: string | null;
   deckName: string | null;
   settings: { rounds: number; timerSeconds: number; showExplanationsAtEnd: boolean };
@@ -53,6 +56,7 @@ export default function ArenaResultsScreen() {
   const [saved, setSaved] = useState(false);
   const cachedRef = useRef<CachedResults | null>(null);
   const xpRecordedRef = useRef(false);
+  const analyticsTrackedRef = useRef(false);
 
   useEffect(() => {
     if (room && room.game && room.game.phase === 'finished' && !cachedRef.current) {
@@ -62,6 +66,8 @@ export default function ArenaResultsScreen() {
         allQuestions: room.game.allQuestions,
         allAnswers: room.game.allAnswers,
         totalQuestions: room.game.totalQuestions,
+        startedAt: room.game.startedAt,
+        finishedAt: room.game.finishedAt,
         deckId: room.deckId,
         deckName: room.deckName,
         settings: room.settings,
@@ -125,6 +131,35 @@ export default function ArenaResultsScreen() {
   }, [winner]);
 
   useEffect(() => {
+    if (!data || !winner || !isHost || analyticsTrackedRef.current) {
+      return;
+    }
+
+    analyticsTrackedRef.current = true;
+    const questionsAnswered = data.allAnswers
+      ? Object.values(data.allAnswers).reduce((total, playerAnswers) => total + Object.keys(playerAnswers).length, 0)
+      : 0;
+    const battleDurationMs = data.finishedAt != null
+      ? Math.max(0, data.finishedAt - data.startedAt)
+      : 0;
+
+    trackEvent({
+      event: 'battle_finished',
+      roomCode: data.roomCode,
+      userId: playerId ?? undefined,
+      deckId: data.deckId ?? undefined,
+      properties: {
+        players_per_battle: data.players.length,
+        battle_duration_ms: battleDurationMs,
+        questions_answered: questionsAnswered,
+        winner_player_id: winner.id,
+        mode: GAME_MODE.ARENA,
+        deck_name: data.deckName ?? null,
+      },
+    });
+  }, [data, winner, isHost, playerId]);
+
+  useEffect(() => {
     if (data && playerId && !xpRecordedRef.current) {
       xpRecordedRef.current = true;
       const myScore = data.scores[playerId];
@@ -170,6 +205,17 @@ export default function ArenaResultsScreen() {
 
   const handlePlayAgain = () => {
     if (isHost) {
+      trackEvent({
+        event: 'rematch_started',
+        roomCode: data?.roomCode,
+        userId: playerId ?? undefined,
+        deckId: data?.deckId ?? undefined,
+        properties: {
+          players_per_battle: data?.players.length ?? 0,
+          mode: GAME_MODE.ARENA,
+          deck_name: data?.deckName ?? null,
+        },
+      });
       resetRoom();
     }
   };

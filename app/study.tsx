@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, RotateCcw } from 'lucide-react-native';
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,9 +14,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import StudyFeed from '@/components/StudyFeed';
 import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useTheme } from '@/context/ThemeContext';
+import { trackEvent } from '@/lib/analytics';
 import type { Flashcard } from '@/types/flashcard';
 import { GAME_MODE } from '@/types/game';
-import { useTheme } from '@/context/ThemeContext';
 import { logger } from '@/utils/logger';
 
 export default function StudyPage() {
@@ -29,6 +30,7 @@ export default function StudyPage() {
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(params.deckId || null);
   const [sessionResolved, setSessionResolved] = useState<number>(0);
   const [showResults, setShowResults] = useState<boolean>(false);
+  const trackedStudyDeckIdRef = useRef<string | null>(null);
 
   const selectedDeck = useMemo(
     () => decks.find((d) => d.id === selectedDeckId),
@@ -36,6 +38,7 @@ export default function StudyPage() {
   );
 
   const handleDeckSelect = useCallback((deckId: string) => {
+    trackedStudyDeckIdRef.current = null;
     setSelectedDeckId(deckId);
     setShowDeckSelector(false);
     setSessionResolved(0);
@@ -47,6 +50,26 @@ export default function StudyPage() {
       setSessionResolved(prev => prev + 1);
     }
   }, [selectedDeck]);
+
+  useEffect(() => {
+    if (!selectedDeck || showResults) {
+      return;
+    }
+
+    if (trackedStudyDeckIdRef.current === selectedDeck.id) {
+      return;
+    }
+
+    trackedStudyDeckIdRef.current = selectedDeck.id;
+    trackEvent({
+      event: 'deck_played',
+      deckId: selectedDeck.id,
+      properties: {
+        deck_name: selectedDeck.name,
+        mode: GAME_MODE.STUDY,
+      },
+    });
+  }, [selectedDeck, showResults]);
 
   const handleComplete = useCallback(() => {
     if (selectedDeck) {
@@ -64,6 +87,7 @@ export default function StudyPage() {
   }, [selectedDeck, sessionResolved, recordSessionResult]);
 
   const handleRestart = useCallback(() => {
+    trackedStudyDeckIdRef.current = null;
     setSessionResolved(0);
     setShowResults(false);
   }, []);

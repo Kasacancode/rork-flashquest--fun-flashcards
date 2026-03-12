@@ -53,6 +53,8 @@ export interface GameState {
   questions: RoomQuestion[];
   currentQuestionIndex: number;
   questionStartedAt: number;
+  startedAt: number;
+  finishedAt: number | null;
   phase: 'question' | 'reveal' | 'finished';
   revealStartedAt: number | null;
   scores: Record<string, ScoreEntry>;
@@ -102,6 +104,8 @@ export interface SanitizedGameState {
   currentQuestionIndex: number;
   totalQuestions: number;
   phase: 'question' | 'reveal' | 'finished';
+  startedAt: number;
+  finishedAt: number | null;
   timeRemainingMs: number | null;
   revealTimeRemainingMs: number | null;
   scores: Record<string, ScoreEntry>;

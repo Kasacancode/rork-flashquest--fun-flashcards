@@ -6,6 +6,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFlashQuest } from '@/context/FlashQuestContext';
+import { trackEvent } from '@/lib/analytics';
+import { GAME_MODE } from '@/types/game';
 import type { PracticeMode } from '@/types/practice';
 
 export default function PracticePage() {
@@ -21,7 +23,17 @@ export default function PracticePage() {
 
   const handleDeckSelect = (deckId: string) => {
     if (selectedMode) {
+      const selectedDeck = decks.find((deck) => deck.id === deckId);
       setShowDeckSelector(false);
+      trackEvent({
+        event: 'deck_played',
+        deckId,
+        properties: {
+          deck_name: selectedDeck?.name ?? null,
+          mode: GAME_MODE.PRACTICE,
+          player_count: selectedMode === 'multiplayer' ? 2 : 1,
+        },
+      });
       router.push({ pathname: '/practice-session' as any, params: { deckId, mode: selectedMode } });
     }
   };

@@ -5,8 +5,10 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 
 import type { RoomSettings, SanitizedRoom } from '@/backend/arena/types';
 import { useAvatar } from '@/context/AvatarContext';
+import { trackEvent, trackEvents } from '@/lib/analytics';
 import { trpc } from '@/lib/trpc';
 import type { ArenaLeaderboardEntry } from '@/types/arena';
+import { GAME_MODE } from '@/types/game';
 import { logger } from '@/utils/logger';
 
 const LEADERBOARD_KEY = 'flashquest_arena_leaderboard';
@@ -217,7 +219,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   }, [room?.game, playerId]);
 
   const createRoomMut = trpc.arena.initRoom.useMutation({
-    onSuccess: (data: { roomCode: string; playerId: string }) => {
+    onSuccess: (data: { roomCode: string; playerId: string; room: SanitizedRoom }) => {
       logger.log('[Arena] Created room:', data.roomCode);
       connectedAtRef.current = Date.now();
       pollFailCountRef.current = 0;
@@ -225,6 +227,16 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       setRoomCode(data.roomCode);
       setPlayerId(data.playerId);
       setConnectionError(null);
+      trackEvent({
+        event: 'battle_created',
+        roomCode: data.roomCode,
+        userId: data.playerId,
+        properties: {
+          rounds: data.room.settings.rounds,
+          timer_seconds: data.room.settings.timerSeconds,
+          mode: GAME_MODE.ARENA,
+        },
+      });
     },
     onError: (err: { message: string }) => {
       logger.log('[Arena] Create error:', err.message);
@@ -233,7 +245,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   });
 
   const joinRoomMut = trpc.arena.joinRoom.useMutation({
-    onSuccess: (data: { playerId: string; room: { code: string } }) => {
+    onSuccess: (data: { playerId: string; room: SanitizedRoom }) => {
       logger.log('[Arena] Joined room:', data.room.code);
       connectedAtRef.current = Date.now();
       pollFailCountRef.current = 0;
@@ -241,6 +253,16 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       setRoomCode(data.room.code);
       setPlayerId(data.playerId);
       setConnectionError(null);
+      trackEvent({
+        event: 'battle_joined',
+        roomCode: data.room.code,
+        userId: data.playerId,
+        deckId: data.room.deckId ?? undefined,
+        properties: {
+          mode: GAME_MODE.ARENA,
+          player_count: data.room.players.length,
+        },
+      });
     },
     onError: (err: { message: string }) => {
       logger.log('[Arena] Join error:', err.message);
@@ -268,6 +290,36 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     },
   });
   const startGameMut = trpc.arena.startGame.useMutation({
+    onSuccess: (data: { room: SanitizedRoom }) => {
+      trackEvents([
+        {
+          event: 'battle_started',
+          roomCode: data.room.code,
+          userId: data.room.hostId,
+          deckId: data.room.deckId ?? undefined,
+          properties: {
+            players_per_battle: data.room.players.length,
+            rounds: data.room.settings.rounds,
+            timer_seconds: data.room.settings.timerSeconds,
+            mode: GAME_MODE.ARENA,
+            deck_name: data.room.deckName ?? null,
+          },
+        },
+        {
+          event: 'deck_played',
+          roomCode: data.room.code,
+          userId: data.room.hostId,
+          deckId: data.room.deckId ?? undefined,
+          properties: {
+            mode: GAME_MODE.ARENA,
+            deck_name: data.room.deckName ?? null,
+            player_count: data.room.players.length,
+            rounds: data.room.settings.rounds,
+            timer_seconds: data.room.settings.timerSeconds,
+          },
+        },
+      ]);
+    },
     onError: (err: { message: string }) => {
       logger.log('[Arena] Start game error:', err.message);
       setConnectionError(err.message);

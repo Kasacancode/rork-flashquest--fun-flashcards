@@ -256,10 +256,14 @@ export function startGame(
     answers[p.id] = {};
   }
 
+  const now = Date.now();
+
   room.game = {
     questions,
     currentQuestionIndex: 0,
-    questionStartedAt: Date.now(),
+    questionStartedAt: now,
+    startedAt: now,
+    finishedAt: null,
     phase: 'question',
     revealStartedAt: null,
     scores,
@@ -324,6 +328,7 @@ export function advanceQuestion(room: Room, playerId: string): Room | null {
   const nextIndex = room.game.currentQuestionIndex + 1;
   if (nextIndex >= room.game.questions.length) {
     room.game.phase = 'finished';
+    room.game.finishedAt = Date.now();
     room.status = 'finished';
   } else {
     room.game.currentQuestionIndex = nextIndex;
@@ -447,6 +452,7 @@ function checkRevealAdvance(room: Room): boolean {
   const nextIndex = room.game.currentQuestionIndex + 1;
   if (nextIndex >= room.game.questions.length) {
     room.game.phase = 'finished';
+    room.game.finishedAt = Date.now();
     room.status = 'finished';
     console.log(`[Engine] Game finished in room ${room.code}`);
   } else {
@@ -470,6 +476,7 @@ interface DerivedPhaseResult {
   currentQuestionIndex: number;
   revealStartedAt: number | null;
   questionStartedAt: number;
+  finishedAt: number | null;
 }
 
 function deriveEffectivePhase(room: Room): DerivedPhaseResult {
@@ -478,6 +485,7 @@ function deriveEffectivePhase(room: Room): DerivedPhaseResult {
   let qi = g.currentQuestionIndex;
   let revealStartedAt = g.revealStartedAt;
   let questionStartedAt = g.questionStartedAt;
+  let finishedAt = g.finishedAt;
   const now = Date.now();
 
   const maxIterations = g.questions.length * 2;
@@ -510,6 +518,7 @@ function deriveEffectivePhase(room: Room): DerivedPhaseResult {
         const nextIdx = qi + 1;
         if (nextIdx >= g.questions.length) {
           phase = 'finished';
+          finishedAt = revealStartedAt + REVEAL_DURATION_MS;
           break;
         } else {
           qi = nextIdx;
@@ -525,7 +534,7 @@ function deriveEffectivePhase(room: Room): DerivedPhaseResult {
     if (phase === 'finished') break;
   }
 
-  return { phase, currentQuestionIndex: qi, revealStartedAt, questionStartedAt };
+  return { phase, currentQuestionIndex: qi, revealStartedAt, questionStartedAt, finishedAt };
 }
 
 // --- Sanitize room for client consumption ---
@@ -574,6 +583,7 @@ export function sanitizeRoom(room: Room, playerLastSeenById?: Record<string, num
   const effectiveQi = derived.currentQuestionIndex;
   const effectiveRevealStartedAt = derived.revealStartedAt;
   const effectiveQuestionStartedAt = derived.questionStartedAt;
+  const effectiveFinishedAt = derived.finishedAt;
 
   const q = g.questions[effectiveQi];
   const isRevealOrDone = effectivePhase === 'reveal' || effectivePhase === 'finished';
@@ -610,6 +620,8 @@ export function sanitizeRoom(room: Room, playerLastSeenById?: Record<string, num
     currentQuestionIndex: effectiveQi,
     totalQuestions: g.questions.length,
     phase: effectivePhase,
+    startedAt: g.startedAt ?? room.createdAt,
+    finishedAt: effectiveFinishedAt,
     timeRemainingMs,
     revealTimeRemainingMs,
     scores: g.scores,
