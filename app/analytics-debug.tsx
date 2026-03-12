@@ -105,11 +105,9 @@ export default function AnalyticsDebugScreen() {
   if (!__DEV__) {
     return (
       <SafeAreaView style={containerStyle} edges={['top', 'bottom']}>
-        <View style={styles.centeredState}>
-          <Text style={[styles.devBadge, { color: theme.warning, borderColor: theme.warning }]}>DEV ONLY</Text>
-          <Text style={[styles.title, { color: theme.text }]}>Analytics Debug</Text>
+        <View style={styles.centeredState} testID="analytics-debug-unavailable">
           <Text style={[styles.message, { color: theme.textSecondary }]}>
-            This screen is only available in development builds.
+            Not available.
           </Text>
         </View>
       </SafeAreaView>
