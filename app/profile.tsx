@@ -1,22 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import {
-  ArrowLeft,
-  Award,
-  BookOpen,
-  Calendar,
-  Check,
-  ChevronRight,
-  Crown,
-  Flame,
-  Moon,
-  Settings,
-  Sun,
-  Target,
-  Trophy,
-  User,
-  Zap,
-} from 'lucide-react-native';
+import { ArrowLeft, Award, BookOpen, Check, ChevronRight, Crown, Flame, Moon, Settings, Sun, User, Zap } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   Modal,
@@ -63,7 +47,7 @@ interface AchievementItem {
 
 const PROFILE_TABS: ReadonlyArray<{ id: TabType; label: string; icon: IconComponent }> = [
   { id: 'overview', label: 'Overview', icon: User },
-  { id: 'achievements', label: 'Achievements', icon: Award },
+  { id: 'achievements', label: 'Awards', icon: Award },
   { id: 'avatar', label: 'Avatar', icon: Zap },
 ];
 
@@ -133,18 +117,13 @@ function getRankTitle(level: number): string {
 export default function ProfilePage() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { stats, decks } = useFlashQuest();
+  const { stats } = useFlashQuest();
   const { theme, isDark, toggleTheme, setTheme } = useTheme();
   const { selectedSuit, selectedColor, setSelectedSuit, setSelectedColor } = useAvatar();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showSettings, setShowSettings] = useState<boolean>(false);
 
   const level = Math.floor(stats.totalScore / 300) + 1;
-  const xpProgress = stats.totalScore % 300;
-  const xpForNextLevel = 300;
-  const xpNeeded = xpProgress === 0 ? xpForNextLevel : xpForNextLevel - xpProgress;
-  const xpPercent = Math.min((xpProgress / xpForNextLevel) * 100, 100);
-
   const selectedSuitData = AVATAR_SUITS.find((suit) => suit.id === selectedSuit) ?? AVATAR_SUITS[0]!;
   const selectedColorData = AVATAR_COLORS.find((color) => color.id === selectedColor) ?? AVATAR_COLORS[1]!;
 
@@ -170,12 +149,12 @@ export default function ProfilePage() {
     [isDark]
   );
 
-  const achievementSummaryGradient = useMemo(
+  const awardsGradient = useMemo(
     () =>
       (
         isDark
-          ? ['rgba(79, 70, 229, 0.38)', 'rgba(249, 115, 22, 0.26)']
-          : ['rgba(99, 102, 241, 0.2)', 'rgba(249, 115, 22, 0.16)']
+          ? ['rgba(79, 70, 229, 0.42)', 'rgba(249, 115, 22, 0.28)']
+          : ['rgba(99, 102, 241, 0.22)', 'rgba(249, 115, 22, 0.18)']
       ) as [string, string],
     [isDark]
   );
@@ -187,55 +166,9 @@ export default function ProfilePage() {
     []
   );
 
-  const bonusXpUnlocked = useMemo(
-    () =>
-      ACHIEVEMENTS.reduce((total, achievement) => {
-        if (achievement.progress >= achievement.total) {
-          return total + achievement.xp;
-        }
-
-        return total;
-      }, 0),
-    []
-  );
-
   const nextAchievement = useMemo(
     () => ACHIEVEMENTS.find((achievement) => achievement.progress < achievement.total) ?? null,
     []
-  );
-
-  const heroStats = useMemo(
-    () => [
-      {
-        key: 'xp',
-        label: 'Total XP',
-        value: stats.totalScore.toLocaleString(),
-        icon: Trophy,
-        accent: '#34D399',
-      },
-      {
-        key: 'cards',
-        label: 'Cards Studied',
-        value: stats.totalCardsStudied.toLocaleString(),
-        icon: Target,
-        accent: '#F97316',
-      },
-      {
-        key: 'decks',
-        label: 'Decks Built',
-        value: decks.length.toString(),
-        icon: BookOpen,
-        accent: '#60A5FA',
-      },
-      {
-        key: 'streak',
-        label: 'Current Streak',
-        value: `${stats.currentStreak}`,
-        icon: Calendar,
-        accent: '#F472B6',
-      },
-    ],
-    [stats.totalScore, stats.totalCardsStudied, stats.currentStreak, decks.length]
   );
 
   const handleBack = useCallback(() => {
@@ -295,8 +228,8 @@ export default function ProfilePage() {
       <LinearGradient
         colors={
           isDark
-            ? ['rgba(2, 6, 23, 0.14)', 'rgba(2, 6, 23, 0.55)', 'rgba(2, 6, 23, 0.86)']
-            : ['rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.12)', 'rgba(255, 255, 255, 0.18)']
+            ? ['rgba(2, 6, 23, 0.16)', 'rgba(2, 6, 23, 0.56)', 'rgba(2, 6, 23, 0.84)']
+            : ['rgba(255, 255, 255, 0.05)', 'rgba(255, 255, 255, 0.12)', 'rgba(255, 255, 255, 0.18)']
         }
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
@@ -311,7 +244,7 @@ export default function ProfilePage() {
             activeOpacity={0.82}
             testID="profile-back-button"
           >
-            <ArrowLeft color="#fff" size={22} strokeWidth={2.5} />
+            <ArrowLeft color="#fff" size={20} strokeWidth={2.5} />
           </TouchableOpacity>
 
           <View style={styles.headerTextBlock}>
@@ -325,7 +258,7 @@ export default function ProfilePage() {
             activeOpacity={0.82}
             testID="profile-open-settings"
           >
-            <Settings color="#fff" size={20} strokeWidth={2.4} />
+            <Settings color="#fff" size={19} strokeWidth={2.4} />
           </TouchableOpacity>
         </View>
 
@@ -343,7 +276,7 @@ export default function ProfilePage() {
             >
               <View style={styles.heroTopRow}>
                 <View style={styles.heroIdentityRow}>
-                  <View style={[styles.heroAvatar, { backgroundColor: selectedColorData.value }]}>
+                  <View style={[styles.heroAvatar, { backgroundColor: selectedColorData.value }]}> 
                     <Text style={styles.heroAvatarSymbol}>{selectedSuitData.symbol}</Text>
                     <View style={styles.heroAvatarBadge}>
                       <Zap color="#fff" size={12} strokeWidth={2.8} />
@@ -351,10 +284,22 @@ export default function ProfilePage() {
                   </View>
 
                   <View style={styles.heroIdentityText}>
-                    <Text style={styles.heroEyebrow}>Battle-ready profile</Text>
+                    <Text style={styles.heroEyebrow}>FlashQuest Profile</Text>
                     <Text style={styles.heroName}>FlashQuest Player</Text>
                     <Text style={styles.heroSubtitle}>{rankTitle}</Text>
                   </View>
+                </View>
+
+                <View style={styles.heroLevelBadge}>
+                  <Text style={styles.heroLevelBadgeText}>Lv {level}</Text>
+                </View>
+              </View>
+
+              <View style={styles.heroBottomRow}>
+                <View style={styles.heroMetaPill}>
+                  <Text style={styles.heroMetaText}>
+                    {selectedColorData.name} {selectedSuitData.name}
+                  </Text>
                 </View>
 
                 <TouchableOpacity
@@ -363,53 +308,8 @@ export default function ProfilePage() {
                   activeOpacity={0.84}
                   testID="profile-hero-edit-avatar"
                 >
-                  <Text style={styles.heroEditButtonText}>Edit avatar</Text>
+                  <Text style={styles.heroEditButtonText}>Customize</Text>
                 </TouchableOpacity>
-              </View>
-
-              <View style={styles.heroBadgeRow}>
-                <View style={styles.heroBadge}>
-                  <Crown color="#FDE68A" size={14} strokeWidth={2.4} />
-                  <Text style={styles.heroBadgeText}>Level {level}</Text>
-                </View>
-                <View style={[styles.heroBadge, styles.heroBadgeWarm]}>
-                  <Flame color="#FDBA74" size={14} strokeWidth={2.4} />
-                  <Text style={styles.heroBadgeText}>{stats.currentStreak} day streak</Text>
-                </View>
-              </View>
-
-              <View style={styles.progressSection}>
-                <View style={styles.progressHeader}>
-                  <Text style={styles.progressTitle}>Rank Progress</Text>
-                  <Text style={styles.progressValue}>
-                    {xpProgress}/{xpForNextLevel} XP
-                  </Text>
-                </View>
-                <View style={styles.progressTrack}>
-                  <LinearGradient
-                    colors={['#FFFFFF', '#FDE68A']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[styles.progressFill, { width: `${xpPercent}%` }]}
-                  />
-                </View>
-                <Text style={styles.progressHint}>{xpNeeded} XP until Level {level + 1}</Text>
-              </View>
-
-              <View style={styles.heroStatsGrid}>
-                {heroStats.map((stat) => {
-                  const Icon = stat.icon;
-
-                  return (
-                    <View key={stat.key} style={styles.heroStatCard}>
-                      <View style={[styles.heroStatIconWrap, { backgroundColor: stat.accent }]}>
-                        <Icon color="#fff" size={16} strokeWidth={2.4} />
-                      </View>
-                      <Text style={styles.heroStatValue}>{stat.value}</Text>
-                      <Text style={styles.heroStatLabel}>{stat.label}</Text>
-                    </View>
-                  );
-                })}
               </View>
             </LinearGradient>
           </View>
@@ -435,14 +335,16 @@ export default function ProfilePage() {
                       style={styles.tabActiveBackground}
                     />
                   )}
-                  <Icon
-                    color={isActive ? theme.profileTabActiveText : theme.profileTabIconInactive}
-                    size={16}
-                    strokeWidth={2.3}
-                  />
-                  <Text style={[styles.tabText, isActive && styles.tabTextActive]} numberOfLines={1}>
-                    {tab.label}
-                  </Text>
+                  <View style={styles.tabContentWrap}>
+                    <Icon
+                      color={isActive ? theme.profileTabActiveText : theme.profileTabIconInactive}
+                      size={15}
+                      strokeWidth={2.3}
+                    />
+                    <Text style={[styles.tabText, isActive && styles.tabTextActive]} numberOfLines={1}>
+                      {tab.label}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -450,109 +352,64 @@ export default function ProfilePage() {
 
           {activeTab === 'overview' && (
             <View style={styles.tabContent}>
-              <TouchableOpacity
-                style={styles.surfaceCard}
-                onPress={handleOpenSettings}
-                activeOpacity={0.9}
-                testID="profile-card-settings"
-              >
-                <LinearGradient
-                  colors={surfaceGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.surfaceCardGradient}
+              <View style={styles.quickActionsRow}>
+                <TouchableOpacity
+                  style={styles.overviewCard}
+                  onPress={handleOpenSettings}
+                  activeOpacity={0.9}
+                  testID="profile-card-settings"
                 >
-                  <View style={[styles.surfaceCardIcon, { backgroundColor: isDark ? 'rgba(129, 140, 248, 0.24)' : 'rgba(102, 126, 234, 0.14)' }]}>
-                    <Settings color={theme.primary} size={22} strokeWidth={2.3} />
-                  </View>
-                  <View style={styles.surfaceCardBody}>
-                    <Text style={styles.surfaceCardTitle}>Appearance & settings</Text>
-                    <Text style={styles.surfaceCardDescription}>Theme controls and profile preferences in one place.</Text>
-                  </View>
-                  <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.4} />
-                </LinearGradient>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.surfaceCard}
-                onPress={() => handleSelectTab('avatar')}
-                activeOpacity={0.9}
-                testID="profile-card-avatar-studio"
-              >
-                <LinearGradient
-                  colors={surfaceGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.surfaceCardGradient}
-                >
-                  <View style={[styles.surfaceCardIcon, { backgroundColor: selectedColorData.value }]}>
-                    <Text style={styles.surfaceAvatarSymbol}>{selectedSuitData.symbol}</Text>
-                  </View>
-                  <View style={styles.surfaceCardBody}>
-                    <Text style={styles.surfaceCardTitle}>Avatar studio</Text>
-                    <Text style={styles.surfaceCardDescription}>
-                      Equipped: {selectedColorData.name} {selectedSuitData.name}
+                  <LinearGradient
+                    colors={surfaceGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.overviewCardGradient}
+                  >
+                    <View
+                      style={[
+                        styles.overviewCardIcon,
+                        { backgroundColor: isDark ? 'rgba(129, 140, 248, 0.24)' : 'rgba(102, 126, 234, 0.14)' },
+                      ]}
+                    >
+                      <Settings color={theme.primary} size={20} strokeWidth={2.3} />
+                    </View>
+                    <Text style={styles.overviewCardTitle}>Appearance</Text>
+                    <Text style={styles.overviewCardDescription} numberOfLines={2}>
+                      Theme, mode, and profile preferences.
                     </Text>
-                  </View>
-                  <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.4} />
-                </LinearGradient>
-              </TouchableOpacity>
+                    <View style={styles.overviewCardFooter}>
+                      <Text style={styles.overviewCardFooterText}>Open settings</Text>
+                      <ChevronRight color={theme.textSecondary} size={16} strokeWidth={2.4} />
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.achievementSummaryCard}
-                onPress={() => handleSelectTab('achievements')}
-                activeOpacity={0.9}
-                testID="profile-card-achievement-summary"
-              >
-                <LinearGradient
-                  colors={achievementSummaryGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.achievementSummaryGradient}
+                <TouchableOpacity
+                  style={styles.overviewCard}
+                  onPress={() => handleSelectTab('achievements')}
+                  activeOpacity={0.9}
+                  testID="profile-card-achievement-summary"
                 >
-                  <View style={styles.achievementSummaryHeader}>
-                    <View style={styles.achievementSummaryIconWrap}>
+                  <LinearGradient
+                    colors={awardsGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.overviewCardGradient}
+                  >
+                    <View style={[styles.overviewCardIcon, styles.overviewCardIconWarm]}>
                       <Award color="#fff" size={20} strokeWidth={2.3} />
                     </View>
-                    <View style={styles.achievementSummaryBadge}>
-                      <Text style={styles.achievementSummaryBadgeText}>
-                        {completedAchievements}/{ACHIEVEMENTS.length} unlocked
-                      </Text>
+                    <Text style={styles.overviewCardTitleLight}>Awards</Text>
+                    <Text style={styles.overviewCardDescriptionLight} numberOfLines={2}>
+                      {completedAchievements}/{ACHIEVEMENTS.length} unlocked
+                      {nextAchievement ? ` · Next: ${nextAchievement.name}` : ' · All complete'}
+                    </Text>
+                    <View style={styles.overviewCardFooter}>
+                      <Text style={styles.overviewCardFooterTextLight}>View progress</Text>
+                      <ChevronRight color="#fff" size={16} strokeWidth={2.4} />
                     </View>
-                  </View>
-
-                  <Text style={styles.achievementSummaryTitle}>Achievement track</Text>
-                  <Text style={styles.achievementSummaryDescription}>
-                    Complete milestones to stack bonus XP and keep your FlashQuest profile looking earned.
-                  </Text>
-
-                  <View style={styles.achievementSummaryFooter}>
-                    <View>
-                      <Text style={styles.achievementSummaryMetaLabel}>Bonus XP claimed</Text>
-                      <Text style={styles.achievementSummaryMetaValue}>{bonusXpUnlocked} XP</Text>
-                    </View>
-                    <View style={styles.achievementSummaryNextWrap}>
-                      <Text style={styles.achievementSummaryMetaLabel}>Next</Text>
-                      <Text style={styles.achievementSummaryMetaValue} numberOfLines={1}>
-                        {nextAchievement?.name ?? 'All done'}
-                      </Text>
-                    </View>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-
-              <View style={styles.twoColumnRow}>
-                <View style={styles.miniSurfaceCard}>
-                  <Text style={styles.miniSurfaceEyebrow}>Longest streak</Text>
-                  <Text style={styles.miniSurfaceValue}>{stats.longestStreak} days</Text>
-                  <Text style={styles.miniSurfaceDescription}>Your best daily grind so far.</Text>
-                </View>
-
-                <View style={styles.miniSurfaceCard}>
-                  <Text style={styles.miniSurfaceEyebrow}>Deck library</Text>
-                  <Text style={styles.miniSurfaceValue}>{decks.length} ready</Text>
-                  <Text style={styles.miniSurfaceDescription}>Jump into study, quest, or battle faster.</Text>
-                </View>
+                  </LinearGradient>
+                </TouchableOpacity>
               </View>
             </View>
           )}
@@ -561,8 +418,8 @@ export default function ProfilePage() {
             <View style={styles.tabContent}>
               <View style={styles.sectionBanner}>
                 <View>
-                  <Text style={styles.sectionBannerEyebrow}>Progress</Text>
-                  <Text style={styles.sectionBannerTitle}>Achievements</Text>
+                  <Text style={styles.sectionBannerEyebrow}>Milestones</Text>
+                  <Text style={styles.sectionBannerTitle}>Awards</Text>
                 </View>
                 <View style={styles.sectionBannerBadge}>
                   <Text style={styles.sectionBannerBadgeText}>{completedAchievements} complete</Text>
@@ -589,8 +446,8 @@ export default function ProfilePage() {
                       style={styles.achievementCardGradient}
                     >
                       <View style={styles.achievementHeader}>
-                        <View style={[styles.achievementIconWrap, { backgroundColor: achievement.color }]}>
-                          <AchievementIcon color="#fff" size={22} strokeWidth={2.2} />
+                        <View style={[styles.achievementIconWrap, { backgroundColor: achievement.color }]}> 
+                          <AchievementIcon color="#fff" size={20} strokeWidth={2.2} />
                         </View>
 
                         <View style={styles.achievementTextWrap}>
@@ -662,7 +519,7 @@ export default function ProfilePage() {
                         {selectedColorData.name} {selectedSuitData.name}
                       </Text>
                       <Text style={styles.avatarShowcaseDescription}>
-                        Pick the look that follows you through study, quests, and battle rooms.
+                        Pick the badge that follows you through study, quests, and arena rooms.
                       </Text>
                     </View>
                   </View>
@@ -782,7 +639,7 @@ export default function ProfilePage() {
             testID="profile-settings-overlay"
           />
 
-          <View style={[styles.settingsSheet, { backgroundColor: theme.cardBackground }]}>
+          <View style={[styles.settingsSheet, { backgroundColor: theme.cardBackground }]}> 
             <View style={styles.sheetHandle} />
 
             <View style={styles.settingsSheetHeader}>
@@ -857,8 +714,7 @@ export default function ProfilePage() {
 
 const createStyles = (theme: Theme, isDark: boolean, width: number) => {
   const cardSurface = isDark ? 'rgba(15, 23, 42, 0.74)' : 'rgba(255, 255, 255, 0.94)';
-  const miniSurface = isDark ? 'rgba(15, 23, 42, 0.68)' : 'rgba(255, 255, 255, 0.88)';
-  const optionWidth = (width - 52) / 2;
+  const optionWidth = Math.min(Math.max((width - 56) / 2, 136), 220);
 
   return StyleSheet.create({
     container: {
@@ -870,26 +726,26 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     header: {
       paddingHorizontal: 20,
-      paddingTop: 10,
-      paddingBottom: 12,
+      paddingTop: 8,
+      paddingBottom: 10,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
     iconButton: {
-      width: 46,
-      height: 46,
-      borderRadius: 16,
+      width: 42,
+      height: 42,
+      borderRadius: 14,
       backgroundColor: 'rgba(255, 255, 255, 0.14)',
       borderWidth: 1,
       borderColor: 'rgba(255, 255, 255, 0.18)',
       justifyContent: 'center',
       alignItems: 'center',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: isDark ? 0.3 : 0.14,
-      shadowRadius: 18,
-      elevation: isDark ? 10 : 4,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: isDark ? 0.28 : 0.12,
+      shadowRadius: 16,
+      elevation: isDark ? 8 : 3,
     },
     headerTextBlock: {
       alignItems: 'center',
@@ -897,7 +753,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       flex: 1,
     },
     headerEyebrow: {
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: '700' as const,
       color: 'rgba(255, 255, 255, 0.78)',
       letterSpacing: 1,
@@ -905,66 +761,66 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       marginBottom: 2,
     },
     headerTitle: {
-      fontSize: 28,
+      fontSize: 24,
       fontWeight: '800' as const,
       color: '#fff',
-      letterSpacing: -0.7,
+      letterSpacing: -0.6,
     },
     scrollView: {
       flex: 1,
     },
     scrollContent: {
       paddingHorizontal: 20,
-      paddingBottom: 40,
-      gap: 18,
+      paddingBottom: 32,
+      gap: 14,
     },
     heroCard: {
-      borderRadius: 28,
+      borderRadius: 24,
       overflow: 'hidden',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 18 },
-      shadowOpacity: isDark ? 0.4 : 0.18,
-      shadowRadius: 28,
-      elevation: isDark ? 14 : 8,
+      shadowOffset: { width: 0, height: 16 },
+      shadowOpacity: isDark ? 0.34 : 0.14,
+      shadowRadius: 24,
+      elevation: isDark ? 10 : 5,
     },
     heroCardGradient: {
-      padding: 22,
-      gap: 18,
+      padding: 18,
+      gap: 14,
     },
     heroTopRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      gap: 14,
+      alignItems: 'center',
+      gap: 12,
     },
     heroIdentityRow: {
       flexDirection: 'row',
       alignItems: 'center',
       flex: 1,
-      gap: 14,
+      gap: 12,
     },
     heroAvatar: {
-      width: 84,
-      height: 84,
-      borderRadius: 24,
+      width: 72,
+      height: 72,
+      borderRadius: 22,
       justifyContent: 'center',
       alignItems: 'center',
-      borderWidth: 3,
+      borderWidth: 2,
       borderColor: 'rgba(255, 255, 255, 0.26)',
       position: 'relative',
     },
     heroAvatarSymbol: {
-      fontSize: 46,
-      lineHeight: 52,
+      fontSize: 40,
+      lineHeight: 46,
       color: '#fff',
     },
     heroAvatarBadge: {
       position: 'absolute',
-      right: -4,
-      top: -4,
-      width: 24,
-      height: 24,
-      borderRadius: 12,
+      right: -3,
+      top: -3,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
       backgroundColor: '#F59E0B',
       borderWidth: 2,
       borderColor: '#fff',
@@ -973,33 +829,68 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     heroIdentityText: {
       flex: 1,
-      paddingRight: 4,
+      minWidth: 0,
     },
     heroEyebrow: {
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: '700' as const,
       color: 'rgba(255, 255, 255, 0.78)',
       letterSpacing: 1,
       textTransform: 'uppercase' as const,
-      marginBottom: 4,
+      marginBottom: 3,
     },
     heroName: {
-      fontSize: 28,
+      fontSize: 24,
       fontWeight: '800' as const,
       color: '#fff',
-      letterSpacing: -0.8,
-      marginBottom: 4,
+      letterSpacing: -0.7,
+      marginBottom: 3,
     },
     heroSubtitle: {
-      fontSize: 15,
+      fontSize: 14,
       fontWeight: '600' as const,
-      color: 'rgba(255, 255, 255, 0.88)',
+      color: 'rgba(255, 255, 255, 0.9)',
+    },
+    heroLevelBadge: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 14,
+      backgroundColor: 'rgba(255, 255, 255, 0.16)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.18)',
+    },
+    heroLevelBadgeText: {
+      fontSize: 12,
+      fontWeight: '800' as const,
+      color: '#fff',
+      letterSpacing: 0.4,
+      textTransform: 'uppercase' as const,
+    },
+    heroBottomRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    heroMetaPill: {
+      flex: 1,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      backgroundColor: 'rgba(255, 255, 255, 0.14)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.16)',
+    },
+    heroMetaText: {
+      fontSize: 12,
+      fontWeight: '700' as const,
+      color: 'rgba(255, 255, 255, 0.92)',
     },
     heroEditButton: {
       paddingHorizontal: 14,
       paddingVertical: 10,
-      borderRadius: 14,
-      backgroundColor: 'rgba(255, 255, 255, 0.16)',
+      borderRadius: 12,
+      backgroundColor: 'rgba(255, 255, 255, 0.18)',
       borderWidth: 1,
       borderColor: 'rgba(255, 255, 255, 0.2)',
     },
@@ -1008,293 +899,131 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       fontWeight: '700' as const,
       color: '#fff',
     },
-    heroBadgeRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 10,
-    },
-    heroBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      backgroundColor: 'rgba(255, 255, 255, 0.16)',
-      borderRadius: 999,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.14)',
-    },
-    heroBadgeWarm: {
-      backgroundColor: 'rgba(249, 115, 22, 0.22)',
-    },
-    heroBadgeText: {
-      fontSize: 13,
-      fontWeight: '700' as const,
-      color: '#fff',
-    },
-    progressSection: {
-      gap: 8,
-    },
-    progressHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    progressTitle: {
-      fontSize: 13,
-      fontWeight: '700' as const,
-      color: 'rgba(255, 255, 255, 0.86)',
-      textTransform: 'uppercase' as const,
-      letterSpacing: 0.7,
-    },
-    progressValue: {
-      fontSize: 13,
-      fontWeight: '700' as const,
-      color: '#fff',
-    },
-    progressTrack: {
-      height: 10,
-      borderRadius: 999,
-      backgroundColor: 'rgba(255, 255, 255, 0.18)',
-      overflow: 'hidden',
-    },
-    progressFill: {
-      height: '100%',
-      borderRadius: 999,
-    },
-    progressHint: {
-      fontSize: 13,
-      fontWeight: '600' as const,
-      color: 'rgba(255, 255, 255, 0.78)',
-    },
-    heroStatsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 12,
-    },
-    heroStatCard: {
-      width: '48%',
-      minHeight: 94,
-      borderRadius: 20,
-      padding: 14,
-      backgroundColor: 'rgba(255, 255, 255, 0.12)',
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.12)',
-      justifyContent: 'center',
-    },
-    heroStatIconWrap: {
-      width: 30,
-      height: 30,
-      borderRadius: 10,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 10,
-    },
-    heroStatValue: {
-      fontSize: 24,
-      fontWeight: '800' as const,
-      color: '#fff',
-      letterSpacing: -0.5,
-      marginBottom: 3,
-    },
-    heroStatLabel: {
-      fontSize: 12,
-      fontWeight: '600' as const,
-      color: 'rgba(255, 255, 255, 0.76)',
-    },
     tabs: {
       flexDirection: 'row',
-      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.76)' : 'rgba(255, 255, 255, 0.72)',
-      padding: 4,
-      borderRadius: 18,
-      gap: 4,
+      backgroundColor: theme.profileTabBackground,
+      padding: 5,
+      borderRadius: 20,
+      gap: 6,
       borderWidth: 1,
-      borderColor: isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(255, 255, 255, 0.4)',
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(255, 255, 255, 0.42)',
     },
     tab: {
       flex: 1,
-      minHeight: 48,
-      borderRadius: 14,
-      justifyContent: 'center',
-      alignItems: 'center',
-      flexDirection: 'row',
-      gap: 6,
+      minWidth: 0,
+      minHeight: 52,
+      borderRadius: 16,
       overflow: 'hidden',
       position: 'relative',
-      paddingHorizontal: 8,
     },
     tabActiveBackground: {
       ...StyleSheet.absoluteFillObject,
     },
+    tabContentWrap: {
+      minHeight: 52,
+      paddingHorizontal: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+    },
     tabText: {
+      flexShrink: 1,
       fontSize: 12,
       fontWeight: '700' as const,
       color: theme.profileTabInactiveText,
+      textAlign: 'center' as const,
     },
     tabTextActive: {
       color: theme.profileTabActiveText,
     },
     tabContent: {
-      gap: 14,
+      gap: 12,
     },
-    surfaceCard: {
-      borderRadius: 24,
+    quickActionsRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    overviewCard: {
+      flex: 1,
+      borderRadius: 22,
       overflow: 'hidden',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: isDark ? 0.24 : 0.08,
-      shadowRadius: 18,
-      elevation: isDark ? 8 : 3,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: isDark ? 0.22 : 0.08,
+      shadowRadius: 16,
+      elevation: isDark ? 6 : 3,
     },
-    surfaceCardGradient: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 14,
-      padding: 18,
+    overviewCardGradient: {
+      minHeight: 152,
+      padding: 16,
+      justifyContent: 'space-between',
+      gap: 10,
     },
-    surfaceCardIcon: {
-      width: 52,
-      height: 52,
-      borderRadius: 18,
+    overviewCardIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 14,
       justifyContent: 'center',
       alignItems: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.16)',
     },
-    surfaceAvatarSymbol: {
-      fontSize: 28,
-      lineHeight: 32,
-      color: '#fff',
+    overviewCardIconWarm: {
+      backgroundColor: 'rgba(255, 255, 255, 0.18)',
     },
-    surfaceCardBody: {
-      flex: 1,
-      gap: 4,
-    },
-    surfaceCardTitle: {
+    overviewCardTitle: {
       fontSize: 18,
       fontWeight: '800' as const,
       color: theme.text,
       letterSpacing: -0.4,
     },
-    surfaceCardDescription: {
-      fontSize: 14,
-      fontWeight: '500' as const,
-      color: theme.textSecondary,
-      lineHeight: 20,
-    },
-    achievementSummaryCard: {
-      borderRadius: 26,
-      overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 14 },
-      shadowOpacity: isDark ? 0.28 : 0.1,
-      shadowRadius: 20,
-      elevation: isDark ? 9 : 4,
-    },
-    achievementSummaryGradient: {
-      padding: 20,
-      gap: 14,
-    },
-    achievementSummaryHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    achievementSummaryIconWrap: {
-      width: 40,
-      height: 40,
-      borderRadius: 14,
-      backgroundColor: 'rgba(255, 255, 255, 0.18)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    achievementSummaryBadge: {
-      borderRadius: 999,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      backgroundColor: 'rgba(255, 255, 255, 0.16)',
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.18)',
-    },
-    achievementSummaryBadgeText: {
-      fontSize: 12,
-      fontWeight: '700' as const,
-      color: '#fff',
-    },
-    achievementSummaryTitle: {
-      fontSize: 24,
+    overviewCardTitleLight: {
+      fontSize: 18,
       fontWeight: '800' as const,
       color: '#fff',
-      letterSpacing: -0.6,
-    },
-    achievementSummaryDescription: {
-      fontSize: 14,
-      fontWeight: '500' as const,
-      color: 'rgba(255, 255, 255, 0.86)',
-      lineHeight: 22,
-    },
-    achievementSummaryFooter: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-end',
-      gap: 16,
-    },
-    achievementSummaryNextWrap: {
-      flex: 1,
-      alignItems: 'flex-end',
-    },
-    achievementSummaryMetaLabel: {
-      fontSize: 11,
-      fontWeight: '700' as const,
-      color: 'rgba(255, 255, 255, 0.66)',
-      letterSpacing: 0.8,
-      textTransform: 'uppercase' as const,
-      marginBottom: 4,
-    },
-    achievementSummaryMetaValue: {
-      fontSize: 16,
-      fontWeight: '800' as const,
-      color: '#fff',
-    },
-    twoColumnRow: {
-      flexDirection: 'row',
-      gap: 12,
-    },
-    miniSurfaceCard: {
-      flex: 1,
-      borderRadius: 22,
-      padding: 18,
-      backgroundColor: miniSurface,
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(255, 255, 255, 0.4)',
-    },
-    miniSurfaceEyebrow: {
-      fontSize: 11,
-      fontWeight: '700' as const,
-      color: theme.textTertiary,
-      textTransform: 'uppercase' as const,
-      letterSpacing: 0.8,
-      marginBottom: 10,
-    },
-    miniSurfaceValue: {
-      fontSize: 22,
-      fontWeight: '800' as const,
-      color: theme.text,
       letterSpacing: -0.4,
-      marginBottom: 6,
     },
-    miniSurfaceDescription: {
+    overviewCardDescription: {
       fontSize: 13,
       fontWeight: '500' as const,
       color: theme.textSecondary,
-      lineHeight: 19,
+      lineHeight: 18,
+    },
+    overviewCardDescriptionLight: {
+      fontSize: 13,
+      fontWeight: '500' as const,
+      color: 'rgba(255, 255, 255, 0.86)',
+      lineHeight: 18,
+    },
+    overviewCardFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    overviewCardFooterText: {
+      fontSize: 11,
+      fontWeight: '800' as const,
+      color: theme.textSecondary,
+      letterSpacing: 0.8,
+      textTransform: 'uppercase' as const,
+    },
+    overviewCardFooterTextLight: {
+      fontSize: 11,
+      fontWeight: '800' as const,
+      color: 'rgba(255, 255, 255, 0.86)',
+      letterSpacing: 0.8,
+      textTransform: 'uppercase' as const,
     },
     sectionBanner: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 2,
+      gap: 12,
+      marginTop: 2,
     },
     sectionBannerEyebrow: {
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: '700' as const,
       color: 'rgba(255, 255, 255, 0.72)',
       textTransform: 'uppercase' as const,
@@ -1302,14 +1031,14 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       marginBottom: 3,
     },
     sectionBannerTitle: {
-      fontSize: 28,
+      fontSize: 24,
       fontWeight: '800' as const,
       color: '#fff',
-      letterSpacing: -0.7,
+      letterSpacing: -0.6,
     },
     sectionBannerBadge: {
       paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingVertical: 7,
       borderRadius: 999,
       backgroundColor: 'rgba(255, 255, 255, 0.14)',
       borderWidth: 1,
@@ -1321,27 +1050,27 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       color: '#fff',
     },
     achievementCard: {
-      borderRadius: 24,
+      borderRadius: 22,
       overflow: 'hidden',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: isDark ? 0.28 : 0.08,
-      shadowRadius: 18,
+      shadowOpacity: isDark ? 0.24 : 0.08,
+      shadowRadius: 16,
       elevation: isDark ? 7 : 3,
     },
     achievementCardGradient: {
-      padding: 18,
-      gap: 14,
+      padding: 16,
+      gap: 12,
     },
     achievementHeader: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      gap: 14,
+      gap: 12,
     },
     achievementIconWrap: {
-      width: 46,
-      height: 46,
-      borderRadius: 16,
+      width: 42,
+      height: 42,
+      borderRadius: 14,
       justifyContent: 'center',
       alignItems: 'center',
     },
@@ -1350,21 +1079,21 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       gap: 4,
     },
     achievementName: {
-      fontSize: 17,
+      fontSize: 16,
       fontWeight: '800' as const,
       color: theme.text,
-      letterSpacing: -0.3,
+      letterSpacing: -0.2,
     },
     achievementDescription: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '500' as const,
       color: theme.textSecondary,
-      lineHeight: 20,
+      lineHeight: 18,
     },
     achievementXpBadge: {
-      minWidth: 56,
+      minWidth: 54,
       paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingVertical: 7,
       borderRadius: 12,
       backgroundColor: isDark ? 'rgba(245, 158, 11, 0.18)' : 'rgba(245, 158, 11, 0.14)',
       alignItems: 'center',
@@ -1419,17 +1148,17 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       color: '#fff',
     },
     avatarShowcaseCard: {
-      borderRadius: 28,
+      borderRadius: 24,
       overflow: 'hidden',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 16 },
-      shadowOpacity: isDark ? 0.34 : 0.12,
-      shadowRadius: 24,
-      elevation: isDark ? 10 : 5,
+      shadowOffset: { width: 0, height: 14 },
+      shadowOpacity: isDark ? 0.3 : 0.12,
+      shadowRadius: 20,
+      elevation: isDark ? 9 : 4,
     },
     avatarShowcaseGradient: {
-      padding: 20,
-      gap: 16,
+      padding: 18,
+      gap: 14,
     },
     avatarShowcaseHeader: {
       flexDirection: 'row',
@@ -1439,7 +1168,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     avatarShowcaseBadge: {
       paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingVertical: 7,
       borderRadius: 999,
       backgroundColor: 'rgba(255, 255, 255, 0.16)',
       borderWidth: 1,
@@ -1451,19 +1180,19 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       color: '#fff',
     },
     avatarShowcaseHint: {
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '600' as const,
       color: 'rgba(255, 255, 255, 0.86)',
     },
     avatarShowcaseBody: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 16,
+      gap: 14,
     },
     avatarShowcaseTile: {
-      width: 88,
-      height: 88,
-      borderRadius: 24,
+      width: 76,
+      height: 76,
+      borderRadius: 22,
       backgroundColor: 'rgba(255, 255, 255, 0.16)',
       borderWidth: 1,
       borderColor: 'rgba(255, 255, 255, 0.18)',
@@ -1471,41 +1200,41 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       alignItems: 'center',
     },
     avatarShowcaseSymbol: {
-      fontSize: 54,
-      lineHeight: 62,
+      fontSize: 46,
+      lineHeight: 52,
       color: '#fff',
     },
     avatarShowcaseTextBlock: {
       flex: 1,
-      gap: 6,
+      gap: 5,
     },
     avatarShowcaseTitle: {
-      fontSize: 24,
-      fontWeight: '800' as const,
-      color: '#fff',
-      letterSpacing: -0.6,
-    },
-    avatarShowcaseDescription: {
-      fontSize: 14,
-      fontWeight: '500' as const,
-      color: 'rgba(255, 255, 255, 0.84)',
-      lineHeight: 21,
-    },
-    sectionHeader: {
-      gap: 4,
-      marginTop: 4,
-    },
-    sectionTitle: {
-      fontSize: 22,
+      fontSize: 21,
       fontWeight: '800' as const,
       color: '#fff',
       letterSpacing: -0.5,
     },
-    sectionSubtitle: {
-      fontSize: 14,
+    avatarShowcaseDescription: {
+      fontSize: 13,
       fontWeight: '500' as const,
-      color: 'rgba(255, 255, 255, 0.72)',
-      lineHeight: 20,
+      color: 'rgba(255, 255, 255, 0.84)',
+      lineHeight: 19,
+    },
+    sectionHeader: {
+      gap: 3,
+      marginTop: 2,
+    },
+    sectionTitle: {
+      fontSize: 20,
+      fontWeight: '800' as const,
+      color: '#fff',
+      letterSpacing: -0.4,
+    },
+    sectionSubtitle: {
+      fontSize: 13,
+      fontWeight: '500' as const,
+      color: 'rgba(255, 255, 255, 0.74)',
+      lineHeight: 18,
     },
     optionGrid: {
       flexDirection: 'row',
@@ -1514,38 +1243,38 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     optionCard: {
       width: optionWidth,
-      borderRadius: 24,
-      paddingVertical: 18,
-      paddingHorizontal: 16,
+      borderRadius: 20,
+      paddingVertical: 16,
+      paddingHorizontal: 14,
       backgroundColor: cardSurface,
       borderWidth: 1.5,
       borderColor: isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(255, 255, 255, 0.38)',
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative',
-      minHeight: 144,
+      minHeight: 126,
     },
     optionSymbol: {
-      fontSize: 52,
-      lineHeight: 60,
-      marginBottom: 10,
+      fontSize: 44,
+      lineHeight: 50,
+      marginBottom: 8,
     },
     colorSwatch: {
-      width: 56,
-      height: 56,
-      borderRadius: 18,
-      marginBottom: 12,
+      width: 48,
+      height: 48,
+      borderRadius: 15,
+      marginBottom: 10,
       borderWidth: 2,
       borderColor: 'rgba(255, 255, 255, 0.32)',
     },
     optionTitle: {
-      fontSize: 17,
+      fontSize: 16,
       fontWeight: '700' as const,
       color: theme.text,
       marginBottom: 4,
     },
     optionDescription: {
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '500' as const,
       color: theme.textSecondary,
     },
