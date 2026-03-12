@@ -88,6 +88,8 @@ export default function QuestSessionScreen() {
   const dealerDialogue = useRef<'idle' | 'correct' | 'wrong'>('idle');
   const advanceRoundRef = useRef<() => void>(() => {});
   const finishSessionEarlyRef = useRef<() => void>(() => {});
+  const performanceRef = useRef(performance);
+  const initializedDeckIdRef = useRef<string | null>(null);
 
   const cardAnimations = useRef([
     new Animated.Value(0),
@@ -96,6 +98,10 @@ export default function QuestSessionScreen() {
     new Animated.Value(0),
   ]).current;
 
+  useEffect(() => {
+    performanceRef.current = performance;
+  }, [performance]);
+
   const setupNextRound = useCallback(() => {
     if (!deck) return;
 
@@ -103,7 +109,7 @@ export default function QuestSessionScreen() {
     const nextCard = selectNextCard({
       cards: cardPool,
       usedCardIds: usedCardIdsRef.current,
-      performance,
+      performance: performanceRef.current,
       focusWeakOnly: drillCards ? false : settings.focusWeakOnly,
     });
 
@@ -154,7 +160,7 @@ export default function QuestSessionScreen() {
       .catch((err) => {
         logger.log('[Quest] AI distractor warmup failed:', err);
       });
-  }, [deck, allCards, performance, settings.focusWeakOnly, settings.timerSeconds, cardAnimations, drillCards]);
+  }, [deck, allCards, settings.focusWeakOnly, settings.timerSeconds, cardAnimations, drillCards]);
 
   const clearAdvanceTimeout = useCallback(() => {
     if (advanceTimeoutRef.current) {
@@ -209,9 +215,17 @@ export default function QuestSessionScreen() {
   finishSessionEarlyRef.current = finishSessionEarly;
 
   useEffect(() => {
-    if (deck) {
-      setupNextRound();
+    if (!deck) {
+      return;
     }
+
+    if (initializedDeckIdRef.current === deck.id) {
+      return;
+    }
+
+    initializedDeckIdRef.current = deck.id;
+    logger.log('[Quest] Initializing session for deck:', deck.id);
+    setupNextRound();
   }, [deck, setupNextRound]);
 
   useEffect(() => {
