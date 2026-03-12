@@ -3,7 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { X, Zap, Lightbulb, Clock } from 'lucide-react-native';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnswerCard, getSuitForIndex, AnswerCardState, CARD_GAP, CARD_PADDING, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
@@ -63,6 +63,7 @@ export default function QuestSessionScreen() {
   const [currentRound, setCurrentRound] = useState(0);
   const [currentCard, setCurrentCard] = useState<Flashcard | null>(null);
   const [options, setOptions] = useState<string[]>([]);
+  const [optionsRenderKey, setOptionsRenderKey] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [showHint, setShowHint] = useState(false);
@@ -91,13 +92,6 @@ export default function QuestSessionScreen() {
   const performanceRef = useRef(performance);
   const initializedDeckIdRef = useRef<string | null>(null);
   const recentDistractorHistoryRef = useRef<string[]>([]);
-
-  const cardAnimations = useRef([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]).current;
 
   useEffect(() => {
     performanceRef.current = performance;
@@ -146,20 +140,10 @@ export default function QuestSessionScreen() {
     setShowExplanation(false);
     setInputLocked(false);
     setUsedSecondChance(false);
+    setOptionsRenderKey(prev => prev + 1);
     dealerDialogue.current = 'idle';
     setRoundStartTime(Date.now());
     setTimeRemaining(settings.timerSeconds > 0 ? settings.timerSeconds : null);
-
-    cardAnimations.forEach((anim, index) => {
-      anim.setValue(0);
-      Animated.spring(anim, {
-        toValue: 1,
-        friction: 8,
-        tension: 80,
-        delay: index * 80,
-        useNativeDriver: true,
-      }).start();
-    });
 
     void generateAIDistractors(nextCard.question, nextCard.answer, nextCard.id)
       .then(() => {
@@ -168,7 +152,7 @@ export default function QuestSessionScreen() {
       .catch((err) => {
         logger.log('[Quest] AI distractor warmup failed:', err);
       });
-  }, [deck, allCards, settings.focusWeakOnly, settings.timerSeconds, cardAnimations, drillCards]);
+  }, [deck, allCards, settings.focusWeakOnly, settings.timerSeconds, drillCards]);
 
   const clearAdvanceTimeout = useCallback(() => {
     if (advanceTimeoutRef.current) {
@@ -262,6 +246,24 @@ export default function QuestSessionScreen() {
       clearAdvanceTimeout();
     };
   }, [clearAdvanceTimeout]);
+
+  useEffect(() => {
+    if (!deck || !currentCard || options.length > 0) {
+      return;
+    }
+
+    logger.warn('[Quest] Empty options detected, regenerating for card:', currentCard.id);
+    const recoveredOptions = generateOptions({
+      correctAnswer: currentCard.answer,
+      deckCards: deck.flashcards,
+      allCards,
+      currentCardId: currentCard.id,
+      recentDistractors: recentDistractorHistoryRef.current,
+    });
+
+    setOptions(recoveredOptions.length > 0 ? recoveredOptions : [currentCard.answer]);
+    setOptionsRenderKey(prev => prev + 1);
+  }, [allCards, currentCard, deck, options.length]);
 
   const handleTimeUp = useCallback(() => {
     if (inputLocked || !currentCard) return;
@@ -447,6 +449,19 @@ export default function QuestSessionScreen() {
 
   advanceRoundRef.current = advanceRound;
 
+  const displayedOptions = useMemo(() => {
+    if (!currentCard) {
+      return [] as string[];
+    }
+
+    if (options.length > 0) {
+      return options;
+    }
+
+    logger.warn('[Quest] Rendering fallback option for card:', currentCard.id);
+    return [currentCard.answer];
+  }, [currentCard, options]);
+
   const handleHintPress = useCallback(() => {
     if (!settings.hintsEnabled || !currentCard?.hint1 || inputLocked) return;
     setShowHint(true);
@@ -561,16 +576,15 @@ export default function QuestSessionScreen() {
 
         <View style={styles.gameArea}>
           <View style={styles.tableSurface}>
-            <View style={styles.optionsGrid}>
-              {options.map((option, index) => (
+            <View key={`${currentCard.id}-${optionsRenderKey}`} style={styles.optionsGrid}>
+              {displayedOptions.map((option, index) => (
                 <AnswerCard
-                  key={`${currentCard.id}-${index}`}
+                  key={`${currentCard.id}-${optionsRenderKey}-${index}-${option}`}
                   optionText={option}
                   suit={getSuitForIndex(index)}
                   index={index}
                   state={getCardState(option)}
                   onPress={() => handleOptionPress(option)}
-                  animatedOpacity={cardAnimations[index]}
                 />
               ))}
             </View>
