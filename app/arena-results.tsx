@@ -1,9 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { Trophy, Target, Medal, RotateCcw, Home, Users, ChevronDown, ChevronUp, Save } from 'lucide-react-native';
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { Trophy, Target, Medal, RotateCcw, Home, Users, ChevronDown, ChevronUp, Save, Share2 } from 'lucide-react-native';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Share, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { trackEvent } from '@/lib/analytics';
@@ -99,8 +99,47 @@ export default function ArenaResultsScreen() {
   }, [data]);
 
   const winner = sortedPlayers[0];
-  const winnerScore = data?.scores[winner?.id];
+  const winnerName = winner?.name ?? 'Unknown';
+  const winnerIdentityLabel = winner?.identityLabel ?? '';
   const winnerDisplayName = winner ? `${winner.identityLabel} ${winner.name}` : 'Unknown';
+  const winnerScore = winner ? data?.scores[winner.id] : undefined;
+
+  const playerPerformance = useMemo(() => {
+    if (!data) {
+      return {} as Record<string, { correct: number; totalTimeSeconds: number; summary: string }>;
+    }
+
+    return data.players.reduce<Record<string, { correct: number; totalTimeSeconds: number; summary: string }>>((acc, player) => {
+      const correct = data.scores[player.id]?.correct ?? 0;
+      const playerAnswers = data.allAnswers?.[player.id];
+      const totalTimeMs = playerAnswers
+        ? Object.values(playerAnswers).reduce((total, answer) => {
+            const timeToAnswerMs = typeof answer.timeToAnswerMs === 'number' ? answer.timeToAnswerMs : 0;
+            return total + Math.max(0, timeToAnswerMs);
+          }, 0)
+        : 0;
+      const totalTimeSeconds = Math.max(0, Math.round(totalTimeMs / 1000));
+
+      acc[player.id] = {
+        correct,
+        totalTimeSeconds,
+        summary: `${correct} correct — ${totalTimeSeconds}s`,
+      };
+
+      return acc;
+    }, {});
+  }, [data]);
+
+  const winnerStatsText = winner ? playerPerformance[winner.id]?.summary ?? '0 correct — 0s' : '0 correct — 0s';
+
+  const shareMessage = useMemo(() => {
+    if (!winner) {
+      return 'Play FlashQuest.';
+    }
+
+    const roomCodeLine = data?.roomCode ? `\n\nRoom Code: ${data.roomCode}` : '';
+    return `🏆 FlashQuest Winner\n${winnerName}\n\n${winnerStatsText}\n\nThink you can beat this?\nPlay FlashQuest.${roomCodeLine}`;
+  }, [data?.roomCode, winner, winnerName, winnerStatsText]);
 
   const missedQuestions = useMemo(() => {
     if (!data?.allQuestions || !data.allAnswers) return [];
@@ -203,6 +242,26 @@ export default function ArenaResultsScreen() {
     }
   };
 
+  const handleShareResults = useCallback(async () => {
+    if (!winner) {
+      return;
+    }
+
+    try {
+      logger.log('[Results] Sharing arena results');
+      await Share.share({
+        message: shareMessage,
+      });
+
+      if (Platform.OS !== 'web') {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    } catch (error) {
+      logger.log('[Results] Failed to share arena results', error);
+      Alert.alert('Unable to share', 'Please try again in a moment.');
+    }
+  }, [shareMessage, winner]);
+
   const handlePlayAgain = () => {
     if (isHost) {
       trackEvent({
@@ -275,19 +334,35 @@ export default function ArenaResultsScreen() {
           <View style={styles.header}>
             <Trophy color="#FFD700" size={56} />
             <Text style={styles.title}>Battle Over!</Text>
-            {winner != null && (
-              <View style={styles.winnerBadge}>
-                <Text style={styles.winnerLabel}>Winner</Text>
-                <Text style={[styles.winnerIdentity, { color: winner.color }]}>{winner.identityLabel}</Text>
-                <Text style={styles.winnerName}>{winner.name}</Text>
-              </View>
-            )}
           </View>
+
+          {winner != null && (
+            <View
+              testID="arena-results-winner-card"
+              style={[
+                styles.winnerSection,
+                {
+                  backgroundColor: theme.cardBackground,
+                  borderColor: 'rgba(255, 215, 0, 0.28)',
+                },
+              ]}
+            >
+              <View style={styles.winnerSectionHeader}>
+                <Text style={styles.winnerSectionEmoji}>🏆</Text>
+                <Text style={[styles.winnerSectionLabel, { color: theme.textSecondary }]}>Winner</Text>
+              </View>
+              {winnerIdentityLabel.length > 0 && (
+                <Text style={[styles.winnerSectionIdentity, { color: winner.color }]}>{winnerIdentityLabel}</Text>
+              )}
+              <Text style={[styles.winnerSectionName, { color: theme.text }]}>{winnerName}</Text>
+              <Text style={[styles.winnerSectionStats, { color: theme.textSecondary }]}>{winnerStatsText}</Text>
+            </View>
+          )}
 
           <View style={[styles.standingsCard, { backgroundColor: theme.cardBackground }]}>
             <View style={styles.standingsHeader}>
               <Medal color={theme.warning} size={22} />
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Final Standings</Text>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Leaderboard</Text>
             </View>
 
             <View style={styles.standingsList}>
@@ -295,6 +370,7 @@ export default function ArenaResultsScreen() {
                 const score = data.scores[player.id];
                 const totalQ = data.totalQuestions;
                 const accuracy = totalQ > 0 ? ((score?.correct ?? 0) / totalQ) : 0;
+                const performanceSummary = playerPerformance[player.id]?.summary ?? '0 correct — 0s';
 
                 return (
                   <View
@@ -314,7 +390,14 @@ export default function ArenaResultsScreen() {
                       </View>
                       <View style={styles.playerNameCol}>
                         <View style={styles.playerLabelRow}>
-                          <Text style={[styles.playerName, { color: theme.text }]} numberOfLines={1}>
+                          <Text
+                            style={[
+                              styles.playerName,
+                              { color: theme.text },
+                              player.id === winner?.id && styles.winnerPlayerName,
+                            ]}
+                            numberOfLines={1}
+                          >
                             {player.name}
                           </Text>
                           {player.id === playerId && (
@@ -323,6 +406,9 @@ export default function ArenaResultsScreen() {
                         </View>
                         <Text style={[styles.playerIdentity, { color: player.color }]} numberOfLines={1}>
                           {player.identityLabel}
+                        </Text>
+                        <Text style={[styles.playerPerformance, { color: theme.textSecondary }]} numberOfLines={1}>
+                          {performanceSummary}
                         </Text>
                       </View>
                     </View>
@@ -343,6 +429,24 @@ export default function ArenaResultsScreen() {
                 );
               })}
             </View>
+
+            <TouchableOpacity
+              testID="arena-results-share-button"
+              style={[
+                styles.shareButton,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.primary,
+                },
+              ]}
+              onPress={() => {
+                void handleShareResults();
+              }}
+              activeOpacity={0.7}
+            >
+              <Share2 color={theme.primary} size={18} />
+              <Text style={[styles.shareButtonText, { color: theme.primary }]}>Share Results</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={[styles.statsCard, { backgroundColor: theme.cardBackground }]}>
@@ -498,28 +602,46 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 16,
   },
-  winnerBadge: {
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 16,
+  winnerSection: {
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  winnerSectionHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
   },
-  winnerLabel: {
+  winnerSectionEmoji: {
+    fontSize: 24,
+  },
+  winnerSectionLabel: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontWeight: '500' as const,
-    marginBottom: 4,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.8,
   },
-  winnerIdentity: {
+  winnerSectionIdentity: {
     fontSize: 13,
     fontWeight: '700' as const,
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  winnerName: {
-    fontSize: 24,
+  winnerSectionName: {
+    fontSize: 28,
     fontWeight: '800' as const,
-    color: '#FFD700',
+  },
+  winnerSectionStats: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    marginTop: 6,
   },
   standingsCard: {
     borderRadius: 24,
@@ -595,6 +717,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600' as const,
     marginTop: 2,
+  },
+  playerPerformance: {
+    fontSize: 12,
+    fontWeight: '500' as const,
+    marginTop: 3,
+  },
+  winnerPlayerName: {
+    fontWeight: '800' as const,
   },
   youLabel: {
     fontSize: 11,
@@ -698,6 +828,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 14,
     alignItems: 'center',
+  },
+  shareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 18,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  shareButtonText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
   },
   savedText: {
     fontSize: 15,
