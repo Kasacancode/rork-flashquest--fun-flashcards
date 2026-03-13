@@ -1,8 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Users, X, Play, Settings, Clock, Target, AlertCircle, Wifi, WifiOff, Copy, Check, Swords } from 'lucide-react-native';
+import { ArrowLeft, Users, X, Play, Settings, Clock, Target, AlertCircle, Wifi, WifiOff, Copy, Check, Swords, Share2 } from 'lucide-react-native';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert, Animated, Share } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -33,6 +33,7 @@ const TIMER_OPTIONS: { value: ArenaTimerOption; label: string }[] = ARENA_TIMER_
 }));
 
 const MAX_LOBBY_SLOTS = 6;
+const ARENA_JOIN_BASE_URL = 'https://flashquest.net/join';
 
 interface LobbyPlayer {
   id: string;
@@ -122,6 +123,24 @@ export default function ArenaLobbyScreen() {
       logger.log('[Lobby] Copy failed');
     }
   }, [roomCode]);
+
+  const handleShareBattle = useCallback(async () => {
+    if (!room?.code) {
+      return;
+    }
+
+    const shareMessage = `⚔️ Join my FlashQuest battle!\n\nRoom Code: ${room.code}\n${ARENA_JOIN_BASE_URL}/${room.code}`;
+
+    try {
+      logger.log('[Lobby] Sharing battle invite for room:', room.code);
+      await Share.share({
+        message: shareMessage,
+      });
+    } catch (error) {
+      logger.log('[Lobby] Share failed', error);
+      Alert.alert('Unable to share', 'Please try again in a moment.');
+    }
+  }, [room?.code]);
 
   const handleRemovePlayer = useCallback((targetId: string) => {
     const player = room?.players.find((p: any) => p.id === targetId);
@@ -216,6 +235,7 @@ export default function ArenaLobbyScreen() {
   const smallDeckWarning = selectedDeck && selectedDeck.flashcards.length < 8;
   const lobbyPlayers = (room?.players ?? []) as LobbyPlayer[];
   const hasInviteSlot = lobbyPlayers.length < MAX_LOBBY_SLOTS;
+  const joinLink = room?.code ? `${ARENA_JOIN_BASE_URL}/${room.code}` : '';
 
   if (!room) {
     return (
@@ -303,9 +323,35 @@ export default function ArenaLobbyScreen() {
                 </>
               )}
             </View>
-            <Text style={[styles.shareNote, { color: theme.textTertiary }]}>
-              Share this code with friends to join
+            <Text style={[styles.shareNote, { color: theme.textTertiary }]}> 
+              Share this code or instant join link with friends
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.shareBattleButton,
+              styles.sectionSurface,
+              {
+                backgroundColor: isDark ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255, 248, 240, 0.92)',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.38)',
+              },
+            ]}
+            onPress={() => {
+              void handleShareBattle();
+            }}
+            activeOpacity={0.82}
+            testID="battle-lobby-share-button"
+          >
+            <View style={styles.shareBattleIconWrap}>
+              <Share2 color={arenaAccent} size={18} />
+            </View>
+            <View style={styles.shareBattleTextWrap}>
+              <Text style={[styles.shareBattleTitle, { color: theme.text }]}>Share Battle</Text>
+              <Text style={[styles.shareBattleSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
+                {joinLink}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           <View
@@ -819,6 +865,35 @@ const styles = StyleSheet.create({
   shareNote: {
     fontSize: 12,
     fontStyle: 'italic' as const,
+  },
+  shareBattleButton: {
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  shareBattleIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shareBattleTextWrap: {
+    flex: 1,
+  },
+  shareBattleTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    marginBottom: 2,
+  },
+  shareBattleSubtitle: {
+    fontSize: 12,
+    fontWeight: '500' as const,
   },
   playersSection: {
     borderRadius: 24,

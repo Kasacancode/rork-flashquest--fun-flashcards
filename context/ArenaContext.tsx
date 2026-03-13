@@ -46,7 +46,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const MAX_POLL_FAILURES = 20;
   const GRACE_PERIOD_MS = 20000;
 
-  useQuery({
+  const playerNameQuery = useQuery({
     queryKey: ['arena-player-name'],
     queryFn: async () => {
       const stored = await AsyncStorage.getItem(PLAYER_NAME_KEY);
@@ -491,6 +491,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     roomCode,
     playerId,
     playerName,
+    isPlayerNameReady: !playerNameQuery.isLoading,
     connectionError,
     room,
     isHost,
@@ -519,7 +520,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     roomVersion,
     roomUpdatedAt,
   }), [
-    roomCode, playerId, playerName, connectionError,
+    roomCode, playerId, playerName, playerNameQuery.isLoading, connectionError,
     room, isHost, myPlayer, hasAnsweredCurrent, lastAnswerCorrect,
     canStartGame,
     createRoomMut.isPending, joinRoomMut.isPending,
