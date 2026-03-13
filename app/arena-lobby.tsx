@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Users, X, Play, Settings, Clock, Target, AlertCircle, Wifi, WifiOff, Copy, Check, Swords, Share2 } from 'lucide-react-native';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert, Animated, Share } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert, Animated } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -18,6 +18,7 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { generateOptions, shuffleArray } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
+import { shareTextWithFallback } from '@/utils/share';
 
 const ARENA_ACCENT_LIGHT = '#f97316';
 const ARENA_ACCENT_DARK = '#f59e0b';
@@ -131,15 +132,18 @@ export default function ArenaLobbyScreen() {
 
     const shareMessage = `⚔️ Join my FlashQuest battle!\n\nRoom Code: ${room.code}\n${ARENA_JOIN_BASE_URL}/${room.code}`;
 
-    try {
-      logger.log('[Lobby] Sharing battle invite for room:', room.code);
-      await Share.share({
-        message: shareMessage,
-      });
-    } catch (error) {
-      logger.log('[Lobby] Share failed', error);
-      Alert.alert('Unable to share', 'Please try again in a moment.');
-    }
+    logger.log('[Lobby] Sharing battle invite for room:', room.code);
+
+    const shareResult = await shareTextWithFallback({
+      message: shareMessage,
+      title: 'FlashQuest Battle Invite',
+      fallbackTitle: 'Unable to share',
+      fallbackMessage: 'Please try again in a moment.',
+      copiedTitle: 'Invite copied',
+      copiedMessage: 'Sharing is limited here, so the battle invite was copied to your clipboard.',
+    });
+
+    logger.log('[Lobby] Share battle result:', shareResult);
   }, [room?.code]);
 
   const handleRemovePlayer = useCallback((targetId: string) => {

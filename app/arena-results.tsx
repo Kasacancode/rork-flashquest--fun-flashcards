@@ -3,7 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { Trophy, Target, Medal, RotateCcw, Home, Users, ChevronDown, ChevronUp, Save, Share2 } from 'lucide-react-native';
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Share, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { trackEvent } from '@/lib/analytics';
@@ -13,6 +13,7 @@ import { useTheme } from '@/context/ThemeContext';
 import type { ArenaLeaderboardEntry } from '@/types/arena';
 import { GAME_MODE } from '@/types/game';
 import { logger } from '@/utils/logger';
+import { shareTextWithFallback } from '@/utils/share';
 
 interface ResultPlayer {
   id: string;
@@ -247,18 +248,21 @@ export default function ArenaResultsScreen() {
       return;
     }
 
-    try {
-      logger.log('[Results] Sharing arena results');
-      await Share.share({
-        message: shareMessage,
-      });
+    logger.log('[Results] Sharing arena results');
 
-      if (Platform.OS !== 'web') {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-    } catch (error) {
-      logger.log('[Results] Failed to share arena results', error);
-      Alert.alert('Unable to share', 'Please try again in a moment.');
+    const shareResult = await shareTextWithFallback({
+      message: shareMessage,
+      title: 'FlashQuest Results',
+      fallbackTitle: 'Unable to share',
+      fallbackMessage: 'Please try again in a moment.',
+      copiedTitle: 'Results copied',
+      copiedMessage: 'Sharing is limited here, so the results were copied to your clipboard.',
+    });
+
+    logger.log('[Results] Share arena results result:', shareResult);
+
+    if (shareResult !== 'failed' && shareResult !== 'cancelled' && Platform.OS !== 'web') {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   }, [shareMessage, winner]);
 
