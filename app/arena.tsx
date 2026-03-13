@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useArena } from '@/context/ArenaContext';
 import { useTheme } from '@/context/ThemeContext';
+import { PLAYER_NAME_MAX_LENGTH, sanitizePlayerName } from '@/utils/playerName';
 
 const ARENA_ACCENT_LIGHT = '#f97316';
 const ARENA_ACCENT_DARK = '#f59e0b';
@@ -29,8 +30,11 @@ export default function ArenaMenuScreen() {
     clearError,
     disconnect,
     playerName: savedName,
+    isPlayerNameReady,
   } = useArena();
   const arenaAccent = isDark ? ARENA_ACCENT_DARK : ARENA_ACCENT_LIGHT;
+  const savedPlayerName = sanitizePlayerName(savedName);
+  const hasSavedPlayerName = savedPlayerName.length > 0;
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -63,26 +67,42 @@ export default function ArenaMenuScreen() {
   }, [connectionError, pendingAction, clearError]);
 
   const handleCreateRoom = () => {
-    setNameInput(savedName || '');
+    if (!isPlayerNameReady || isConnecting) {
+      return;
+    }
+
+    if (hasSavedPlayerName) {
+      setPendingAction('create');
+      createRoom(savedPlayerName);
+      return;
+    }
+
+    setNameInput('');
     setShowCreateModal(true);
   };
 
   const handleJoinRoom = () => {
-    setNameInput(savedName || '');
+    if (!isPlayerNameReady || isConnecting) {
+      return;
+    }
+
+    setNameInput(savedPlayerName);
     setCodeInput('');
     setShowJoinModal(true);
   };
 
   const handleConfirmCreate = () => {
-    if (!nameInput.trim() || isConnecting) return;
+    const nextPlayerName = sanitizePlayerName(nameInput);
+    if (!nextPlayerName || isConnecting) return;
     setPendingAction('create');
-    createRoom(nameInput.trim());
+    createRoom(nextPlayerName);
   };
 
   const handleConfirmJoin = () => {
-    if (!nameInput.trim() || codeInput.length !== ROOM_CODE_LENGTH || isConnecting) return;
+    const nextPlayerName = hasSavedPlayerName ? savedPlayerName : sanitizePlayerName(nameInput);
+    if (!nextPlayerName || codeInput.length !== ROOM_CODE_LENGTH || isConnecting) return;
     setPendingAction('join');
-    joinRoom(codeInput.trim().toUpperCase(), nameInput.trim());
+    joinRoom(codeInput.trim().toUpperCase(), nextPlayerName);
   };
 
   const handleRejoin = () => {
@@ -101,6 +121,10 @@ export default function ArenaMenuScreen() {
     const date = new Date(timestamp);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
+
+  const nextCreateName = sanitizePlayerName(nameInput);
+  const nextJoinName = hasSavedPlayerName ? savedPlayerName : sanitizePlayerName(nameInput);
+  const isArenaActionDisabled = !!roomCode || !isPlayerNameReady;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -175,18 +199,20 @@ export default function ArenaMenuScreen() {
               style={styles.primaryButton}
               onPress={handleCreateRoom}
               activeOpacity={0.85}
-              disabled={!!roomCode}
+              disabled={isArenaActionDisabled}
             >
               <LinearGradient
-                colors={roomCode ? ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] : ['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.1)']}
+                colors={isArenaActionDisabled ? ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] : ['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.1)']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.buttonGradient}
               >
                 <Users color="#fff" size={28} />
                 <View style={styles.buttonTextContainer}>
-                  <Text style={[styles.buttonTitle, roomCode && { opacity: 0.5 }]}>Start Battle</Text>
-                  <Text style={[styles.buttonSubtitle, roomCode && { opacity: 0.5 }]}>Host a multiplayer match</Text>
+                  <Text style={[styles.buttonTitle, isArenaActionDisabled && { opacity: 0.5 }]}>Start Battle</Text>
+                  <Text style={[styles.buttonSubtitle, isArenaActionDisabled && { opacity: 0.5 }]}>
+                    {hasSavedPlayerName ? `Host as ${savedPlayerName}` : 'Host a multiplayer match'}
+                  </Text>
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -195,13 +221,13 @@ export default function ArenaMenuScreen() {
               style={styles.secondaryButton}
               onPress={handleJoinRoom}
               activeOpacity={0.85}
-              disabled={!!roomCode}
+              disabled={isArenaActionDisabled}
             >
-              <View style={[styles.buttonGradient, { backgroundColor: roomCode ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.15)' }]}>
+              <View style={[styles.buttonGradient, { backgroundColor: isArenaActionDisabled ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.15)' }]}>
                 <Target color="#fff" size={28} />
                 <View style={styles.buttonTextContainer}>
-                  <Text style={[styles.buttonTitle, roomCode && { opacity: 0.5 }]}>Join Battle</Text>
-                  <Text style={[styles.buttonSubtitle, roomCode && { opacity: 0.5 }]}>Enter code</Text>
+                  <Text style={[styles.buttonTitle, isArenaActionDisabled && { opacity: 0.5 }]}>Join Battle</Text>
+                  <Text style={[styles.buttonSubtitle, isArenaActionDisabled && { opacity: 0.5 }]}>Enter room code fast</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -269,6 +295,7 @@ export default function ArenaMenuScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: isDark ? '#1e293b' : theme.cardBackground }]}>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Start Battle</Text>
+            <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>Pick a player name once and Arena will remember it for future battles.</Text>
             <TextInput
               style={[styles.modalInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
               placeholder="Enter your name"
@@ -276,8 +303,9 @@ export default function ArenaMenuScreen() {
               value={nameInput}
               onChangeText={setNameInput}
               autoFocus
-              maxLength={20}
+              maxLength={PLAYER_NAME_MAX_LENGTH}
               editable={!isConnecting}
+              testID="battle-name-input"
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -290,7 +318,7 @@ export default function ArenaMenuScreen() {
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonPrimary]}
                 onPress={handleConfirmCreate}
-                disabled={!nameInput.trim() || isConnecting}
+                disabled={!nextCreateName || isConnecting}
               >
                 <LinearGradient
                   colors={[theme.arenaGradient[0], theme.arenaGradient[1]]}
@@ -319,15 +347,24 @@ export default function ArenaMenuScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: isDark ? '#1e293b' : theme.cardBackground }]}>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Join Battle</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
-              placeholder="Your name"
-              placeholderTextColor={theme.textTertiary}
-              value={nameInput}
-              onChangeText={setNameInput}
-              maxLength={20}
-              editable={!isConnecting}
-            />
+            {hasSavedPlayerName ? (
+              <View style={[styles.savedNameCard, { backgroundColor: theme.background, borderColor: theme.border }]} testID="battle-saved-name-card">
+                <Text style={[styles.savedNameLabel, { color: theme.textSecondary }]}>Joining as</Text>
+                <Text style={[styles.savedNameValue, { color: theme.text }]} numberOfLines={1}>{savedPlayerName}</Text>
+              </View>
+            ) : (
+              <TextInput
+                style={[styles.modalInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
+                placeholder="Your name"
+                placeholderTextColor={theme.textTertiary}
+                value={nameInput}
+                onChangeText={setNameInput}
+                maxLength={PLAYER_NAME_MAX_LENGTH}
+                editable={!isConnecting}
+                autoFocus
+                testID="battle-join-name-input"
+              />
+            )}
             <TextInput
               style={[styles.modalInput, styles.codeInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
               placeholder="M4X9"
@@ -338,6 +375,7 @@ export default function ArenaMenuScreen() {
               autoCorrect={false}
               maxLength={ROOM_CODE_LENGTH}
               editable={!isConnecting}
+              autoFocus={hasSavedPlayerName}
               testID="battle-room-code-input"
             />
             <View style={styles.modalButtons}>
@@ -351,7 +389,7 @@ export default function ArenaMenuScreen() {
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonPrimary]}
                 onPress={handleConfirmJoin}
-                disabled={!nameInput.trim() || codeInput.length !== ROOM_CODE_LENGTH || isConnecting}
+                disabled={!nextJoinName || codeInput.length !== ROOM_CODE_LENGTH || isConnecting}
               >
                 <LinearGradient
                   colors={[theme.arenaGradient[0], theme.arenaGradient[1]]}
@@ -592,7 +630,31 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700' as const,
     textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
     marginBottom: 20,
+  },
+  savedNameCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
+  },
+  savedNameLabel: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    marginBottom: 4,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.6,
+  },
+  savedNameValue: {
+    fontSize: 20,
+    fontWeight: '800' as const,
   },
   modalInput: {
     borderRadius: 14,

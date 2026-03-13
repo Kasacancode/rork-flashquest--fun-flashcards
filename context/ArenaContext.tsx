@@ -10,6 +10,7 @@ import { trpc } from '@/lib/trpc';
 import type { ArenaLeaderboardEntry } from '@/types/arena';
 import { GAME_MODE } from '@/types/game';
 import { logger } from '@/utils/logger';
+import { sanitizePlayerName } from '@/utils/playerName';
 
 const LEADERBOARD_KEY = 'flashquest_arena_leaderboard';
 const PLAYER_NAME_KEY = 'flashquest_arena_player_name';
@@ -94,9 +95,19 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const playerNameQuery = useQuery({
     queryKey: ['arena-player-name'],
     queryFn: async () => {
-      const stored = await AsyncStorage.getItem(PLAYER_NAME_KEY);
-      if (stored) setPlayerName(stored);
-      return stored || '';
+      const storedName = (await AsyncStorage.getItem(PLAYER_NAME_KEY)) ?? '';
+      const sanitizedStoredName = sanitizePlayerName(storedName);
+
+      if (storedName !== sanitizedStoredName) {
+        if (sanitizedStoredName) {
+          await AsyncStorage.setItem(PLAYER_NAME_KEY, sanitizedStoredName);
+        } else {
+          await AsyncStorage.removeItem(PLAYER_NAME_KEY);
+        }
+      }
+
+      setPlayerName(sanitizedStoredName);
+      return sanitizedStoredName;
     },
   });
 
@@ -118,6 +129,19 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       return entries;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['arena-leaderboard'] }),
+  });
+
+  const savePlayerNameMut = useMutation({
+    mutationFn: async (name: string) => {
+      await AsyncStorage.setItem(PLAYER_NAME_KEY, name);
+      return name;
+    },
+    onSuccess: (name: string) => {
+      queryClient.setQueryData(['arena-player-name'], name);
+    },
+    onError: (error: unknown) => {
+      logger.warn('[Arena] Failed to persist player name:', error);
+    },
   });
 
   const [pollInterval, setPollInterval] = useState<number>(POLL_LOBBY_MS);
@@ -398,29 +422,51 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const removePlayerMut = trpc.arena.removePlayer.useMutation();
   const resetRoomMut = trpc.arena.resetRoom.useMutation();
 
+  const updatePlayerName = useCallback((name: string): string => {
+    const sanitizedName = sanitizePlayerName(name);
+
+    if (!sanitizedName) {
+      return '';
+    }
+
+    logger.log('[Arena] Updating player name:', sanitizedName);
+    setPlayerName(sanitizedName);
+    queryClient.setQueryData(['arena-player-name'], sanitizedName);
+    savePlayerNameMut.mutate(sanitizedName);
+    return sanitizedName;
+  }, [queryClient, savePlayerNameMut]);
+
   const createRoom = useCallback((name: string) => {
-    setPlayerName(name);
+    const sanitizedName = updatePlayerName(name);
+    if (!sanitizedName) {
+      setConnectionError('Enter a player name.');
+      return;
+    }
+
     setConnectionError(null);
     setOptimisticSettings(null);
     setOptimisticDeckSelection(null);
     pollFailCountRef.current = 0;
     lastErrorMsgRef.current = null;
     connectedAtRef.current = Date.now();
-    AsyncStorage.setItem(PLAYER_NAME_KEY, name).catch(() => {});
-    createRoomMut.mutate({ name, preferredIdentityKey: selectedIdentityKey });
-  }, [createRoomMut, selectedIdentityKey]);
+    createRoomMut.mutate({ name: sanitizedName, preferredIdentityKey: selectedIdentityKey });
+  }, [createRoomMut, selectedIdentityKey, updatePlayerName]);
 
   const joinRoom = useCallback((code: string, name: string) => {
-    setPlayerName(name);
+    const sanitizedName = updatePlayerName(name);
+    if (!sanitizedName) {
+      setConnectionError('Enter a player name.');
+      return;
+    }
+
     setConnectionError(null);
     setOptimisticSettings(null);
     setOptimisticDeckSelection(null);
     pollFailCountRef.current = 0;
     lastErrorMsgRef.current = null;
     connectedAtRef.current = Date.now();
-    AsyncStorage.setItem(PLAYER_NAME_KEY, name).catch(() => {});
-    joinRoomMut.mutate({ roomCode: code, playerName: name, preferredIdentityKey: selectedIdentityKey });
-  }, [joinRoomMut, selectedIdentityKey]);
+    joinRoomMut.mutate({ roomCode: code, playerName: sanitizedName, preferredIdentityKey: selectedIdentityKey });
+  }, [joinRoomMut, selectedIdentityKey, updatePlayerName]);
 
   const disconnect = useCallback(() => {
     if (roomCode && playerId) {
@@ -565,6 +611,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     isSubmitting: submitAnswerMut.isPending,
     createRoom,
     joinRoom,
+    updatePlayerName,
     disconnect,
     selectDeck,
     updateSettings,
@@ -585,7 +632,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     canStartGame,
     createRoomMut.isPending, joinRoomMut.isPending,
     selectDeckMut.isPending, startGameMut.isPending, submitAnswerMut.isPending,
-    createRoom, joinRoom, disconnect, selectDeck, updateSettings,
+    createRoom, joinRoom, updatePlayerName, disconnect, selectDeck, updateSettings,
     startGame, submitAnswer, removePlayer, resetRoom,
     leaderboard, saveMatchResult, cleanupDeck, leaderboardQuery.isLoading,
     clearError, roomVersion, roomUpdatedAt,

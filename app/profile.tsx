@@ -13,7 +13,7 @@ import {
   User,
   Zap,
 } from 'lucide-react-native';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -21,6 +21,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   useWindowDimensions,
@@ -33,10 +34,12 @@ import {
 } from '@/constants/avatar';
 import type { AvatarColorId, AvatarSuitId } from '@/types/avatar';
 import { type Theme } from '@/constants/colors';
+import { useArena } from '@/context/ArenaContext';
 import { useAvatar } from '@/context/AvatarContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { logger } from '@/utils/logger';
+import { PLAYER_NAME_MAX_LENGTH, getPlayerNameValidationError } from '@/utils/playerName';
 
 type TabType = 'overview' | 'avatar' | 'awards';
 
@@ -156,16 +159,22 @@ export default function ProfilePage() {
   const isAnalyticsDebugEnabled = __DEV__;
   const { width } = useWindowDimensions();
   const { stats } = useFlashQuest();
+  const { playerName, updatePlayerName, isPlayerNameReady } = useArena();
   const { theme, isDark, toggleTheme, setTheme } = useTheme();
   const { selectedSuit, selectedColor, setSelectedSuit, setSelectedColor } = useAvatar();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showLevels, setShowLevels] = useState<boolean>(false);
+  const [isEditingPlayerName, setIsEditingPlayerName] = useState<boolean>(false);
+  const [playerNameInput, setPlayerNameInput] = useState<string>('');
+  const [playerNameError, setPlayerNameError] = useState<string | null>(null);
 
   const level = Math.max(1, Math.floor(stats.totalScore / 300) + 1);
   const levelEntry = useMemo(() => getLevelEntry(level), [level]);
   const selectedSuitData = AVATAR_SUITS.find((suit) => suit.id === selectedSuit) ?? AVATAR_SUITS[0]!;
   const selectedColorData = AVATAR_COLORS.find((color) => color.id === selectedColor) ?? AVATAR_COLORS[0]!;
+  const currentPlayerName = playerName.trim();
+  const profileDisplayName = currentPlayerName || 'FlashQuest Player';
 
   const styles = useMemo(() => createStyles(theme, isDark, width), [theme, isDark, width]);
 
@@ -198,6 +207,12 @@ export default function ProfilePage() {
     () => ACHIEVEMENTS.find((achievement) => achievement.progress < achievement.total) ?? null,
     []
   );
+
+  useEffect(() => {
+    if (!isEditingPlayerName) {
+      setPlayerNameInput(playerName);
+    }
+  }, [isEditingPlayerName, playerName]);
 
   const handleBack = useCallback(() => {
     logger.log('[Profile] Navigating back');
@@ -270,6 +285,47 @@ export default function ProfilePage() {
     setTheme('dark');
   }, [setTheme]);
 
+  const handleEditPlayerName = useCallback(() => {
+    logger.log('[Profile] Editing player name');
+    setPlayerNameInput(playerName);
+    setPlayerNameError(null);
+    setIsEditingPlayerName(true);
+  }, [playerName]);
+
+  const handleCancelPlayerNameEdit = useCallback(() => {
+    logger.log('[Profile] Cancelling player name edit');
+    setPlayerNameInput(playerName);
+    setPlayerNameError(null);
+    setIsEditingPlayerName(false);
+  }, [playerName]);
+
+  const handleChangePlayerNameInput = useCallback((value: string) => {
+    if (playerNameError) {
+      setPlayerNameError(null);
+    }
+
+    setPlayerNameInput(value);
+  }, [playerNameError]);
+
+  const handleSavePlayerName = useCallback(() => {
+    const validationError = getPlayerNameValidationError(playerNameInput);
+    if (validationError) {
+      setPlayerNameError(validationError);
+      return;
+    }
+
+    const nextPlayerName = updatePlayerName(playerNameInput);
+    if (!nextPlayerName) {
+      setPlayerNameError('Enter a player name.');
+      return;
+    }
+
+    logger.log('[Profile] Saved player name:', nextPlayerName);
+    setPlayerNameInput(nextPlayerName);
+    setPlayerNameError(null);
+    setIsEditingPlayerName(false);
+  }, [playerNameInput, updatePlayerName]);
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -338,7 +394,7 @@ export default function ProfilePage() {
 
                   <View style={styles.heroIdentityText}>
                     <Text style={styles.heroEyebrow}>FlashQuest Profile</Text>
-                    <Text style={styles.heroName}>FlashQuest Player</Text>
+                    <Text style={styles.heroName}>{profileDisplayName}</Text>
                     <Text style={styles.heroSubtitle}>{levelEntry.title}</Text>
                   </View>
                 </View>
@@ -399,6 +455,95 @@ export default function ProfilePage() {
 
           {activeTab === 'overview' && (
             <View style={styles.tabContent}>
+              <View style={styles.cardShell}>
+                <LinearGradient
+                  colors={surfaceGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.appearanceCard}
+                >
+                  <View style={styles.appearanceHeader}>
+                    <View style={styles.appearanceIntro}>
+                      <View style={[styles.appearanceIconWrap, { backgroundColor: isDark ? 'rgba(129, 140, 248, 0.12)' : 'rgba(102, 126, 234, 0.12)' }]}>
+                        <User color={theme.primary} size={18} strokeWidth={2.3} />
+                      </View>
+                      <View style={styles.appearanceTextWrap}>
+                        <Text style={styles.cardTitle}>Player Name</Text>
+                        <Text style={styles.cardDescription}>Used automatically when you host or join Arena battles.</Text>
+                      </View>
+                    </View>
+                    {!isEditingPlayerName ? (
+                      <TouchableOpacity
+                        style={styles.inlineActionButton}
+                        onPress={handleEditPlayerName}
+                        activeOpacity={0.84}
+                        disabled={!isPlayerNameReady}
+                        testID="profile-player-name-edit"
+                      >
+                        <Text style={styles.inlineActionButtonText}>{currentPlayerName ? 'Change' : 'Set Name'}</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+
+                  {isEditingPlayerName ? (
+                    <View style={styles.playerNameEditor}>
+                      <TextInput
+                        style={styles.playerNameInput}
+                        value={playerNameInput}
+                        onChangeText={handleChangePlayerNameInput}
+                        placeholder="Enter your player name"
+                        placeholderTextColor={theme.textTertiary}
+                        maxLength={PLAYER_NAME_MAX_LENGTH}
+                        autoFocus
+                        autoCapitalize="words"
+                        editable={isPlayerNameReady}
+                        testID="profile-player-name-input"
+                      />
+                      <Text style={[styles.playerNameHelper, playerNameError ? styles.playerNameErrorText : null]}>
+                        {playerNameError ?? `Max ${PLAYER_NAME_MAX_LENGTH} characters.`}
+                      </Text>
+                      <View style={styles.playerNameActions}>
+                        <TouchableOpacity
+                          style={styles.playerNameSecondaryButton}
+                          onPress={handleCancelPlayerNameEdit}
+                          activeOpacity={0.84}
+                          testID="profile-player-name-cancel"
+                        >
+                          <Text style={styles.playerNameSecondaryButtonText}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.playerNamePrimaryButton}
+                          onPress={handleSavePlayerName}
+                          activeOpacity={0.84}
+                          testID="profile-player-name-save"
+                        >
+                          <LinearGradient
+                            colors={theme.profileTabActiveGradient as [string, string]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.playerNamePrimaryGradient}
+                          >
+                            <Text style={styles.playerNamePrimaryButtonText}>Save</Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.playerNameSummaryCard} testID="profile-player-name-card">
+                      <Text style={styles.playerNameSummaryLabel}>Current Player Name</Text>
+                      <Text style={[styles.playerNameSummaryValue, !currentPlayerName && styles.playerNameSummaryValueEmpty]}>
+                        {isPlayerNameReady ? (currentPlayerName || 'Not set yet') : 'Loading...'}
+                      </Text>
+                      <Text style={styles.playerNameSummaryHint}>
+                        {currentPlayerName
+                          ? 'Arena reuses this automatically so you can jump straight into battles.'
+                          : 'Set it once here and Arena will stop asking for your name every time.'}
+                      </Text>
+                    </View>
+                  )}
+                </LinearGradient>
+              </View>
+
               <View style={styles.cardShell}>
                 <LinearGradient
                   colors={surfaceGradient}
@@ -1148,6 +1293,94 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       color: theme.textSecondary,
       textTransform: 'uppercase' as const,
       letterSpacing: 0.5,
+    },
+    playerNameSummaryCard: {
+      padding: 16,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(15, 23, 42, 0.08)',
+      backgroundColor: isDark ? 'rgba(2, 6, 23, 0.18)' : 'rgba(99, 102, 241, 0.05)',
+      gap: 6,
+    },
+    playerNameSummaryLabel: {
+      fontSize: 11,
+      fontWeight: '700' as const,
+      color: theme.textTertiary,
+      letterSpacing: 0.8,
+      textTransform: 'uppercase' as const,
+    },
+    playerNameSummaryValue: {
+      fontSize: 24,
+      fontWeight: '800' as const,
+      color: theme.text,
+      letterSpacing: -0.6,
+    },
+    playerNameSummaryValueEmpty: {
+      color: theme.textSecondary,
+    },
+    playerNameSummaryHint: {
+      fontSize: 13,
+      fontWeight: '500' as const,
+      color: theme.textSecondary,
+      lineHeight: 18,
+    },
+    playerNameEditor: {
+      gap: 12,
+    },
+    playerNameInput: {
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: isDark ? 'rgba(2, 6, 23, 0.24)' : 'rgba(255, 255, 255, 0.9)',
+      color: theme.text,
+      fontSize: 16,
+      fontWeight: '600' as const,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+    },
+    playerNameHelper: {
+      fontSize: 12,
+      fontWeight: '500' as const,
+      color: theme.textTertiary,
+    },
+    playerNameErrorText: {
+      color: theme.error,
+    },
+    playerNameActions: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    playerNameSecondaryButton: {
+      flex: 1,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(15, 23, 42, 0.08)',
+      backgroundColor: isDark ? 'rgba(2, 6, 23, 0.16)' : 'rgba(15, 23, 42, 0.04)',
+      minHeight: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 14,
+    },
+    playerNameSecondaryButtonText: {
+      fontSize: 15,
+      fontWeight: '700' as const,
+      color: theme.textSecondary,
+    },
+    playerNamePrimaryButton: {
+      flex: 1,
+      borderRadius: 16,
+      overflow: 'hidden',
+    },
+    playerNamePrimaryGradient: {
+      minHeight: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 14,
+    },
+    playerNamePrimaryButtonText: {
+      fontSize: 15,
+      fontWeight: '800' as const,
+      color: '#fff',
     },
     debugButton: {
       alignSelf: 'flex-start',
