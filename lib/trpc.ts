@@ -16,27 +16,37 @@ function getBaseUrl(): string {
     const envUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL?.trim();
     if (envUrl) {
       const normalizedUrl = trimTrailingSlash(envUrl);
-      console.log("[trpc] Using EXPO_PUBLIC_RORK_API_BASE_URL:", normalizedUrl);
+      if (__DEV__) {
+        console.log("[trpc] Using EXPO_PUBLIC_RORK_API_BASE_URL:", normalizedUrl);
+      }
       return normalizedUrl;
     }
 
     if (Platform.OS === "web" && typeof window !== "undefined" && window.location?.origin) {
       const webOrigin = trimTrailingSlash(window.location.origin);
-      console.warn("[trpc] Falling back to window.location.origin:", webOrigin);
+      if (__DEV__) {
+        console.warn("[trpc] Falling back to window.location.origin:", webOrigin);
+      }
       return webOrigin;
     }
 
-    console.warn("[trpc] EXPO_PUBLIC_RORK_API_BASE_URL is missing, falling back to relative API path");
+    if (__DEV__) {
+      console.warn("[trpc] EXPO_PUBLIC_RORK_API_BASE_URL is missing, falling back to relative API path");
+    }
     return "";
   } catch (error) {
-    console.error("[trpc] Failed to resolve API base URL:", error);
+    if (__DEV__) {
+      console.error("[trpc] Failed to resolve API base URL:", error);
+    }
     return "";
   }
 }
 
 const trpcUrl = `${getBaseUrl()}/api/trpc`;
 
-console.log("[trpc] Initializing client with URL:", trpcUrl);
+if (__DEV__) {
+  console.log("[trpc] Initializing client with URL:", trpcUrl);
+}
 
 export const trpcClient = trpc.createClient({
   links: [
@@ -51,9 +61,13 @@ export const trpcClient = trpc.createClient({
             : input instanceof Request
               ? input.url
               : "[unknown-request]";
-        console.log("[trpc] Request:", requestUrl);
+        if (__DEV__) {
+          console.log("[trpc] Request:", requestUrl);
+        }
         const response = await fetch(input, init);
-        console.log("[trpc] Response:", response.status, response.url);
+        if (__DEV__) {
+          console.log("[trpc] Response:", response.status, response.url);
+        }
         return response;
       },
     }),
