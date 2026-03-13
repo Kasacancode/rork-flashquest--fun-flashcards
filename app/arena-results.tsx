@@ -40,6 +40,16 @@ interface CachedResults {
   roomCode: string;
 }
 
+interface PlayerPerformance {
+  correct: number;
+  totalTimeSeconds: number;
+  accuracy: number;
+  points: number;
+  bestStreak: number;
+  summary: string;
+  statLine: string;
+}
+
 export default function ArenaResultsScreen() {
   const router = useRouter();
   const { theme } = useTheme();
@@ -106,11 +116,15 @@ export default function ArenaResultsScreen() {
 
   const playerPerformance = useMemo(() => {
     if (!data) {
-      return {} as Record<string, { correct: number; totalTimeSeconds: number; summary: string }>;
+      return {} as Record<string, PlayerPerformance>;
     }
 
-    return data.players.reduce<Record<string, { correct: number; totalTimeSeconds: number; summary: string }>>((acc, player) => {
-      const correct = data.scores[player.id]?.correct ?? 0;
+    return data.players.reduce<Record<string, PlayerPerformance>>((acc, player) => {
+      const score = data.scores[player.id];
+      const correct = score?.correct ?? 0;
+      const points = score?.points ?? 0;
+      const bestStreak = score?.bestStreak ?? 0;
+      const accuracy = data.totalQuestions > 0 ? correct / data.totalQuestions : 0;
       const playerAnswers = data.allAnswers?.[player.id];
       const totalTimeMs = playerAnswers
         ? Object.values(playerAnswers).reduce((total, answer) => {
@@ -123,14 +137,64 @@ export default function ArenaResultsScreen() {
       acc[player.id] = {
         correct,
         totalTimeSeconds,
+        accuracy,
+        points,
+        bestStreak,
         summary: `${correct} correct — ${totalTimeSeconds}s`,
+        statLine: `${correct} correct • ${totalTimeSeconds}s • ${points} pts`,
       };
 
       return acc;
     }, {});
   }, [data]);
 
-  const winnerStatsText = winner ? playerPerformance[winner.id]?.summary ?? '0 correct — 0s' : '0 correct — 0s';
+  const winnerStatsText = winner ? playerPerformance[winner.id]?.statLine ?? '0 correct • 0s • 0 pts' : '0 correct • 0s • 0 pts';
+
+  const winnerCallouts = useMemo(() => {
+    if (!winner) {
+      return [] as string[];
+    }
+
+    const performances = sortedPlayers
+      .map((player) => playerPerformance[player.id])
+      .filter((performance): performance is PlayerPerformance => performance != null);
+
+    if (performances.length === 0) {
+      return [] as string[];
+    }
+
+    const fastestTime = performances
+      .map((performance) => performance.totalTimeSeconds)
+      .filter((time) => time > 0)
+      .reduce((fastest, time) => Math.min(fastest, time), Number.POSITIVE_INFINITY);
+    const highestAccuracy = performances.reduce((highest, performance) => Math.max(highest, performance.accuracy), 0);
+    const bestStreak = performances.reduce((highest, performance) => Math.max(highest, performance.bestStreak), 0);
+    const winnerPerformance = playerPerformance[winner.id];
+
+    if (!winnerPerformance) {
+      return [] as string[];
+    }
+
+    const callouts: string[] = [];
+
+    if (Number.isFinite(fastestTime) && winnerPerformance.totalTimeSeconds > 0 && winnerPerformance.totalTimeSeconds === fastestTime) {
+      callouts.push('Fastest finisher');
+    }
+
+    if (winnerPerformance.accuracy > 0 && winnerPerformance.accuracy === highestAccuracy) {
+      callouts.push('Highest accuracy');
+    }
+
+    if (winnerPerformance.bestStreak > 1 && winnerPerformance.bestStreak === bestStreak) {
+      callouts.push('Best streak');
+    }
+
+    if (callouts.length === 0 && winnerPerformance.points > 0) {
+      callouts.push('Most points');
+    }
+
+    return callouts.slice(0, 2);
+  }, [playerPerformance, sortedPlayers, winner]);
 
   const shareMessage = useMemo(() => {
     if (!winner) {
@@ -138,8 +202,8 @@ export default function ArenaResultsScreen() {
     }
 
     const roomCodeLine = data?.roomCode ? `\n\nRoom Code: ${data.roomCode}` : '';
-    return `🏆 FlashQuest Winner\n${winnerName}\n\n${winnerStatsText}\n\nThink you can beat this?\nPlay FlashQuest.${roomCodeLine}`;
-  }, [data?.roomCode, winner, winnerName, winnerStatsText]);
+    return `🏆 FlashQuest Arena Winner\n${winnerDisplayName}\n\n${winnerStatsText}\n\nI took the crown in FlashQuest Arena.\nThink you can beat this?\nPlay FlashQuest.${roomCodeLine}`;
+  }, [data?.roomCode, winner, winnerDisplayName, winnerStatsText]);
 
   const missedQuestions = useMemo(() => {
     if (!data?.allQuestions || !data.allAnswers) return [];
@@ -317,19 +381,57 @@ export default function ArenaResultsScreen() {
                 styles.winnerSection,
                 {
                   backgroundColor: theme.cardBackground,
-                  borderColor: 'rgba(255, 215, 0, 0.28)',
+                  borderColor: `${winner.color}55`,
                 },
               ]}
             >
+              <LinearGradient
+                colors={[`${winner.color}22`, 'rgba(255, 215, 0, 0.10)', 'rgba(255, 255, 255, 0.02)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.winnerSectionGlow}
+              />
               <View style={styles.winnerSectionHeader}>
-                <Text style={styles.winnerSectionEmoji}>🏆</Text>
-                <Text style={[styles.winnerSectionLabel, { color: theme.textSecondary }]}>Winner</Text>
+                <View style={styles.winnerTitleBadge}>
+                  <Text style={styles.winnerSectionEmoji}>🏆</Text>
+                  <Text style={[styles.winnerSectionLabel, { color: theme.textSecondary }]}>Winner</Text>
+                </View>
+                {winnerIdentityLabel.length > 0 && (
+                  <View
+                    style={[
+                      styles.winnerIdentityBadge,
+                      {
+                        backgroundColor: `${winner.color}18`,
+                        borderColor: `${winner.color}44`,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.winnerIdentityBadgeText, { color: winner.color }]}>{winnerIdentityLabel}</Text>
+                  </View>
+                )}
               </View>
-              {winnerIdentityLabel.length > 0 && (
-                <Text style={[styles.winnerSectionIdentity, { color: winner.color }]}>{winnerIdentityLabel}</Text>
-              )}
-              <Text style={[styles.winnerSectionName, { color: theme.text }]}>{winnerName}</Text>
+              <Text style={[styles.winnerSectionName, { color: theme.text }]} numberOfLines={1}>
+                {winnerName}
+              </Text>
               <Text style={[styles.winnerSectionStats, { color: theme.textSecondary }]}>{winnerStatsText}</Text>
+              {winnerCallouts.length > 0 && (
+                <View style={styles.winnerCalloutRow}>
+                  {winnerCallouts.map((callout) => (
+                    <View
+                      key={callout}
+                      style={[
+                        styles.winnerCalloutBadge,
+                        {
+                          backgroundColor: theme.background,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.winnerCalloutText, { color: theme.text }]}>{callout}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
           )}
 
@@ -349,9 +451,13 @@ export default function ArenaResultsScreen() {
                 return (
                   <View
                     key={player.id}
+                    testID={`arena-results-player-row-${index + 1}`}
                     style={[
                       styles.standingRow,
-                      { backgroundColor: theme.background },
+                      {
+                        backgroundColor: player.id === winner?.id ? `${player.color}14` : theme.background,
+                        borderColor: player.id === winner?.id ? `${player.color}55` : 'transparent',
+                      },
                       index === 0 && styles.winnerRow,
                     ]}
                   >
@@ -374,6 +480,19 @@ export default function ArenaResultsScreen() {
                           >
                             {player.name}
                           </Text>
+                          {player.id === winner?.id && (
+                            <View
+                              style={[
+                                styles.rowWinnerBadge,
+                                {
+                                  backgroundColor: `${player.color}18`,
+                                  borderColor: `${player.color}40`,
+                                },
+                              ]}
+                            >
+                              <Text style={[styles.rowWinnerBadgeText, { color: player.color }]}>Winner</Text>
+                            </View>
+                          )}
                           {player.id === playerId && (
                             <Text style={[styles.youLabel, { color: theme.primary }]}>(You)</Text>
                           )}
@@ -404,23 +523,6 @@ export default function ArenaResultsScreen() {
               })}
             </View>
 
-            <TouchableOpacity
-              testID="arena-results-share-button"
-              style={[
-                styles.shareButton,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.primary,
-                },
-              ]}
-              onPress={() => {
-                void handleShareResults();
-              }}
-              activeOpacity={0.7}
-            >
-              <Share2 color={theme.primary} size={18} />
-              <Text style={[styles.shareButtonText, { color: theme.primary }]}>Share Results</Text>
-            </TouchableOpacity>
           </View>
 
           <View style={[styles.statsCard, { backgroundColor: theme.cardBackground }]}>
@@ -478,6 +580,44 @@ export default function ArenaResultsScreen() {
           )}
 
           <View style={styles.buttonContainer}>
+            {isHost && (
+              <TouchableOpacity testID="arena-results-play-again-button" style={styles.primaryButton} onPress={handlePlayAgain} activeOpacity={0.85}>
+                <LinearGradient
+                  colors={[theme.arenaGradient[0], theme.arenaGradient[1]]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.buttonGradient}
+                >
+                  <RotateCcw color="#fff" size={20} />
+                  <Text style={styles.primaryButtonText}>Play Again</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+
+            {!isHost && (
+              <View style={styles.waitingForHostReset}>
+                <Text style={styles.waitingForHostResetText}>Waiting for host to start next round...</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              testID="arena-results-share-button"
+              style={[
+                styles.shareButton,
+                {
+                  backgroundColor: theme.cardBackground,
+                  borderColor: theme.primary,
+                },
+              ]}
+              onPress={() => {
+                void handleShareResults();
+              }}
+              activeOpacity={0.7}
+            >
+              <Share2 color={theme.primary} size={18} />
+              <Text style={[styles.shareButtonText, { color: theme.primary }]}>Share Results</Text>
+            </TouchableOpacity>
+
             {!saved && (
               <TouchableOpacity style={styles.saveButton} onPress={handleSaveResult} activeOpacity={0.85}>
                 <LinearGradient
@@ -495,26 +635,6 @@ export default function ArenaResultsScreen() {
             {saved && (
               <View style={[styles.savedBadge, { backgroundColor: theme.success + '20' }]}>
                 <Text style={[styles.savedText, { color: theme.success }]}>✓ Saved to Leaderboard</Text>
-              </View>
-            )}
-
-            {isHost && (
-              <TouchableOpacity style={styles.primaryButton} onPress={handlePlayAgain} activeOpacity={0.85}>
-                <LinearGradient
-                  colors={[theme.arenaGradient[0], theme.arenaGradient[1]]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.buttonGradient}
-                >
-                  <RotateCcw color="#fff" size={20} />
-                  <Text style={styles.primaryButtonText}>Play Again</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            )}
-
-            {!isHost && (
-              <View style={styles.waitingForHostReset}>
-                <Text style={styles.waitingForHostResetText}>Waiting for host to start next round...</Text>
               </View>
             )}
 
@@ -578,44 +698,82 @@ const styles = StyleSheet.create({
   },
   winnerSection: {
     borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    marginBottom: 16,
-    borderWidth: 1,
+    paddingHorizontal: 22,
+    paddingVertical: 22,
+    marginBottom: 20,
+    borderWidth: 1.5,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 7,
+  },
+  winnerSectionGlow: {
+    ...StyleSheet.absoluteFillObject,
   },
   winnerSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    flexWrap: 'wrap' as const,
+  },
+  winnerTitleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 215, 0, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.32)',
   },
   winnerSectionEmoji: {
-    fontSize: 24,
+    fontSize: 20,
   },
   winnerSectionLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700' as const,
     textTransform: 'uppercase' as const,
     letterSpacing: 0.8,
   },
-  winnerSectionIdentity: {
+  winnerIdentityBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  winnerIdentityBadgeText: {
     fontSize: 13,
     fontWeight: '700' as const,
-    marginBottom: 6,
   },
   winnerSectionName: {
-    fontSize: 28,
-    fontWeight: '800' as const,
+    fontSize: 36,
+    fontWeight: '900' as const,
+    marginTop: 18,
   },
   winnerSectionStats: {
     fontSize: 16,
-    fontWeight: '600' as const,
-    marginTop: 6,
+    fontWeight: '700' as const,
+    marginTop: 8,
+  },
+  winnerCalloutRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap' as const,
+    gap: 10,
+    marginTop: 16,
+  },
+  winnerCalloutBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  winnerCalloutText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
   },
   standingsCard: {
     borderRadius: 24,
@@ -646,10 +804,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 14,
     borderRadius: 14,
+    borderWidth: 1,
   },
   winnerRow: {
     borderWidth: 2,
     borderColor: '#FFD700',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 4,
   },
   standingLeft: {
     flexDirection: 'row',
@@ -686,6 +850,18 @@ const styles = StyleSheet.create({
   playerName: {
     fontSize: 15,
     fontWeight: '600' as const,
+  },
+  rowWinnerBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  rowWinnerBadgeText: {
+    fontSize: 10,
+    fontWeight: '800' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.4,
   },
   playerIdentity: {
     fontSize: 12,
@@ -808,7 +984,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    marginTop: 18,
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1.5,
@@ -822,20 +997,20 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
   },
   primaryButton: {
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.26,
+    shadowRadius: 14,
+    elevation: 6,
   },
   buttonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    paddingVertical: 18,
+    paddingVertical: 20,
   },
   primaryButtonText: {
     fontSize: 18,
