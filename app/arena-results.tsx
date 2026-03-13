@@ -57,7 +57,6 @@ export default function ArenaResultsScreen() {
   const [saved, setSaved] = useState(false);
   const cachedRef = useRef<CachedResults | null>(null);
   const xpRecordedRef = useRef(false);
-  const analyticsTrackedRef = useRef(false);
 
   useEffect(() => {
     if (room && room.game && room.game.phase === 'finished' && !cachedRef.current) {
@@ -169,35 +168,6 @@ export default function ArenaResultsScreen() {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   }, [winner]);
-
-  useEffect(() => {
-    if (!data || !winner || !isHost || analyticsTrackedRef.current) {
-      return;
-    }
-
-    analyticsTrackedRef.current = true;
-    const questionsAnswered = data.allAnswers
-      ? Object.values(data.allAnswers).reduce((total, playerAnswers) => total + Object.keys(playerAnswers).length, 0)
-      : 0;
-    const battleDurationMs = data.finishedAt != null
-      ? Math.max(0, data.finishedAt - data.startedAt)
-      : 0;
-
-    trackEvent({
-      event: 'battle_finished',
-      roomCode: data.roomCode,
-      userId: playerId ?? undefined,
-      deckId: data.deckId ?? undefined,
-      properties: {
-        players_per_battle: data.players.length,
-        battle_duration_ms: battleDurationMs,
-        questions_answered: questionsAnswered,
-        winner_player_id: winner.id,
-        mode: GAME_MODE.ARENA,
-        deck_name: data.deckName ?? null,
-      },
-    });
-  }, [data, winner, isHost, playerId]);
 
   useEffect(() => {
     if (data && playerId && !xpRecordedRef.current) {

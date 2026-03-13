@@ -8,6 +8,7 @@
 // No in-memory Map fallback exists.
 
 import { Redis } from '@upstash/redis';
+import { analyticsRepository } from '../analytics/repository';
 import type { Room } from './types';
 import { ROOM_TTL_MS } from './types';
 
@@ -85,6 +86,10 @@ function generateRoomCode(): string {
   return code;
 }
 
+function isFinishedRoom(room: Room): boolean {
+  return room.status === 'finished' && room.game?.phase === 'finished' && room.game.finishedAt != null;
+}
+
 class RoomRepository {
   async getRoom(code: string): Promise<Room | null> {
     try {
@@ -104,6 +109,15 @@ class RoomRepository {
       stampVersion(room);
       room.lastActivity = Date.now();
       await redis.set(roomKey(room.code), serialize(room), { ex: ROOM_TTL_SECONDS });
+
+      if (isFinishedRoom(room)) {
+        try {
+          await analyticsRepository.trackBattleFinishedOnce(room);
+        } catch (analyticsError) {
+          console.error(`[Repo] Failed to record battle_finished analytics for room ${room.code}:`, analyticsError);
+        }
+      }
+
       return room;
     } catch (err) {
       console.error(`[Repo] Error saving room ${room.code}:`, err);

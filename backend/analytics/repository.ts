@@ -1,5 +1,7 @@
 import { Redis } from '@upstash/redis';
 
+import type { Room } from '../arena/types';
+import { GAME_MODE } from '../../types/game';
 import type { AnalyticsEvent, AnalyticsSummaryCounts } from './types';
 import { ANALYTICS_EVENT_NAMES, createEmptyAnalyticsSummaryCounts, getAnalyticsDay } from './types';
 
@@ -38,6 +40,10 @@ function dailyDeckCountsKey(day: string): string {
   return `${KEY_PREFIX}:daily:deck:${day}`;
 }
 
+function battleFinishedLoggedKey(roomCode: string, battleStartedAt: number): string {
+  return `${KEY_PREFIX}:battle-finished:${roomCode}:${battleStartedAt}`;
+}
+
 function parseNumericRecord(record: Record<string, unknown> | null | undefined): Record<string, number> {
   if (!record) {
     return {};
@@ -61,6 +67,38 @@ function createCountsRecord(record: Record<string, number>): AnalyticsSummaryCou
   }
 
   return counts;
+}
+
+function isFinishedRoom(room: Pick<Room, 'status' | 'game'>): room is Pick<Room, 'status' | 'game'> & { game: NonNullable<Room['game']> } {
+  return room.status === 'finished' && room.game != null && room.game.finishedAt != null;
+}
+
+function getQuestionsAnswered(room: Pick<Room, 'game'>): number {
+  if (!room.game) {
+    return 0;
+  }
+
+  return Object.values(room.game.answers).reduce((total, playerAnswers) => total + Object.keys(playerAnswers).length, 0);
+}
+
+function getWinnerPlayerId(room: Pick<Room, 'players' | 'game'>): string | null {
+  if (!room.game) {
+    return null;
+  }
+
+  const winner = [...room.players].sort((playerA, playerB) => {
+    const playerAScore = room.game?.scores[playerA.id]?.points ?? 0;
+    const playerBScore = room.game?.scores[playerB.id]?.points ?? 0;
+    if (playerBScore !== playerAScore) {
+      return playerBScore - playerAScore;
+    }
+
+    const playerACorrect = room.game?.scores[playerA.id]?.correct ?? 0;
+    const playerBCorrect = room.game?.scores[playerB.id]?.correct ?? 0;
+    return playerBCorrect - playerACorrect;
+  })[0];
+
+  return winner?.id ?? null;
 }
 
 class AnalyticsRepository {
@@ -106,6 +144,53 @@ class AnalyticsRepository {
     }
 
     await pipeline.exec();
+  }
+
+  async trackBattleFinishedOnce(room: Pick<Room, 'code' | 'players' | 'deckId' | 'deckName' | 'game' | 'status'>): Promise<boolean> {
+    if (!isFinishedRoom(room) || room.game.finishedAt == null) {
+      return false;
+    }
+
+    const finishedGame = room.game;
+    const finishedAt = finishedGame.finishedAt ?? finishedGame.startedAt;
+    const redis = getRedis();
+    const dedupeKey = battleFinishedLoggedKey(room.code, finishedGame.startedAt);
+    const dedupeResult = await redis.set(dedupeKey, String(finishedAt), {
+      ex: COUNTER_RETENTION_SECONDS,
+      nx: true,
+    });
+
+    if (dedupeResult !== 'OK') {
+      console.log(`[AnalyticsRepo] battle_finished already tracked for room ${room.code} at ${finishedGame.startedAt}`);
+      return false;
+    }
+
+    try {
+      const battleDurationMs = Math.max(0, finishedAt - finishedGame.startedAt);
+      const winnerPlayerId = getWinnerPlayerId(room);
+
+      await this.trackEvent({
+        event: 'battle_finished',
+        timestamp: finishedAt,
+        roomCode: room.code,
+        deckId: room.deckId ?? undefined,
+        properties: {
+          players_per_battle: room.players.length,
+          battle_duration_ms: battleDurationMs,
+          questions_answered: getQuestionsAnswered(room),
+          winner_player_id: winnerPlayerId,
+          mode: GAME_MODE.ARENA,
+          deck_name: room.deckName ?? null,
+        },
+      });
+
+      console.log(`[AnalyticsRepo] Tracked battle_finished for room ${room.code}`);
+      return true;
+    } catch (error) {
+      await redis.del(dedupeKey);
+      console.error(`[AnalyticsRepo] Failed to track battle_finished for room ${room.code}:`, error);
+      throw error;
+    }
   }
 
   async getDailyCounts(day: string): Promise<AnalyticsSummaryCounts> {
