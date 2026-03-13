@@ -1,6 +1,7 @@
 import { Redis } from '@upstash/redis';
 
 import type { Room } from '../arena/types';
+import { createRedisConfigError } from '../errors';
 import { GAME_MODE } from '../../types/game';
 import type { AnalyticsEvent, AnalyticsSummaryCounts } from './types';
 import { ANALYTICS_EVENT_NAMES, createEmptyAnalyticsSummaryCounts, getAnalyticsDay } from './types';
@@ -20,7 +21,7 @@ function getRedis(): Redis {
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
   if (!url || !token) {
-    throw new Error('[AnalyticsRepo] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN env vars');
+    throw createRedisConfigError('[AnalyticsRepo] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN');
   }
 
   redisInstance = new Redis({ url, token });

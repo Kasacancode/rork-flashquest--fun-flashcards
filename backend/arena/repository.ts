@@ -9,6 +9,7 @@
 
 import { Redis } from '@upstash/redis';
 import { analyticsRepository } from '../analytics/repository';
+import { createRedisConfigError, isRedisConfigError } from '../errors';
 import type { Room } from './types';
 import { ROOM_TTL_MS } from './types';
 
@@ -36,12 +37,18 @@ function getRedis(): Redis {
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
   if (!url || !token) {
-    throw new Error('[Repo] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN env vars');
+    throw createRedisConfigError('[ArenaRepo] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN');
   }
 
   redisInstance = new Redis({ url, token });
   console.log('[Repo] Upstash Redis client initialized');
   return redisInstance;
+}
+
+function rethrowRedisConfigError(error: unknown): void {
+  if (isRedisConfigError(error)) {
+    throw error;
+  }
 }
 
 function serialize(room: Room): string {
@@ -98,6 +105,7 @@ class RoomRepository {
       if (!data) return null;
       return deserialize(data);
     } catch (err) {
+      rethrowRedisConfigError(err);
       console.error(`[Repo] Error reading room ${code}:`, err);
       return null;
     }
@@ -120,6 +128,7 @@ class RoomRepository {
 
       return room;
     } catch (err) {
+      rethrowRedisConfigError(err);
       console.error(`[Repo] Error saving room ${room.code}:`, err);
       throw new Error(`Failed to save room ${room.code}`);
     }
@@ -145,6 +154,7 @@ class RoomRepository {
       console.log(`[Repo] Created room ${room.code}`);
       return room;
     } catch (err) {
+      rethrowRedisConfigError(err);
       console.error(`[Repo] Error creating room ${room.code}:`, err);
       throw new Error(`Failed to create room ${room.code}`);
     }
@@ -160,6 +170,7 @@ class RoomRepository {
       await pipeline.exec();
       console.log(`[Repo] Deleted room ${code}`);
     } catch (err) {
+      rethrowRedisConfigError(err);
       console.error(`[Repo] Error deleting room ${code}:`, err);
     }
   }
@@ -170,6 +181,7 @@ class RoomRepository {
       await redis.expire(roomKey(code), ROOM_TTL_SECONDS);
       await redis.expire(presenceKey(code), ROOM_TTL_SECONDS);
     } catch (err) {
+      rethrowRedisConfigError(err);
       console.error(`[Repo] Error refreshing TTL for room ${code}:`, err);
     }
   }
@@ -184,6 +196,7 @@ class RoomRepository {
       await redis.expire(roomKey(code), ROOM_TTL_SECONDS);
       await redis.expire(presenceKey(code), ROOM_TTL_SECONDS);
     } catch (err) {
+      rethrowRedisConfigError(err);
       console.error(`[Repo] Error updating heartbeat for ${playerId} in room ${code}:`, err);
     }
   }
@@ -205,6 +218,7 @@ class RoomRepository {
           .filter((entry) => Number.isFinite(entry[1]))
       );
     } catch (err) {
+      rethrowRedisConfigError(err);
       console.error(`[Repo] Error getting heartbeats for room ${code}:`, err);
       return {};
     }
@@ -235,6 +249,7 @@ class RoomRepository {
 
       return codes.length - stale;
     } catch (err) {
+      rethrowRedisConfigError(err);
       console.error('[Repo] Error getting room count:', err);
       return 0;
     }

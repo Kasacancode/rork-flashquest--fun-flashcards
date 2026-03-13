@@ -25,6 +25,51 @@ type PendingDeckSelection = {
   deckName: string;
 };
 
+type ArenaBackendErrorData = {
+  backendCode?: unknown;
+};
+
+function getArenaErrorMessage(error: unknown): string {
+  if (error instanceof Error && typeof error.message === 'string') {
+    return error.message;
+  }
+
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    return typeof message === 'string' ? message : '';
+  }
+
+  return '';
+}
+
+function getArenaBackendErrorCode(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null || !('data' in error)) {
+    return null;
+  }
+
+  const data = (error as { data?: ArenaBackendErrorData }).data;
+  return typeof data?.backendCode === 'string' ? data.backendCode : null;
+}
+
+function isRedisConfigArenaError(error: unknown): boolean {
+  const backendCode = getArenaBackendErrorCode(error);
+  const normalizedMessage = getArenaErrorMessage(error).toLowerCase();
+
+  return backendCode === 'REDIS_CONFIG_MISSING'
+    || normalizedMessage.includes('missing upstash_redis_rest_url')
+    || normalizedMessage.includes('service temporarily unavailable');
+}
+
+function normalizeArenaConnectionError(error: unknown): string {
+  const message = getArenaErrorMessage(error).trim();
+
+  if (isRedisConfigArenaError(error)) {
+    return __DEV__ && message ? message : 'Battle service temporarily unavailable.';
+  }
+
+  return message || 'Could not connect to battle service.';
+}
+
 export const [ArenaProvider, useArena] = createContextHook(() => {
   const queryClient = useQueryClient();
   const { selectedIdentityKey } = useAvatar();
@@ -96,10 +141,20 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
 
   useEffect(() => {
     if (roomQuery.error && roomCode) {
-      const msg = roomQuery.error.message;
+      const msg = normalizeArenaConnectionError(roomQuery.error);
+      const hasRedisConfigError = isRedisConfigArenaError(roomQuery.error);
       const timeSinceConnect = Date.now() - connectedAtRef.current;
       if (timeSinceConnect < GRACE_PERIOD_MS) {
         logger.log('[Arena] Poll error during grace period, ignoring:', msg);
+        return;
+      }
+      if (hasRedisConfigError) {
+        logger.log('[Arena] Backend configuration error while polling, disconnecting:', msg);
+        setRoomCode(null);
+        setPlayerId(null);
+        setConnectionError(msg);
+        pollFailCountRef.current = 0;
+        lastErrorMsgRef.current = null;
         return;
       }
       if (msg !== lastErrorMsgRef.current) {
@@ -238,9 +293,10 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
         },
       });
     },
-    onError: (err: { message: string }) => {
-      logger.log('[Arena] Create error:', err.message);
-      setConnectionError(err.message);
+    onError: (error) => {
+      const normalizedError = normalizeArenaConnectionError(error);
+      logger.log('[Arena] Create error:', normalizedError);
+      setConnectionError(normalizedError);
     },
   });
 
@@ -264,9 +320,10 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
         },
       });
     },
-    onError: (err: { message: string }) => {
-      logger.log('[Arena] Join error:', err.message);
-      setConnectionError(err.message);
+    onError: (error) => {
+      const normalizedError = normalizeArenaConnectionError(error);
+      logger.log('[Arena] Join error:', normalizedError);
+      setConnectionError(normalizedError);
     },
   });
 
@@ -276,17 +333,19 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       logger.log('[Arena] Deck selection saved');
       void roomQuery.refetch();
     },
-    onError: (err: { message: string }) => {
-      logger.log('[Arena] Select deck error:', err.message);
+    onError: (error) => {
+      const normalizedError = normalizeArenaConnectionError(error);
+      logger.log('[Arena] Select deck error:', normalizedError);
       setOptimisticDeckSelection(null);
-      setConnectionError(err.message);
+      setConnectionError(normalizedError);
     },
   });
   const updateSettingsMut = trpc.arena.updateSettings.useMutation({
-    onError: (err: { message: string }) => {
-      logger.log('[Arena] Update settings error:', err.message);
+    onError: (error) => {
+      const normalizedError = normalizeArenaConnectionError(error);
+      logger.log('[Arena] Update settings error:', normalizedError);
       setOptimisticSettings(null);
-      setConnectionError(err.message);
+      setConnectionError(normalizedError);
     },
   });
   const startGameMut = trpc.arena.startGame.useMutation({
@@ -320,9 +379,10 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
         },
       ]);
     },
-    onError: (err: { message: string }) => {
-      logger.log('[Arena] Start game error:', err.message);
-      setConnectionError(err.message);
+    onError: (error) => {
+      const normalizedError = normalizeArenaConnectionError(error);
+      logger.log('[Arena] Start game error:', normalizedError);
+      setConnectionError(normalizedError);
     },
   });
   const submitAnswerMut = trpc.arena.submitAnswer.useMutation({

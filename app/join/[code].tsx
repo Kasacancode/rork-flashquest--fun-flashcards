@@ -108,7 +108,7 @@ export default function JoinBattleFromLinkScreen() {
       return;
     }
 
-    setErrorMessage('Could not join battle');
+    setErrorMessage(connectionError);
   }, [clearError, connectionError]);
 
   const handleBackToArena = useCallback(() => {
