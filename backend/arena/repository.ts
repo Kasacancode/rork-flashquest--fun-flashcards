@@ -15,6 +15,8 @@ const ROOM_TTL_SECONDS = Math.ceil(ROOM_TTL_MS / 1000);
 const KEY_PREFIX = 'flashquest:arena:room:';
 const PRESENCE_KEY_PREFIX = 'flashquest:arena:presence:';
 const CODES_SET = 'flashquest:arena:codes';
+const ROOM_CODE_CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const ROOM_CODE_LENGTH = 4;
 
 function roomKey(code: string): string {
   return `${KEY_PREFIX}${code}`;
@@ -70,6 +72,17 @@ function stampVersion(room: Room): Room {
   room.version += 1;
   room.updatedAt = Date.now();
   return room;
+}
+
+function generateRoomCode(): string {
+  let code = '';
+
+  for (let index = 0; index < ROOM_CODE_LENGTH; index += 1) {
+    const randomIndex = Math.floor(Math.random() * ROOM_CODE_CHARACTERS.length);
+    code += ROOM_CODE_CHARACTERS[randomIndex] ?? 'A';
+  }
+
+  return code;
 }
 
 class RoomRepository {
@@ -218,7 +231,7 @@ class RoomRepository {
     const maxAttempts = 100;
 
     for (let i = 0; i < maxAttempts; i++) {
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const code = generateRoomCode();
       const exists = await redis.exists(roomKey(code));
       if (!exists) return code;
     }

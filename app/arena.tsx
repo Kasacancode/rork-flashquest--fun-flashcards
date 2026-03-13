@@ -10,6 +10,11 @@ import { useTheme } from '@/context/ThemeContext';
 
 const ARENA_ACCENT_LIGHT = '#f97316';
 const ARENA_ACCENT_DARK = '#f59e0b';
+const ROOM_CODE_LENGTH = 4;
+
+function normalizeRoomCodeInput(text: string): string {
+  return text.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, ROOM_CODE_LENGTH);
+}
 
 export default function ArenaMenuScreen() {
   const router = useRouter();
@@ -75,9 +80,9 @@ export default function ArenaMenuScreen() {
   };
 
   const handleConfirmJoin = () => {
-    if (!nameInput.trim() || codeInput.length !== 6 || isConnecting) return;
+    if (!nameInput.trim() || codeInput.length !== ROOM_CODE_LENGTH || isConnecting) return;
     setPendingAction('join');
-    joinRoom(codeInput.trim(), nameInput.trim());
+    joinRoom(codeInput.trim().toUpperCase(), nameInput.trim());
   };
 
   const handleRejoin = () => {
@@ -325,13 +330,15 @@ export default function ArenaMenuScreen() {
             />
             <TextInput
               style={[styles.modalInput, styles.codeInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
-              placeholder="000000"
+              placeholder="M4X9"
               placeholderTextColor={theme.textTertiary}
               value={codeInput}
-              onChangeText={(text) => setCodeInput(text.replace(/[^0-9]/g, '').slice(0, 6))}
-              keyboardType="number-pad"
-              maxLength={6}
+              onChangeText={(text) => setCodeInput(normalizeRoomCodeInput(text))}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={ROOM_CODE_LENGTH}
               editable={!isConnecting}
+              testID="battle-room-code-input"
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -344,7 +351,7 @@ export default function ArenaMenuScreen() {
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonPrimary]}
                 onPress={handleConfirmJoin}
-                disabled={!nameInput.trim() || codeInput.length !== 6 || isConnecting}
+                disabled={!nameInput.trim() || codeInput.length !== ROOM_CODE_LENGTH || isConnecting}
               >
                 <LinearGradient
                   colors={[theme.arenaGradient[0], theme.arenaGradient[1]]}

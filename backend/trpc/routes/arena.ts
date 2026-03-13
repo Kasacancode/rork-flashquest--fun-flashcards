@@ -39,7 +39,7 @@ export const arenaRouter = createTRPCRouter({
 
   joinRoom: publicProcedure
     .input(z.object({
-      roomCode: z.string().length(6),
+      roomCode: z.string().trim().regex(/^[A-Za-z0-9]{4}$/).transform((value) => value.toUpperCase()),
       playerName: z.string().min(1).max(20),
       preferredIdentityKey: z.string().optional(),
     }))
