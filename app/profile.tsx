@@ -8,7 +8,7 @@ import {
   Crown,
   Flame,
   Moon,
-  Settings,
+  Pencil,
   Sun,
   User,
   Zap,
@@ -160,10 +160,9 @@ export default function ProfilePage() {
   const { width } = useWindowDimensions();
   const { stats } = useFlashQuest();
   const { playerName, updatePlayerName, isPlayerNameReady } = useArena();
-  const { theme, isDark, toggleTheme, setTheme } = useTheme();
+  const { theme, isDark, toggleTheme } = useTheme();
   const { selectedSuit, selectedColor, setSelectedSuit, setSelectedColor } = useAvatar();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
-  const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showLevels, setShowLevels] = useState<boolean>(false);
   const [isEditingPlayerName, setIsEditingPlayerName] = useState<boolean>(false);
   const [playerNameInput, setPlayerNameInput] = useState<string>('');
@@ -224,16 +223,6 @@ export default function ProfilePage() {
     setActiveTab(tab);
   }, []);
 
-  const handleOpenSettings = useCallback(() => {
-    logger.log('[Profile] Opening settings sheet');
-    setShowSettings(true);
-  }, []);
-
-  const handleCloseSettings = useCallback(() => {
-    logger.log('[Profile] Closing settings sheet');
-    setShowSettings(false);
-  }, []);
-
   const handleOpenLevels = useCallback(() => {
     logger.log('[Profile] Opening levels modal');
     setShowLevels(true);
@@ -274,16 +263,6 @@ export default function ProfilePage() {
     },
     [setSelectedColor]
   );
-
-  const handleSetLightTheme = useCallback(() => {
-    logger.log('[Profile] Setting theme mode to light');
-    setTheme('light');
-  }, [setTheme]);
-
-  const handleSetDarkTheme = useCallback(() => {
-    logger.log('[Profile] Setting theme mode to dark');
-    setTheme('dark');
-  }, [setTheme]);
 
   const handleEditPlayerName = useCallback(() => {
     logger.log('[Profile] Editing player name');
@@ -361,14 +340,7 @@ export default function ProfilePage() {
             <Text style={styles.headerTitle}>Profile</Text>
           </View>
 
-          <TouchableOpacity
-            onPress={handleOpenSettings}
-            style={styles.iconButton}
-            activeOpacity={0.84}
-            testID="profile-open-settings"
-          >
-            <Settings color="#fff" size={19} strokeWidth={2.4} />
-          </TouchableOpacity>
+          <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView
@@ -394,7 +366,18 @@ export default function ProfilePage() {
 
                   <View style={styles.heroIdentityText}>
                     <Text style={styles.heroEyebrow}>FlashQuest Profile</Text>
-                    <Text style={styles.heroName}>{profileDisplayName}</Text>
+                    <View style={styles.heroNameRow}>
+                      <Text style={styles.heroName} numberOfLines={1}>{profileDisplayName}</Text>
+                      <TouchableOpacity
+                        onPress={handleEditPlayerName}
+                        style={styles.heroNameEditButton}
+                        activeOpacity={0.84}
+                        disabled={!isPlayerNameReady}
+                        testID="profile-player-name-edit"
+                      >
+                        <Pencil color="rgba(255, 255, 255, 0.96)" size={14} strokeWidth={2.4} />
+                      </TouchableOpacity>
+                    </View>
                     <Text style={styles.heroSubtitle}>{levelEntry.title}</Text>
                   </View>
                 </View>
@@ -455,95 +438,6 @@ export default function ProfilePage() {
 
           {activeTab === 'overview' && (
             <View style={styles.tabContent}>
-              <View style={styles.cardShell}>
-                <LinearGradient
-                  colors={surfaceGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.appearanceCard}
-                >
-                  <View style={styles.appearanceHeader}>
-                    <View style={styles.appearanceIntro}>
-                      <View style={[styles.appearanceIconWrap, { backgroundColor: isDark ? 'rgba(129, 140, 248, 0.12)' : 'rgba(102, 126, 234, 0.12)' }]}>
-                        <User color={theme.primary} size={18} strokeWidth={2.3} />
-                      </View>
-                      <View style={styles.appearanceTextWrap}>
-                        <Text style={styles.cardTitle}>Player Name</Text>
-                        <Text style={styles.cardDescription}>Used automatically when you host or join Arena battles.</Text>
-                      </View>
-                    </View>
-                    {!isEditingPlayerName ? (
-                      <TouchableOpacity
-                        style={styles.inlineActionButton}
-                        onPress={handleEditPlayerName}
-                        activeOpacity={0.84}
-                        disabled={!isPlayerNameReady}
-                        testID="profile-player-name-edit"
-                      >
-                        <Text style={styles.inlineActionButtonText}>{currentPlayerName ? 'Change' : 'Set Name'}</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-
-                  {isEditingPlayerName ? (
-                    <View style={styles.playerNameEditor}>
-                      <TextInput
-                        style={styles.playerNameInput}
-                        value={playerNameInput}
-                        onChangeText={handleChangePlayerNameInput}
-                        placeholder="Enter your player name"
-                        placeholderTextColor={theme.textTertiary}
-                        maxLength={PLAYER_NAME_MAX_LENGTH}
-                        autoFocus
-                        autoCapitalize="words"
-                        editable={isPlayerNameReady}
-                        testID="profile-player-name-input"
-                      />
-                      <Text style={[styles.playerNameHelper, playerNameError ? styles.playerNameErrorText : null]}>
-                        {playerNameError ?? `Max ${PLAYER_NAME_MAX_LENGTH} characters.`}
-                      </Text>
-                      <View style={styles.playerNameActions}>
-                        <TouchableOpacity
-                          style={styles.playerNameSecondaryButton}
-                          onPress={handleCancelPlayerNameEdit}
-                          activeOpacity={0.84}
-                          testID="profile-player-name-cancel"
-                        >
-                          <Text style={styles.playerNameSecondaryButtonText}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.playerNamePrimaryButton}
-                          onPress={handleSavePlayerName}
-                          activeOpacity={0.84}
-                          testID="profile-player-name-save"
-                        >
-                          <LinearGradient
-                            colors={theme.profileTabActiveGradient as [string, string]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.playerNamePrimaryGradient}
-                          >
-                            <Text style={styles.playerNamePrimaryButtonText}>Save</Text>
-                          </LinearGradient>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : (
-                    <View style={styles.playerNameSummaryCard} testID="profile-player-name-card">
-                      <Text style={styles.playerNameSummaryLabel}>Current Player Name</Text>
-                      <Text style={[styles.playerNameSummaryValue, !currentPlayerName && styles.playerNameSummaryValueEmpty]}>
-                        {isPlayerNameReady ? (currentPlayerName || 'Not set yet') : 'Loading...'}
-                      </Text>
-                      <Text style={styles.playerNameSummaryHint}>
-                        {currentPlayerName
-                          ? 'Arena reuses this automatically so you can jump straight into battles.'
-                          : 'Set it once here and Arena will stop asking for your name every time.'}
-                      </Text>
-                    </View>
-                  )}
-                </LinearGradient>
-              </View>
-
               <View style={styles.cardShell}>
                 <LinearGradient
                   colors={surfaceGradient}
@@ -849,84 +743,68 @@ export default function ProfilePage() {
       </SafeAreaView>
 
       <Modal
-        visible={showSettings}
+        visible={isEditingPlayerName}
         transparent
-        animationType="slide"
-        onRequestClose={handleCloseSettings}
+        animationType="fade"
+        onRequestClose={handleCancelPlayerNameEdit}
       >
         <View style={styles.modalOverlay}>
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
             activeOpacity={1}
-            onPress={handleCloseSettings}
-            testID="profile-settings-overlay"
+            onPress={handleCancelPlayerNameEdit}
+            testID="profile-player-name-overlay"
           />
 
-          <View style={[styles.settingsSheet, { backgroundColor: theme.cardBackground }]}> 
-            <View style={styles.sheetHandle} />
+          <View style={[styles.playerNameModalCard, { backgroundColor: theme.cardBackground }]} testID="profile-player-name-modal">
+            <Text style={styles.playerNameModalEyebrow}>FlashQuest Profile</Text>
+            <Text style={styles.playerNameModalTitle}>Edit player name</Text>
+            <Text style={styles.playerNameModalSubtitle}>Arena reuses this automatically when you host or join a battle.</Text>
 
-            <View style={styles.settingsSheetHeader}>
-              <View>
-                <Text style={styles.settingsSheetEyebrow}>Appearance</Text>
-                <Text style={styles.settingsSheetTitle}>Settings & preferences</Text>
-              </View>
-              <TouchableOpacity
-                onPress={handleCloseSettings}
-                style={styles.settingsCloseButton}
-                activeOpacity={0.8}
-                testID="profile-close-settings"
-              >
-                <Text style={styles.settingsCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.themePickerRow}>
-              <TouchableOpacity
-                style={[styles.themeModeButton, !isDark && styles.themeModeButtonActive]}
-                onPress={handleSetLightTheme}
-                activeOpacity={0.86}
-                testID="profile-theme-light"
-              >
-                <View style={[styles.themeModeIconWrap, !isDark && styles.themeModeIconWrapActive]}>
-                  <Sun color={!isDark ? '#fff' : theme.primary} size={18} strokeWidth={2.3} />
-                </View>
-                <View style={styles.themeModeTextWrap}>
-                  <Text style={[styles.themeModeTitle, !isDark && styles.themeModeTitleActive]}>Light</Text>
-                  <Text style={styles.themeModeSubtitle}>Bright, airy menus</Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.themeModeButton, isDark && styles.themeModeButtonActive]}
-                onPress={handleSetDarkTheme}
-                activeOpacity={0.86}
-                testID="profile-theme-dark"
-              >
-                <View style={[styles.themeModeIconWrap, isDark && styles.themeModeIconWrapActive]}>
-                  <Moon color={isDark ? '#fff' : theme.primary} size={18} strokeWidth={2.3} />
-                </View>
-                <View style={styles.themeModeTextWrap}>
-                  <Text style={[styles.themeModeTitle, isDark && styles.themeModeTitleActive]}>Dark</Text>
-                  <Text style={styles.themeModeSubtitle}>Low-light battle vibe</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.settingsToggleRow}>
-              <View style={styles.settingsToggleTextWrap}>
-                <Text style={styles.settingsToggleTitle}>Dark mode</Text>
-                <Text style={styles.settingsToggleSubtitle}>
-                  {isDark ? 'Dark theme enabled' : 'Light theme enabled'}
-                </Text>
-              </View>
-              <Switch
-                value={isDark}
-                onValueChange={toggleTheme}
-                trackColor={{ false: isDark ? '#475569' : '#CBD5E1', true: theme.primary }}
-                thumbColor={theme.white}
-                ios_backgroundColor={isDark ? '#475569' : '#CBD5E1'}
-                testID="dark-mode-switch-settings"
+            <View style={styles.playerNameEditor}>
+              <TextInput
+                style={styles.playerNameInput}
+                value={playerNameInput}
+                onChangeText={handleChangePlayerNameInput}
+                placeholder="Enter your player name"
+                placeholderTextColor={theme.textTertiary}
+                maxLength={PLAYER_NAME_MAX_LENGTH}
+                autoFocus
+                autoCapitalize="words"
+                autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={handleSavePlayerName}
+                editable={isPlayerNameReady}
+                testID="profile-player-name-input"
               />
+              <Text style={[styles.playerNameHelper, playerNameError ? styles.playerNameErrorText : null]}>
+                {playerNameError ?? `Max ${PLAYER_NAME_MAX_LENGTH} characters.`}
+              </Text>
+              <View style={styles.playerNameActions}>
+                <TouchableOpacity
+                  style={styles.playerNameSecondaryButton}
+                  onPress={handleCancelPlayerNameEdit}
+                  activeOpacity={0.84}
+                  testID="profile-player-name-cancel"
+                >
+                  <Text style={styles.playerNameSecondaryButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.playerNamePrimaryButton}
+                  onPress={handleSavePlayerName}
+                  activeOpacity={0.84}
+                  testID="profile-player-name-save"
+                >
+                  <LinearGradient
+                    colors={theme.profileTabActiveGradient as [string, string]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.playerNamePrimaryGradient}
+                  >
+                    <Text style={styles.playerNamePrimaryButtonText}>Save</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -1053,6 +931,10 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       justifyContent: 'center',
       flex: 1,
     },
+    headerSpacer: {
+      width: 42,
+      height: 42,
+    },
     headerEyebrow: {
       fontSize: 11,
       fontWeight: '700' as const,
@@ -1140,12 +1022,28 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       textTransform: 'uppercase' as const,
       marginBottom: 3,
     },
+    heroNameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 3,
+    },
     heroName: {
+      flexShrink: 1,
       fontSize: 24,
       fontWeight: '800' as const,
       color: '#fff',
       letterSpacing: -0.7,
-      marginBottom: 3,
+    },
+    heroNameEditButton: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: 'rgba(255, 255, 255, 0.16)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.22)',
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     heroSubtitle: {
       fontSize: 14,
@@ -1323,6 +1221,40 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       fontWeight: '500' as const,
       color: theme.textSecondary,
       lineHeight: 18,
+    },
+    playerNameModalCard: {
+      marginTop: 'auto',
+      borderTopLeftRadius: 30,
+      borderTopRightRadius: 30,
+      paddingTop: 24,
+      paddingHorizontal: 20,
+      paddingBottom: 36,
+      gap: 10,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: -10 },
+      shadowOpacity: 0.2,
+      shadowRadius: 18,
+      elevation: 12,
+    },
+    playerNameModalEyebrow: {
+      fontSize: 12,
+      fontWeight: '700' as const,
+      color: theme.textTertiary,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.8,
+    },
+    playerNameModalTitle: {
+      fontSize: 24,
+      fontWeight: '800' as const,
+      color: theme.text,
+      letterSpacing: -0.5,
+    },
+    playerNameModalSubtitle: {
+      fontSize: 14,
+      fontWeight: '500' as const,
+      color: theme.textSecondary,
+      lineHeight: 20,
+      marginBottom: 4,
     },
     playerNameEditor: {
       gap: 12,
