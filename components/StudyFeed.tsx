@@ -439,7 +439,7 @@ export default function StudyFeed({
               {currentCard.answer}
             </Text>
             <Text style={[styles.cardHint, { color: isDark ? theme.textSecondary : '#999' }]}>
-              Swipe left to see explanation
+              {resolved ? 'Swipe up to go to the next card.' : 'Swipe right to see explanation'}
             </Text>
           </Animated.View>
         </Animated.View>
@@ -452,7 +452,7 @@ export default function StudyFeed({
         </TouchableOpacity>
         <TouchableOpacity style={styles.gestureItem} onPress={handleNextCard} activeOpacity={0.6}>
           <View style={[styles.gestureArrow, styles.arrowUp]} />
-          <Text style={styles.gestureText}>Next</Text>
+          <Text style={styles.gestureText}>Next Card</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.gestureItem} onPress={handleShowFeedback} activeOpacity={0.6}>
           <View style={[styles.gestureArrow, styles.arrowRight]} />
