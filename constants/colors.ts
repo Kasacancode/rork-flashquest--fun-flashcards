@@ -62,7 +62,7 @@ export const darkTheme = {
   profileCard: ['#111827', '#1f2937', '#312e81'] as const,
   scoreGradient: ['#10b981', '#059669'] as const,
   deckGradient: ['#6366f1', '#4f46e5'] as const,
-  arenaGradient: ['#78350f', '#451a03'] as const,
+  arenaGradient: ['#f97316', '#ea580c'] as const,
   arenaSurface: '#1e293b',
   arenaTableSurface: 'rgba(0, 30, 20, 0.6)',
   arenaOverlay: 'rgba(255, 255, 255, 0.08)',
