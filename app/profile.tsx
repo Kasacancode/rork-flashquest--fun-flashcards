@@ -17,6 +17,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -25,6 +26,9 @@ import {
   TouchableOpacity,
   View,
   useWindowDimensions,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -68,6 +72,14 @@ interface LevelItem {
   title: string;
   subtitle: string;
   xpRequired: number;
+}
+
+interface AvatarOptionVisual {
+  cardStyle: StyleProp<ViewStyle>;
+  symbolStyle?: StyleProp<TextStyle>;
+  titleStyle: StyleProp<TextStyle>;
+  checkStyle: StyleProp<ViewStyle>;
+  swatchStyle?: StyleProp<ViewStyle>;
 }
 
 const PROFILE_TABS: ReadonlyArray<{ id: TabType; label: string; icon: IconComponent }> = [
@@ -222,6 +234,53 @@ export default function ProfilePage() {
     () => [styles.levelModalCard, { backgroundColor: theme.cardBackground }],
     [styles, theme.cardBackground]
   );
+  const unselectedAvatarOptionColor = isDark ? '#CBD5E1' : '#64748B';
+  const selectedSuitCardBackground = isDark ? 'rgba(15, 23, 42, 0.9)' : selectedColorData.light;
+  const suitOptionVisuals = useMemo<Record<AvatarSuitId, AvatarOptionVisual>>(() => {
+    return AVATAR_SUITS.reduce<Record<AvatarSuitId, AvatarOptionVisual>>((visuals, suit) => {
+      const isSelected = selectedSuit === suit.id;
+      visuals[suit.id] = {
+        cardStyle: [
+          styles.optionCard,
+          isSelected ? styles.optionCardSelected : null,
+          isSelected ? { borderColor: selectedColorValue, backgroundColor: selectedSuitCardBackground } : null,
+        ],
+        symbolStyle: [
+          styles.optionSymbol,
+          { color: isSelected ? selectedColorValue : unselectedAvatarOptionColor },
+        ],
+        titleStyle: [
+          styles.optionTitle,
+          isSelected ? styles.optionTitleSelected : null,
+          isSelected ? { color: selectedColorValue } : null,
+        ],
+        checkStyle: [styles.optionCheckBadge, { backgroundColor: selectedColorValue }],
+      };
+
+      return visuals;
+    }, {} as Record<AvatarSuitId, AvatarOptionVisual>);
+  }, [selectedColorValue, selectedSuit, selectedSuitCardBackground, styles, unselectedAvatarOptionColor]);
+  const colorOptionVisuals = useMemo<Record<AvatarColorId, AvatarOptionVisual>>(() => {
+    return AVATAR_COLORS.reduce<Record<AvatarColorId, AvatarOptionVisual>>((visuals, color) => {
+      const isSelected = selectedColor === color.id;
+      visuals[color.id] = {
+        cardStyle: [
+          styles.optionCard,
+          isSelected ? styles.optionCardSelected : null,
+          isSelected ? { borderColor: color.value, backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : color.light } : null,
+        ],
+        swatchStyle: [styles.colorSwatch, { backgroundColor: color.value }],
+        titleStyle: [
+          styles.optionTitle,
+          isSelected ? styles.optionTitleSelected : null,
+          isSelected ? { color: color.value } : null,
+        ],
+        checkStyle: [styles.optionCheckBadge, { backgroundColor: color.value }],
+      };
+
+      return visuals;
+    }, {} as Record<AvatarColorId, AvatarOptionVisual>);
+  }, [isDark, selectedColor, styles]);
 
   const completedAchievements = useMemo(
     () => ACHIEVEMENTS.filter((achievement) => achievement.progress >= achievement.total).length,
@@ -590,46 +649,28 @@ export default function ProfilePage() {
               <View style={styles.optionGrid}>
                 {AVATAR_SUITS.map((suit) => {
                   const isSelected = selectedSuit === suit.id;
+                  const optionVisual = suitOptionVisuals[suit.id];
 
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={suit.id}
-                      style={[
-                        styles.optionCard,
-                        isSelected && {
-                          borderColor: selectedColorData.value,
-                          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : selectedColorData.light,
-                        },
-                      ]}
+                      style={styles.optionPressable}
                       onPress={() => handleSelectSuit(suit.id)}
-                      activeOpacity={0.86}
                       testID={`profile-avatar-suit-${suit.id}`}
                     >
-                      <Text
-                        style={[
-                          styles.optionSymbol,
-                          {
-                            color: isSelected ? selectedColorData.value : isDark ? '#CBD5E1' : '#64748B',
-                          },
-                        ]}
-                      >
-                        {suit.symbol}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.optionTitle,
-                          isSelected && { color: selectedColorData.value, fontWeight: '800' as const },
-                        ]}
-                      >
-                        {suit.name}
-                      </Text>
-                      <Text style={styles.optionDescription}>Tap to equip</Text>
-                      {isSelected && (
-                        <View style={[styles.optionCheckBadge, { backgroundColor: selectedColorData.value }]}> 
-                          <Check color="#fff" size={10} strokeWidth={3} />
+                      {({ pressed }) => (
+                        <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
+                          <Text style={optionVisual.symbolStyle}>{suit.symbol}</Text>
+                          <Text style={optionVisual.titleStyle}>{suit.name}</Text>
+                          <Text style={styles.optionDescription}>Tap to equip</Text>
+                          {isSelected ? (
+                            <View style={optionVisual.checkStyle}>
+                              <Check color="#fff" size={10} strokeWidth={3} />
+                            </View>
+                          ) : null}
                         </View>
                       )}
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
               </View>
@@ -642,37 +683,28 @@ export default function ProfilePage() {
               <View style={styles.optionGrid}>
                 {AVATAR_COLORS.map((color) => {
                   const isSelected = selectedColor === color.id;
+                  const optionVisual = colorOptionVisuals[color.id];
 
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={color.id}
-                      style={[
-                        styles.optionCard,
-                        isSelected && {
-                          borderColor: color.value,
-                          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : color.light,
-                        },
-                      ]}
+                      style={styles.optionPressable}
                       onPress={() => handleSelectColor(color.id)}
-                      activeOpacity={0.86}
                       testID={`profile-avatar-color-${color.id}`}
                     >
-                      <View style={[styles.colorSwatch, { backgroundColor: color.value }]} />
-                      <Text
-                        style={[
-                          styles.optionTitle,
-                          isSelected && { color: color.value, fontWeight: '800' as const },
-                        ]}
-                      >
-                        {color.name}
-                      </Text>
-                      <Text style={styles.optionDescription}>Tap to equip</Text>
-                      {isSelected && (
-                        <View style={[styles.optionCheckBadge, { backgroundColor: color.value }]}> 
-                          <Check color="#fff" size={10} strokeWidth={3} />
+                      {({ pressed }) => (
+                        <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
+                          <View style={optionVisual.swatchStyle} />
+                          <Text style={optionVisual.titleStyle}>{color.name}</Text>
+                          <Text style={styles.optionDescription}>Tap to equip</Text>
+                          {isSelected ? (
+                            <View style={optionVisual.checkStyle}>
+                              <Check color="#fff" size={10} strokeWidth={3} />
+                            </View>
+                          ) : null}
                         </View>
                       )}
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
               </View>
@@ -1667,6 +1699,9 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       flexWrap: 'wrap',
       gap: 12,
     },
+    optionPressable: {
+      borderRadius: 20,
+    },
     optionCard: {
       width: optionWidth,
       borderRadius: 20,
@@ -1679,6 +1714,16 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       justifyContent: 'center',
       position: 'relative',
       minHeight: 126,
+    },
+    optionCardSelected: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: isDark ? 0.24 : 0.1,
+      shadowRadius: 16,
+      elevation: isDark ? 6 : 3,
+    },
+    optionCardPressed: {
+      transform: [{ scale: 0.985 }],
     },
     optionSymbol: {
       fontSize: 44,
@@ -1698,6 +1743,9 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       fontWeight: '700' as const,
       color: theme.text,
       marginBottom: 4,
+    },
+    optionTitleSelected: {
+      fontWeight: '800' as const,
     },
     optionDescription: {
       fontSize: 12,
