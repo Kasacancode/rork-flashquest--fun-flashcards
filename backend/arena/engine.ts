@@ -623,6 +623,8 @@ export function sanitizeRoom(room: Room, playerLastSeenById?: Record<string, num
     phase: effectivePhase,
     startedAt: g.startedAt ?? room.createdAt,
     finishedAt: effectiveFinishedAt,
+    questionStartedAt: effectiveQuestionStartedAt,
+    revealStartedAt: effectiveRevealStartedAt,
     timeRemainingMs,
     revealTimeRemainingMs,
     scores: g.scores,

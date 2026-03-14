@@ -16,8 +16,8 @@ const LEADERBOARD_KEY = 'flashquest_arena_leaderboard';
 const PLAYER_NAME_KEY = 'flashquest_arena_player_name';
 
 const POLL_LOBBY_MS = 2500;
-const POLL_QUESTION_MS = 850;
-const POLL_REVEAL_MS = 1200;
+const POLL_QUESTION_MS = 450;
+const POLL_REVEAL_MS = 700;
 const POLL_FINISHED_MS = 10000;
 const HEARTBEAT_INTERVAL_MS = 3000;
 
@@ -84,7 +84,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const [optimisticDeckSelection, setOptimisticDeckSelection] = useState<PendingDeckSelection | null>(null);
   const [hasAnsweredCurrent, setHasAnsweredCurrent] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
-  const prevQuestionIndexRef = useRef<number>(-1);
+  const [stableRoom, setStableRoom] = useState<SanitizedRoom | null>(null);
+  const prevQuestionRoundRef = useRef<string | null>(null);
   const pollFailCountRef = useRef<number>(0);
   const connectedAtRef = useRef<number>(0);
   const lastErrorMsgRef = useRef<string | null>(null);
@@ -152,16 +153,50 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     {
       enabled: !!roomCode && !!playerId,
       refetchInterval: pollInterval,
+      refetchOnWindowFocus: false,
       retry: 8,
       retryDelay: 2000,
     },
   );
 
+  const applyIncomingRoom = useCallback((incomingRoom: SanitizedRoom | null) => {
+    setStableRoom((currentRoom) => {
+      if (!incomingRoom) {
+        lastVersionRef.current = 0;
+        return null;
+      }
+
+      const incomingVersion = incomingRoom.version ?? 0;
+      const currentVersion = currentRoom?.version ?? 0;
+      const incomingUpdatedAt = incomingRoom.updatedAt ?? 0;
+      const currentUpdatedAt = currentRoom?.updatedAt ?? 0;
+
+      if (
+        incomingVersion < lastVersionRef.current
+        || incomingVersion < currentVersion
+        || (incomingVersion === currentVersion && incomingUpdatedAt < currentUpdatedAt)
+      ) {
+        logger.log('[Arena] Ignoring stale room snapshot:', {
+          incomingVersion,
+          currentVersion,
+          incomingUpdatedAt,
+          currentUpdatedAt,
+          roomCode: incomingRoom.code,
+        });
+        return currentRoom;
+      }
+
+      lastVersionRef.current = incomingVersion;
+      return incomingRoom;
+    });
+  }, []);
+
   useEffect(() => {
     if (roomQuery.data && roomCode) {
       pollFailCountRef.current = 0;
+      applyIncomingRoom(roomQuery.data.room ?? null);
     }
-  }, [roomQuery.data, roomCode]);
+  }, [applyIncomingRoom, roomQuery.data, roomCode]);
 
   useEffect(() => {
     if (roomQuery.error && roomCode) {
@@ -176,6 +211,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
         logger.log('[Arena] Backend configuration error while polling, disconnecting:', msg);
         setRoomCode(null);
         setPlayerId(null);
+        setStableRoom(null);
+        prevQuestionRoundRef.current = null;
         setConnectionError(msg);
         pollFailCountRef.current = 0;
         lastErrorMsgRef.current = null;
@@ -192,6 +229,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
         logger.log('[Arena] Max poll failures reached, disconnecting');
         setRoomCode(null);
         setPlayerId(null);
+        setStableRoom(null);
+        prevQuestionRoundRef.current = null;
         setConnectionError('Room expired or not found');
         pollFailCountRef.current = 0;
         lastErrorMsgRef.current = null;
@@ -199,7 +238,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     }
   }, [roomQuery.error, roomCode]);
 
-  const serverRoom = roomQuery.data?.room ?? null;
+  const serverRoom = stableRoom;
   const room = useMemo<SanitizedRoom | null>(() => {
     if (!serverRoom) {
       return null;
@@ -232,13 +271,6 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       setPollInterval(POLL_LOBBY_MS);
       return;
     }
-
-    const incomingVersion = room.version ?? 0;
-    if (incomingVersion > 0 && incomingVersion < lastVersionRef.current) {
-      logger.log('[Arena] Ignoring stale room data, version:', incomingVersion, '< last:', lastVersionRef.current);
-      return;
-    }
-    lastVersionRef.current = incomingVersion;
 
     if (room.status === 'lobby') {
       setPollInterval(POLL_LOBBY_MS);
@@ -282,14 +314,20 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     };
   }, [roomCode, playerId, heartbeatMut]);
 
-  const currentQuestionIndex = room?.game?.currentQuestionIndex ?? -1;
+  const currentQuestionRoundKey = room?.game?.currentQuestion
+    ? `${room.game.currentQuestionIndex}:${room.game.questionStartedAt}:${room.game.currentQuestion.cardId}`
+    : null;
+  const currentPlayerAnswer = playerId && room?.game?.currentAnswers
+    ? room.game.currentAnswers[playerId] ?? null
+    : null;
+
   useEffect(() => {
-    if (currentQuestionIndex !== prevQuestionIndexRef.current) {
-      prevQuestionIndexRef.current = currentQuestionIndex;
+    if (currentQuestionRoundKey !== prevQuestionRoundRef.current) {
+      prevQuestionRoundRef.current = currentQuestionRoundKey;
       setHasAnsweredCurrent(false);
       setLastAnswerCorrect(null);
     }
-  }, [currentQuestionIndex]);
+  }, [currentQuestionRoundKey]);
 
   useEffect(() => {
     if (room?.game && playerId && room.game.answeredPlayerIds.includes(playerId)) {
@@ -297,12 +335,20 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     }
   }, [room?.game, playerId]);
 
+  useEffect(() => {
+    if (currentPlayerAnswer) {
+      setHasAnsweredCurrent(true);
+      setLastAnswerCorrect(currentPlayerAnswer.isCorrect);
+    }
+  }, [currentPlayerAnswer]);
+
   const createRoomMut = trpc.arena.initRoom.useMutation({
     onSuccess: (data: { roomCode: string; playerId: string; room: SanitizedRoom }) => {
       logger.log('[Arena] Created room:', data.roomCode);
       connectedAtRef.current = Date.now();
       pollFailCountRef.current = 0;
       lastErrorMsgRef.current = null;
+      applyIncomingRoom(data.room);
       setRoomCode(data.roomCode);
       setPlayerId(data.playerId);
       setConnectionError(null);
@@ -330,6 +376,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       connectedAtRef.current = Date.now();
       pollFailCountRef.current = 0;
       lastErrorMsgRef.current = null;
+      applyIncomingRoom(data.room);
       setRoomCode(data.room.code);
       setPlayerId(data.playerId);
       setConnectionError(null);
@@ -353,9 +400,9 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
 
   const leaveMut = trpc.arena.leaveRoom.useMutation();
   const selectDeckMut = trpc.arena.selectDeck.useMutation({
-    onSuccess: () => {
+    onSuccess: (data: { room: SanitizedRoom }) => {
       logger.log('[Arena] Deck selection saved');
-      void roomQuery.refetch();
+      applyIncomingRoom(data.room);
     },
     onError: (error) => {
       const normalizedError = normalizeArenaConnectionError(error);
@@ -365,6 +412,9 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     },
   });
   const updateSettingsMut = trpc.arena.updateSettings.useMutation({
+    onSuccess: (data: { room: SanitizedRoom }) => {
+      applyIncomingRoom(data.room);
+    },
     onError: (error) => {
       const normalizedError = normalizeArenaConnectionError(error);
       logger.log('[Arena] Update settings error:', normalizedError);
@@ -374,6 +424,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   });
   const startGameMut = trpc.arena.startGame.useMutation({
     onSuccess: (data: { room: SanitizedRoom }) => {
+      applyIncomingRoom(data.room);
       trackEvents([
         {
           event: 'battle_started',
@@ -410,17 +461,27 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     },
   });
   const submitAnswerMut = trpc.arena.submitAnswer.useMutation({
-    onSuccess: (data: { isCorrect: boolean }) => {
+    onSuccess: (data: { isCorrect: boolean; room: SanitizedRoom }) => {
+      applyIncomingRoom(data.room);
       setHasAnsweredCurrent(true);
       setLastAnswerCorrect(data.isCorrect);
       logger.log('[Arena] Answer submitted, correct:', data.isCorrect);
     },
     onError: (err: { message: string }) => {
       logger.log('[Arena] Submit error:', err.message);
+      void roomQuery.refetch();
     },
   });
-  const removePlayerMut = trpc.arena.removePlayer.useMutation();
-  const resetRoomMut = trpc.arena.resetRoom.useMutation();
+  const removePlayerMut = trpc.arena.removePlayer.useMutation({
+    onSuccess: (data: { room: SanitizedRoom }) => {
+      applyIncomingRoom(data.room);
+    },
+  });
+  const resetRoomMut = trpc.arena.resetRoom.useMutation({
+    onSuccess: (data: { room: SanitizedRoom }) => {
+      applyIncomingRoom(data.room);
+    },
+  });
 
   const updatePlayerName = useCallback((name: string): string => {
     const sanitizedName = sanitizePlayerName(name);
@@ -479,7 +540,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     setOptimisticDeckSelection(null);
     setHasAnsweredCurrent(false);
     setLastAnswerCorrect(null);
-    prevQuestionIndexRef.current = -1;
+    setStableRoom(null);
+    prevQuestionRoundRef.current = null;
     pollFailCountRef.current = 0;
     lastErrorMsgRef.current = null;
     connectedAtRef.current = 0;

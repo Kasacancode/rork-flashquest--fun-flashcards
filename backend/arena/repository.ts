@@ -16,9 +16,13 @@ import { ROOM_TTL_MS } from './types';
 const ROOM_TTL_SECONDS = Math.ceil(ROOM_TTL_MS / 1000);
 const KEY_PREFIX = 'flashquest:arena:room:';
 const PRESENCE_KEY_PREFIX = 'flashquest:arena:presence:';
+const ROOM_LOCK_KEY_PREFIX = 'flashquest:arena:lock:';
 const CODES_SET = 'flashquest:arena:codes';
 const ROOM_CODE_CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const ROOM_CODE_LENGTH = 4;
+const ROOM_LOCK_TTL_MS = 4000;
+const ROOM_LOCK_RETRY_DELAY_MS = 60;
+const ROOM_LOCK_RETRY_ATTEMPTS = 50;
 
 function roomKey(code: string): string {
   return `${KEY_PREFIX}${code}`;
@@ -26,6 +30,10 @@ function roomKey(code: string): string {
 
 function presenceKey(code: string): string {
   return `${PRESENCE_KEY_PREFIX}${code}`;
+}
+
+function roomLockKey(code: string): string {
+  return `${ROOM_LOCK_KEY_PREFIX}${code}`;
 }
 
 let redisInstance: Redis | null = null;
@@ -93,11 +101,56 @@ function generateRoomCode(): string {
   return code;
 }
 
+function isRedisWriteSuccess(result: unknown): boolean {
+  return result === 'OK' || result === true;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function isFinishedRoom(room: Room): boolean {
   return room.status === 'finished' && room.game?.phase === 'finished' && room.game.finishedAt != null;
 }
 
 class RoomRepository {
+  async withRoomLock<T>(code: string, task: () => Promise<T>): Promise<T> {
+    const redis = getRedis();
+    const lockKey = roomLockKey(code);
+    const token = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    let acquired = false;
+
+    for (let attempt = 0; attempt < ROOM_LOCK_RETRY_ATTEMPTS; attempt += 1) {
+      const result = await redis.set(lockKey, token, { nx: true, px: ROOM_LOCK_TTL_MS });
+      if (isRedisWriteSuccess(result)) {
+        acquired = true;
+        break;
+      }
+
+      await sleep(ROOM_LOCK_RETRY_DELAY_MS);
+    }
+
+    if (!acquired) {
+      throw new Error(`Could not acquire room lock for ${code}`);
+    }
+
+    try {
+      return await task();
+    } finally {
+      try {
+        const currentToken = await redis.get<string>(lockKey);
+        if (currentToken === token) {
+          await redis.del(lockKey);
+        }
+      } catch (err) {
+        rethrowRedisConfigError(err);
+        console.error(`[Repo] Error releasing room lock for ${code}:`, err);
+      }
+    }
+  }
+
   async getRoom(code: string): Promise<Room | null> {
     try {
       const redis = getRedis();

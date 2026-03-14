@@ -64,7 +64,7 @@ export function TimerProgressBar({ timeRemaining, totalTime, isUrgent = false }:
       ).start();
 
       if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     } else {
       pulseAnim.stopAnimation();
@@ -139,7 +139,7 @@ export function DealerTimer({ timeRemaining, totalTime, size = 56 }: DealerTimer
       ).start();
 
       if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     } else {
       pulseAnim.stopAnimation();
@@ -196,26 +196,18 @@ export function DealerTimer({ timeRemaining, totalTime, size = 56 }: DealerTimer
 }
 
 interface DealerCountdownBarProps {
-  timeRemaining: number;
-  totalTime: number;
+  timeRemainingMs: number;
+  totalTimeMs: number;
 }
 
-export function DealerCountdownBar({ timeRemaining, totalTime }: DealerCountdownBarProps) {
-  const progressAnim = useRef(new Animated.Value(1)).current;
+export function DealerCountdownBar({ timeRemainingMs, totalTimeMs }: DealerCountdownBarProps) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const chipAnim = useRef(new Animated.Value(0)).current;
 
+  const timeRemaining = Math.max(0, Math.ceil(timeRemainingMs / 1000));
+  const progress = totalTimeMs > 0 ? Math.max(0, Math.min(1, timeRemainingMs / totalTimeMs)) : 0;
   const isUrgent = timeRemaining <= 3 && timeRemaining > 0;
   const isWarning = timeRemaining <= 5 && timeRemaining > 3;
-
-  useEffect(() => {
-    const progress = timeRemaining / totalTime;
-    Animated.timing(progressAnim, {
-      toValue: progress,
-      duration: 350,
-      useNativeDriver: false,
-    }).start();
-  }, [timeRemaining, totalTime, progressAnim]);
 
   useEffect(() => {
     if (isUrgent) {
@@ -235,7 +227,7 @@ export function DealerCountdownBar({ timeRemaining, totalTime }: DealerCountdown
       ).start();
 
       if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     } else {
       pulseAnim.stopAnimation();
@@ -245,10 +237,7 @@ export function DealerCountdownBar({ timeRemaining, totalTime }: DealerCountdown
     }
   }, [isUrgent, pulseAnim, chipAnim]);
 
-  const progressWidth = progressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
+  const progressWidth = `${progress * 100}%` as `${number}%`;
 
   const barColor = isUrgent ? '#ef4444' : isWarning ? '#f59e0b' : '#10b981';
   const trackColor = isUrgent ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.15)';
@@ -257,7 +246,7 @@ export function DealerCountdownBar({ timeRemaining, totalTime }: DealerCountdown
     <Animated.View style={[styles.dealerBarContainer, { transform: [{ scaleX: pulseAnim }] }]}>
       <View style={styles.dealerBarWrapper}>
         <View style={[styles.dealerBarTrack, { backgroundColor: trackColor }]}>
-          <Animated.View
+          <View
             style={[
               styles.dealerBarFill,
               { width: progressWidth, backgroundColor: barColor },

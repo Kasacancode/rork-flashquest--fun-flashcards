@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { X, Crown, Users, Check, Clock } from 'lucide-react-native';
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -60,6 +60,9 @@ export default function ArenaSessionScreen() {
 
   const revealOpacity = useRef(new Animated.Value(0)).current;
   const waitingPulse = useRef(new Animated.Value(1)).current;
+  const countdownDeadlineRef = useRef<number | null>(null);
+  const countdownSessionKeyRef = useRef<string>('');
+  const [displayTimeRemainingMs, setDisplayTimeRemainingMs] = useState<number | null>(null);
 
   const game = room?.game ?? null;
   const phase = game?.phase ?? null;
@@ -71,12 +74,10 @@ export default function ArenaSessionScreen() {
   const answeredPlayerIds = game?.answeredPlayerIds ?? [];
   const currentAnswers = game?.currentAnswers ?? null;
   const players = room?.players ?? [];
-
-  const timeRemainingSeconds = game?.timeRemainingMs != null && game.timeRemainingMs > 0
-    ? Math.ceil(game.timeRemainingMs / 1000)
-    : null;
-
   const timerTotal = room?.settings?.timerSeconds ?? 0;
+  const questionTimingKey = currentQuestion
+    ? `${questionIndex}:${game?.questionStartedAt ?? 0}:${currentQuestion.cardId}:${phase ?? 'idle'}`
+    : 'no-question';
 
   const myScore = playerId && scores[playerId] ? scores[playerId] : null;
   const myStreak = myScore?.currentStreak ?? 0;
@@ -102,20 +103,65 @@ export default function ArenaSessionScreen() {
     value: option,
     label: optionLabels[index] ?? option,
   }));
-  const displayOptionRows = useMemo<Array<{ value: string; label: string }[]>>(() => {
-    const rows: Array<{ value: string; label: string }[]> = [];
+  const displayOptionRows: Array<{ value: string; label: string }[]> = [];
 
-    for (let index = 0; index < displayOptions.length; index += 2) {
-      rows.push(displayOptions.slice(index, index + 2));
-    }
+  for (let index = 0; index < displayOptions.length; index += 2) {
+    displayOptionRows.push(displayOptions.slice(index, index + 2));
+  }
 
-    return rows;
-  }, [displayOptions]);
   const questionFooterText = [
     '4 answer cards',
     '1 correct',
     timerTotal > 0 ? `${timerTotal}s clock` : 'live round',
   ].join(' • ');
+
+  useEffect(() => {
+    if (!game || phase !== 'question' || timerTotal <= 0 || game.timeRemainingMs == null) {
+      countdownDeadlineRef.current = null;
+      countdownSessionKeyRef.current = '';
+      setDisplayTimeRemainingMs(null);
+      return;
+    }
+
+    const nextRemainingMs = Math.max(0, game.timeRemainingMs);
+    const isNewCountdownSession = countdownSessionKeyRef.current !== questionTimingKey;
+
+    if (isNewCountdownSession || countdownDeadlineRef.current == null) {
+      countdownSessionKeyRef.current = questionTimingKey;
+      countdownDeadlineRef.current = Date.now() + nextRemainingMs;
+      setDisplayTimeRemainingMs(nextRemainingMs);
+      return;
+    }
+
+    const predictedRemainingMs = Math.max(0, countdownDeadlineRef.current - Date.now());
+    if (nextRemainingMs < predictedRemainingMs - 250) {
+      countdownDeadlineRef.current = Date.now() + nextRemainingMs;
+      setDisplayTimeRemainingMs(nextRemainingMs);
+    }
+  }, [game, phase, questionTimingKey, timerTotal]);
+
+  useEffect(() => {
+    if (countdownDeadlineRef.current == null || phase !== 'question' || timerTotal <= 0) {
+      return;
+    }
+
+    const updateCountdown = () => {
+      const deadline = countdownDeadlineRef.current;
+      if (deadline == null) {
+        setDisplayTimeRemainingMs(null);
+        return;
+      }
+
+      setDisplayTimeRemainingMs(Math.max(0, deadline - Date.now()));
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 100);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [phase, questionTimingKey, timerTotal]);
 
   useEffect(() => {
     if (!room || room.status !== 'playing' || !game) {
@@ -397,11 +443,11 @@ export default function ArenaSessionScreen() {
                 </Text>
               </View>
             </View>
-            {timerTotal > 0 && timeRemainingSeconds !== null && phase === 'question' && (
+            {timerTotal > 0 && displayTimeRemainingMs !== null && phase === 'question' && (
               <View style={styles.inlineTimer}>
                 <DealerCountdownBar
-                  timeRemaining={timeRemainingSeconds}
-                  totalTime={timerTotal}
+                  timeRemainingMs={displayTimeRemainingMs}
+                  totalTimeMs={timerTotal * 1000}
                 />
               </View>
             )}

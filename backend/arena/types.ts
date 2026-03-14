@@ -118,6 +118,8 @@ export interface SanitizedGameState {
   phase: 'question' | 'reveal' | 'finished';
   startedAt: number;
   finishedAt: number | null;
+  questionStartedAt: number;
+  revealStartedAt: number | null;
   timeRemainingMs: number | null;
   revealTimeRemainingMs: number | null;
   scores: Record<string, ScoreEntry>;
