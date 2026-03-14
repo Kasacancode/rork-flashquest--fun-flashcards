@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { AnalyticsSummary } from '@/backend/analytics/types';
+import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trpcClient } from '@/lib/trpc';
 
@@ -58,6 +59,7 @@ async function fetchAnalyticsSummary(input: { day?: string } | undefined): Promi
 
 export default function AnalyticsDebugScreen() {
   const { theme } = useTheme();
+  const { canAccessDeveloperTools } = useDeveloperAccess();
   const [dayInput, setDayInput] = useState<string>('');
   const [requestedDay, setRequestedDay] = useState<string | undefined>(undefined);
 
@@ -68,7 +70,7 @@ export default function AnalyticsDebugScreen() {
   const summaryQuery = useQuery<AnalyticsSummary, Error>({
     queryKey: ['analytics-summary', requestedDay ?? 'today'],
     queryFn: () => fetchAnalyticsSummary(queryInput),
-    enabled: __DEV__,
+    enabled: __DEV__ && canAccessDeveloperTools,
     networkMode: 'always',
     retry: 1,
     refetchOnMount: 'always',
@@ -141,7 +143,7 @@ export default function AnalyticsDebugScreen() {
   const secondaryButtonStyle = [styles.secondaryButton, { borderColor: theme.border }];
   const closeButtonStyle = [styles.closeButton, { backgroundColor: theme.cardBackground, borderColor: theme.border }];
 
-  if (!__DEV__) {
+  if (!__DEV__ || !canAccessDeveloperTools) {
     return (
       <SafeAreaView style={containerStyle} edges={['top', 'bottom']}>
         <View style={styles.content}>

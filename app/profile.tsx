@@ -36,6 +36,7 @@ import type { AvatarColorId, AvatarSuitId } from '@/types/avatar';
 import { type Theme } from '@/constants/colors';
 import { useArena } from '@/context/ArenaContext';
 import { useAvatar } from '@/context/AvatarContext';
+import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { logger } from '@/utils/logger';
@@ -156,7 +157,7 @@ function getLevelEntry(level: number): LevelItem {
 
 export default function ProfilePage() {
   const navigation = useRouter();
-  const isAnalyticsDebugEnabled = __DEV__;
+  const { canAccessDeveloperTools } = useDeveloperAccess();
   const { width } = useWindowDimensions();
   const { stats } = useFlashQuest();
   const { playerName, updatePlayerName, isPlayerNameReady } = useArena();
@@ -197,6 +198,31 @@ export default function ProfilePage() {
     [isDark]
   );
 
+  const tabActiveGradient = useMemo(() => theme.profileTabActiveGradient as [string, string], [theme.profileTabActiveGradient]);
+  const overlayGradient = useMemo(
+    () =>
+      (
+        isDark
+          ? ['rgba(2, 6, 23, 0.18)', 'rgba(2, 6, 23, 0.5)', 'rgba(2, 6, 23, 0.72)']
+          : ['rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.16)']
+      ) as GradientTriplet,
+    [isDark]
+  );
+  const selectedColorValue = selectedColorData.value || AVATAR_COLORS[0]!.value;
+  const heroAvatarStyle = useMemo(() => [styles.heroAvatar, { backgroundColor: selectedColorValue }], [styles, selectedColorValue]);
+  const avatarShowcaseGradient = useMemo(
+    () => [selectedColorValue, theme.primaryDark, theme.gradientEnd] as [string, string, string],
+    [selectedColorValue, theme.primaryDark, theme.gradientEnd]
+  );
+  const playerNameModalCardStyle = useMemo(
+    () => [styles.playerNameModalCard, { backgroundColor: theme.cardBackground }],
+    [styles, theme.cardBackground]
+  );
+  const levelModalCardStyle = useMemo(
+    () => [styles.levelModalCard, { backgroundColor: theme.cardBackground }],
+    [styles, theme.cardBackground]
+  );
+
   const completedAchievements = useMemo(
     () => ACHIEVEMENTS.filter((achievement) => achievement.progress >= achievement.total).length,
     []
@@ -234,14 +260,14 @@ export default function ProfilePage() {
   }, []);
 
   const handleOpenAnalyticsDebug = useCallback(() => {
-    if (!isAnalyticsDebugEnabled) {
-      logger.log('[Profile] Analytics debug blocked outside dev mode');
+    if (!canAccessDeveloperTools) {
+      logger.log('[Profile] Analytics debug blocked without developer access');
       return;
     }
 
     logger.log('[Profile] Opening analytics debug screen');
     navigation.push('/analytics-debug');
-  }, [isAnalyticsDebugEnabled, navigation]);
+  }, [canAccessDeveloperTools, navigation]);
 
   const handleComingSoon = useCallback((label: string) => {
     logger.log('[Profile] Coming soon pressed', label);
@@ -314,11 +340,7 @@ export default function ProfilePage() {
         style={StyleSheet.absoluteFill}
       />
       <LinearGradient
-        colors={
-          isDark
-            ? ['rgba(2, 6, 23, 0.18)', 'rgba(2, 6, 23, 0.5)', 'rgba(2, 6, 23, 0.72)']
-            : ['rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.16)']
-        }
+        colors={overlayGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -357,7 +379,7 @@ export default function ProfilePage() {
             >
               <View style={styles.heroTopRow}>
                 <View style={styles.heroIdentityRow}>
-                  <View style={[styles.heroAvatar, { backgroundColor: selectedColorData.value }]}> 
+                  <View style={heroAvatarStyle}>
                     <Text style={styles.heroAvatarSymbol}>{selectedSuitData.symbol}</Text>
                     <View style={styles.heroAvatarBadge}>
                       <Zap color="#fff" size={12} strokeWidth={2.8} />
@@ -415,7 +437,7 @@ export default function ProfilePage() {
                 >
                   {isActive && (
                     <LinearGradient
-                      colors={theme.profileTabActiveGradient as [string, string]}
+                      colors={tabActiveGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.tabActiveBackground}
@@ -515,7 +537,7 @@ export default function ProfilePage() {
                 </TouchableOpacity>
               </View>
 
-              {isAnalyticsDebugEnabled ? (
+              {canAccessDeveloperTools ? (
                 <TouchableOpacity
                   style={styles.debugButton}
                   onPress={handleOpenAnalyticsDebug}
@@ -532,7 +554,7 @@ export default function ProfilePage() {
             <View style={styles.tabContent}>
               <View style={styles.avatarShowcaseCard}>
                 <LinearGradient
-                  colors={[selectedColorData.value, theme.primaryDark, theme.gradientEnd] as [string, string, string]}
+                  colors={avatarShowcaseGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.avatarShowcaseGradient}
@@ -756,7 +778,7 @@ export default function ProfilePage() {
             testID="profile-player-name-overlay"
           />
 
-          <View style={[styles.playerNameModalCard, { backgroundColor: theme.cardBackground }]} testID="profile-player-name-modal">
+          <View style={playerNameModalCardStyle} testID="profile-player-name-modal">
             <Text style={styles.playerNameModalEyebrow}>FlashQuest Profile</Text>
             <Text style={styles.playerNameModalTitle}>Edit player name</Text>
             <Text style={styles.playerNameModalSubtitle}>Arena reuses this automatically when you host or join a battle.</Text>
@@ -796,7 +818,7 @@ export default function ProfilePage() {
                   testID="profile-player-name-save"
                 >
                   <LinearGradient
-                    colors={theme.profileTabActiveGradient as [string, string]}
+                    colors={tabActiveGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.playerNamePrimaryGradient}
@@ -824,7 +846,7 @@ export default function ProfilePage() {
             testID="profile-levels-overlay"
           />
 
-          <View style={[styles.levelModalCard, { backgroundColor: theme.cardBackground }]} testID="profile-levels-modal">
+          <View style={levelModalCardStyle} testID="profile-levels-modal">
             <View style={styles.levelModalHeader}>
               <View style={styles.levelModalTitleWrap}>
                 <Text style={styles.levelModalEyebrow}>Rank progression</Text>

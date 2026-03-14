@@ -1,10 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Trophy, BookOpen, Swords, Target, User } from 'lucide-react-native';
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import React, { useCallback, useRef } from 'react';
+import { Alert, View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -15,6 +16,39 @@ export default function HomePage() {
   const router = useRouter();
   const { stats, decks } = useFlashQuest();
   const { theme } = useTheme();
+  const {
+    canAccessDeveloperTools,
+    disableDeveloperAccess,
+    enableDeveloperAccess,
+    isReady: isDeveloperAccessReady,
+  } = useDeveloperAccess();
+  const didHandleLongPressRef = useRef<boolean>(false);
+
+  const handleOpenProfile = useCallback(() => {
+    if (didHandleLongPressRef.current) {
+      didHandleLongPressRef.current = false;
+      return;
+    }
+
+    router.push('/profile' as any);
+  }, [router]);
+
+  const handleProfileLongPress = useCallback(() => {
+    if (!__DEV__ || !isDeveloperAccessReady) {
+      return;
+    }
+
+    didHandleLongPressRef.current = true;
+
+    if (canAccessDeveloperTools) {
+      disableDeveloperAccess();
+      Alert.alert('Developer tools hidden', 'Analytics debug is now hidden on this device.');
+      return;
+    }
+
+    enableDeveloperAccess();
+    Alert.alert('Developer tools unlocked', 'Analytics debug is now available inside Profile on this device.');
+  }, [canAccessDeveloperTools, disableDeveloperAccess, enableDeveloperAccess, isDeveloperAccessReady]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -38,8 +72,11 @@ export default function HomePage() {
             </View>
             <TouchableOpacity
               style={styles.profileButton}
-              onPress={() => router.push('/profile' as any)}
+              onPress={handleOpenProfile}
+              onLongPress={handleProfileLongPress}
+              delayLongPress={700}
               activeOpacity={0.8}
+              testID="home-profile-button"
             >
               <LinearGradient
                 colors={['rgba(255, 255, 255, 0.25)', 'rgba(255, 255, 255, 0.15)']}

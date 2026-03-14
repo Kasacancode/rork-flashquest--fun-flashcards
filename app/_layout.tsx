@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { ArenaProvider } from '@/context/ArenaContext';
 import { AvatarProvider } from '@/context/AvatarContext';
+import { DeveloperAccessProvider } from '@/context/DeveloperAccessContext';
 import { FlashQuestProvider } from '@/context/FlashQuestContext';
 import { PerformanceProvider } from '@/context/PerformanceContext';
 import { ThemeProvider } from '@/context/ThemeContext';
@@ -71,17 +72,19 @@ export default function RootLayout() {
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
-            <AvatarProvider>
-              <FlashQuestProvider>
-                <PerformanceProvider>
-                  <ArenaProvider>
-                    <GestureHandlerRootView style={{ flex: 1 }}>
-                      <RootLayoutNav />
-                    </GestureHandlerRootView>
-                  </ArenaProvider>
-                </PerformanceProvider>
-              </FlashQuestProvider>
-            </AvatarProvider>
+            <DeveloperAccessProvider>
+              <AvatarProvider>
+                <FlashQuestProvider>
+                  <PerformanceProvider>
+                    <ArenaProvider>
+                      <GestureHandlerRootView style={{ flex: 1 }}>
+                        <RootLayoutNav />
+                      </GestureHandlerRootView>
+                    </ArenaProvider>
+                  </PerformanceProvider>
+                </FlashQuestProvider>
+              </AvatarProvider>
+            </DeveloperAccessProvider>
           </ThemeProvider>
         </QueryClientProvider>
       </trpc.Provider>
