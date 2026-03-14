@@ -14,7 +14,6 @@ export type CardSuit = '♠' | '♥' | '♦' | '♣';
 export type AnswerCardState = 'idle' | 'selected' | 'correct' | 'wrong' | 'disabled';
 
 const SUITS: CardSuit[] = ['♠', '♥', '♦', '♣'];
-const OPTION_MARKERS = ['A', 'B', 'C', 'D'] as const;
 
 const SUIT_COLORS: Record<CardSuit, string> = {
   '♠': '#1e293b',
@@ -202,12 +201,6 @@ export function AnswerCard({
       >
         <View style={[styles.cardTexture, { backgroundColor: cardColors.accent }]} />
 
-        <View style={styles.optionMarker}>
-          <Text style={[styles.optionMarkerText, { color: suitColor }]}>
-            {OPTION_MARKERS[index % OPTION_MARKERS.length]}
-          </Text>
-        </View>
-        
         <View style={styles.suitCornerTop}>
           <Text style={[styles.suitText, { color: suitColor }]}>{suit}</Text>
         </View>
@@ -352,38 +345,20 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     opacity: 0.5,
   },
-  optionMarker: {
-    position: 'absolute',
-    top: 8,
-    alignSelf: 'center',
-    minWidth: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.72)',
-    paddingHorizontal: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  optionMarkerText: {
-    fontSize: 11,
-    fontWeight: '800' as const,
-    letterSpacing: 0.6,
-  },
   suitCornerTop: {
     position: 'absolute',
-    top: 8,
-    left: 9,
+    top: 10,
+    left: 10,
   },
   suitCornerBottom: {
     position: 'absolute',
-    bottom: 8,
-    right: 9,
+    bottom: 10,
+    right: 10,
   },
   suitText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700' as const,
-    opacity: 0.35,
+    opacity: 0.38,
   },
   suitRotated: {
     transform: [{ rotate: '180deg' }],
@@ -392,15 +367,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 16,
   },
   optionText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700' as const,
     color: '#1e293b',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 21,
   },
   optionTextCorrect: {
     color: '#166534',

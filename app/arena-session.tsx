@@ -2,11 +2,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { X, Crown, Users, Check, Clock } from 'lucide-react-native';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnswerCard, getSuitForIndex, DealerReaction, getRandomDealerLine, AnswerCardState, CARD_GAP, CARD_PADDING, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
+import { AnswerCard, getSuitForIndex, DealerReaction, getRandomDealerLine, AnswerCardState, CARD_GAP, CARD_HEIGHT, CARD_PADDING, CARD_WIDTH, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
 import { DealerCountdownBar, StreakIndicator } from '@/components/GameUI';
 import { useArena } from '@/context/ArenaContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -99,6 +99,15 @@ export default function ArenaSessionScreen() {
     value: option,
     label: optionLabels[index] ?? option,
   }));
+  const displayOptionRows = useMemo<Array<{ value: string; label: string }[]>>(() => {
+    const rows: Array<{ value: string; label: string }[]> = [];
+
+    for (let index = 0; index < displayOptions.length; index += 2) {
+      rows.push(displayOptions.slice(index, index + 2));
+    }
+
+    return rows;
+  }, [displayOptions]);
   const questionFooterText = [
     '4 answer cards',
     '1 correct',
@@ -395,20 +404,33 @@ export default function ArenaSessionScreen() {
 
         <View style={styles.gameArea}>
           <View style={[styles.tableSurface, { backgroundColor: theme.arenaTableSurface }]}>
-            <View style={styles.optionsGrid}>
-              {displayOptions.map(({ value, label }, index) => (
-                <AnswerCard
-                  key={`${questionIndex}-${index}-${value}`}
-                  optionText={label}
-                  suit={getSuitForIndex(index)}
-                  index={index}
-                  state={getCardState(value)}
-                  onPress={() => handleOptionPress(value, index)}
-                  animatedScale={cardScales[index]}
-                  animatedShake={shakeAnims[index]}
-                  animatedOpacity={cardAnimations[index]}
-                />
-              ))}
+            <View style={styles.optionsGrid} testID="arenaAnswerGrid">
+              {displayOptionRows.map((row, rowIndex) => {
+                const isLastRow = rowIndex === displayOptionRows.length - 1;
+
+                return (
+                  <View key={`row-${questionIndex}-${rowIndex}`} style={[styles.optionsRow, isLastRow && styles.optionsRowLast]}>
+                    {row.map(({ value, label }, columnIndex) => {
+                      const optionIndex = (rowIndex * 2) + columnIndex;
+
+                      return (
+                        <AnswerCard
+                          key={`${questionIndex}-${optionIndex}-${value}`}
+                          optionText={label}
+                          suit={getSuitForIndex(optionIndex)}
+                          index={optionIndex}
+                          state={getCardState(value)}
+                          onPress={() => handleOptionPress(value, optionIndex)}
+                          animatedScale={cardScales[optionIndex]}
+                          animatedShake={shakeAnims[optionIndex]}
+                          animatedOpacity={cardAnimations[optionIndex]}
+                        />
+                      );
+                    })}
+                    {row.length === 1 ? <View style={styles.answerCardSpacer} /> : null}
+                  </View>
+                );
+              })}
             </View>
           </View>
 
@@ -570,15 +592,15 @@ const styles = StyleSheet.create({
   },
   topStage: {
     paddingTop: 4,
-    paddingBottom: 14,
-    gap: 12,
+    paddingBottom: 8,
+    gap: 10,
   },
   assistantCard: {
     marginHorizontal: GRID_HORIZONTAL_MARGIN,
     borderRadius: 20,
     borderWidth: 1,
-    minHeight: 92,
-    paddingBottom: 10,
+    minHeight: 86,
+    paddingBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.14,
@@ -609,11 +631,11 @@ const styles = StyleSheet.create({
   },
   questionCard: {
     marginHorizontal: GRID_HORIZONTAL_MARGIN,
-    marginBottom: 6,
+    marginBottom: 4,
     borderRadius: 22,
     paddingHorizontal: 20,
-    paddingVertical: 20,
-    minHeight: 168,
+    paddingVertical: 18,
+    minHeight: 154,
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
@@ -624,7 +646,7 @@ const styles = StyleSheet.create({
   questionMetaRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   questionPill: {
     backgroundColor: 'rgba(245, 158, 11, 0.18)',
@@ -646,10 +668,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700' as const,
     textAlign: 'center',
-    lineHeight: 28,
+    lineHeight: 27,
   },
   questionFooter: {
-    marginTop: 14,
+    marginTop: 12,
     alignItems: 'center',
   },
   questionFooterText: {
@@ -660,7 +682,7 @@ const styles = StyleSheet.create({
   gameArea: {
     flex: 1,
     justifyContent: 'flex-end',
-    paddingBottom: 14,
+    paddingBottom: 10,
   },
   tableSurface: {
     marginHorizontal: GRID_HORIZONTAL_MARGIN,
@@ -668,13 +690,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     padding: CARD_PADDING,
-    paddingVertical: CARD_PADDING + 4,
+    paddingVertical: CARD_PADDING + 2,
   },
   optionsGrid: {
+    width: '100%',
+  },
+  optionsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: CARD_GAP,
     justifyContent: 'space-between',
+    marginBottom: CARD_GAP,
+  },
+  optionsRowLast: {
+    marginBottom: 0,
+  },
+  answerCardSpacer: {
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    opacity: 0,
   },
   playerAnswers: {
     marginHorizontal: GRID_HORIZONTAL_MARGIN,
