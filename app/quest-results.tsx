@@ -5,9 +5,11 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import DealerPlaceholder from '@/components/DealerPlaceholder';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { QuestRunResult, QuestSettings } from '@/types/performance';
+import { getQuestCompletionDialogueEvent, selectAssistantDialogue } from '@/utils/dialogue';
 import { logger } from '@/utils/logger';
 
 export default function QuestResultsScreen() {
@@ -60,6 +62,17 @@ export default function QuestResultsScreen() {
     if (accuracy >= 0.5) return theme.warning;
     return theme.error;
   };
+
+  const resultDialogueEvent = useMemo(() => getQuestCompletionDialogueEvent({
+    accuracy: result.accuracy,
+    correctCount: result.correctCount,
+    incorrectCount: result.incorrectCount,
+  }), [result.accuracy, result.correctCount, result.incorrectCount]);
+
+  const assistantLine = useMemo(() => selectAssistantDialogue({
+    mode: 'quest',
+    event: resultDialogueEvent,
+  }), [resultDialogueEvent]);
 
   const handlePlayAgain = () => {
     router.replace({
@@ -128,6 +141,14 @@ export default function QuestResultsScreen() {
             <Text style={[styles.performanceMessage, { color: getPerformanceColor() }]}>
               {getPerformanceMessage()}
             </Text>
+          </View>
+
+          <View style={styles.assistantCard} testID="questResultsAssistantRow">
+            <View style={styles.assistantMetaRow}>
+              <Text style={styles.assistantEyebrow}>FLASHQUEST AI</Text>
+              <Text style={styles.assistantMode}>{resultDialogueEvent === 'win' ? 'Quest win' : 'Quest loss'}</Text>
+            </View>
+            <DealerPlaceholder customDialogue={assistantLine} size="small" title="Round assistant" />
           </View>
 
           <View style={[styles.scoreCard, { backgroundColor: theme.cardBackground }]}>
@@ -312,6 +333,38 @@ const styles = StyleSheet.create({
   performanceMessage: {
     fontSize: 20,
     fontWeight: '600' as const,
+  },
+  assistantCard: {
+    marginBottom: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(8, 15, 30, 0.18)',
+    paddingBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    elevation: 5,
+  },
+  assistantMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    marginBottom: 4,
+  },
+  assistantEyebrow: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    color: 'rgba(255,255,255,0.92)',
+    letterSpacing: 0.8,
+  },
+  assistantMode: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: 'rgba(255,255,255,0.72)',
   },
   scoreCard: {
     borderRadius: 24,

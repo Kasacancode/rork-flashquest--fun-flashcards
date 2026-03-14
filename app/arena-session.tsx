@@ -6,10 +6,11 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnswerCard, getSuitForIndex, DealerReaction, getRandomDealerLine, AnswerCardState, CARD_GAP, CARD_HEIGHT, CARD_PADDING, CARD_WIDTH, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
+import { AnswerCard, getSuitForIndex, DealerReaction, AnswerCardState, CARD_GAP, CARD_HEIGHT, CARD_PADDING, CARD_WIDTH, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
 import { DealerCountdownBar, StreakIndicator } from '@/components/GameUI';
 import { useArena } from '@/context/ArenaContext';
 import { useTheme } from '@/context/ThemeContext';
+import { isMeaningfulArenaStreak, selectAssistantDialogue, type ArenaDialogueEvent } from '@/utils/dialogue';
 import { buildGameplayOptionLabels, formatGameplayQuestion } from '@/utils/gameplayCopy';
 import { logger } from '@/utils/logger';
 
@@ -33,6 +34,7 @@ export default function ArenaSessionScreen() {
   const [dealerReactionCorrect, setDealerReactionCorrect] = useState<boolean | undefined>(undefined);
   const lastDealerLineRef = useRef<string>('');
   const prevQuestionIndexRef = useRef<number>(-1);
+  const leaderAtQuestionStartRef = useRef<string | null>(null);
   const hasNavigatedToResults = useRef(false);
 
   const cardAnimations = useRef([
@@ -93,6 +95,7 @@ export default function ArenaSessionScreen() {
   }));
 
   const leader = sortedPlayers[0];
+  const leaderId = leader?.id ?? null;
   const optionLabels = buildGameplayOptionLabels(options);
   const displayQuestion = formatGameplayQuestion(currentQuestion?.question ?? '');
   const displayOptions = options.map((option, index) => ({
@@ -151,13 +154,19 @@ export default function ArenaSessionScreen() {
 
   useEffect(() => {
     if (questionIndex !== prevQuestionIndexRef.current) {
+      const previousLeaderId = leaderAtQuestionStartRef.current;
+      const dialogueEvent: ArenaDialogueEvent = previousLeaderId && leaderId && previousLeaderId !== leaderId
+        ? 'leadChange'
+        : 'intro';
+      const line = selectAssistantDialogue({ mode: 'arena', event: dialogueEvent });
+
       prevQuestionIndexRef.current = questionIndex;
       setSelectedOption(null);
       setDealerReactionCorrect(undefined);
-
-      const line = getRandomDealerLine('idle', lastDealerLineRef.current);
       setDealerLine(line);
       lastDealerLineRef.current = line;
+      leaderAtQuestionStartRef.current = leaderId;
+      logger.log('[ArenaDialogue] Showing line:', { event: dialogueEvent, line, questionIndex, leaderId, previousLeaderId });
 
       revealOpacity.setValue(0);
 
@@ -174,15 +183,20 @@ export default function ArenaSessionScreen() {
         }).start();
       });
     }
-  }, [questionIndex, cardAnimations, cardScales, shakeAnims, revealOpacity]);
+  }, [questionIndex, leaderId, cardAnimations, cardScales, shakeAnims, revealOpacity]);
 
   useEffect(() => {
     if (lastAnswerCorrect !== null && selectedOption) {
-      const lineType = lastAnswerCorrect ? 'correct' : 'wrong';
-      const line = getRandomDealerLine(lineType, lastDealerLineRef.current);
+      const dialogueEvent: ArenaDialogueEvent = lastAnswerCorrect && isMeaningfulArenaStreak(myStreak)
+        ? 'streak'
+        : lastAnswerCorrect
+          ? 'correct'
+          : 'wrong';
+      const line = selectAssistantDialogue({ mode: 'arena', event: dialogueEvent });
       setDealerLine(line);
       lastDealerLineRef.current = line;
       setDealerReactionCorrect(lastAnswerCorrect);
+      logger.log('[ArenaDialogue] Showing line:', { event: dialogueEvent, line, questionIndex, myStreak, lastAnswerCorrect });
 
       if (Platform.OS !== 'web') {
         void Haptics.notificationAsync(
@@ -208,7 +222,7 @@ export default function ArenaSessionScreen() {
         }
       }
     }
-  }, [lastAnswerCorrect, selectedOption, currentQuestion?.options, cardScales, shakeAnims]);
+  }, [lastAnswerCorrect, selectedOption, currentQuestion?.options, questionIndex, myStreak, cardScales, shakeAnims]);
 
   useEffect(() => {
     if (phase === 'reveal') {

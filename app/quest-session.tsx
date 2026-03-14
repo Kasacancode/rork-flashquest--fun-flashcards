@@ -17,6 +17,7 @@ import { GAME_MODE } from '@/types/game';
 import type { QuestRunResult, QuestSettings } from '@/types/performance';
 import { buildGameplayOptionLabels, formatGameplayHint, formatGameplayQuestion } from '@/utils/gameplayCopy';
 import { selectNextCard, generateAIDistractors, generateOptions, checkAnswer, calculateScore } from '@/utils/questUtils';
+import { isMeaningfulQuestSlump, isMeaningfulQuestStreak, selectAssistantDialogue, type QuestDialogueEvent } from '@/utils/dialogue';
 import { logger } from '@/utils/logger';
 
 export default function QuestSessionScreen() {
@@ -72,6 +73,9 @@ export default function QuestSessionScreen() {
   const [showExplanation, setShowExplanation] = useState(false);
   const [inputLocked, setInputLocked] = useState(false);
   const [usedSecondChance, setUsedSecondChance] = useState(false);
+  const [assistantLine, setAssistantLine] = useState<string>('');
+  const [assistantTone, setAssistantTone] = useState<'idle' | 'correct' | 'wrong'>('idle');
+  const [missStreak, setMissStreak] = useState(0);
 
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
@@ -88,7 +92,6 @@ export default function QuestSessionScreen() {
   const usedCardIdsRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dealerDialogue = useRef<'idle' | 'correct' | 'wrong'>('idle');
   const advanceRoundRef = useRef<() => void>(() => {});
   const finishSessionEarlyRef = useRef<() => void>(() => {});
   const performanceRef = useRef(performance);
@@ -117,6 +120,13 @@ export default function QuestSessionScreen() {
       },
     });
   }, [deck, effectiveRunLength, settings.timerSeconds]);
+
+  const showQuestDialogue = useCallback((event: QuestDialogueEvent, tone: 'idle' | 'correct' | 'wrong') => {
+    const line = selectAssistantDialogue({ mode: 'quest', event });
+    setAssistantTone(tone);
+    setAssistantLine(line);
+    logger.log('[QuestDialogue] Showing line:', { event, tone, line });
+  }, []);
 
   const setupNextRound = useCallback(() => {
     if (!deck) return;
@@ -162,7 +172,7 @@ export default function QuestSessionScreen() {
     setInputLocked(false);
     setUsedSecondChance(false);
     setOptionsRenderKey(prev => prev + 1);
-    dealerDialogue.current = 'idle';
+    showQuestDialogue('intro', 'idle');
     setRoundStartTime(Date.now());
     setTimeRemaining(settings.timerSeconds > 0 ? settings.timerSeconds : null);
 
@@ -173,7 +183,7 @@ export default function QuestSessionScreen() {
       .catch((err) => {
         logger.log('[Quest] AI distractor warmup failed:', err);
       });
-  }, [deck, allCards, settings.focusWeakOnly, settings.timerSeconds, drillCards]);
+  }, [deck, allCards, settings.focusWeakOnly, settings.timerSeconds, drillCards, showQuestDialogue]);
 
   const clearAdvanceTimeout = useCallback(() => {
     if (advanceTimeoutRef.current) {
@@ -296,10 +306,14 @@ export default function QuestSessionScreen() {
       timerRef.current = null;
     }
 
+    const nextMissStreak = missStreak + 1;
+    const dialogueEvent: QuestDialogueEvent = isMeaningfulQuestSlump(nextMissStreak) ? 'slump' : 'wrong';
+
     setInputLocked(true);
     setIsCorrect(false);
-    dealerDialogue.current = 'wrong';
+    showQuestDialogue(dialogueEvent, 'wrong');
     setStreak(0);
+    setMissStreak(nextMissStreak);
     setIncorrectCount(prev => prev + 1);
     setMissedCardIds(prev => [...prev, currentCard.id]);
 
@@ -320,7 +334,7 @@ export default function QuestSessionScreen() {
     }
 
     scheduleAdvance(1500);
-  }, [inputLocked, currentCard, roundStartTime, settings.deckId, logQuestAttempt, scheduleAdvance, clearAdvanceTimeout]);
+  }, [inputLocked, currentCard, missStreak, roundStartTime, settings.deckId, logQuestAttempt, scheduleAdvance, clearAdvanceTimeout, showQuestDialogue]);
 
   useEffect(() => {
     if (timeRemaining === 0 && !inputLocked && currentCard) {
@@ -346,11 +360,13 @@ export default function QuestSessionScreen() {
     setTotalTimeMs(prev => prev + timeToAnswer);
 
     if (correct) {
-      setIsCorrect(true);
-      dealerDialogue.current = 'correct';
-      
       const newStreak = streak + 1;
+      const dialogueEvent: QuestDialogueEvent = isMeaningfulQuestStreak(newStreak) ? 'streak' : 'correct';
+
+      setIsCorrect(true);
+      showQuestDialogue(dialogueEvent, 'correct');
       setStreak(newStreak);
+      setMissStreak(0);
       if (newStreak > bestStreak) {
         setBestStreak(newStreak);
       }
@@ -382,15 +398,18 @@ export default function QuestSessionScreen() {
         scheduleAdvance(1000);
       }
     } else {
+      const nextMissStreak = missStreak + 1;
+      const dialogueEvent: QuestDialogueEvent = isMeaningfulQuestSlump(nextMissStreak) ? 'slump' : 'wrong';
+
       setIsCorrect(false);
-      dealerDialogue.current = 'wrong';
+      showQuestDialogue(dialogueEvent, 'wrong');
+      setMissStreak(nextMissStreak);
 
       if (settings.secondChanceEnabled && !usedSecondChance) {
         setUsedSecondChance(true);
         setInputLocked(false);
         setSelectedOption(null);
         setIsCorrect(null);
-        dealerDialogue.current = 'idle';
         
         if (settings.timerSeconds > 0) {
           setTimeRemaining(Math.max(3, Math.floor(settings.timerSeconds / 2)));
@@ -425,7 +444,7 @@ export default function QuestSessionScreen() {
         scheduleAdvance(1200);
       }
     }
-  }, [inputLocked, currentCard, streak, bestStreak, roundStartTime, settings, usedSecondChance, logQuestAttempt, scheduleAdvance, clearAdvanceTimeout]);
+  }, [inputLocked, currentCard, streak, missStreak, bestStreak, roundStartTime, settings, usedSecondChance, logQuestAttempt, scheduleAdvance, clearAdvanceTimeout, showQuestDialogue]);
 
   const advanceRound = useCallback(() => {
     const nextRound = currentRound + 1;
@@ -609,7 +628,7 @@ export default function QuestSessionScreen() {
               <Text style={styles.assistantEyebrow}>FLASHQUEST AI</Text>
               <Text style={styles.assistantMode}>{settings.mode === 'learn' ? 'Learn round' : 'Battle round'}</Text>
             </View>
-            <DealerPlaceholder dialogueType={dealerDialogue.current} size="small" title="Round assistant" />
+            <DealerPlaceholder dialogueType={assistantTone} customDialogue={assistantLine} size="small" title="Round assistant" />
           </View>
 
           <View style={[styles.questionCard, { backgroundColor: theme.cardBackground }]} testID="questQuestionCard">

@@ -62,7 +62,7 @@ export default function DealerPlaceholder({
   const lastLineRef = useRef<string>('');
 
   const getDialogue = (): string => {
-    if (customDialogue) return customDialogue;
+    if (typeof customDialogue === 'string') return customDialogue;
     
     let lines: string[];
     switch (dialogueType) {

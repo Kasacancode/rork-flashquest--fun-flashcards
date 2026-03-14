@@ -6,12 +6,14 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DealerReaction } from '@/components/AnswerCard';
 import { trackEvent } from '@/lib/analytics';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { ArenaLeaderboardEntry } from '@/types/arena';
 import { GAME_MODE } from '@/types/game';
+import { selectAssistantDialogue } from '@/utils/dialogue';
 import { logger } from '@/utils/logger';
 import { shareTextWithFallback } from '@/utils/share';
 
@@ -149,6 +151,12 @@ export default function ArenaResultsScreen() {
   }, [data]);
 
   const winnerStatsText = winner ? playerPerformance[winner.id]?.statLine ?? '0 correct • 0s • 0 pts' : '0 correct • 0s • 0 pts';
+  const didCurrentPlayerWin = winner?.id != null && winner.id === playerId;
+
+  const assistantLine = useMemo(() => selectAssistantDialogue({
+    mode: 'arena',
+    event: didCurrentPlayerWin ? 'win' : 'loss',
+  }), [didCurrentPlayerWin]);
 
   const winnerCallouts = useMemo(() => {
     if (!winner) {
@@ -372,6 +380,16 @@ export default function ArenaResultsScreen() {
           <View style={styles.header}>
             <Trophy color="#FFD700" size={56} />
             <Text style={styles.title}>Battle Over!</Text>
+          </View>
+
+          <View style={styles.assistantCard} testID="arenaResultsAssistantRow">
+            <View style={styles.assistantMetaRow}>
+              <Text style={styles.assistantEyebrow}>FLASHQUEST AI</Text>
+              <Text style={styles.assistantMode}>{didCurrentPlayerWin ? 'Victory call' : 'Final call'}</Text>
+            </View>
+            <View style={styles.assistantBody}>
+              <DealerReaction text={assistantLine} isCorrect={didCurrentPlayerWin} />
+            </View>
           </View>
 
           {winner != null && (
@@ -695,6 +713,41 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 16,
     marginBottom: 16,
+  },
+  assistantCard: {
+    marginBottom: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(0, 0, 0, 0.18)',
+    paddingBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    elevation: 5,
+  },
+  assistantMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    marginBottom: 4,
+  },
+  assistantEyebrow: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    color: 'rgba(255,255,255,0.92)',
+    letterSpacing: 0.8,
+  },
+  assistantMode: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: 'rgba(255,255,255,0.72)',
+  },
+  assistantBody: {
+    paddingBottom: 2,
   },
   winnerSection: {
     borderRadius: 24,
