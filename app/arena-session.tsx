@@ -2,14 +2,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { X, Crown, Users, Check, Clock } from 'lucide-react-native';
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnswerCard, getSuitForIndex, DealerReaction, getRandomDealerLine, AnswerCardState, CARD_GAP, CARD_PADDING, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
-import { DealerCountdownBar, MiniScoreboard, StreakIndicator } from '@/components/GameUI';
+import { DealerCountdownBar, StreakIndicator } from '@/components/GameUI';
 import { useArena } from '@/context/ArenaContext';
 import { useTheme } from '@/context/ThemeContext';
+import { buildGameplayOptionLabels, formatGameplayQuestion } from '@/utils/gameplayCopy';
 import { logger } from '@/utils/logger';
 
 export default function ArenaSessionScreen() {
@@ -18,7 +19,6 @@ export default function ArenaSessionScreen() {
   const {
     room,
     playerId,
-    isHost,
     hasAnsweredCurrent,
     lastAnswerCorrect,
     isSubmitting,
@@ -70,36 +70,40 @@ export default function ArenaSessionScreen() {
   const currentAnswers = game?.currentAnswers ?? null;
   const players = room?.players ?? [];
 
-  const timeRemainingSeconds = useMemo(() => {
-    if (game?.timeRemainingMs != null && game.timeRemainingMs > 0) {
-      return Math.ceil(game.timeRemainingMs / 1000);
-    }
-    return null;
-  }, [game?.timeRemainingMs]);
+  const timeRemainingSeconds = game?.timeRemainingMs != null && game.timeRemainingMs > 0
+    ? Math.ceil(game.timeRemainingMs / 1000)
+    : null;
 
   const timerTotal = room?.settings?.timerSeconds ?? 0;
 
   const myScore = playerId && scores[playerId] ? scores[playerId] : null;
   const myStreak = myScore?.currentStreak ?? 0;
 
-  const sortedPlayers = useMemo(() => {
-    return [...players].sort((a, b) => {
-      const aScore = scores[a.id]?.points ?? 0;
-      const bScore = scores[b.id]?.points ?? 0;
-      return bScore - aScore;
-    });
-  }, [players, scores]);
+  const sortedPlayers = [...players].sort((a, b) => {
+    const aScore = scores[a.id]?.points ?? 0;
+    const bScore = scores[b.id]?.points ?? 0;
+    return bScore - aScore;
+  });
 
-  const scoreboardPlayers = useMemo(() => {
-    return sortedPlayers.map(p => ({
-      id: p.id,
-      name: p.name,
-      color: p.color,
-      points: scores[p.id]?.points ?? 0,
-    }));
-  }, [sortedPlayers, scores]);
+  const scoreboardPlayers = sortedPlayers.map((player) => ({
+    id: player.id,
+    name: player.name,
+    color: player.color,
+    points: scores[player.id]?.points ?? 0,
+  }));
 
   const leader = sortedPlayers[0];
+  const optionLabels = buildGameplayOptionLabels(options);
+  const displayQuestion = formatGameplayQuestion(currentQuestion?.question ?? '');
+  const displayOptions = options.map((option, index) => ({
+    value: option,
+    label: optionLabels[index] ?? option,
+  }));
+  const questionFooterText = [
+    '4 answer cards',
+    '1 correct',
+    timerTotal > 0 ? `${timerTotal}s clock` : 'live round',
+  ].join(' • ');
 
   useEffect(() => {
     if (!room || room.status !== 'playing' || !game) {
@@ -114,13 +118,13 @@ export default function ArenaSessionScreen() {
       hasNavigatedToResults.current = true;
       logger.log('[Session] Game finished, navigating to results');
       if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       setTimeout(() => {
         router.replace('/arena-results' as any);
       }, 500);
     }
-  }, [room, game, phase]);
+  }, [room, game, phase, router]);
 
   useEffect(() => {
     if (connectionError) {
@@ -134,7 +138,7 @@ export default function ArenaSessionScreen() {
         },
       ]);
     }
-  }, [connectionError, clearError]);
+  }, [connectionError, clearError, router]);
 
   useEffect(() => {
     if (questionIndex !== prevQuestionIndexRef.current) {
@@ -172,12 +176,12 @@ export default function ArenaSessionScreen() {
       setDealerReactionCorrect(lastAnswerCorrect);
 
       if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(
+        void Haptics.notificationAsync(
           lastAnswerCorrect ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error
         );
       }
 
-      const selectedIndex = options.findIndex((o: string) => o === selectedOption);
+      const selectedIndex = (currentQuestion?.options ?? []).findIndex((o: string) => o === selectedOption);
       if (selectedIndex >= 0) {
         if (lastAnswerCorrect) {
           Animated.sequence([
@@ -195,7 +199,7 @@ export default function ArenaSessionScreen() {
         }
       }
     }
-  }, [lastAnswerCorrect, selectedOption, options, cardScales, shakeAnims]);
+  }, [lastAnswerCorrect, selectedOption, currentQuestion?.options, cardScales, shakeAnims]);
 
   useEffect(() => {
     if (phase === 'reveal') {
@@ -343,37 +347,63 @@ export default function ArenaSessionScreen() {
           </Animated.View>
         )}
 
-        {!!dealerLine && phase === 'question' && !hasAnsweredCurrent && (
-          <View style={styles.dealerSection}>
-            <DealerReaction text={dealerLine} isCorrect={dealerReactionCorrect} />
-          </View>
-        )}
-
-        <View style={[styles.questionCard, { backgroundColor: isDark ? theme.cardBackground : 'rgba(255,255,255,0.95)' }]}>
-          {timerTotal > 0 && timeRemainingSeconds !== null && phase === 'question' && (
-            <View style={styles.inlineTimer}>
-              <DealerCountdownBar
-                timeRemaining={timeRemainingSeconds}
-                totalTime={timerTotal}
-              />
+        <View style={styles.topStage}>
+          {!!dealerLine && phase === 'question' && (
+            <View
+              style={[
+                styles.assistantCard,
+                { backgroundColor: 'rgba(0, 0, 0, 0.18)', borderColor: 'rgba(255, 255, 255, 0.12)' },
+              ]}
+              testID="arenaAssistantRow"
+            >
+              <View style={styles.assistantMetaRow}>
+                <Text style={styles.assistantEyebrow}>FLASHQUEST AI</Text>
+                <Text style={styles.assistantMode}>{hasAnsweredCurrent ? 'Answer locked' : 'Live battle'}</Text>
+              </View>
+              <View style={styles.dealerSection}>
+                <DealerReaction text={dealerLine} isCorrect={dealerReactionCorrect} />
+              </View>
             </View>
           )}
-          <Text style={[styles.questionText, { color: theme.text }]} numberOfLines={3}>
-            {currentQuestion?.question}
-          </Text>
+
+          <View style={[styles.questionCard, { backgroundColor: isDark ? theme.cardBackground : 'rgba(255,255,255,0.95)' }]} testID="arenaQuestionCard">
+            <View style={styles.questionMetaRow}>
+              <View style={styles.questionPill}>
+                <Text style={styles.questionPillText} numberOfLines={1}>
+                  {room?.code ? `ROOM ${room.code}` : 'ARENA BATTLE'}
+                </Text>
+              </View>
+            </View>
+            {timerTotal > 0 && timeRemainingSeconds !== null && phase === 'question' && (
+              <View style={styles.inlineTimer}>
+                <DealerCountdownBar
+                  timeRemaining={timeRemainingSeconds}
+                  totalTime={timerTotal}
+                />
+              </View>
+            )}
+            <Text style={[styles.questionText, { color: theme.text }]} numberOfLines={4}>
+              {displayQuestion}
+            </Text>
+            <View style={styles.questionFooter}>
+              <Text style={[styles.questionFooterText, { color: isDark ? 'rgba(255,255,255,0.72)' : theme.textSecondary }]} numberOfLines={1}>
+                {questionFooterText}
+              </Text>
+            </View>
+          </View>
         </View>
 
         <View style={styles.gameArea}>
           <View style={[styles.tableSurface, { backgroundColor: theme.arenaTableSurface }]}>
             <View style={styles.optionsGrid}>
-              {options.map((option: string, index: number) => (
+              {displayOptions.map(({ value, label }, index) => (
                 <AnswerCard
-                  key={`${questionIndex}-${index}`}
-                  optionText={option}
+                  key={`${questionIndex}-${index}-${value}`}
+                  optionText={label}
                   suit={getSuitForIndex(index)}
                   index={index}
-                  state={getCardState(option)}
-                  onPress={() => handleOptionPress(option, index)}
+                  state={getCardState(value)}
+                  onPress={() => handleOptionPress(value, index)}
                   animatedScale={cardScales[index]}
                   animatedShake={shakeAnims[index]}
                   animatedOpacity={cardAnimations[index]}
@@ -538,38 +568,107 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700' as const,
   },
-  dealerSection: {
+  topStage: {
+    paddingTop: 4,
+    paddingBottom: 14,
+    gap: 12,
+  },
+  assistantCard: {
+    marginHorizontal: GRID_HORIZONTAL_MARGIN,
+    borderRadius: 20,
+    borderWidth: 1,
+    minHeight: 92,
+    paddingBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    elevation: 5,
+  },
+  assistantMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 14,
     marginBottom: 4,
+  },
+  assistantEyebrow: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    color: 'rgba(255,255,255,0.92)',
+    letterSpacing: 0.8,
+  },
+  assistantMode: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: 'rgba(255,255,255,0.72)',
+  },
+  dealerSection: {
+    marginBottom: 0,
   },
   questionCard: {
     marginHorizontal: GRID_HORIZONTAL_MARGIN,
-    marginBottom: 8,
-    borderRadius: 14,
-    padding: 14,
+    marginBottom: 6,
+    borderRadius: 22,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    minHeight: 168,
+    justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  questionMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  questionPill: {
+    backgroundColor: 'rgba(245, 158, 11, 0.18)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    maxWidth: '82%',
+  },
+  questionPillText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: '#fbbf24',
   },
   inlineTimer: {
-    marginBottom: 8,
+    marginBottom: 12,
     marginHorizontal: -4,
   },
   questionText: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '700' as const,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 28,
+  },
+  questionFooter: {
+    marginTop: 14,
+    alignItems: 'center',
+  },
+  questionFooterText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    letterSpacing: 0.2,
   },
   gameArea: {
     flex: 1,
-    justifyContent: 'flex-start',
+    justifyContent: 'flex-end',
+    paddingBottom: 14,
   },
   tableSurface: {
     marginHorizontal: GRID_HORIZONTAL_MARGIN,
-    borderRadius: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     padding: CARD_PADDING,
+    paddingVertical: CARD_PADDING + 4,
   },
   optionsGrid: {
     flexDirection: 'row',

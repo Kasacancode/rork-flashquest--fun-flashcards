@@ -15,6 +15,7 @@ import { trackEvent } from '@/lib/analytics';
 import type { Flashcard } from '@/types/flashcard';
 import { GAME_MODE } from '@/types/game';
 import type { QuestRunResult, QuestSettings } from '@/types/performance';
+import { buildGameplayOptionLabels, formatGameplayHint, formatGameplayQuestion } from '@/utils/gameplayCopy';
 import { selectNextCard, generateAIDistractors, generateOptions, checkAnswer, calculateScore } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
 
@@ -482,6 +483,27 @@ export default function QuestSessionScreen() {
     return [currentCard.answer];
   }, [currentCard, options]);
 
+  const displayQuestion = useMemo(() => formatGameplayQuestion(currentCard?.question ?? ''), [currentCard?.question]);
+  const displayHint = useMemo(() => formatGameplayHint(currentCard?.hint1 ?? ''), [currentCard?.hint1]);
+  const displayOptions = useMemo(() => {
+    const labels = buildGameplayOptionLabels(displayedOptions);
+    return displayedOptions.map((option, index) => ({
+      value: option,
+      label: labels[index] ?? option,
+    }));
+  }, [displayedOptions]);
+  const questionFooterText = useMemo(() => {
+    const parts = ['4 answer cards', '1 correct'];
+
+    if (settings.timerSeconds > 0) {
+      parts.push(`${settings.timerSeconds}s clock`);
+    } else {
+      parts.push(settings.mode === 'learn' ? 'steady pace' : 'fast round');
+    }
+
+    return parts.join(' • ');
+  }, [settings.mode, settings.timerSeconds]);
+
   const handleHintPress = useCallback(() => {
     if (!settings.hintsEnabled || !currentCard?.hint1 || inputLocked) return;
     setShowHint(true);
@@ -566,15 +588,38 @@ export default function QuestSessionScreen() {
           )}
         </View>
 
-        <View style={styles.dealerSection}>
-          <DealerPlaceholder dialogueType={dealerDialogue.current} size="small" />
-        </View>
+        <View style={styles.topStage}>
+          <View
+            style={[
+              styles.assistantCard,
+              { backgroundColor: 'rgba(8, 15, 30, 0.18)', borderColor: 'rgba(255, 255, 255, 0.12)' },
+            ]}
+            testID="questAssistantRow"
+          >
+            <View style={styles.assistantMetaRow}>
+              <Text style={styles.assistantEyebrow}>FLASHQUEST AI</Text>
+              <Text style={styles.assistantMode}>{settings.mode === 'learn' ? 'Learn round' : 'Battle round'}</Text>
+            </View>
+            <DealerPlaceholder dialogueType={dealerDialogue.current} size="small" title="Round assistant" />
+          </View>
 
-        <View style={[styles.questionCard, { backgroundColor: theme.cardBackground }]}>
-          <Text style={[styles.questionText, { color: theme.text }]} numberOfLines={3}>
-            {currentCard.question}
-          </Text>
-          
+          <View style={[styles.questionCard, { backgroundColor: theme.cardBackground }]} testID="questQuestionCard">
+            <View style={styles.questionMetaRow}>
+              <View style={[styles.questionPill, { backgroundColor: `${theme.primary}22` }]}>
+                <Text style={[styles.questionPillText, { color: theme.primary }]} numberOfLines={1}>
+                  {deck.name}
+                </Text>
+              </View>
+            </View>
+            <Text style={[styles.questionText, { color: theme.text }]} numberOfLines={4}>
+              {displayQuestion}
+            </Text>
+            <View style={styles.questionFooter}>
+              <Text style={[styles.questionFooterText, { color: theme.textSecondary }]} numberOfLines={1}>
+                {questionFooterText}
+              </Text>
+            </View>
+
           {settings.hintsEnabled && !!currentCard.hint1 && !showHint && !inputLocked && (
             <TouchableOpacity
               style={[styles.hintButton, { backgroundColor: theme.warning + '20' }]}
@@ -589,22 +634,23 @@ export default function QuestSessionScreen() {
           {showHint && !!currentCard.hint1 && (
             <View style={[styles.hintContainer, { backgroundColor: theme.warning + '15' }]}>
               <Lightbulb color={theme.warning} size={12} />
-              <Text style={[styles.hintText, { color: theme.warning }]}>{currentCard.hint1}</Text>
+              <Text style={[styles.hintText, { color: theme.warning }]}>{displayHint}</Text>
             </View>
           )}
+          </View>
         </View>
 
         <View style={styles.gameArea}>
           <View style={styles.tableSurface}>
             <View key={`${currentCard.id}-${optionsRenderKey}`} style={styles.optionsGrid}>
-              {displayedOptions.map((option, index) => (
+              {displayOptions.map(({ value, label }, index) => (
                 <AnswerCard
-                  key={`${currentCard.id}-${optionsRenderKey}-${index}-${option}`}
-                  optionText={option}
+                  key={`${currentCard.id}-${optionsRenderKey}-${index}-${value}`}
+                  optionText={label}
                   suit={getSuitForIndex(index)}
                   index={index}
-                  state={getCardState(option)}
-                  onPress={() => handleOptionPress(option)}
+                  state={getCardState(value)}
+                  onPress={() => handleOptionPress(value)}
                 />
               ))}
             </View>
@@ -713,38 +759,98 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700' as const,
   },
-  dealerSection: {
+  topStage: {
+    paddingTop: 6,
+    paddingBottom: 14,
+    gap: 12,
+  },
+  assistantCard: {
+    marginHorizontal: GRID_HORIZONTAL_MARGIN,
+    borderRadius: 20,
+    borderWidth: 1,
+    minHeight: 92,
+    paddingBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    elevation: 5,
+  },
+  assistantMetaRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 2,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    marginBottom: 2,
+  },
+  assistantEyebrow: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    color: 'rgba(255, 255, 255, 0.9)',
+    letterSpacing: 0.8,
+  },
+  assistantMode: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: 'rgba(255, 255, 255, 0.72)',
   },
   gameArea: {
     flex: 1,
-    justifyContent: 'flex-start',
+    justifyContent: 'flex-end',
+    paddingBottom: 14,
   },
   questionCard: {
     marginHorizontal: GRID_HORIZONTAL_MARGIN,
-    marginBottom: 8,
-    borderRadius: 14,
-    padding: 14,
+    marginBottom: 6,
+    borderRadius: 22,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    minHeight: 172,
+    justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  questionMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  questionPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    maxWidth: '82%',
+  },
+  questionPillText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
   },
   questionText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
+    fontSize: 20,
+    fontWeight: '700' as const,
     textAlign: 'center',
-    lineHeight: 21,
+    lineHeight: 28,
+  },
+  questionFooter: {
+    marginTop: 14,
+    alignItems: 'center',
+  },
+  questionFooterText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    letterSpacing: 0.2,
   },
   hintButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    marginTop: 10,
-    paddingVertical: 6,
+    marginTop: 14,
+    paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: 10,
     alignSelf: 'center',
@@ -757,9 +863,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 6,
-    marginTop: 10,
-    padding: 10,
-    borderRadius: 10,
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 12,
   },
   hintText: {
     flex: 1,
@@ -767,10 +873,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   tableSurface: {
-    backgroundColor: 'rgba(0, 50, 35, 0.3)',
+    backgroundColor: 'rgba(0, 50, 35, 0.34)',
     marginHorizontal: GRID_HORIZONTAL_MARGIN,
-    borderRadius: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     padding: CARD_PADDING,
+    paddingVertical: CARD_PADDING + 4,
   },
   optionsGrid: {
     flexDirection: 'row',

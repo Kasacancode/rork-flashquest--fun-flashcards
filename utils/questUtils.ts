@@ -3,6 +3,7 @@ import { generateObject } from '@rork-ai/toolkit-sdk';
 
 import type { Flashcard } from '@/types/flashcard';
 import type { CardStats, QuestPerformance } from '@/types/performance';
+import { buildGameplayDistractorPrompt, formatGameplayOption } from '@/utils/gameplayCopy';
 import { logger } from '@/utils/logger';
 
 const aiDistractorSchema = z.object({
@@ -592,25 +593,15 @@ export async function generateAIDistractors(
       messages: [
         {
           role: 'user',
-          content: `You are a flashcard quiz game AI. Given a question and its correct answer, generate exactly 3 plausible but WRONG answers. The wrong answers should stay in the same topic as the question and match the answer format.
-
-Question: ${question}
-Correct Answer: ${correctAnswer}
-
-Generate 3 wrong answers that:
-- Stay in the same subject area as the deck/question
-- Match the format and approximate length of the correct answer
-- Sound plausible but are factually wrong
-- Are distinct from each other and from the correct answer
-- Do not include explanations or labels`,
+          content: buildGameplayDistractorPrompt(question, correctAnswer),
         },
       ],
       schema: aiDistractorSchema,
     });
 
-    const distractors = result.distractors.filter(
-      (d: string) => d.toLowerCase().trim() !== correctAnswer.toLowerCase().trim()
-    );
+    const distractors = result.distractors
+      .map((d: string) => formatGameplayOption(d))
+      .filter((d: string) => d.toLowerCase().trim() !== correctAnswer.toLowerCase().trim());
 
     if (distractors.length > 0) {
       const keys = Object.keys(aiDistractorCache);

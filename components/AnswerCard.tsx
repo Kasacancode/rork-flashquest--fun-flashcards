@@ -3,17 +3,18 @@ import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, Dimensions } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_GAP = 8;
-const CARD_PADDING = 10;
+const CARD_GAP = 10;
+const CARD_PADDING = 12;
 const GRID_HORIZONTAL_MARGIN = 12;
 const AVAILABLE_WIDTH = SCREEN_WIDTH - (GRID_HORIZONTAL_MARGIN * 2) - (CARD_PADDING * 2) - CARD_GAP;
 const CARD_WIDTH = Math.floor(AVAILABLE_WIDTH / 2);
-const CARD_HEIGHT = Math.min(CARD_WIDTH * 0.85, 110);
+const CARD_HEIGHT = Math.min(Math.max(CARD_WIDTH * 0.98, 118), 134);
 
 export type CardSuit = '♠' | '♥' | '♦' | '♣';
 export type AnswerCardState = 'idle' | 'selected' | 'correct' | 'wrong' | 'disabled';
 
 const SUITS: CardSuit[] = ['♠', '♥', '♦', '♣'];
+const OPTION_MARKERS = ['A', 'B', 'C', 'D'] as const;
 
 const SUIT_COLORS: Record<CardSuit, string> = {
   '♠': '#1e293b',
@@ -200,6 +201,12 @@ export function AnswerCard({
         disabled={state !== 'idle'}
       >
         <View style={[styles.cardTexture, { backgroundColor: cardColors.accent }]} />
+
+        <View style={styles.optionMarker}>
+          <Text style={[styles.optionMarkerText, { color: suitColor }]}>
+            {OPTION_MARKERS[index % OPTION_MARKERS.length]}
+          </Text>
+        </View>
         
         <View style={styles.suitCornerTop}>
           <Text style={[styles.suitText, { color: suitColor }]}>{suit}</Text>
@@ -218,7 +225,7 @@ export function AnswerCard({
             ]}
             numberOfLines={4}
             adjustsFontSizeToFit
-            minimumFontScale={0.7}
+            minimumFontScale={0.76}
           >
             {optionText}
           </Text>
@@ -328,9 +335,10 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     height: '100%',
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1.5,
-    padding: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
     justifyContent: 'center',
     alignItems: 'center',
     shadowOffset: { width: 0, height: 2 },
@@ -344,19 +352,37 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     opacity: 0.5,
   },
+  optionMarker: {
+    position: 'absolute',
+    top: 8,
+    alignSelf: 'center',
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    paddingHorizontal: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  optionMarkerText: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    letterSpacing: 0.6,
+  },
   suitCornerTop: {
     position: 'absolute',
-    top: 4,
-    left: 6,
+    top: 8,
+    left: 9,
   },
   suitCornerBottom: {
     position: 'absolute',
-    bottom: 4,
-    right: 6,
+    bottom: 8,
+    right: 9,
   },
   suitText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
+    fontSize: 14,
+    fontWeight: '700' as const,
     opacity: 0.35,
   },
   suitRotated: {
@@ -366,15 +392,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 14,
   },
   optionText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
+    fontSize: 15,
+    fontWeight: '700' as const,
     color: '#1e293b',
     textAlign: 'center',
-    lineHeight: 17,
+    lineHeight: 20,
   },
   optionTextCorrect: {
     color: '#166534',
@@ -391,9 +417,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -3,
     right: -3,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#16a34a',
     justifyContent: 'center',
     alignItems: 'center',

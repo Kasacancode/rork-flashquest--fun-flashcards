@@ -40,6 +40,7 @@ interface DealerPlaceholderProps {
   dialogueType?: DialogueType;
   customDialogue?: string;
   size?: 'normal' | 'small';
+  title?: string;
 }
 
 function getRandomLine(lines: string[], lastLine?: string): string {
@@ -52,6 +53,7 @@ export default function DealerPlaceholder({
   dialogueType = 'idle',
   customDialogue,
   size = 'normal',
+  title,
 }: DealerPlaceholderProps) {
   const isSmall = size === 'small';
   const { theme } = useTheme();
@@ -135,6 +137,11 @@ export default function DealerPlaceholder({
         ]}
       >
         <View style={[styles.speechTail, isSmall && styles.speechTailSmall, { backgroundColor: theme.cardBackground }]} />
+        {!!title && (
+          <Text style={[styles.titleText, isSmall && styles.titleTextSmall, { color: theme.textSecondary }]}>
+            {title}
+          </Text>
+        )}
         <Text style={[styles.dialogue, isSmall && styles.dialogueSmall, { color: theme.text }]}>{dialogue}</Text>
       </Animated.View>
     </View>
@@ -148,9 +155,11 @@ const styles = StyleSheet.create({
   },
   containerSmall: {
     flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 12,
     gap: 10,
+    width: '100%',
   },
   avatarContainer: {
     width: 80,
@@ -199,9 +208,11 @@ const styles = StyleSheet.create({
   speechBubbleSmall: {
     marginTop: 0,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingVertical: 9,
+    borderRadius: 14,
     flex: 1,
+    minHeight: 54,
+    justifyContent: 'center',
   },
   speechTail: {
     position: 'absolute',
@@ -221,6 +232,18 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
   },
+  titleText: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  titleTextSmall: {
+    textAlign: 'left',
+    marginBottom: 3,
+  },
   dialogue: {
     fontSize: 16,
     fontWeight: '600' as const,
@@ -229,5 +252,6 @@ const styles = StyleSheet.create({
   dialogueSmall: {
     fontSize: 13,
     textAlign: 'left',
+    lineHeight: 17,
   },
 });
