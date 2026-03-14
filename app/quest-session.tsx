@@ -841,8 +841,8 @@ const styles = StyleSheet.create({
   },
   gameArea: {
     flex: 1,
-    justifyContent: 'flex-end',
-    paddingBottom: 24,
+    justifyContent: 'center',
+    paddingBottom: 8,
   },
   questionCard: {
     marginHorizontal: GRID_HORIZONTAL_MARGIN,
