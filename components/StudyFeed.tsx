@@ -20,7 +20,6 @@ import { Theme } from '@/constants/colors';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 60;
-const DOUBLE_TAP_DELAY = 300;
 const BLOCKED_SHAKE_COOLDOWN = 300;
 
 interface StudyFeedProps {
@@ -58,7 +57,6 @@ export default function StudyFeed({
   const cardTranslateY = useRef(new Animated.Value(0)).current;
   const hintDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const lastTapRef = useRef<number>(0);
   const gestureStartRef = useRef<{ x: number; y: number } | null>(null);
   const isProcessingRef = useRef(false);
   const lastBlockedShakeRef = useRef<number>(0);
@@ -67,7 +65,7 @@ export default function StudyFeed({
 
   const triggerHaptic = useCallback(() => {
     if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   }, []);
 
@@ -258,8 +256,7 @@ export default function StudyFeed({
       hintDismissTimer.current = setTimeout(() => {
         dismissHintOverlay();
       }, 3500);
-    } catch (error) {
-
+    } catch {
       Alert.alert('Generation Failed', 'Could not generate a hint. Please try again.');
     } finally {
       setIsGeneratingHint(false);
@@ -283,8 +280,7 @@ export default function StudyFeed({
       }
 
       onUpdateCard?.(currentCard.id, { explanation: explanation.trim() });
-    } catch (error) {
-
+    } catch {
       Alert.alert('Generation Failed', 'Could not generate an explanation. Please try again.');
     } finally {
       setIsGeneratingExplanation(false);
@@ -307,15 +303,9 @@ export default function StudyFeed({
 
     gestureStartRef.current = null;
 
-    // Check for tap (minimal movement)
+    // Check for tap (minimal movement) — single tap reveals
     if (absDx < 10 && absDy < 10) {
-      const now = Date.now();
-      if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
-        lastTapRef.current = 0;
-        handleDoubleTap();
-      } else {
-        lastTapRef.current = now;
-      }
+      handleDoubleTap();
       return;
     }
 
@@ -327,11 +317,11 @@ export default function StudyFeed({
     }
 
     if (absDx > absDy) {
-      // Horizontal swipe
+      // Horizontal swipe — left = hint, right = explain
       if (dx > SWIPE_THRESHOLD) {
-        handleShowHint();
-      } else if (dx < -SWIPE_THRESHOLD) {
         handleShowFeedback();
+      } else if (dx < -SWIPE_THRESHOLD) {
+        handleShowHint();
       }
     } else {
       // Vertical swipe
@@ -432,7 +422,7 @@ export default function StudyFeed({
               {currentCard.question}
             </Text>
             <Text style={[styles.cardHint, { color: isDark ? theme.textSecondary : '#999' }]}>
-              Double-tap to reveal answer
+              Tap to reveal answer
             </Text>
           </Animated.View>
 
@@ -456,18 +446,18 @@ export default function StudyFeed({
       </Pressable>
 
       <View style={styles.gestureGuide}>
-        <View style={styles.gestureItem}>
+        <TouchableOpacity style={styles.gestureItem} onPress={handleShowHint} activeOpacity={0.6}>
           <View style={[styles.gestureArrow, styles.arrowLeft]} />
-          <Text style={styles.gestureText}>Explain</Text>
-        </View>
-        <View style={styles.gestureItem}>
+          <Text style={styles.gestureText}>Hint</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.gestureItem} onPress={handleNextCard} activeOpacity={0.6}>
           <View style={[styles.gestureArrow, styles.arrowUp]} />
           <Text style={styles.gestureText}>Next</Text>
-        </View>
-        <View style={styles.gestureItem}>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.gestureItem} onPress={handleShowFeedback} activeOpacity={0.6}>
           <View style={[styles.gestureArrow, styles.arrowRight]} />
-          <Text style={styles.gestureText}>Hint</Text>
-        </View>
+          <Text style={styles.gestureText}>Explain</Text>
+        </TouchableOpacity>
       </View>
 
       {showHintOverlay && (
