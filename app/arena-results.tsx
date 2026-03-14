@@ -52,6 +52,22 @@ interface PlayerPerformance {
   statLine: string;
 }
 
+function getPlacementLabel(rank: number): string {
+  if (rank === 1) {
+    return '1st';
+  }
+
+  if (rank === 2) {
+    return '2nd';
+  }
+
+  if (rank === 3) {
+    return '3rd';
+  }
+
+  return `${rank}th`;
+}
+
 export default function ArenaResultsScreen() {
   const router = useRouter();
   const { theme } = useTheme();
@@ -152,6 +168,19 @@ export default function ArenaResultsScreen() {
 
   const winnerStatsText = winner ? playerPerformance[winner.id]?.statLine ?? '0 correct • 0s • 0 pts' : '0 correct • 0s • 0 pts';
   const didCurrentPlayerWin = winner?.id != null && winner.id === playerId;
+  const currentPlayerPlacement = playerId ? sortedPlayers.findIndex((player) => player.id === playerId) + 1 : 0;
+  const currentPlayer = playerId ? sortedPlayers.find((player) => player.id === playerId) ?? null : null;
+  const currentPlayerStats = currentPlayer != null ? playerPerformance[currentPlayer.id] : undefined;
+  const isDuel = data?.players.length === 2;
+  const resultHeadline = isDuel
+    ? (didCurrentPlayerWin ? 'Victory' : 'Defeat')
+    : currentPlayerPlacement > 0
+      ? `You placed ${getPlacementLabel(currentPlayerPlacement)}`
+      : 'Final Standings';
+  const resultSubtitle = currentPlayerStats != null
+    ? currentPlayerStats.statLine
+    : winnerStatsText;
+  const podiumPlayers = sortedPlayers.slice(0, 3);
 
   const assistantLine = useMemo(() => selectAssistantDialogue({
     mode: 'arena',
@@ -379,7 +408,8 @@ export default function ArenaResultsScreen() {
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <Trophy color="#FFD700" size={56} />
-            <Text style={styles.title}>Battle Over!</Text>
+            <Text style={styles.title}>{resultHeadline}</Text>
+            <Text style={styles.subtitle}>{isDuel ? 'The table settles and the result is in.' : 'Placements lock in before the next rematch.'}</Text>
           </View>
 
           <View style={styles.assistantCard} testID="arenaResultsAssistantRow">
@@ -391,6 +421,56 @@ export default function ArenaResultsScreen() {
               <DealerReaction text={assistantLine} isCorrect={didCurrentPlayerWin} />
             </View>
           </View>
+
+          <View style={[styles.resultHeroCard, { backgroundColor: theme.cardBackground, borderColor: currentPlayer?.color ? `${currentPlayer.color}40` : theme.border }]}> 
+            <Text style={[styles.resultHeroEyebrow, { color: theme.textSecondary }]}>{isDuel ? 'Head-to-head result' : 'Your finish'}</Text>
+            <Text style={[styles.resultHeroTitle, { color: theme.text }]}>{resultHeadline}</Text>
+            <Text style={[styles.resultHeroSubtitle, { color: theme.textSecondary }]}>{resultSubtitle}</Text>
+            <View style={styles.resultHeroStatsRow}>
+              <View style={[styles.resultHeroStat, { backgroundColor: theme.background }]}> 
+                <Text style={[styles.resultHeroStatValue, { color: theme.primary }]}>{currentPlayerPlacement > 0 ? getPlacementLabel(currentPlayerPlacement) : '—'}</Text>
+                <Text style={[styles.resultHeroStatLabel, { color: theme.textSecondary }]}>Place</Text>
+              </View>
+              <View style={[styles.resultHeroStat, { backgroundColor: theme.background }]}> 
+                <Text style={[styles.resultHeroStatValue, { color: theme.success }]}>{currentPlayerStats?.points ?? 0}</Text>
+                <Text style={[styles.resultHeroStatLabel, { color: theme.textSecondary }]}>Points</Text>
+              </View>
+              <View style={[styles.resultHeroStat, { backgroundColor: theme.background }]}> 
+                <Text style={[styles.resultHeroStatValue, { color: '#fbbf24' }]}>{Math.round((currentPlayerStats?.accuracy ?? 0) * 100)}%</Text>
+                <Text style={[styles.resultHeroStatLabel, { color: theme.textSecondary }]}>Accuracy</Text>
+              </View>
+            </View>
+          </View>
+
+          {podiumPlayers.length >= 3 && (
+            <View style={styles.podiumRow}>
+              {podiumPlayers.map((player, index) => {
+                const performance = playerPerformance[player.id];
+                const isFirst = index === 0;
+
+                return (
+                  <View
+                    key={`podium-${player.id}`}
+                    style={[
+                      styles.podiumCard,
+                      {
+                        backgroundColor: theme.cardBackground,
+                        borderColor: `${player.color}40`,
+                        marginTop: isFirst ? 0 : index === 1 ? 18 : 28,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.podiumRank}>{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</Text>
+                    <View style={[styles.podiumAvatar, { backgroundColor: player.color }]}>
+                      <Text style={styles.podiumSuit}>{player.suit}</Text>
+                    </View>
+                    <Text style={[styles.podiumName, { color: theme.text }]} numberOfLines={1}>{player.name}</Text>
+                    <Text style={[styles.podiumPoints, { color: theme.textSecondary }]}>{performance?.points ?? 0} pts</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
 
           {winner != null && (
             <View
@@ -614,7 +694,7 @@ export default function ArenaResultsScreen() {
 
             {!isHost && (
               <View style={styles.waitingForHostReset}>
-                <Text style={styles.waitingForHostResetText}>Waiting for host to start next round...</Text>
+                <Text style={styles.waitingForHostResetText}>Waiting for host to start rematch...</Text>
               </View>
             )}
 
@@ -712,7 +792,13 @@ const styles = StyleSheet.create({
     fontWeight: '800' as const,
     color: '#fff',
     marginTop: 16,
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    color: 'rgba(255,255,255,0.8)',
   },
   assistantCard: {
     marginBottom: 16,
@@ -748,6 +834,88 @@ const styles = StyleSheet.create({
   },
   assistantBody: {
     paddingBottom: 2,
+  },
+  resultHeroCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 20,
+    marginBottom: 16,
+  },
+  resultHeroEyebrow: {
+    fontSize: 12,
+    fontWeight: '800' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  resultHeroTitle: {
+    fontSize: 28,
+    fontWeight: '900' as const,
+  },
+  resultHeroSubtitle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    marginTop: 6,
+  },
+  resultHeroStatsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  resultHeroStat: {
+    flex: 1,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  resultHeroStatValue: {
+    fontSize: 19,
+    fontWeight: '800' as const,
+  },
+  resultHeroStatLabel: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    marginTop: 4,
+  },
+  podiumRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-end',
+    marginBottom: 16,
+  },
+  podiumCard: {
+    flex: 1,
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  podiumRank: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  podiumAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  podiumSuit: {
+    fontSize: 22,
+    fontWeight: '800' as const,
+    color: '#fff',
+  },
+  podiumName: {
+    fontSize: 14,
+    fontWeight: '800' as const,
+    marginBottom: 4,
+  },
+  podiumPoints: {
+    fontSize: 12,
+    fontWeight: '600' as const,
   },
   winnerSection: {
     borderRadius: 24,

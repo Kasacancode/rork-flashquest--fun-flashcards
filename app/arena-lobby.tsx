@@ -73,6 +73,9 @@ export default function ArenaLobbyScreen() {
   const [showLeaveModal, setShowLeaveModal] = useState<boolean>(false);
   const [codeCopied, setCodeCopied] = useState<boolean>(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const playerCountPulse = useRef(new Animated.Value(1)).current;
+  const playerEntryAnimationsRef = useRef<Record<string, Animated.Value>>({});
+  const previousPlayerIdsRef = useRef<string[]>([]);
   const prevStatus = useRef<string | null>(null);
 
   useEffect(() => {
@@ -223,6 +226,14 @@ export default function ArenaLobbyScreen() {
     updateSettings({ showExplanationsAtEnd: nextValue });
   }, [room, updateSettings]);
 
+  const getPlayerEntryAnimation = useCallback((id: string): Animated.Value => {
+    if (!playerEntryAnimationsRef.current[id]) {
+      playerEntryAnimationsRef.current[id] = new Animated.Value(1);
+    }
+
+    return playerEntryAnimationsRef.current[id]!;
+  }, []);
+
   const selectedDeck = useMemo(() => {
     if (!room?.deckId) return null;
     return decks.find(d => d.id === room.deckId);
@@ -238,8 +249,53 @@ export default function ArenaLobbyScreen() {
 
   const smallDeckWarning = selectedDeck && selectedDeck.flashcards.length < 8;
   const lobbyPlayers = (room?.players ?? []) as LobbyPlayer[];
+  const lobbyPlayerIdsKey = lobbyPlayers.map((player) => player.id).join('|');
   const hasInviteSlot = lobbyPlayers.length < MAX_LOBBY_SLOTS;
   const joinLink = room?.code ? `${ARENA_JOIN_BASE_URL}/${room.code}` : '';
+
+  useEffect(() => {
+    const nextIds = lobbyPlayerIdsKey.length > 0 ? lobbyPlayerIdsKey.split('|') : [];
+    const previousIds = previousPlayerIdsRef.current;
+    const joinedIds = nextIds.filter((id) => !previousIds.includes(id));
+
+    nextIds.forEach((id) => {
+      if (!playerEntryAnimationsRef.current[id]) {
+        playerEntryAnimationsRef.current[id] = new Animated.Value(previousIds.length === 0 ? 1 : 0);
+      }
+    });
+
+    if (joinedIds.length > 0 && previousIds.length > 0) {
+      playerCountPulse.setValue(0.96);
+      Animated.spring(playerCountPulse, {
+        toValue: 1,
+        friction: 5,
+        tension: 80,
+        useNativeDriver: true,
+      }).start();
+    }
+
+    joinedIds.forEach((id, index) => {
+      const animation = getPlayerEntryAnimation(id);
+      animation.setValue(0);
+      Animated.sequence([
+        Animated.delay(index * 70),
+        Animated.spring(animation, {
+          toValue: 1,
+          friction: 6,
+          tension: 85,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+
+    Object.keys(playerEntryAnimationsRef.current).forEach((id) => {
+      if (!nextIds.includes(id)) {
+        delete playerEntryAnimationsRef.current[id];
+      }
+    });
+
+    previousPlayerIdsRef.current = nextIds;
+  }, [getPlayerEntryAnimation, lobbyPlayerIdsKey, playerCountPulse]);
 
   if (!room) {
     return (
@@ -369,64 +425,105 @@ export default function ArenaLobbyScreen() {
             ]}
           >
             <View style={styles.playersSectionHeader}>
-              <View style={styles.playersHeaderLeft}>
+              <Animated.View style={[styles.playersHeaderLeft, { transform: [{ scale: playerCountPulse }] }]}> 
                 <Users color={arenaAccent} size={20} />
                 <Text style={[styles.sectionTitle, { color: theme.text }]}>
                   Players ({lobbyPlayers.length} / {MAX_LOBBY_SLOTS})
                 </Text>
-              </View>
-              <View style={[styles.liveBadge, { backgroundColor: '#10b981' }]}>
+              </Animated.View>
+              <Animated.View style={[styles.liveBadge, { backgroundColor: '#10b981', transform: [{ scale: pulseAnim }] }]}> 
                 <View style={styles.liveDot} />
                 <Text style={styles.liveText}>Live</Text>
-              </View>
+              </Animated.View>
             </View>
+            <Text style={[styles.playersSectionSubtext, { color: theme.textSecondary }]}> 
+              {lobbyPlayers.length === 1 ? 'The table is open. Invite challengers to join.' : `${lobbyPlayers.length} players are seated and ready.`}
+            </Text>
 
             <View style={styles.playersList}>
-              {lobbyPlayers.map((player) => (
-                <View
-                  key={player.id}
-                  style={[styles.playerCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background }]}
-                >
-                  <View style={[styles.playerAvatar, { backgroundColor: player.color }]}>
-                    <Text style={styles.playerInitial}>{player.suit}</Text>
-                  </View>
-                  <View style={styles.playerInfo}>
-                    <View style={styles.playerNameRow}>
-                      <View style={[styles.identityBadge, { borderColor: player.color, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : theme.cardBackground }]}> 
-                        <Text style={[styles.identityBadgeText, { color: player.color }]} numberOfLines={1}>
-                          {player.identityLabel}
-                        </Text>
+              {lobbyPlayers.map((player) => {
+                const playerEntryAnimation = getPlayerEntryAnimation(player.id);
+                const recentlyJoinedGlow = playerEntryAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 0],
+                });
+
+                return (
+                  <Animated.View
+                    key={player.id}
+                    style={{
+                      opacity: playerEntryAnimation,
+                      transform: [
+                        {
+                          translateY: playerEntryAnimation.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [14, 0],
+                          }),
+                        },
+                        {
+                          scale: playerEntryAnimation.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.98, 1],
+                          }),
+                        },
+                      ],
+                    }}
+                  >
+                    <View
+                      style={[
+                        styles.playerCard,
+                        {
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background,
+                          borderColor: `${player.color}33`,
+                        },
+                      ]}
+                    >
+                      <Animated.View style={[styles.playerAvatarGlow, { borderColor: player.color, opacity: recentlyJoinedGlow }]} />
+                      <View style={[styles.playerAvatar, { backgroundColor: player.color }]}> 
+                        <Text style={styles.playerInitial}>{player.suit}</Text>
                       </View>
-                      {player.id === playerId && (
-                        <Text style={[styles.youBadge, { color: theme.primary }]}>You</Text>
+                      <View style={styles.playerInfo}>
+                        <View style={styles.playerNameRow}>
+                          <View style={[styles.identityBadge, { borderColor: player.color, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : theme.cardBackground }]}> 
+                            <Text style={[styles.identityBadgeText, { color: player.color }]} numberOfLines={1}>
+                              {player.identityLabel}
+                            </Text>
+                          </View>
+                          <View style={[styles.suitBadge, { borderColor: `${player.color}55`, backgroundColor: `${player.color}18` }]}> 
+                            <Text style={[styles.suitBadgeText, { color: player.color }]}>{player.suit}</Text>
+                          </View>
+                          {player.id === playerId && (
+                            <Text style={[styles.youBadge, { color: theme.primary }]}>You</Text>
+                          )}
+                        </View>
+                        <Text style={[styles.playerName, { color: theme.text }]} numberOfLines={1}>
+                          {player.name}
+                        </Text>
+                        <View style={styles.playerMeta}>
+                          {player.isHost && (
+                            <Text style={[styles.hostBadge, { color: theme.warning }]}>Host</Text>
+                          )}
+                          <View style={styles.connectionStatus}>
+                            {player.connected ? (
+                              <Wifi color="#10b981" size={12} />
+                            ) : (
+                              <WifiOff color="#ef4444" size={12} />
+                            )}
+                            <Text style={{ fontSize: 11, color: player.connected ? '#10b981' : '#ef4444', fontWeight: '500' as const }}>
+                              {player.connected ? 'Online' : 'Offline'}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                      {isHost && !player.isHost && (
+                        <TouchableOpacity style={styles.removeButton} onPress={() => handleRemovePlayer(player.id)} activeOpacity={0.7}>
+                          <X color={theme.textTertiary} size={18} />
+                        </TouchableOpacity>
                       )}
                     </View>
-                    <Text style={[styles.playerName, { color: theme.text }]} numberOfLines={1}>
-                      {player.name}
-                    </Text>
-                    <View style={styles.playerMeta}>
-                      {player.isHost && (
-                        <Text style={[styles.hostBadge, { color: theme.warning }]}>Host</Text>
-                      )}
-                      <View style={styles.connectionStatus}>
-                        {player.connected ? (
-                          <Wifi color="#10b981" size={12} />
-                        ) : (
-                          <WifiOff color="#ef4444" size={12} />
-                        )}
-                        <Text style={{ fontSize: 11, color: player.connected ? '#10b981' : '#ef4444', fontWeight: '500' as const }}>
-                          {player.connected ? 'Online' : 'Offline'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                  {isHost && !player.isHost && (
-                    <TouchableOpacity style={styles.removeButton} onPress={() => handleRemovePlayer(player.id)} activeOpacity={0.7}>
-                      <X color={theme.textTertiary} size={18} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
+                  </Animated.View>
+                );
+              })}
               {hasInviteSlot && (
                 <TouchableOpacity
                   key="invite-slot"
@@ -908,7 +1005,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  playersSectionSubtext: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    marginBottom: 14,
   },
   playersHeaderLeft: {
     flexDirection: 'row',
@@ -946,6 +1048,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderRadius: 14,
+    borderWidth: 1,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  playerAvatarGlow: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    borderWidth: 2,
   },
   playerAvatar: {
     width: 40,
@@ -979,6 +1093,16 @@ const styles = StyleSheet.create({
   identityBadgeText: {
     fontSize: 11,
     fontWeight: '700' as const,
+  },
+  suitBadge: {
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  suitBadgeText: {
+    fontSize: 11,
+    fontWeight: '800' as const,
   },
   playerName: {
     fontSize: 15,

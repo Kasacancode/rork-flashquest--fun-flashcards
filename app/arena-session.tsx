@@ -2,10 +2,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { X, Crown, Users, Check, Clock } from 'lucide-react-native';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { REVEAL_DURATION_MS } from '@/backend/arena/types';
 import { AnswerCard, getSuitForIndex, DealerReaction, AnswerCardState, CARD_GAP, CARD_HEIGHT, CARD_PADDING, CARD_WIDTH, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
 import { DealerCountdownBar, StreakIndicator } from '@/components/GameUI';
 import { useArena } from '@/context/ArenaContext';
@@ -13,6 +14,63 @@ import { useTheme } from '@/context/ThemeContext';
 import { isMeaningfulArenaStreak, selectAssistantDialogue, type ArenaDialogueEvent } from '@/utils/dialogue';
 import { buildGameplayOptionLabels, formatGameplayQuestion } from '@/utils/gameplayCopy';
 import { logger } from '@/utils/logger';
+
+type ArenaRevealBeat = 'question' | 'lock' | 'answer' | 'leaderboard' | 'next';
+
+interface ScoreboardPlayer {
+  id: string;
+  name: string;
+  color: string;
+  suit: string;
+  identityLabel: string;
+  points: number;
+  rank: number;
+  pointsDelta: number;
+  rankDelta: number;
+}
+
+const LOCK_BEAT_MS = 450;
+const ANSWER_BEAT_MS = 1650;
+const LEADERBOARD_BEAT_MS = 900;
+
+function getRevealBeat(phase: string | null, revealTimeRemainingMs: number | null): ArenaRevealBeat {
+  if (phase !== 'reveal') {
+    return 'question';
+  }
+
+  const clampedRemainingMs = Math.max(0, Math.min(REVEAL_DURATION_MS, revealTimeRemainingMs ?? REVEAL_DURATION_MS));
+  const elapsedMs = REVEAL_DURATION_MS - clampedRemainingMs;
+
+  if (elapsedMs < LOCK_BEAT_MS) {
+    return 'lock';
+  }
+
+  if (elapsedMs < LOCK_BEAT_MS + ANSWER_BEAT_MS) {
+    return 'answer';
+  }
+
+  if (elapsedMs < LOCK_BEAT_MS + ANSWER_BEAT_MS + LEADERBOARD_BEAT_MS) {
+    return 'leaderboard';
+  }
+
+  return 'next';
+}
+
+function getPlacementLabel(rank: number): string {
+  if (rank === 1) {
+    return '1st';
+  }
+
+  if (rank === 2) {
+    return '2nd';
+  }
+
+  if (rank === 3) {
+    return '3rd';
+  }
+
+  return `${rank}th`;
+}
 
 export default function ArenaSessionScreen() {
   const router = useRouter();
@@ -60,8 +118,16 @@ export default function ArenaSessionScreen() {
 
   const revealOpacity = useRef(new Animated.Value(0)).current;
   const waitingPulse = useRef(new Animated.Value(1)).current;
+  const leaderboardPanelAnim = useRef(new Animated.Value(0)).current;
+  const leaderboardRowAnims = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
   const countdownDeadlineRef = useRef<number | null>(null);
   const countdownSessionKeyRef = useRef<string>('');
+  const roundStartPointsRef = useRef<Record<string, number>>({});
+  const roundStartRanksRef = useRef<Record<string, number>>({});
   const [displayTimeRemainingMs, setDisplayTimeRemainingMs] = useState<number | null>(null);
 
   const game = room?.game ?? null;
@@ -85,18 +151,70 @@ export default function ArenaSessionScreen() {
   const sortedPlayers = [...players].sort((a, b) => {
     const aScore = scores[a.id]?.points ?? 0;
     const bScore = scores[b.id]?.points ?? 0;
-    return bScore - aScore;
+    if (bScore !== aScore) {
+      return bScore - aScore;
+    }
+
+    const aCorrect = scores[a.id]?.correct ?? 0;
+    const bCorrect = scores[b.id]?.correct ?? 0;
+    return bCorrect - aCorrect;
   });
 
-  const scoreboardPlayers = sortedPlayers.map((player) => ({
-    id: player.id,
-    name: player.name,
-    color: player.color,
-    points: scores[player.id]?.points ?? 0,
-  }));
+  const scoreboardPlayers: ScoreboardPlayer[] = sortedPlayers.map((player, index) => {
+    const currentPoints = scores[player.id]?.points ?? 0;
+    const previousRank = roundStartRanksRef.current[player.id] ?? (index + 1);
+    const startingPoints = roundStartPointsRef.current[player.id] ?? currentPoints;
+
+    return {
+      id: player.id,
+      name: player.name,
+      color: player.color,
+      suit: player.suit,
+      identityLabel: player.identityLabel,
+      points: currentPoints,
+      rank: index + 1,
+      pointsDelta: Math.max(0, currentPoints - startingPoints),
+      rankDelta: Math.max(0, previousRank - (index + 1)),
+    };
+  });
+
+  const roundStartPointsSnapshot: Record<string, number> = Object.fromEntries(
+    players.map((player) => [player.id, scores[player.id]?.points ?? 0])
+  );
+  const roundStartRanksSnapshot: Record<string, number> = Object.fromEntries(
+    sortedPlayers.map((player, index) => [player.id, index + 1])
+  );
 
   const leader = sortedPlayers[0];
   const leaderId = leader?.id ?? null;
+  const revealTimeRemainingMs = game?.revealTimeRemainingMs ?? null;
+  const revealBeat = getRevealBeat(phase, revealTimeRemainingMs);
+  const myStanding = playerId ? scoreboardPlayers.find((player) => player.id === playerId) ?? null : null;
+  const myPointsGain = myStanding?.pointsDelta ?? 0;
+  const leadShiftCallout = useMemo(() => {
+    if (phase !== 'reveal') {
+      return '';
+    }
+
+    const previousLeaderId = leaderAtQuestionStartRef.current;
+    if (previousLeaderId && leaderId && previousLeaderId !== leaderId && leader != null) {
+      return `${leader.name} takes the lead`;
+    }
+
+    if (myStanding != null && myStanding.rankDelta > 0) {
+      return `You climb to ${getPlacementLabel(myStanding.rank)}`;
+    }
+
+    const biggestMover = scoreboardPlayers
+      .filter((player) => player.rankDelta > 0)
+      .sort((a, b) => b.rankDelta - a.rankDelta)[0];
+
+    if (biggestMover != null) {
+      return `${biggestMover.name} climbs to ${getPlacementLabel(biggestMover.rank)}`;
+    }
+
+    return 'Standings settle';
+  }, [leader, leaderId, myStanding, phase, scoreboardPlayers]);
   const optionLabels = buildGameplayOptionLabels(options);
   const displayQuestion = formatGameplayQuestion(currentQuestion?.question ?? '');
   const displayOptions = options.map((option, index) => ({
@@ -212,9 +330,13 @@ export default function ArenaSessionScreen() {
       setDealerLine(line);
       lastDealerLineRef.current = line;
       leaderAtQuestionStartRef.current = leaderId;
+      roundStartPointsRef.current = roundStartPointsSnapshot;
+      roundStartRanksRef.current = roundStartRanksSnapshot;
       logger.log('[ArenaDialogue] Showing line:', { event: dialogueEvent, line, questionIndex, leaderId, previousLeaderId });
 
       revealOpacity.setValue(0);
+      leaderboardPanelAnim.setValue(0);
+      leaderboardRowAnims.forEach((animation) => animation.setValue(0));
 
       cardAnimations.forEach((anim, index) => {
         anim.setValue(0);
@@ -229,7 +351,7 @@ export default function ArenaSessionScreen() {
         }).start();
       });
     }
-  }, [questionIndex, leaderId, cardAnimations, cardScales, shakeAnims, revealOpacity]);
+  }, [questionIndex, leaderId, cardAnimations, cardScales, shakeAnims, revealOpacity, leaderboardPanelAnim, leaderboardRowAnims, roundStartPointsSnapshot, roundStartRanksSnapshot]);
 
   useEffect(() => {
     if (lastAnswerCorrect !== null && selectedOption) {
@@ -274,11 +396,35 @@ export default function ArenaSessionScreen() {
     if (phase === 'reveal') {
       Animated.timing(revealOpacity, {
         toValue: 1,
-        duration: 400,
+        duration: 260,
         useNativeDriver: true,
       }).start();
     }
   }, [phase, revealOpacity]);
+
+  useEffect(() => {
+    if (phase !== 'reveal' || (revealBeat !== 'leaderboard' && revealBeat !== 'next')) {
+      return;
+    }
+
+    leaderboardPanelAnim.setValue(0);
+    leaderboardRowAnims.forEach((animation) => animation.setValue(0));
+
+    Animated.parallel([
+      Animated.spring(leaderboardPanelAnim, {
+        toValue: 1,
+        friction: 7,
+        tension: 68,
+        useNativeDriver: true,
+      }),
+      Animated.stagger(90, leaderboardRowAnims.map((animation) => Animated.spring(animation, {
+        toValue: 1,
+        friction: 8,
+        tension: 72,
+        useNativeDriver: true,
+      }))),
+    ]).start();
+  }, [phase, revealBeat, leaderboardPanelAnim, leaderboardRowAnims]);
 
   useEffect(() => {
     if (hasAnsweredCurrent && phase === 'question') {
@@ -411,13 +557,37 @@ export default function ArenaSessionScreen() {
         )}
 
         {phase === 'reveal' && (
-          <Animated.View style={[styles.revealBanner, { opacity: revealOpacity }]}>
-            <Text style={styles.revealBannerText}>Answer Revealed!</Text>
+          <Animated.View style={[styles.revealBanner, { opacity: revealOpacity }]}> 
+            <Text style={styles.revealBannerEyebrow}>
+              {revealBeat === 'lock'
+                ? 'Round locked'
+                : revealBeat === 'answer'
+                  ? 'Answer reveal'
+                  : revealBeat === 'leaderboard'
+                    ? 'Leaderboard update'
+                    : 'Next deal'}
+            </Text>
+            <Text style={styles.revealBannerText}>
+              {revealBeat === 'lock'
+                ? 'Cards are in. Resolving the round...'
+                : revealBeat === 'answer'
+                  ? (lastAnswerCorrect ? 'You nailed it.' : selectedOption ? 'The table turns over.' : 'Time expires.')
+                  : revealBeat === 'leaderboard'
+                    ? leadShiftCallout
+                    : 'Next question incoming'}
+            </Text>
+            <Text style={styles.revealBannerSubtext}>
+              {revealBeat === 'answer'
+                ? (myPointsGain > 0 ? `+${myPointsGain} pts banked` : 'Check the correct card and round result')
+                : revealBeat === 'leaderboard'
+                  ? 'Scores settle before the next draw'
+                  : 'A short beat keeps the round readable'}
+            </Text>
           </Animated.View>
         )}
 
         <View style={styles.topStage}>
-          {!!dealerLine && phase === 'question' && (
+          {!!dealerLine && (phase === 'question' || phase === 'reveal') && (
             <View
               style={[
                 styles.assistantCard,
@@ -427,7 +597,13 @@ export default function ArenaSessionScreen() {
             >
               <View style={styles.assistantMetaRow}>
                 <Text style={styles.assistantEyebrow}>FLASHQUEST AI</Text>
-                <Text style={styles.assistantMode}>{hasAnsweredCurrent ? 'Answer locked' : 'Live battle'}</Text>
+                <Text style={styles.assistantMode}>
+                  {phase === 'reveal'
+                    ? (revealBeat === 'leaderboard' || revealBeat === 'next' ? 'Standings update' : 'Round reveal')
+                    : hasAnsweredCurrent
+                      ? 'Answer locked'
+                      : 'Live battle'}
+                </Text>
               </View>
               <View style={styles.dealerSection}>
                 <DealerReaction text={dealerLine} isCorrect={dealerReactionCorrect} />
@@ -496,13 +672,43 @@ export default function ArenaSessionScreen() {
 
           {phase === 'reveal' && currentAnswers && (
             <Animated.View style={[styles.playerAnswers, { opacity: revealOpacity }]}>
+              <View style={styles.playerAnswersHeader}>
+                <View>
+                  <Text style={styles.playerAnswersEyebrow}>Correct answer</Text>
+                  <Text style={styles.playerAnswersTitle}>{currentQuestion?.correctAnswer ?? '—'}</Text>
+                </View>
+                <View
+                  style={[
+                    styles.playerAnswersOutcomeBadge,
+                    {
+                      backgroundColor: lastAnswerCorrect ? 'rgba(16,185,129,0.22)' : 'rgba(239,68,68,0.22)',
+                      borderColor: lastAnswerCorrect ? 'rgba(16,185,129,0.38)' : 'rgba(239,68,68,0.38)',
+                    },
+                  ]}
+                >
+                  <Text style={styles.playerAnswersOutcomeText}>
+                    {lastAnswerCorrect ? 'You were right' : selectedOption ? 'Your pick missed' : 'Timed out'}
+                  </Text>
+                </View>
+              </View>
+              {myPointsGain > 0 && (
+                <View style={styles.pointsPill}>
+                  <Text style={styles.pointsPillText}>+{myPointsGain} pts</Text>
+                </View>
+              )}
               {players.map((player: any) => {
                 const answer = currentAnswers[player.id];
                 if (!answer) return null;
+                const pointsDelta = scoreboardPlayers.find((entry) => entry.id === player.id)?.pointsDelta ?? 0;
                 return (
                   <View key={player.id} style={styles.playerAnswerRow}>
                     <View style={[styles.playerAnswerDot, { backgroundColor: player.color }]} />
                     <Text style={styles.playerAnswerName} numberOfLines={1}>{player.name}</Text>
+                    {pointsDelta > 0 && (
+                      <View style={styles.playerAnswerPointsBadge}>
+                        <Text style={styles.playerAnswerPointsText}>+{pointsDelta}</Text>
+                      </View>
+                    )}
                     <View style={[
                       styles.playerAnswerBadge,
                       { backgroundColor: answer.isCorrect ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)' },
@@ -526,7 +732,7 @@ export default function ArenaSessionScreen() {
           )}
 
           <View style={styles.compactScoreboard}>
-            {scoreboardPlayers.slice(0, 4).map((player, index) => (
+            {scoreboardPlayers.slice(0, 4).map((player) => (
               <View
                 key={player.id}
                 style={[
@@ -534,9 +740,12 @@ export default function ArenaSessionScreen() {
                   player.id === playerId && styles.compactScoreItemActive,
                 ]}
               >
-                <Text style={styles.compactRank}>{index === 0 ? '👑' : `#${index + 1}`}</Text>
+                <Text style={styles.compactRank}>{player.rank === 1 ? '👑' : `#${player.rank}`}</Text>
                 <View style={[styles.compactDot, { backgroundColor: player.color }]} />
                 <Text style={styles.compactName} numberOfLines={1}>{player.name}</Text>
+                {phase === 'reveal' && player.pointsDelta > 0 ? (
+                  <Text style={styles.compactDelta}>+{player.pointsDelta}</Text>
+                ) : null}
                 <Text style={styles.compactPoints}>{player.points}</Text>
               </View>
             ))}
@@ -640,15 +849,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 12,
     marginBottom: 6,
-    backgroundColor: 'rgba(16, 185, 129, 0.3)',
+    backgroundColor: 'rgba(15, 23, 42, 0.34)',
     paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    gap: 3,
+  },
+  revealBannerEyebrow: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 11,
+    fontWeight: '800' as const,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase' as const,
   },
   revealBannerText: {
     color: '#fff',
     fontSize: 15,
     fontWeight: '700' as const,
+    textAlign: 'center',
+  },
+  revealBannerSubtext: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 12,
+    fontWeight: '500' as const,
+    textAlign: 'center',
   },
   topStage: {
     paddingTop: 4,
@@ -772,9 +998,56 @@ const styles = StyleSheet.create({
     marginHorizontal: GRID_HORIZONTAL_MARGIN,
     marginTop: 10,
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 12,
-    padding: 10,
-    gap: 6,
+    borderRadius: 14,
+    padding: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  playerAnswersHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 2,
+  },
+  playerAnswersEyebrow: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    color: 'rgba(255,255,255,0.68)',
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  playerAnswersTitle: {
+    fontSize: 18,
+    fontWeight: '800' as const,
+    color: '#fff',
+  },
+  playerAnswersOutcomeBadge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  playerAnswersOutcomeText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: '#fff',
+  },
+  pointsPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(16,185,129,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.34)',
+  },
+  pointsPillText: {
+    fontSize: 12,
+    fontWeight: '800' as const,
+    color: '#6ee7b7',
   },
   playerAnswerRow: {
     flexDirection: 'row',
@@ -799,6 +1072,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
+  },
+  playerAnswerPointsBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(16,185,129,0.18)',
+  },
+  playerAnswerPointsText: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    color: '#6ee7b7',
   },
   playerAnswerStatus: {
     fontSize: 12,
@@ -837,6 +1121,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: 'rgba(255, 255, 255, 0.85)',
     fontWeight: '500' as const,
+  },
+  compactDelta: {
+    fontSize: 10,
+    color: '#6ee7b7',
+    fontWeight: '800' as const,
   },
   compactPoints: {
     fontSize: 12,
