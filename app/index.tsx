@@ -66,7 +66,7 @@ function createStyles(theme: Theme, isDark: boolean, width: number) {
   const horizontalPadding = 20;
   const gridGap = 14;
   const actionCardWidth = Math.max(150, Math.floor((width - horizontalPadding * 2 - gridGap) / 2));
-  const deckCardWidth = Math.min(Math.max(width * 0.42, 160), 200);
+  const deckCardWidth = Math.floor((width - horizontalPadding * 2 - gridGap) / 2);
 
   return StyleSheet.create({
     container: {
@@ -212,9 +212,9 @@ function createStyles(theme: Theme, isDark: boolean, width: number) {
       color: theme.white,
       letterSpacing: -0.6,
     },
-    decksScrollContent: {
-      paddingRight: horizontalPadding,
-      columnGap: 12,
+    decksRow: {
+      flexDirection: 'row',
+      columnGap: gridGap,
     },
     deckCard: {
       width: deckCardWidth,
@@ -324,28 +324,28 @@ export default function HomePage() {
         title: 'Battle',
         route: '/arena' as Href,
         icon: Swords,
-        gradient: ['#f97316', '#ea580c', '#c2410c'],
+        gradient: ['#ff8c38', '#f97316', '#d95a0b'],
       },
       {
         id: 'quest',
         title: 'Quest',
         route: '/quest' as Href,
         icon: Target,
-        gradient: ['#a78bfa', '#8b5cf6', '#7c3aed'],
+        gradient: ['#c084fc', '#a855f7', '#8b2cf6'],
       },
       {
         id: 'stats',
         title: 'Stats',
         route: '/stats' as Href,
         icon: Trophy,
-        gradient: ['#34d399', '#10b981', '#059669'],
+        gradient: ['#4ade80', '#22c55e', '#16a34a'],
       },
       {
         id: 'decks',
         title: 'Decks',
         route: '/decks' as Href,
         icon: BookOpen,
-        gradient: ['#818cf8', '#6366f1', '#4f46e5'],
+        gradient: ['#a78bfa', '#7c3aed', '#6d28d9'],
       },
     ],
     []
@@ -540,13 +540,8 @@ export default function HomePage() {
             </View>
 
             {featuredDecks.length > 0 ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.decksScrollContent}
-                testID="home-quick-start-scroll"
-              >
-                {featuredDecks.map((item) => {
+              <View style={styles.decksRow}>
+                {featuredDecks.slice(0, 2).map((item) => {
                   const accentColor = item.deck.color || theme.primary;
 
                   return (
@@ -577,7 +572,7 @@ export default function HomePage() {
                     </Pressable>
                   );
                 })}
-              </ScrollView>
+              </View>
             ) : (
               <View style={styles.emptyStateCard}>
                 <LinearGradient
