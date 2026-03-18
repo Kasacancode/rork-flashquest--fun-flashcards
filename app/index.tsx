@@ -14,7 +14,7 @@ const { width } = Dimensions.get('window');
 export default function HomePage() {
   const router = useRouter();
   const { stats, decks } = useFlashQuest();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const {
     canAccessDeveloperTools,
     disableDeveloperAccess,
@@ -57,6 +57,15 @@ export default function HomePage() {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+      {isDark ? (
+        <LinearGradient
+          colors={['rgba(6, 10, 22, 0.06)', 'rgba(6, 10, 22, 0.34)', 'rgba(5, 8, 20, 0.76)']}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.95, y: 1 }}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+      ) : null}
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <ScrollView
@@ -71,7 +80,16 @@ export default function HomePage() {
               <Text style={styles.subtitle}>Deck. Set. Match.</Text>
             </View>
             <TouchableOpacity
-              style={styles.profileButton}
+              style={[
+                styles.profileButton,
+                isDark
+                  ? {
+                      backgroundColor: 'rgba(15, 23, 42, 0.42)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(148, 163, 184, 0.18)',
+                    }
+                  : null,
+              ]}
               onPress={handleOpenProfile}
               onLongPress={handleProfileLongPress}
               delayLongPress={700}
@@ -89,17 +107,26 @@ export default function HomePage() {
             </TouchableOpacity>
           </View>
 
-          <View style={[styles.statsCard, { backgroundColor: theme.statsCard }]}>
+          <View
+            style={[
+              styles.statsCard,
+              {
+                backgroundColor: isDark ? 'rgba(15, 23, 42, 0.78)' : theme.statsCard,
+                borderWidth: isDark ? 1 : 0,
+                borderColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'transparent',
+              },
+            ]}
+          >
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: theme.primary }]}>{stats.totalScore}</Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Total XP</Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: isDark ? 'rgba(148, 163, 184, 0.14)' : '#e0e0e0' }]} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: theme.primary }]}>{stats.currentStreak}</Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Day Streak</Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: isDark ? 'rgba(148, 163, 184, 0.14)' : '#e0e0e0' }]} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: theme.primary }]}>{stats.totalCardsStudied}</Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Cards Studied</Text>
@@ -187,7 +214,14 @@ export default function HomePage() {
               {decks.slice(0, 5).map((deck) => (
                 <TouchableOpacity
                   key={deck.id}
-                  style={[styles.deckCard, { backgroundColor: theme.deckCardBg }]}
+                  style={[
+                    styles.deckCard,
+                    {
+                      backgroundColor: isDark ? 'rgba(10, 17, 34, 0.88)' : theme.deckCardBg,
+                      borderWidth: isDark ? 1 : 0,
+                      borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
+                    },
+                  ]}
                   onPress={() => router.push({ pathname: '/study', params: { deckId: deck.id } } as Href)}
                   activeOpacity={0.9}
                   testID={`home-quick-start-${deck.id}`}
