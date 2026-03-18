@@ -16,7 +16,7 @@ export const [ThemeProvider, useTheme] = createContextHook(() => {
     queryKey: ['theme'],
     queryFn: async () => {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      return (stored as ThemeMode) || 'light';
+      return (stored as ThemeMode) || 'dark';
     },
   });
 
@@ -26,7 +26,7 @@ export const [ThemeProvider, useTheme] = createContextHook(() => {
       return mode;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['theme'] });
+      void queryClient.invalidateQueries({ queryKey: ['theme'] });
     },
   });
   
