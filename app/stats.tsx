@@ -84,6 +84,15 @@ export default function StatsPage() {
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+      {isDark ? (
+        <LinearGradient
+          colors={['rgba(6, 10, 22, 0.06)', 'rgba(6, 10, 22, 0.34)', 'rgba(5, 8, 20, 0.76)']}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.95, y: 1 }}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+      ) : null}
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.header}>
@@ -177,178 +186,194 @@ export default function StatsPage() {
   );
 }
 
-const createStyles = (theme: ThemeValues, isDark: boolean) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: theme.white,
-  },
-  placeholder: {
-    width: 40,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  scoreCard: {
-    marginHorizontal: 24,
-    marginBottom: 24,
-    borderRadius: 24,
-    overflow: 'hidden',
-    shadowColor: theme.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 12,
-  },
-  scoreGradient: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  scoreValue: {
-    fontSize: 56,
-    fontWeight: '800' as const,
-    color: theme.white,
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  scoreLabel: {
-    fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.95)',
-    fontWeight: '600' as const,
-  },
-  statsGrid: {
-    paddingHorizontal: 24,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-  },
-  statCard: {
-    width: '47%',
-    backgroundColor: theme.statsCard,
-    borderRadius: 20,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: theme.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  statIconContainer: {
-    marginBottom: 12,
-  },
-  statNumber: {
-    fontSize: 32,
-    fontWeight: '800' as const,
-    color: theme.text,
-    marginBottom: 4,
-  },
-  statTitle: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: theme.text,
-    marginBottom: 2,
-  },
-  statSubtitle: {
-    fontSize: 12,
-    color: theme.textSecondary,
-    fontWeight: '500' as const,
-  },
-  progressSection: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: isDark ? theme.text : theme.white,
-    marginBottom: 16,
-  },
-  emptyState: {
-    backgroundColor: theme.card,
-    borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: theme.textSecondary,
-    fontWeight: '500' as const,
-    textAlign: 'center',
-  },
-  progressCard: {
-    backgroundColor: theme.cardBackground,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    shadowColor: theme.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  deckIndicator: {
-    width: 4,
-    borderRadius: 2,
-    marginRight: 16,
-  },
-  progressInfo: {
-    flex: 1,
-  },
-  progressDeckName: {
-    fontSize: 17,
-    fontWeight: '700' as const,
-    color: theme.text,
-    marginBottom: 8,
-  },
-  progressStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  progressText: {
-    fontSize: 14,
-    color: theme.textSecondary,
-    fontWeight: '500' as const,
-  },
-  progressReviewed: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: theme.text,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: theme.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-});
+const createStyles = (theme: ThemeValues, isDark: boolean) => {
+  const statSurface = isDark ? 'rgba(15, 23, 42, 0.78)' : theme.statsCard;
+  const progressSurface = isDark ? 'rgba(10, 17, 34, 0.88)' : theme.cardBackground;
+  const emptySurface = isDark ? 'rgba(15, 23, 42, 0.72)' : theme.card;
+  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'transparent';
+  const progressTrack = isDark ? 'rgba(148, 163, 184, 0.14)' : theme.border;
+
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    safeArea: {
+      flex: 1,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+    },
+    backButton: {
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '700' as const,
+      color: theme.white,
+    },
+    placeholder: {
+      width: 40,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingBottom: 40,
+    },
+    scoreCard: {
+      marginHorizontal: 24,
+      marginBottom: 24,
+      borderRadius: 24,
+      overflow: 'hidden',
+      borderWidth: isDark ? 1 : 0,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'transparent',
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: isDark ? 0.3 : 0.25,
+      shadowRadius: 18,
+      elevation: 12,
+    },
+    scoreGradient: {
+      padding: 32,
+      alignItems: 'center',
+    },
+    scoreValue: {
+      fontSize: 56,
+      fontWeight: '800' as const,
+      color: theme.white,
+      marginTop: 12,
+      marginBottom: 4,
+    },
+    scoreLabel: {
+      fontSize: 18,
+      color: 'rgba(255, 255, 255, 0.95)',
+      fontWeight: '600' as const,
+    },
+    statsGrid: {
+      paddingHorizontal: 24,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 16,
+    },
+    statCard: {
+      width: '47%',
+      backgroundColor: statSurface,
+      borderRadius: 20,
+      padding: 20,
+      alignItems: 'center',
+      borderWidth: isDark ? 1 : 0,
+      borderColor: surfaceBorderColor,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0.22 : 0.15,
+      shadowRadius: isDark ? 12 : 8,
+      elevation: isDark ? 7 : 6,
+    },
+    statIconContainer: {
+      marginBottom: 12,
+    },
+    statNumber: {
+      fontSize: 32,
+      fontWeight: '800' as const,
+      color: theme.text,
+      marginBottom: 4,
+    },
+    statTitle: {
+      fontSize: 15,
+      fontWeight: '700' as const,
+      color: theme.text,
+      marginBottom: 2,
+    },
+    statSubtitle: {
+      fontSize: 12,
+      color: theme.textSecondary,
+      fontWeight: '500' as const,
+    },
+    progressSection: {
+      marginTop: 32,
+      paddingHorizontal: 24,
+    },
+    sectionTitle: {
+      fontSize: 24,
+      fontWeight: '700' as const,
+      color: isDark ? theme.text : theme.white,
+      marginBottom: 16,
+    },
+    emptyState: {
+      backgroundColor: emptySurface,
+      borderRadius: 16,
+      padding: 32,
+      alignItems: 'center',
+      borderWidth: isDark ? 1 : 0,
+      borderColor: surfaceBorderColor,
+    },
+    emptyText: {
+      fontSize: 16,
+      color: theme.textSecondary,
+      fontWeight: '500' as const,
+      textAlign: 'center',
+    },
+    progressCard: {
+      backgroundColor: progressSurface,
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 12,
+      flexDirection: 'row',
+      borderWidth: isDark ? 1 : 0,
+      borderColor: surfaceBorderColor,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.18 : 0.1,
+      shadowRadius: isDark ? 10 : 4,
+      elevation: isDark ? 5 : 3,
+    },
+    deckIndicator: {
+      width: 4,
+      borderRadius: 2,
+      marginRight: 16,
+    },
+    progressInfo: {
+      flex: 1,
+    },
+    progressDeckName: {
+      fontSize: 17,
+      fontWeight: '700' as const,
+      color: theme.text,
+      marginBottom: 8,
+    },
+    progressStats: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    progressText: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      fontWeight: '500' as const,
+    },
+    progressReviewed: {
+      fontSize: 16,
+      fontWeight: '700' as const,
+      color: theme.text,
+    },
+    progressBar: {
+      height: 8,
+      backgroundColor: progressTrack,
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+    progressBarFill: {
+      height: '100%',
+      borderRadius: 4,
+    },
+  });
+};
