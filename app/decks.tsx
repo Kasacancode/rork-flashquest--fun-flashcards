@@ -91,6 +91,15 @@ export default function DecksPage() {
         end={{ x: 1, y: 1 }}    // End bottom-right
         style={StyleSheet.absoluteFill}  // Fill entire screen
       />
+      {isDark ? (
+        <LinearGradient
+          colors={['rgba(6, 10, 22, 0.06)', 'rgba(6, 10, 22, 0.34)', 'rgba(5, 8, 20, 0.76)']}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.95, y: 1 }}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+      ) : null}
 
       {/* Safe area ensures content isn't hidden by notch */}
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -130,7 +139,20 @@ export default function DecksPage() {
 
           {/* Loop through all decks and display each one */}
           {decks.map((deck: Deck) => (
-            <View key={deck.id} style={[styles.deckCard, { backgroundColor: theme.cardBackground }]}>
+            <View
+              key={deck.id}
+              style={[
+                styles.deckCard,
+                {
+                  backgroundColor: isDark ? 'rgba(10, 17, 34, 0.88)' : theme.cardBackground,
+                  borderWidth: isDark ? 1 : 0,
+                  borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
+                  shadowOpacity: isDark ? 0.24 : 0.1,
+                  shadowRadius: isDark ? 16 : 12,
+                  elevation: isDark ? 8 : 4,
+                },
+              ]}
+            >
               {/* Colored bar at top of card (uses deck's color) */}
               <View style={[styles.deckColorBar, { backgroundColor: deck.color }]} />
               
@@ -160,7 +182,7 @@ export default function DecksPage() {
                     </Text>
                   </View>
                   {/* Deck category badge */}
-                  <View style={[styles.categoryBadge, { backgroundColor: theme.background }]}>
+                  <View style={[styles.categoryBadge, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.82)' : theme.background }]}>
                     <Text style={[styles.categoryText, { color: theme.text }]}>{deck.category}</Text>
                   </View>
                 </View>
@@ -179,7 +201,7 @@ export default function DecksPage() {
 
                   {/* Edit button - secondary action */}
                   <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: theme.background }]}
+                    style={[styles.actionButton, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.82)' : theme.background }]}
                     onPress={() => handleEditDeck(deck.id)}
                     activeOpacity={0.8}
                   >
@@ -199,8 +221,17 @@ export default function DecksPage() {
         onRequestClose={() => setShowMenu(false)}
       >
         <Pressable style={styles.menuOverlay} onPress={() => setShowMenu(false)}>
-          <View style={[styles.menuSheet, { backgroundColor: theme.cardBackground }]}>
-            <View style={styles.menuHandle} />
+          <View
+            style={[
+              styles.menuSheet,
+              {
+                backgroundColor: isDark ? 'rgba(10, 17, 34, 0.98)' : theme.cardBackground,
+                borderTopWidth: isDark ? 1 : 0,
+                borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
+              },
+            ]}
+          >
+            <View style={[styles.menuHandle, { backgroundColor: theme.sheetHandle }]} />
             <Text style={[styles.menuTitle, { color: theme.text }]}>Create New Deck</Text>
 
             <TouchableOpacity

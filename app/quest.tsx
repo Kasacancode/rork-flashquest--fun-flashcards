@@ -18,7 +18,7 @@ const SHEET_HEIGHT = SCREEN_HEIGHT * 0.65;
 
 export default function QuestMenuScreen() {
   const router = useRouter();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { decks } = useFlashQuest();
   const { performance, getLastQuestSettings, getDeckAccuracy, getOverallQuestAccuracy, saveLastQuestSettings } = usePerformance();
 
@@ -120,6 +120,13 @@ export default function QuestMenuScreen() {
   };
 
   const smallDeckWarning = selectedDeck && selectedDeck.flashcards.length < 8;
+  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'transparent';
+  const statSurface = isDark ? 'rgba(15, 23, 42, 0.78)' : theme.cardBackground;
+  const sectionSurface = isDark ? 'rgba(10, 17, 34, 0.88)' : theme.cardBackground;
+  const insetSurface = isDark ? 'rgba(15, 23, 42, 0.82)' : theme.background;
+  const controlSurface = isDark ? 'rgba(71, 85, 105, 0.72)' : 'rgba(255, 255, 255, 0.2)';
+  const sheetSurface = isDark ? 'rgba(10, 17, 34, 0.98)' : theme.cardBackground;
+  const inactiveToggleSurface = isDark ? 'rgba(71, 85, 105, 0.64)' : theme.border;
 
   const settingsLabel = useMemo(() => {
     const parts: string[] = [];
@@ -139,11 +146,27 @@ export default function QuestMenuScreen() {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+      {isDark ? (
+        <LinearGradient
+          colors={['rgba(6, 10, 22, 0.06)', 'rgba(6, 10, 22, 0.34)', 'rgba(5, 8, 20, 0.76)']}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.95, y: 1 }}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+      ) : null}
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={[
+              styles.backButton,
+              {
+                backgroundColor: controlSurface,
+                borderWidth: isDark ? 1 : 0,
+                borderColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'transparent',
+              },
+            ]}
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
@@ -154,7 +177,14 @@ export default function QuestMenuScreen() {
             <Text style={styles.headerTitle}>Quest Mode</Text>
           </View>
           <TouchableOpacity
-            style={styles.settingsButton}
+            style={[
+              styles.settingsButton,
+              {
+                backgroundColor: controlSurface,
+                borderWidth: isDark ? 1 : 0,
+                borderColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'transparent',
+              },
+            ]}
             onPress={openSheet}
             activeOpacity={0.7}
           >
@@ -167,7 +197,19 @@ export default function QuestMenuScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={[styles.statsCard, { backgroundColor: theme.cardBackground }]}>
+          <View
+            style={[
+              styles.statsCard,
+              {
+                backgroundColor: statSurface,
+                borderWidth: isDark ? 1 : 0,
+                borderColor: surfaceBorderColor,
+                shadowOpacity: isDark ? 0.22 : 0.1,
+                shadowRadius: isDark ? 14 : 8,
+                elevation: isDark ? 7 : 4,
+              },
+            ]}
+          >
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: theme.primary }]}>
                 {overallAccuracy !== null ? `${Math.round(overallAccuracy * 100)}%` : '--'}
@@ -190,7 +232,19 @@ export default function QuestMenuScreen() {
             </View>
           </View>
 
-          <View style={[styles.section, { backgroundColor: theme.cardBackground }]}>
+          <View
+            style={[
+              styles.section,
+              {
+                backgroundColor: sectionSurface,
+                borderWidth: isDark ? 1 : 0,
+                borderColor: surfaceBorderColor,
+                shadowOpacity: isDark ? 0.18 : 0.08,
+                shadowRadius: isDark ? 12 : 4,
+                elevation: isDark ? 5 : 2,
+              },
+            ]}
+          >
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Select Deck</Text>
             <ScrollView
               horizontal
@@ -202,8 +256,11 @@ export default function QuestMenuScreen() {
                   key={deck.id}
                   style={[
                     styles.deckOption,
-                    { backgroundColor: theme.background },
-                    selectedDeckId === deck.id && { borderColor: theme.primary, borderWidth: 2 },
+                    {
+                      backgroundColor: insetSurface,
+                      borderWidth: selectedDeckId === deck.id ? 2 : isDark ? 1 : 2,
+                      borderColor: selectedDeckId === deck.id ? theme.primary : surfaceBorderColor,
+                    },
                   ]}
                   onPress={() => setSelectedDeckId(deck.id)}
                   activeOpacity={0.7}
@@ -228,13 +285,25 @@ export default function QuestMenuScreen() {
             )}
           </View>
 
-          <View style={[styles.section, { backgroundColor: theme.cardBackground }]}>
+          <View
+            style={[
+              styles.section,
+              {
+                backgroundColor: sectionSurface,
+                borderWidth: isDark ? 1 : 0,
+                borderColor: surfaceBorderColor,
+                shadowOpacity: isDark ? 0.18 : 0.08,
+                shadowRadius: isDark ? 12 : 4,
+                elevation: isDark ? 5 : 2,
+              },
+            ]}
+          >
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Mode</Text>
             <View style={styles.modeSelector}>
               <TouchableOpacity
                 style={[
                   styles.modeButton,
-                  { backgroundColor: theme.background },
+                  { backgroundColor: insetSurface },
                   mode === 'learn' && { backgroundColor: theme.primary },
                 ]}
                 onPress={() => handleModeChange('learn')}
@@ -254,7 +323,7 @@ export default function QuestMenuScreen() {
               <TouchableOpacity
                 style={[
                   styles.modeButton,
-                  { backgroundColor: theme.background },
+                  { backgroundColor: insetSurface },
                   mode === 'test' && { backgroundColor: theme.primary },
                 ]}
                 onPress={() => handleModeChange('test')}
@@ -282,7 +351,17 @@ export default function QuestMenuScreen() {
 
           {/* Settings summary pill */}
           <TouchableOpacity
-            style={[styles.settingsSummary, { backgroundColor: theme.cardBackground }]}
+            style={[
+              styles.settingsSummary,
+              {
+                backgroundColor: statSurface,
+                borderWidth: isDark ? 1 : 0,
+                borderColor: surfaceBorderColor,
+                shadowOpacity: isDark ? 0.16 : 0.06,
+                shadowRadius: isDark ? 10 : 4,
+                elevation: isDark ? 4 : 1,
+              },
+            ]}
             onPress={openSheet}
             activeOpacity={0.7}
           >
@@ -315,7 +394,13 @@ export default function QuestMenuScreen() {
 
             {lastSettings != null && (
               <TouchableOpacity
-                style={[styles.resumeButton, { borderColor: theme.primary }]}
+                style={[
+                  styles.resumeButton,
+                  {
+                    borderColor: theme.primary,
+                    backgroundColor: isDark ? 'rgba(15, 23, 42, 0.68)' : 'transparent',
+                  },
+                ]}
                 onPress={handleQuickResume}
                 activeOpacity={0.7}
               >
@@ -350,7 +435,12 @@ export default function QuestMenuScreen() {
           <Animated.View
             style={[
               styles.sheet,
-              { backgroundColor: theme.cardBackground, transform: [{ translateY: slideAnim }] },
+              {
+                backgroundColor: sheetSurface,
+                borderTopWidth: isDark ? 1 : 0,
+                borderColor: surfaceBorderColor,
+                transform: [{ translateY: slideAnim }],
+              },
             ]}
           >
             <View style={styles.sheetHandle}>
@@ -380,7 +470,7 @@ export default function QuestMenuScreen() {
                       key={val}
                       style={[
                         styles.optionButton,
-                        { backgroundColor: theme.background },
+                        { backgroundColor: insetSurface },
                         runLength === val && { backgroundColor: theme.primary },
                       ]}
                       onPress={() => setRunLength(val)}
@@ -408,7 +498,7 @@ export default function QuestMenuScreen() {
                       key={val}
                       style={[
                         styles.optionButton,
-                        { backgroundColor: theme.background },
+                        { backgroundColor: insetSurface },
                         timerSeconds === val && { backgroundColor: theme.primary },
                       ]}
                       onPress={() => setTimerSeconds(val)}
@@ -436,7 +526,7 @@ export default function QuestMenuScreen() {
                 </View>
                 <View style={[
                   styles.toggle,
-                  { backgroundColor: focusWeakOnly ? theme.primary : theme.border },
+                  { backgroundColor: focusWeakOnly ? theme.primary : inactiveToggleSurface },
                 ]}>
                   <View style={[
                     styles.toggleKnob,
@@ -456,7 +546,7 @@ export default function QuestMenuScreen() {
                 </View>
                 <View style={[
                   styles.toggle,
-                  { backgroundColor: hintsEnabled ? theme.primary : theme.border },
+                  { backgroundColor: hintsEnabled ? theme.primary : inactiveToggleSurface },
                 ]}>
                   <View style={[
                     styles.toggleKnob,
@@ -476,7 +566,7 @@ export default function QuestMenuScreen() {
                 </View>
                 <View style={[
                   styles.toggle,
-                  { backgroundColor: explanationsEnabled ? theme.primary : theme.border },
+                  { backgroundColor: explanationsEnabled ? theme.primary : inactiveToggleSurface },
                 ]}>
                   <View style={[
                     styles.toggleKnob,
@@ -496,7 +586,7 @@ export default function QuestMenuScreen() {
                 </View>
                 <View style={[
                   styles.toggle,
-                  { backgroundColor: secondChanceEnabled ? theme.primary : theme.border },
+                  { backgroundColor: secondChanceEnabled ? theme.primary : inactiveToggleSurface },
                 ]}>
                   <View style={[
                     styles.toggleKnob,
