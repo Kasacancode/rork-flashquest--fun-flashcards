@@ -63,9 +63,14 @@ function isRedisConfigArenaError(error: unknown): boolean {
 
 function normalizeArenaConnectionError(error: unknown): string {
   const message = getArenaErrorMessage(error).trim();
+  const normalizedMessage = message.toLowerCase();
 
   if (isRedisConfigArenaError(error)) {
     return __DEV__ && message ? message : 'Battle service temporarily unavailable.';
+  }
+
+  if (normalizedMessage === 'failed to fetch' || normalizedMessage.includes('network request failed')) {
+    return 'Could not connect to battle service. Please try again.';
   }
 
   return message || 'Could not connect to battle service.';
