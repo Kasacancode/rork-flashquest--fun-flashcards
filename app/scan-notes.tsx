@@ -13,7 +13,6 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
-  Platform,
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -51,7 +50,6 @@ export default function ScanNotesPage() {
   const [generatedCards, setGeneratedCards] = useState<GeneratedCard[]>([]);
   const [deckName, setDeckName] = useState<string>('');
   const [deckDescription, setDeckDescription] = useState<string>('');
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -68,6 +66,66 @@ export default function ScanNotesPage() {
     pulseAnim.stopAnimation();
     pulseAnim.setValue(1);
   }, [pulseAnim]);
+
+  const processImage = useCallback(async (base64: string | null) => {
+    if (!base64) {
+      setErrorMessage('Could not read image data. Please try another image.');
+      return;
+    }
+
+    setStep('processing');
+    startPulse();
+    setErrorMessage(null);
+
+    try {
+      try {
+        await fetch('https://clients3.google.com/generate_204', { method: 'HEAD', mode: 'no-cors' });
+      } catch {
+        throw new Error('OFFLINE');
+      }
+
+      const result = await generateObject({
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Look at this image of notes/study material. Extract key concepts and create flashcard question-answer pairs from it. Create between 3-15 flashcards depending on how much content is visible. Make questions clear and specific. Make answers concise but complete. Also suggest a deck name and description based on the content.',
+              },
+              {
+                type: 'image',
+                image: base64,
+              },
+            ],
+          },
+        ],
+        schema: flashcardSchema,
+      });
+
+      const cards: GeneratedCard[] = result.cards.map((card, index) => ({
+        id: `gen_${Date.now()}_${index}`,
+        question: card.question.slice(0, 500),
+        answer: card.answer.slice(0, 200),
+      }));
+
+      setGeneratedCards(cards);
+      setDeckName(result.deckName);
+      setDeckDescription(result.deckDescription);
+      setStep('review');
+    } catch (error) {
+      if (error instanceof Error && error.message === 'OFFLINE') {
+        Alert.alert('No Connection', 'You appear to be offline. Please check your connection and try again.');
+        setStep('pick');
+        return;
+      }
+
+      setErrorMessage('Failed to extract flashcards. Please try again with a clearer image.');
+      setStep('pick');
+    } finally {
+      stopPulse();
+    }
+  }, [startPulse, stopPulse]);
 
   const pickImage = useCallback(async (source: 'camera' | 'gallery') => {
     try {
@@ -101,68 +159,12 @@ export default function ScanNotesPage() {
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
         setImageUri(asset.uri);
-        processImage(asset.base64 ?? null, asset.uri);
+        void processImage(asset.base64 ?? null);
       }
-    } catch (error) {
-      
+    } catch {
       setErrorMessage('Failed to pick image. Please try again.');
     }
-  }, []);
-
-  const processImage = useCallback(async (base64: string | null, uri: string) => {
-    if (!base64) {
-      setErrorMessage('Could not read image data. Please try another image.');
-      return;
-    }
-
-    setStep('processing');
-    setIsProcessing(true);
-    startPulse();
-    setErrorMessage(null);
-
-    try {
-      
-
-      const result = await generateObject({
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Look at this image of notes/study material. Extract key concepts and create flashcard question-answer pairs from it. Create between 3-15 flashcards depending on how much content is visible. Make questions clear and specific. Make answers concise but complete. Also suggest a deck name and description based on the content.',
-              },
-              {
-                type: 'image',
-                image: base64,
-              },
-            ],
-          },
-        ],
-        schema: flashcardSchema,
-      });
-
-      
-
-      const cards: GeneratedCard[] = result.cards.map((card, index) => ({
-        id: `gen_${Date.now()}_${index}`,
-        question: card.question,
-        answer: card.answer,
-      }));
-
-      setGeneratedCards(cards);
-      setDeckName(result.deckName);
-      setDeckDescription(result.deckDescription);
-      setStep('review');
-    } catch (error) {
-      
-      setErrorMessage('Failed to extract flashcards. Please try again with a clearer image.');
-      setStep('pick');
-    } finally {
-      setIsProcessing(false);
-      stopPulse();
-    }
-  }, [startPulse, stopPulse]);
+  }, [processImage]);
 
   const updateCard = useCallback((id: string, field: 'question' | 'answer', value: string) => {
     setGeneratedCards(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));

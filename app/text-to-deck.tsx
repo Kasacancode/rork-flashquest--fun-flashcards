@@ -49,7 +49,6 @@ export default function TextToDeckPage() {
   const [generatedCards, setGeneratedCards] = useState<GeneratedCard[]>([]);
   const [deckName, setDeckName] = useState<string>('');
   const [deckDescription, setDeckDescription] = useState<string>('');
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -78,12 +77,15 @@ export default function TextToDeckPage() {
 
     Keyboard.dismiss();
     setStep('processing');
-    setIsProcessing(true);
     startPulse();
     setErrorMessage(null);
 
     try {
-      
+      try {
+        await fetch('https://clients3.google.com/generate_204', { method: 'HEAD', mode: 'no-cors' });
+      } catch {
+        throw new Error('OFFLINE');
+      }
 
       const result = await generateObject({
         messages: [
@@ -99,8 +101,8 @@ export default function TextToDeckPage() {
 
       const cards: GeneratedCard[] = result.cards.map((card, index) => ({
         id: `gen_${Date.now()}_${index}`,
-        question: card.question,
-        answer: card.answer,
+        question: card.question.slice(0, 500),
+        answer: card.answer.slice(0, 200),
       }));
 
       setGeneratedCards(cards);
@@ -108,11 +110,15 @@ export default function TextToDeckPage() {
       setDeckDescription(result.deckDescription);
       setStep('review');
     } catch (error) {
-      
+      if (error instanceof Error && error.message === 'OFFLINE') {
+        Alert.alert('No Connection', 'You appear to be offline. Please check your connection and try again.');
+        setStep('input');
+        return;
+      }
+
       setErrorMessage('Failed to generate flashcards. Please try again.');
       setStep('input');
     } finally {
-      setIsProcessing(false);
       stopPulse();
     }
   }, [sourceText, isTextValid, startPulse, stopPulse]);

@@ -92,6 +92,10 @@ function normalizeArenaConnectionError(error: unknown): string {
     return 'Could not connect to battle service. Please try again.';
   }
 
+  if (normalizedMessage.includes('json parse') || normalizedMessage.includes('unexpected character') || normalizedMessage.includes('unexpected token')) {
+    return 'Battle service is temporarily unavailable. Please try again in a moment.';
+  }
+
   return message || 'Could not connect to battle service.';
 }
 
