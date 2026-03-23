@@ -12,7 +12,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import { GAME_MODE } from '@/types/game';
 import type { PracticeMode, PracticeSessionState } from '@/types/practice';
-import { generateDistractors, pickDistractor, getOpponentBehavior, clearDistractorCache } from '@/utils/battleAI';
+import { clearAIDistractorCache as clearDistractorCache, generateOptionsWithAI } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
 
 const QUESTION_TIME = 15;
@@ -30,6 +30,32 @@ interface TurnResult {
   answer: string;
   isCorrect: boolean;
   timeUsed: number;
+}
+
+interface OpponentBehavior {
+  correctChance: number;
+  minTime: number;
+  maxTime: number;
+}
+
+function pickDistractor(distractors: string[]): string {
+  if (distractors.length === 0) {
+    return 'Incorrect answer';
+  }
+
+  return distractors[Math.floor(Math.random() * distractors.length)] ?? 'Incorrect answer';
+}
+
+function getOpponentBehavior(difficulty: string): OpponentBehavior {
+  switch (difficulty) {
+    case 'easy':
+      return { correctChance: 0.75, minTime: 2, maxTime: 5 };
+    case 'hard':
+      return { correctChance: 0.4, minTime: 6, maxTime: 12 };
+    case 'medium':
+    default:
+      return { correctChance: 0.6, minTime: 4, maxTime: 8 };
+  }
 }
 
 function createPracticeSession(deckId: string, mode: PracticeMode): PracticeSessionState {
@@ -183,15 +209,40 @@ export default function PracticeSessionPage() {
     feedbackOpacity.setValue(0);
     feedbackScale.setValue(0.8);
 
+    let isCancelled = false;
+
     if (currentBattle?.mode === 'ai') {
-      generateDistractors(currentCard.question, currentCard.answer, currentCard.id)
-        .then((result) => {
-          setDistractors(result);
+      void generateOptionsWithAI({
+        question: currentCard.question,
+        correctAnswer: currentCard.answer,
+        deckCards: deck?.flashcards ?? [],
+        allCards: decks.flatMap((existingDeck) => existingDeck.flashcards),
+        currentCardId: currentCard.id,
+      })
+        .then((options) => {
+          if (isCancelled) {
+            return;
+          }
+
+          const generatedDistractors = options.filter(
+            (option) => option.toLowerCase().trim() !== currentCard.answer.toLowerCase().trim()
+          );
+          setDistractors(generatedDistractors);
           logger.log('[Practice] Pre-loaded distractors for card:', currentCard.id);
         })
-        .catch(() => setDistractors([]));
+        .catch(() => {
+          if (!isCancelled) {
+            setDistractors([]);
+          }
+        });
+    } else {
+      setDistractors([]);
     }
-  }, [currentCard, feedbackOpacity, feedbackScale, currentBattle?.mode]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentCard, currentBattle?.mode, deck?.flashcards, decks, feedbackOpacity, feedbackScale]);
 
   useEffect(() => {
     if (gamePhase === 'opponent-turn') {
