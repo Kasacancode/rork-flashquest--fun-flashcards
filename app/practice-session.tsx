@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Trophy, X, User, Bot, Zap, Swords } from 'lucide-react-native';
+import { Trophy, X, User, Bot, Zap, Swords, Target, BookOpen } from 'lucide-react-native';
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, TextInput, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -564,6 +564,88 @@ export default function PracticeSessionPage() {
               router.back();
             }}>
               <Text style={styles.doneButtonText}>Done</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                borderRadius: 16,
+                paddingVertical: 14,
+                paddingHorizontal: 24,
+                marginTop: 10,
+                width: '100%',
+              }}
+              onPress={() => {
+                recordSessionResult({
+                  mode: GAME_MODE.PRACTICE,
+                  deckId: deckId,
+                  xpEarned: practiceXp,
+                  cardsAttempted: currentBattle.totalRounds,
+                  correctCount: currentBattle.playerScore,
+                  timestampISO: new Date().toISOString(),
+                });
+                trackEvent({
+                  event: 'practice_completed',
+                  deckId: deckId,
+                  properties: {
+                    won,
+                    player_score: currentBattle.playerScore,
+                    opponent_score: currentBattle.opponentScore,
+                    total_rounds: currentBattle.totalRounds,
+                    accuracy: currentBattle.totalRounds > 0 ? Math.round((currentBattle.playerScore / currentBattle.totalRounds) * 100) : 0,
+                  },
+                });
+                logger.log('[Practice] Recorded session result, xp:', practiceXp);
+                endBattle();
+                router.push({ pathname: '/quest', params: { deckId } } as any);
+              }}
+              activeOpacity={0.8}
+            >
+              <Target color="#fff" size={20} strokeWidth={2} />
+              <Text style={{ fontSize: 15, fontWeight: '700' as const, color: '#fff' }}>Quest This Deck</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                paddingVertical: 12,
+                marginTop: 6,
+              }}
+              onPress={() => {
+                recordSessionResult({
+                  mode: GAME_MODE.PRACTICE,
+                  deckId: deckId,
+                  xpEarned: practiceXp,
+                  cardsAttempted: currentBattle.totalRounds,
+                  correctCount: currentBattle.playerScore,
+                  timestampISO: new Date().toISOString(),
+                });
+                trackEvent({
+                  event: 'practice_completed',
+                  deckId: deckId,
+                  properties: {
+                    won,
+                    player_score: currentBattle.playerScore,
+                    opponent_score: currentBattle.opponentScore,
+                    total_rounds: currentBattle.totalRounds,
+                    accuracy: currentBattle.totalRounds > 0 ? Math.round((currentBattle.playerScore / currentBattle.totalRounds) * 100) : 0,
+                  },
+                });
+                logger.log('[Practice] Recorded session result, xp:', practiceXp);
+                endBattle();
+                router.push({ pathname: '/study', params: { deckId } } as any);
+              }}
+              activeOpacity={0.7}
+            >
+              <BookOpen color="rgba(255,255,255,0.7)" size={18} strokeWidth={2} />
+              <Text style={{ fontSize: 14, fontWeight: '600' as const, color: 'rgba(255,255,255,0.7)' }}>Study Flashcards</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>

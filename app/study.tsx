@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, RotateCcw } from 'lucide-react-native';
+import { ArrowLeft, RotateCcw, Target, Zap } from 'lucide-react-native';
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
@@ -30,6 +30,7 @@ export default function StudyPage() {
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(params.deckId || null);
   const [sessionResolved, setSessionResolved] = useState<number>(0);
   const [showResults, setShowResults] = useState<boolean>(false);
+  const [sessionXp, setSessionXp] = useState<number>(0);
   const trackedStudyDeckIdRef = useRef<string | null>(null);
 
   const selectedDeck = useMemo(
@@ -42,6 +43,7 @@ export default function StudyPage() {
     setSelectedDeckId(deckId);
     setShowDeckSelector(false);
     setSessionResolved(0);
+    setSessionXp(0);
     setShowResults(false);
   }, []);
 
@@ -74,6 +76,7 @@ export default function StudyPage() {
   const handleComplete = useCallback(() => {
     if (selectedDeck) {
       const xpEarned = sessionResolved * 2;
+      setSessionXp(xpEarned);
       recordSessionResult({
         mode: GAME_MODE.STUDY,
         deckId: selectedDeck.id,
@@ -97,6 +100,7 @@ export default function StudyPage() {
   const handleRestart = useCallback(() => {
     trackedStudyDeckIdRef.current = null;
     setSessionResolved(0);
+    setSessionXp(0);
     setShowResults(false);
   }, []);
 
@@ -124,21 +128,42 @@ export default function StudyPage() {
             <View style={styles.resultsCard}>
               <View style={styles.resultStat}>
                 <Text style={styles.resultStatValue}>{sessionResolved}</Text>
-                <Text style={styles.resultStatLabel}>Completed</Text>
+                <Text style={styles.resultStatLabel}>Cards</Text>
               </View>
               <View style={styles.resultStatDivider} />
               <View style={styles.resultStat}>
                 <Text style={styles.resultStatValue}>{selectedDeck.flashcards.length}</Text>
-                <Text style={styles.resultStatLabel}>Total Cards</Text>
+                <Text style={styles.resultStatLabel}>In Deck</Text>
+              </View>
+              <View style={styles.resultStatDivider} />
+              <View style={styles.resultStat}>
+                <Text style={[styles.resultStatValue, { color: '#10B981' }]}>+{sessionXp}</Text>
+                <Text style={styles.resultStatLabel}>XP Earned</Text>
               </View>
             </View>
 
             <TouchableOpacity style={styles.restartButton} onPress={handleRestart}>
-              <RotateCcw color="#fff" size={24} strokeWidth={2} />
+              <RotateCcw color="#667eea" size={20} strokeWidth={2} />
               <Text style={styles.restartButtonText}>Study Again</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.homeButton} onPress={() => router.back()}>
+            <TouchableOpacity
+              style={styles.suggestButton}
+              onPress={() => router.push({ pathname: '/quest', params: { deckId: selectedDeck.id } } as any)}
+            >
+              <Target color="#fff" size={20} strokeWidth={2} />
+              <Text style={styles.suggestButtonText}>Test Yourself in Quest Mode</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.hubButton}
+              onPress={() => router.push({ pathname: '/deck-hub', params: { deckId: selectedDeck.id } } as any)}
+            >
+              <Zap color="rgba(255,255,255,0.7)" size={18} strokeWidth={2} />
+              <Text style={styles.hubButtonText}>View Deck Progress</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.homeButton} onPress={() => router.back()} testID="study-results-back-button">
               <Text style={styles.homeButtonText}>Back to Decks</Text>
             </TouchableOpacity>
           </View>
@@ -485,5 +510,35 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: '#fff',
     textAlign: 'center',
+  },
+  suggestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    marginTop: 10,
+    width: '100%',
+  },
+  suggestButtonText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#fff',
+  },
+  hubButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    marginTop: 6,
+  },
+  hubButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: 'rgba(255, 255, 255, 0.7)',
   },
 });

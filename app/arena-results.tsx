@@ -720,6 +720,17 @@ export default function ArenaResultsScreen() {
               <Text style={[styles.shareButtonText, { color: theme.primary }]}>Share Results</Text>
             </TouchableOpacity>
 
+            {data?.deckId && (
+              <TouchableOpacity
+                style={[styles.secondaryButton, { borderColor: theme.border }]}
+                onPress={() => router.replace({ pathname: '/quest', params: { deckId: data.deckId } } as any)}
+                activeOpacity={0.7}
+              >
+                <Target color={theme.primary} size={20} />
+                <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>Practice This Deck</Text>
+              </TouchableOpacity>
+            )}
+
             {!saved && (
               <TouchableOpacity style={styles.saveButton} onPress={handleSaveResult} activeOpacity={0.85}>
                 <LinearGradient

@@ -271,9 +271,20 @@ export default function QuestResultsScreen() {
                 activeOpacity={0.7}
               >
                 <Target color={theme.warning} size={20} />
-                <Text style={[styles.secondaryButtonText, { color: theme.warning }]}>
+                <Text style={[styles.secondaryButtonText, { color: theme.warning }]}> 
                   Drill Missed Cards
                 </Text>
+              </TouchableOpacity>
+            )}
+
+            {(result.accuracy || 0) < 0.7 && deck && (
+              <TouchableOpacity
+                style={[styles.secondaryButton, { borderColor: theme.primary }]}
+                onPress={() => router.replace({ pathname: '/study', params: { deckId: result.deckId } } as any)}
+                activeOpacity={0.7}
+              >
+                <BookOpen color={theme.primary} size={20} />
+                <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>Review Flashcards First</Text>
               </TouchableOpacity>
             )}
 
