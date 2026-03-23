@@ -1,12 +1,13 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, type Href } from 'expo-router';
 import { Trophy, BookOpen, Swords, Target, User } from 'lucide-react-native';
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { Alert, View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
+import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 
 const { width } = Dimensions.get('window');
@@ -14,6 +15,7 @@ const { width } = Dimensions.get('window');
 export default function HomePage() {
   const router = useRouter();
   const { stats, decks } = useFlashQuest();
+  const { performance, getWeakCards } = usePerformance();
   const { theme, isDark } = useTheme();
   const {
     canAccessDeveloperTools,
@@ -22,6 +24,50 @@ export default function HomePage() {
     isReady: isDeveloperAccessReady,
   } = useDeveloperAccess();
   const didHandleLongPressRef = useRef<boolean>(false);
+
+  const recommendations = useMemo(() => {
+    if (decks.length === 0) {
+      return [] as { deckId: string; name: string; color: string; message: string; priority: number }[];
+    }
+
+    const hasPerformanceData = Object.keys(performance.deckStatsById).length > 0 || Object.keys(performance.cardStatsById).length > 0;
+    if (!hasPerformanceData) {
+      return [] as { deckId: string; name: string; color: string; message: string; priority: number }[];
+    }
+
+    const recs: { deckId: string; name: string; color: string; message: string; priority: number }[] = [];
+    const now = Date.now();
+    const oneDay = 86400000;
+
+    for (const deck of decks) {
+      const deckStats = performance.deckStatsById[deck.id];
+      const accuracy = deckStats && deckStats.attempts > 0 ? deckStats.correct / deckStats.attempts : null;
+      const daysSince = deckStats?.lastAttemptAt ? Math.floor((now - deckStats.lastAttemptAt) / oneDay) : null;
+      const weakCards = getWeakCards(deck.id, deck.flashcards, 5);
+
+      if (!deckStats || deckStats.attempts === 0) {
+        recs.push({ deckId: deck.id, name: deck.name, color: deck.color, message: 'Not started yet — try it!', priority: 10 });
+        continue;
+      }
+      if (accuracy !== null && accuracy < 0.6) {
+        recs.push({ deckId: deck.id, name: deck.name, color: deck.color, message: `${Math.round(accuracy * 100)}% accuracy — needs practice`, priority: 8 });
+        continue;
+      }
+      if (weakCards.length >= 3) {
+        recs.push({ deckId: deck.id, name: deck.name, color: deck.color, message: `${weakCards.length} cards need review`, priority: 7 });
+        continue;
+      }
+      if (daysSince !== null && daysSince >= 3) {
+        recs.push({ deckId: deck.id, name: deck.name, color: deck.color, message: `Last studied ${daysSince} days ago`, priority: 5 + Math.min(daysSince, 5) });
+        continue;
+      }
+      if (accuracy !== null && accuracy < 0.85) {
+        recs.push({ deckId: deck.id, name: deck.name, color: deck.color, message: `${Math.round(accuracy * 100)}% — keep improving`, priority: 3 });
+      }
+    }
+
+    return recs.sort((a, b) => b.priority - a.priority).slice(0, 5);
+  }, [decks, getWeakCards, performance.cardStatsById, performance.deckStatsById]);
 
   const handleOpenProfile = useCallback(() => {
     if (didHandleLongPressRef.current) {
@@ -204,7 +250,9 @@ export default function HomePage() {
           </View>
 
           <View style={styles.decksSection}>
-            <Text style={styles.sectionTitle}>Quick Start</Text>
+            <Text style={styles.sectionTitle}>
+              {recommendations.length > 0 ? 'Recommended for You' : 'Quick Start'}
+            </Text>
             {decks.length === 0 ? (
               <View style={styles.quickStartEmptyState}>
                 <Text style={styles.quickStartEmptyTitle}>No decks yet</Text>
@@ -218,6 +266,41 @@ export default function HomePage() {
                   <Text style={styles.quickStartEmptyButtonText}>Create Deck</Text>
                 </TouchableOpacity>
               </View>
+            ) : recommendations.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.decksScroll}
+                testID="home-recommendations-scroll"
+              >
+                {recommendations.map((rec) => (
+                  <TouchableOpacity
+                    key={rec.deckId}
+                    style={[
+                      styles.deckCard,
+                      {
+                        backgroundColor: isDark ? 'rgba(10, 17, 34, 0.88)' : theme.deckCardBg,
+                        borderWidth: isDark ? 1 : 0,
+                        borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
+                      },
+                    ]}
+                    onPress={() => router.push({ pathname: '/study', params: { deckId: rec.deckId } } as Href)}
+                    activeOpacity={0.9}
+                    testID={`home-recommendation-${rec.deckId}`}
+                  >
+                    <View style={[styles.deckColorStrip, { backgroundColor: rec.color }]} />
+                    <View style={styles.deckContent}>
+                      <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={2}>{rec.name}</Text>
+                      <Text
+                        style={[styles.recommendationMessage, { color: theme.primary }]}
+                        numberOfLines={1}
+                      >
+                        {rec.message}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             ) : (
               <ScrollView
                 horizontal
@@ -451,5 +534,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     fontWeight: '500' as const,
+  },
+  recommendationMessage: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    marginTop: 4,
   },
 });

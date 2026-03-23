@@ -41,6 +41,7 @@ export interface UserStats {
   lastActiveDate: string;
   totalCorrectAnswers: number;
   totalQuestionsAttempted: number;
+  studyDates: string[];
 }
 
 export interface Achievement {

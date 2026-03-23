@@ -25,6 +25,7 @@ const DEFAULT_STATS: UserStats = {
   lastActiveDate: new Date().toISOString().split('T')[0],
   totalCorrectAnswers: 0,
   totalQuestionsAttempted: 0,
+  studyDates: [],
 };
 
 function computeStreak(
@@ -142,6 +143,8 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
 
     const correctAnswersToAdd = params.correctCount != null ? params.correctCount : 0;
     const questionsAttemptedToAdd = params.correctCount != null ? params.cardsAttempted : 0;
+    const existingStudyDates = currentStats.studyDates ?? [];
+    const studyDatesUpdated = existingStudyDates.includes(today) ? existingStudyDates : [...existingStudyDates, today];
 
     const updatedStats: UserStats = {
       ...currentStats,
@@ -152,6 +155,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       lastActiveDate: today,
       totalCorrectAnswers: (currentStats.totalCorrectAnswers ?? 0) + correctAnswersToAdd,
       totalQuestionsAttempted: (currentStats.totalQuestionsAttempted ?? 0) + questionsAttemptedToAdd,
+      studyDates: studyDatesUpdated,
     };
 
     logger.log(

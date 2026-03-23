@@ -1,7 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react-native';
-import React, { useState, useEffect, useMemo } from 'react';
+import { ArrowLeft, Plus, Share2, Trash2 } from 'lucide-react-native';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
+import * as Clipboard from 'expo-clipboard';
 import {
   View,
   Text,
@@ -122,6 +123,35 @@ export default function CreateFlashcardPage() {
     }
     setShowCustomCategory(false);
   };
+
+  const handleShareDeck = useCallback(async () => {
+    if (!editingDeckId) {
+      return;
+    }
+
+    const existingDeck = decks.find((deck) => deck.id === editingDeckId);
+    if (!existingDeck) {
+      return;
+    }
+
+    try {
+      const shareData = {
+        _type: 'flashquest_deck',
+        name: existingDeck.name,
+        description: existingDeck.description,
+        category: existingDeck.category,
+        color: existingDeck.color,
+        flashcards: existingDeck.flashcards.map((card) => ({
+          question: card.question,
+          answer: card.answer,
+        })),
+      };
+      await Clipboard.setStringAsync(JSON.stringify(shareData));
+      Alert.alert('Deck Copied!', `"${existingDeck.name}" has been copied to your clipboard. Paste it in a message to share with friends.`);
+    } catch {
+      Alert.alert('Error', 'Failed to copy deck. Please try again.');
+    }
+  }, [decks, editingDeckId]);
 
   const handleSave = () => {
     if (!deckName.trim()) {
@@ -297,14 +327,24 @@ export default function CreateFlashcardPage() {
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.white }]}>{editingDeckId ? 'Edit Deck' : 'Create Deck'}</Text>
           {editingDeckId ? (
-            <TouchableOpacity
-              onPress={handleDeleteDeck}
-              style={styles.deleteIconButton}
-              activeOpacity={0.8}
-              testID="deckDeleteButton"
-            >
-              <Trash2 color={theme.white} size={24} strokeWidth={2.5} />
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                onPress={() => void handleShareDeck()}
+                style={styles.iconButton}
+                activeOpacity={0.8}
+                testID="deckShareButton"
+              >
+                <Share2 color={theme.white} size={22} strokeWidth={2.5} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleDeleteDeck}
+                style={styles.iconButton}
+                activeOpacity={0.8}
+                testID="deckDeleteButton"
+              >
+                <Trash2 color={theme.white} size={24} strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={styles.placeholder} />
           )}
@@ -450,9 +490,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   placeholder: {
-    width: 40,
+    width: 88,
   },
-  deleteIconButton: {
+  headerActions: {
+    width: 88,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',

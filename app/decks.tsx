@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import {
   ArrowLeft,
   BookOpen,
+  Download,
   Edit,
   FileText,
   PenLine,
@@ -11,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as Clipboard from 'expo-clipboard';
 import {
   Alert,
   Modal,
@@ -27,13 +29,42 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ALL_DECK_CATEGORIES_LABEL } from '@/constants/deckCategories';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
+import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
-import { Deck } from '@/types/flashcard';
+import type { Deck, Flashcard } from '@/types/flashcard';
+import type { CardStats } from '@/types/performance';
+
+function computeDeckMastery(flashcards: Flashcard[], cardStatsById: Record<string, CardStats>) {
+  let mastered = 0;
+  let reviewing = 0;
+  let learning = 0;
+  let newCards = 0;
+
+  for (const card of flashcards) {
+    const stats = cardStatsById[card.id];
+    if (!stats || stats.attempts === 0) {
+      newCards += 1;
+      continue;
+    }
+    if (stats.streakCorrect >= 5) {
+      mastered += 1;
+      continue;
+    }
+    if (stats.streakCorrect >= 3) {
+      reviewing += 1;
+      continue;
+    }
+    learning += 1;
+  }
+
+  return { mastered, reviewing, learning, newCards, total: flashcards.length };
+}
 
 export default function DecksPage() {
   const router = useRouter();
-  const { decks, deleteDeck } = useFlashQuest();
+  const { decks, deleteDeck, addDeck } = useFlashQuest();
   const { cleanupDeck } = useArena();
+  const { performance } = usePerformance();
   const { theme, isDark } = useTheme();
 
   const [showMenu, setShowMenu] = useState<boolean>(false);
@@ -97,6 +128,83 @@ export default function DecksPage() {
   const handleStudyDeck = useCallback((deckId: string) => {
     router.push({ pathname: '/study' as any, params: { deckId } });
   }, [router]);
+
+  const handleImportDeck = useCallback(async () => {
+    try {
+      const text = await Clipboard.getStringAsync();
+      if (!text || !text.trim()) {
+        Alert.alert('Nothing to Import', 'Copy a shared deck to your clipboard first, then tap Import.');
+        return;
+      }
+
+      type ImportedFlashcard = {
+        question?: unknown;
+        answer?: unknown;
+      };
+
+      type ImportedDeckPayload = {
+        _type?: unknown;
+        name?: unknown;
+        description?: unknown;
+        color?: unknown;
+        category?: unknown;
+        flashcards?: ImportedFlashcard[];
+      };
+
+      let data: ImportedDeckPayload;
+      try {
+        data = JSON.parse(text) as ImportedDeckPayload;
+      } catch {
+        Alert.alert('Invalid Data', 'The clipboard does not contain a valid FlashQuest deck.');
+        return;
+      }
+
+      if (data._type !== 'flashquest_deck' || typeof data.name !== 'string' || !Array.isArray(data.flashcards) || data.flashcards.length === 0) {
+        Alert.alert('Invalid Deck', 'The clipboard does not contain a valid FlashQuest deck.');
+        return;
+      }
+
+      const getStringValue = (value: unknown, fallback: string): string => {
+        return typeof value === 'string' ? value : fallback;
+      };
+
+      const newDeckId = `deck_${Date.now()}`;
+      const createdAt = Date.now();
+      const flashcards: Flashcard[] = data.flashcards.map((card, index) => ({
+        id: `import_${newDeckId}_${index}`,
+        question: getStringValue(card.question, '').slice(0, 500),
+        answer: getStringValue(card.answer, '').slice(0, 200),
+        deckId: newDeckId,
+        difficulty: 'medium' as const,
+        createdAt,
+      })).filter((card) => card.question.trim().length > 0 && card.answer.trim().length > 0);
+
+      if (flashcards.length === 0) {
+        Alert.alert('Invalid Deck', 'The clipboard deck has no valid cards to import.');
+        return;
+      }
+
+      const importedName = data.name.slice(0, 100);
+      const importedDescription = getStringValue(data.description, 'Imported deck').slice(0, 200);
+      const importedCategory = getStringValue(data.category, 'Imported').slice(0, 30);
+
+      addDeck({
+        id: newDeckId,
+        name: importedName,
+        description: importedDescription,
+        color: typeof data.color === 'string' ? data.color : '#667EEA',
+        icon: 'download',
+        category: importedCategory,
+        flashcards,
+        isCustom: true,
+        createdAt,
+      });
+
+      Alert.alert('Deck Imported!', `"${importedName}" with ${flashcards.length} cards has been added to your decks.`);
+    } catch {
+      Alert.alert('Import Failed', 'Could not import the deck. Make sure you copied a valid FlashQuest deck.');
+    }
+  }, [addDeck]);
 
   const handleEditDeck = useCallback((deckId: string) => {
     router.push({ pathname: '/create-flashcard' as any, params: { deckId } });
@@ -311,6 +419,35 @@ export default function DecksPage() {
                     </View>
                   </View>
 
+                  {(() => {
+                    const mastery = computeDeckMastery(deck.flashcards, performance.cardStatsById);
+                    if (mastery.total === 0) {
+                      return null;
+                    }
+
+                    const pMastered = (mastery.mastered / mastery.total) * 100;
+                    const pReviewing = (mastery.reviewing / mastery.total) * 100;
+                    const pLearning = (mastery.learning / mastery.total) * 100;
+
+                    return (
+                      <View style={styles.masterySection}>
+                        <View style={styles.masteryHeaderRow}>
+                          <Text style={[styles.masteryLabel, { color: theme.textSecondary }]}>
+                            {mastery.mastered}/{mastery.total} mastered
+                          </Text>
+                          <Text style={[styles.masteryPercent, { color: theme.textTertiary }]}>
+                            {Math.round(pMastered)}%
+                          </Text>
+                        </View>
+                        <View style={[styles.masteryTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
+                          {pMastered > 0 ? <View style={[styles.masterySegment, { width: `${pMastered}%`, backgroundColor: '#10B981' }]} /> : null}
+                          {pReviewing > 0 ? <View style={[styles.masterySegment, { width: `${pReviewing}%`, backgroundColor: '#3B82F6' }]} /> : null}
+                          {pLearning > 0 ? <View style={[styles.masterySegment, { width: `${pLearning}%`, backgroundColor: '#F59E0B' }]} /> : null}
+                        </View>
+                      </View>
+                    );
+                  })()}
+
                   <View style={styles.deckActions}>
                     <TouchableOpacity
                       style={[styles.studyButton, { backgroundColor: theme.primary }]}
@@ -399,6 +536,24 @@ export default function DecksPage() {
               <View style={styles.menuOptionText}>
                 <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Create Manually</Text>
                 <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Type your own questions and answers</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(14,165,233,0.1)' : 'rgba(14,165,233,0.08)' }]}
+              onPress={() => {
+                setShowMenu(false);
+                void handleImportDeck();
+              }}
+              activeOpacity={0.8}
+              testID="menuImportDeck"
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(14,165,233,0.2)' : 'rgba(14,165,233,0.15)' }]}> 
+                <Download color={isDark ? '#38bdf8' : '#0ea5e9'} size={24} strokeWidth={2} />
+              </View>
+              <View style={styles.menuOptionText}>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Import from Clipboard</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Paste a deck shared by a friend</Text>
               </View>
             </TouchableOpacity>
 
@@ -559,6 +714,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700' as const,
     color: '#333',
+  },
+  masterySection: {
+    marginTop: 10,
+    marginBottom: 14,
+  },
+  masteryHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  masteryLabel: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+  },
+  masteryPercent: {
+    fontSize: 11,
+  },
+  masteryTrack: {
+    height: 6,
+    borderRadius: 3,
+    flexDirection: 'row',
+    overflow: 'hidden',
+  },
+  masterySegment: {
+    height: '100%',
   },
   deckActions: {
     flexDirection: 'row',

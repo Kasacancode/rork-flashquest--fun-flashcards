@@ -27,6 +27,23 @@ export default function StatsPage() {
     return progress.reduce((sum, entry) => sum + entry.cardsReviewed, 0);
   }, [progress]);
 
+  const calendarData = useMemo(() => {
+    const today = new Date();
+    const studySet = new Set(stats.studyDates ?? []);
+    const days: { date: string; active: boolean }[] = [];
+
+    for (let i = 48; i >= 0; i -= 1) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateKey = date.toISOString().slice(0, 10);
+      days.push({ date: dateKey, active: studySet.has(dateKey) });
+    }
+
+    return days;
+  }, [stats.studyDates]);
+
+  const activeDaysCount = useMemo(() => calendarData.filter((day) => day.active).length, [calendarData]);
+
   const backgroundGradient = useMemo(
     () => (
       isDark
@@ -135,6 +152,33 @@ export default function StatsPage() {
                 <Text style={styles.statSubtitle}>{card.subtitle}</Text>
               </View>
             ))}
+          </View>
+
+          <View style={styles.activitySection} testID="stats-study-activity">
+            <View style={styles.activityCard}>
+              <Text style={styles.activityTitle}>Study Activity</Text>
+              <Text style={styles.activitySubtitle}>{activeDaysCount} days active in the last 7 weeks</Text>
+              <View style={styles.activityGrid}>
+                {calendarData.map((day) => (
+                  <View
+                    key={day.date}
+                    style={[
+                      styles.activitySquare,
+                      {
+                        backgroundColor: day.active
+                          ? theme.primary
+                          : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'),
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+              <View style={styles.activityLabels}>
+                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => (
+                  <Text key={`${label}-${index}`} style={styles.activityLabel}>{label}</Text>
+                ))}
+              </View>
+            </View>
           </View>
 
           <View style={styles.progressSection}>
@@ -296,6 +340,57 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       fontSize: 12,
       color: theme.textSecondary,
       fontWeight: '500' as const,
+    },
+    activitySection: {
+      marginTop: 28,
+      paddingHorizontal: 24,
+    },
+    activityCard: {
+      backgroundColor: statSurface,
+      borderRadius: 20,
+      padding: 20,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: surfaceBorderColor,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0.22 : 0.15,
+      shadowRadius: isDark ? 12 : 8,
+      elevation: isDark ? 7 : 6,
+    },
+    activityTitle: {
+      fontSize: 18,
+      fontWeight: '700' as const,
+      color: theme.text,
+    },
+    activitySubtitle: {
+      marginTop: 6,
+      fontSize: 13,
+      fontWeight: '500' as const,
+      color: theme.textSecondary,
+    },
+    activityGrid: {
+      marginTop: 18,
+      height: 91,
+      flexDirection: 'column',
+      flexWrap: 'wrap',
+      gap: 3,
+      alignSelf: 'flex-start',
+    },
+    activitySquare: {
+      width: 10,
+      height: 10,
+      borderRadius: 4,
+    },
+    activityLabels: {
+      marginTop: 12,
+      flexDirection: 'row',
+      alignSelf: 'flex-start',
+      gap: 11,
+    },
+    activityLabel: {
+      fontSize: 9,
+      fontWeight: '600' as const,
+      color: theme.textTertiary,
     },
     progressSection: {
       marginTop: 32,
