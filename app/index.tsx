@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, type Href } from 'expo-router';
 import { Trophy, BookOpen, Swords, Target, User } from 'lucide-react-native';
 import React, { useCallback, useRef } from 'react';
-import { Alert, View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Image } from 'react-native';
+import { Alert, View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
@@ -76,14 +76,7 @@ export default function HomePage() {
         >
           <View style={styles.header}>
             <View>
-              <View style={styles.titleRow}>
-                <Image
-                  source={require('@/assets/images/flashquest-q-logo.png')}
-                  style={styles.headerLogo}
-                  resizeMode="contain"
-                />
-                <Text style={styles.title}>FlashQuest</Text>
-              </View>
+              <Text style={styles.title}>FlashQuest</Text>
               <Text style={styles.subtitle}>Deck. Set. Match.</Text>
             </View>
             <TouchableOpacity
@@ -287,15 +280,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  titleRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 10,
-  },
-  headerLogo: {
-    width: 38,
-    height: 38,
   },
   title: {
     fontSize: 42,
