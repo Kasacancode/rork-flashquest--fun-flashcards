@@ -38,6 +38,11 @@ interface OpponentBehavior {
   maxTime: number;
 }
 
+interface AdaptiveOpponentState {
+  streak: number;
+  confidence: number;
+}
+
 function pickDistractor(distractors: string[]): string {
   if (distractors.length === 0) {
     return 'Incorrect answer';
@@ -46,19 +51,44 @@ function pickDistractor(distractors: string[]): string {
   return distractors[Math.floor(Math.random() * distractors.length)] ?? 'Incorrect answer';
 }
 
-function getOpponentBehavior(difficulty: string): OpponentBehavior {
+function getAdaptiveOpponentBehavior(
+  difficulty: string,
+  playerScore: number,
+  opponentScore: number,
+  round: number,
+  aiState: AdaptiveOpponentState,
+): OpponentBehavior {
+  let baseChance: number;
   switch (difficulty) {
     case 'easy':
-      return { correctChance: 0.75, minTime: 2, maxTime: 5 };
+      baseChance = 0.8;
+      break;
     case 'hard':
-      return { correctChance: 0.4, minTime: 6, maxTime: 12 };
-    case 'medium':
+      baseChance = 0.35;
+      break;
     default:
-      return { correctChance: 0.6, minTime: 4, maxTime: 8 };
+      baseChance = 0.6;
+      break;
   }
+
+  const scoreDiff = opponentScore - playerScore;
+  const rubberBand = scoreDiff > 0 ? -0.08 : scoreDiff < 0 ? 0.08 : 0;
+  const streakBonus = aiState.streak > 0
+    ? Math.min(aiState.streak * 0.04, 0.12)
+    : Math.max(aiState.streak * 0.04, -0.12);
+  const roundStability = Math.min(round / 5, 1) * 0.05;
+  const finalChance = Math.max(0.15, Math.min(0.9, baseChance + rubberBand + streakBonus + roundStability));
+  const isConfident = aiState.streak >= 2;
+  const minTime = isConfident ? 1 : 3;
+  const maxTime = isConfident ? 4 : 8;
+
+  return { correctChance: finalChance, minTime, maxTime };
 }
 
+const AI_NAMES = ['Quizzy', 'Ace', 'Sage', 'Brainiac', 'Nova'];
+
 function createPracticeSession(deckId: string, mode: PracticeMode): PracticeSessionState {
+  const aiName = AI_NAMES[Math.floor(Math.random() * AI_NAMES.length)] ?? 'AI Bot';
   return {
     id: `practice_${Date.now()}`,
     mode,
@@ -68,7 +98,7 @@ function createPracticeSession(deckId: string, mode: PracticeMode): PracticeSess
     currentRound: 0,
     totalRounds: 5,
     status: 'active',
-    opponentName: mode === 'ai' ? 'AI Bot' : 'Opponent',
+    opponentName: mode === 'ai' ? aiName : 'Opponent',
     shuffled: false,
   };
 }
@@ -98,6 +128,7 @@ export default function PracticeSessionPage() {
   const [player2Result, setPlayer2Result] = useState<PlayerInfo | null>(null);
   const [playerStreak, setPlayerStreak] = useState(0);
   const [distractors, setDistractors] = useState<string[]>([]);
+  const [aiState, setAiState] = useState<AdaptiveOpponentState>({ streak: 0, confidence: 0.5 });
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -114,6 +145,7 @@ export default function PracticeSessionPage() {
     }
 
     setCurrentBattle(createPracticeSession(deckId, practiceMode));
+    setAiState({ streak: 0, confidence: 0.5 });
   }, [deckId, practiceMode]);
 
   const updateBattle = useCallback((playerCorrect: boolean, opponentCorrect: boolean) => {
@@ -158,9 +190,17 @@ export default function PracticeSessionPage() {
   }, [deck, shuffledFlashcards, currentBattle]);
 
   const simulateOpponentAnswer = useCallback(() => {
-    const difficulty = currentCard?.difficulty || 'medium';
-    const behavior = currentBattle?.mode === 'ai'
-      ? getOpponentBehavior(difficulty)
+    if (!currentCard || !currentBattle) return;
+
+    const difficulty = currentCard.difficulty || 'medium';
+    const behavior = currentBattle.mode === 'ai'
+      ? getAdaptiveOpponentBehavior(
+          difficulty,
+          currentBattle.playerScore,
+          currentBattle.opponentScore,
+          currentBattle.currentRound,
+          aiState,
+        )
       : { correctChance: 0.5, minTime: 4, maxTime: 10 };
 
     const opponentCorrect = Math.random() < behavior.correctChance;
@@ -170,14 +210,21 @@ export default function PracticeSessionPage() {
       ? pickDistractor(distractors)
       : 'Incorrect answer';
 
+    setAiState((prev) => ({
+      streak: opponentCorrect ? Math.max(prev.streak + 1, 1) : Math.min(prev.streak - 1, -1),
+      confidence: opponentCorrect
+        ? Math.min(prev.confidence + 0.1, 1)
+        : Math.max(prev.confidence - 0.1, 0),
+    }));
+
     setOpponentResult({
-      answer: opponentCorrect ? currentCard?.answer || '' : wrongAnswer,
+      answer: opponentCorrect ? currentCard.answer || '' : wrongAnswer,
       isCorrect: opponentCorrect,
       timeUsed: opponentTime,
     });
 
-    logger.log('[Practice] Opponent answered:', opponentCorrect ? 'correct' : wrongAnswer, 'in', opponentTime, 's');
-    
+    logger.log('[Practice] AI answered:', opponentCorrect ? 'correct' : wrongAnswer, 'in', opponentTime, 's', 'streak:', aiState.streak);
+
     setTimeout(() => {
       Animated.parallel([
         Animated.timing(feedbackOpacity, {
@@ -193,7 +240,7 @@ export default function PracticeSessionPage() {
       ]).start();
       setGamePhase('reveal-results');
     }, 1200);
-  }, [currentCard, currentBattle, feedbackOpacity, feedbackScale, distractors]);
+  }, [currentCard, currentBattle, feedbackOpacity, feedbackScale, distractors, aiState]);
 
   useEffect(() => {
     if (!currentCard) return;
