@@ -472,6 +472,7 @@ export default function StudyFeed({
         >
           <Pressable style={styles.hintPressable} onPress={dismissHintOverlay}>
             <View style={styles.overlayContent}>
+              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#FFD700', marginBottom: 16 }} />
               <View style={styles.overlayHeader}>
                 <Lightbulb size={28} color="#FFD700" />
                 <Text style={styles.overlayTitle}>Hint</Text>
@@ -517,6 +518,7 @@ export default function StudyFeed({
             onPress={dismissFeedbackOverlay}
           >
             <View style={styles.overlayContent}>
+              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#4CAF50', marginBottom: 16 }} />
               <View style={styles.overlayHeader}>
                 <BookOpen size={28} color="#4CAF50" />
                 <Text style={styles.overlayTitle}>Explanation</Text>
@@ -726,10 +728,10 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   hintOverlay: {
-    backgroundColor: 'rgba(255, 193, 7, 0.95)',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
   },
   feedbackOverlay: {
-    backgroundColor: 'rgba(56, 142, 60, 0.95)',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
   },
   feedbackPressable: {
     flex: 1,
@@ -739,8 +741,13 @@ const styles = StyleSheet.create({
   },
   overlayContent: {
     width: '100%',
-    maxWidth: 340,
+    maxWidth: 360,
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 24,
+    padding: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   overlayHeader: {
     flexDirection: 'row',
@@ -783,16 +790,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 16,
     marginTop: 24,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   generateButtonGreen: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+    borderColor: 'rgba(76, 175, 80, 0.3)',
   },
   generateButtonText: {
     fontSize: 15,

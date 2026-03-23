@@ -414,6 +414,8 @@ export default function ScanNotesPage() {
               style={styles.reviewScroll}
               contentContainerStyle={styles.reviewContent}
               showsVerticalScrollIndicator={false}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
             >
               {!!imageUri && (
                 <View style={[styles.thumbRow, { backgroundColor: theme.cardBackground }]}>

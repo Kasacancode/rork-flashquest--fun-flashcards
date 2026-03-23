@@ -433,6 +433,8 @@ export default function CreateFlashcardPage() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.deckInfoSection}>
             <View style={styles.inputGroup}>

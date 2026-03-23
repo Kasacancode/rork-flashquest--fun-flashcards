@@ -292,6 +292,7 @@ export default function TextToDeckPage() {
             style={styles.inputScroll}
             contentContainerStyle={styles.inputScrollContent}
             showsVerticalScrollIndicator={false}
+            keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
           >
             <View style={[styles.heroCard, { backgroundColor: theme.cardBackground }]}>
@@ -382,6 +383,8 @@ export default function TextToDeckPage() {
               style={styles.reviewScroll}
               contentContainerStyle={styles.reviewContent}
               showsVerticalScrollIndicator={false}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
             >
               <View style={[styles.sourcePreviewRow, { backgroundColor: theme.cardBackground }]}>
                 <View style={[styles.sourceIconWrap, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)' }]}>

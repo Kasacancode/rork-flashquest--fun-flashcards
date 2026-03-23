@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useCallback } from 'react';
-import { Animated, Text, View, StyleSheet } from 'react-native';
+import { Animated, Platform, Text, View, StyleSheet } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Star } from 'lucide-react-native';
 
 interface Props {
@@ -19,6 +20,9 @@ export default function LevelUpToast({ levelUp, onDismiss }: Props) {
 
   useEffect(() => {
     if (!levelUp) return;
+    if (Platform.OS !== 'web') {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
     slide.setValue(-120);
     opacity.setValue(0);
     Animated.parallel([
