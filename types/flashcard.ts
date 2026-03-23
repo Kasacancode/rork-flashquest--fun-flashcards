@@ -39,6 +39,8 @@ export interface UserStats {
   totalDecksCompleted: number;
   achievements: Achievement[];
   lastActiveDate: string;
+  totalCorrectAnswers: number;
+  totalQuestionsAttempted: number;
 }
 
 export interface Achievement {

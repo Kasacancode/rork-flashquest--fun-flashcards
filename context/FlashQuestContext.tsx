@@ -22,6 +22,8 @@ const DEFAULT_STATS: UserStats = {
   totalDecksCompleted: 0,
   achievements: [],
   lastActiveDate: new Date().toISOString().split('T')[0],
+  totalCorrectAnswers: 0,
+  totalQuestionsAttempted: 0,
 };
 
 function computeStreak(
@@ -137,6 +139,9 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       currentStats.longestStreak,
     );
 
+    const correctAnswersToAdd = params.correctCount != null ? params.correctCount : 0;
+    const questionsAttemptedToAdd = params.correctCount != null ? params.cardsAttempted : 0;
+
     const updatedStats: UserStats = {
       ...currentStats,
       totalScore: currentStats.totalScore + params.xpEarned,
@@ -144,6 +149,8 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       currentStreak: newStreak,
       longestStreak: newLongest,
       lastActiveDate: today,
+      totalCorrectAnswers: (currentStats.totalCorrectAnswers ?? 0) + correctAnswersToAdd,
+      totalQuestionsAttempted: (currentStats.totalQuestionsAttempted ?? 0) + questionsAttemptedToAdd,
     };
 
     logger.log(

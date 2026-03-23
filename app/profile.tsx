@@ -410,6 +410,56 @@ export default function ProfilePage() {
       icon: Zap,
     },
     {
+      id: 'sharpshooter',
+      name: 'Sharpshooter',
+      description: 'Answer 50 questions correctly across all modes',
+      xp: 50,
+      progress: Math.min(stats.totalCorrectAnswers ?? 0, 50),
+      total: 50,
+      color: '#10B981',
+      icon: Zap,
+    },
+    {
+      id: 'precision_player',
+      name: 'Precision Player',
+      description: 'Answer 250 questions correctly across all modes',
+      xp: 150,
+      progress: Math.min(stats.totalCorrectAnswers ?? 0, 250),
+      total: 250,
+      color: '#059669',
+      icon: Zap,
+    },
+    {
+      id: 'eagle_eye',
+      name: 'Eagle Eye',
+      description: 'Answer 1,000 questions correctly across all modes',
+      xp: 400,
+      progress: Math.min(stats.totalCorrectAnswers ?? 0, 1000),
+      total: 1000,
+      color: '#047857',
+      icon: Zap,
+    },
+    {
+      id: 'answer_machine',
+      name: 'Answer Machine',
+      description: 'Attempt 500 questions across all modes',
+      xp: 100,
+      progress: Math.min(stats.totalQuestionsAttempted ?? 0, 500),
+      total: 500,
+      color: '#0EA5E9',
+      icon: Award,
+    },
+    {
+      id: 'quiz_marathon',
+      name: 'Quiz Marathon',
+      description: 'Attempt 2,000 questions across all modes',
+      xp: 500,
+      progress: Math.min(stats.totalQuestionsAttempted ?? 0, 2000),
+      total: 2000,
+      color: '#0284C7',
+      icon: Award,
+    },
+    {
       id: 'deck_creator',
       name: 'Deck Creator',
       description: 'Create your first custom deck',
@@ -489,7 +539,13 @@ export default function ProfilePage() {
       color: '#3730A3',
       icon: BookOpen,
     },
-  ], [stats, leaderboard, performance.bestQuestStreak, customDeckCount, totalCardsOwned]);
+  ], [
+    stats,
+    leaderboard,
+    performance.bestQuestStreak,
+    customDeckCount,
+    totalCardsOwned,
+  ]);
 
   const styles = useMemo(() => createStyles(theme, isDark, width), [theme, isDark, width]);
 
