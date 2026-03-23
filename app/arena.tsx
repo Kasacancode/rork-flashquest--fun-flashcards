@@ -212,7 +212,7 @@ export default function ArenaMenuScreen() {
     : 'Enter a room code and join the match in seconds.';
 
   const startIdentityText = hasSavedPlayerName ? savedPlayerName : 'Choose your battle name';
-  const joinCardFootnote = roomCode ? 'Your current room is still active' : 'Best with a live room code';
+  const joinCardFootnote = roomCode ? 'Your current room is still active' : '';
 
   const nextCreateName = sanitizePlayerName(nameInput);
   const nextJoinName = hasSavedPlayerName ? savedPlayerName : sanitizePlayerName(nameInput);
