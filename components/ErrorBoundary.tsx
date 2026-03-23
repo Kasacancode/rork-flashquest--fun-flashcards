@@ -42,9 +42,11 @@ export default class ErrorBoundary extends Component<Props, State> {
             <Text style={styles.emoji}>⚠️</Text>
             <Text style={styles.title}>Something went wrong</Text>
             <Text style={styles.message}>
-              {this.state.error?.message || 'An unexpected error occurred'}
+              {__DEV__
+                ? (this.state.error?.message || 'An unexpected error occurred')
+                : 'Something went wrong. Please restart the app.'}
             </Text>
-            {this.state.errorInfo ? (
+            {__DEV__ && this.state.errorInfo ? (
               <View style={styles.stackContainer}>
                 <Text style={styles.stackText} numberOfLines={15}>
                   {this.state.errorInfo}

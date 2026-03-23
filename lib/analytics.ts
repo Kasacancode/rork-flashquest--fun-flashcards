@@ -1,15 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import type { AnalyticsEventInput } from '@/backend/analytics/types';
 import { trpcClient } from '@/lib/trpc';
 import { generateUUID } from '@/utils/uuid';
 
-const ANALYTICS_SESSION_KEY = 'flashquest_analytics_session_id';
 const ANALYTICS_FLUSH_DELAY_MS = 1200;
 const ANALYTICS_BATCH_SIZE = 20;
 
 let cachedSessionId: string | null = null;
-let sessionIdPromise: Promise<string> | null = null;
 let queuedEvents: AnalyticsEventInput[] = [];
 let flushTimeout: ReturnType<typeof setTimeout> | null = null;
 let isFlushing = false;
@@ -25,29 +21,8 @@ export async function createSessionIdIfNeeded(): Promise<string> {
     return cachedSessionId;
   }
 
-  if (sessionIdPromise) {
-    return sessionIdPromise;
-  }
-
-  sessionIdPromise = (async () => {
-    const storedSessionId = await AsyncStorage.getItem(ANALYTICS_SESSION_KEY);
-
-    if (storedSessionId) {
-      cachedSessionId = storedSessionId;
-      return storedSessionId;
-    }
-
-    const newSessionId = generateUUID();
-    cachedSessionId = newSessionId;
-    await AsyncStorage.setItem(ANALYTICS_SESSION_KEY, newSessionId);
-    return newSessionId;
-  })();
-
-  try {
-    return await sessionIdPromise;
-  } finally {
-    sessionIdPromise = null;
-  }
+  cachedSessionId = generateUUID();
+  return cachedSessionId;
 }
 
 function clearScheduledFlush(): void {

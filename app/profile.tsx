@@ -80,7 +80,7 @@ interface AvatarOptionVisual {
   swatchStyle?: StyleProp<ViewStyle>;
 }
 
-const PROFILE_TABS: ReadonlyArray<{ id: TabType; label: string; icon: IconComponent }> = [
+const PROFILE_TABS: readonly { id: TabType; label: string; icon: IconComponent }[] = [
   { id: 'overview', label: 'Overview', icon: User },
   { id: 'avatar', label: 'Avatar', icon: Zap },
   { id: 'awards', label: 'Awards', icon: Award },

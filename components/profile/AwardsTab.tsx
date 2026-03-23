@@ -15,7 +15,7 @@ type ViewStyles<K extends string> = { [P in K]: StyleProp<ViewStyle> };
 type TextStyles<K extends string> = { [P in K]: StyleProp<TextStyle> };
 
 interface AwardsTabProps {
-  achievements: ReadonlyArray<{
+  achievements: readonly {
     id: string;
     name: string;
     description: string;
@@ -24,7 +24,7 @@ interface AwardsTabProps {
     total: number;
     color: string;
     icon: IconComponent;
-  }>;
+  }[];
   completedAchievements: number;
   nextAchievement: {
     name: string;

@@ -21,12 +21,12 @@ interface LevelsModalProps {
   visible: boolean;
   level: number;
   levelEntry: { level: number; title: string };
-  levels: ReadonlyArray<{
+  levels: readonly {
     level: number;
     title: string;
     subtitle: string;
     xpRequired: number;
-  }>;
+  }[];
   onClose: () => void;
   styles: ViewStyles<
     | 'levelModalOverlay'

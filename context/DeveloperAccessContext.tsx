@@ -32,7 +32,7 @@ export const [DeveloperAccessProvider, useDeveloperAccess] = createContextHook((
   });
 
   const isDeveloperAccessEnabled = developerAccessQuery.data ?? false;
-  const canAccessDeveloperTools = __DEV__ && isDeveloperAccessEnabled;
+  const canAccessDeveloperTools = isDeveloperAccessEnabled;
 
   const enableDeveloperAccess = useCallback(() => {
     saveDeveloperAccessMutation.mutate(true);

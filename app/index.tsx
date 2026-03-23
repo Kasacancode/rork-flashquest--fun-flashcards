@@ -33,7 +33,7 @@ export default function HomePage() {
   }, [router]);
 
   const handleProfileLongPress = useCallback(() => {
-    if (!__DEV__ || !isDeveloperAccessReady) {
+    if (!isDeveloperAccessReady) {
       return;
     }
 
