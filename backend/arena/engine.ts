@@ -363,14 +363,27 @@ export function resetRoom(room: Room, playerId: string): Room | null {
 export function tick(room: Room): boolean {
   normalizeRoomPlayers(room);
   if (!room.game) return false;
-  let changed = false;
 
-  if (room.game.phase === 'question') {
-    if (checkTimerExpiry(room)) changed = true;
-    if (checkDisconnectedPlayers(room)) changed = true;
-    if (checkAllAnswered(room)) changed = true;
-  } else if (room.game.phase === 'reveal') {
-    if (checkRevealAdvance(room)) changed = true;
+  let changed = false;
+  const maxIterations = (room.game.questions.length * 2) + 2;
+  let iterations = 0;
+
+  while (iterations++ < maxIterations) {
+    let stepChanged = false;
+
+    if (room.game.phase === 'question') {
+      if (checkTimerExpiry(room)) stepChanged = true;
+      if (checkDisconnectedPlayers(room)) stepChanged = true;
+      if (checkAllAnswered(room)) stepChanged = true;
+    } else if (room.game.phase === 'reveal') {
+      if (checkRevealAdvance(room)) stepChanged = true;
+    }
+
+    if (!stepChanged) {
+      break;
+    }
+
+    changed = true;
   }
 
   return changed;

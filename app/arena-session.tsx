@@ -91,7 +91,7 @@ export default function ArenaSessionScreen() {
   const [dealerLine, setDealerLine] = useState<string>('');
   const [dealerReactionCorrect, setDealerReactionCorrect] = useState<boolean | undefined>(undefined);
   const lastDealerLineRef = useRef<string>('');
-  const prevQuestionIndexRef = useRef<number>(-1);
+  const prevQuestionSnapshotKeyRef = useRef<string>('no-question');
   const leaderAtQuestionStartRef = useRef<string | null>(null);
   const hasNavigatedToResults = useRef(false);
 
@@ -128,6 +128,8 @@ export default function ArenaSessionScreen() {
   const countdownSessionKeyRef = useRef<string>('');
   const roundStartPointsRef = useRef<Record<string, number>>({});
   const roundStartRanksRef = useRef<Record<string, number>>({});
+  const roundStartPointsSnapshotRef = useRef<{ key: string; value: Record<string, number> }>({ key: 'no-question', value: {} });
+  const roundStartRanksSnapshotRef = useRef<{ key: string; value: Record<string, number> }>({ key: 'no-question', value: {} });
   const [displayTimeRemainingMs, setDisplayTimeRemainingMs] = useState<number | null>(null);
 
   const game = room?.game ?? null;
@@ -143,6 +145,9 @@ export default function ArenaSessionScreen() {
   const timerTotal = room?.settings?.timerSeconds ?? 0;
   const questionTimingKey = currentQuestion
     ? `${questionIndex}:${game?.questionStartedAt ?? 0}:${currentQuestion.cardId}:${phase ?? 'idle'}`
+    : 'no-question';
+  const questionRoundSnapshotKey = currentQuestion
+    ? `${questionIndex}:${game?.questionStartedAt ?? 0}:${currentQuestion.cardId}`
     : 'no-question';
 
   const myScore = playerId && scores[playerId] ? scores[playerId] : null;
@@ -178,12 +183,22 @@ export default function ArenaSessionScreen() {
     };
   });
 
-  const roundStartPointsSnapshot: Record<string, number> = Object.fromEntries(
-    players.map((player) => [player.id, scores[player.id]?.points ?? 0])
-  );
-  const roundStartRanksSnapshot: Record<string, number> = Object.fromEntries(
-    sortedPlayers.map((player, index) => [player.id, index + 1])
-  );
+  if (roundStartPointsSnapshotRef.current.key !== questionRoundSnapshotKey) {
+    roundStartPointsSnapshotRef.current = {
+      key: questionRoundSnapshotKey,
+      value: Object.fromEntries(players.map((player) => [player.id, scores[player.id]?.points ?? 0])),
+    };
+  }
+
+  if (roundStartRanksSnapshotRef.current.key !== questionRoundSnapshotKey) {
+    roundStartRanksSnapshotRef.current = {
+      key: questionRoundSnapshotKey,
+      value: Object.fromEntries(sortedPlayers.map((player, index) => [player.id, index + 1])),
+    };
+  }
+
+  const roundStartPointsSnapshot: Record<string, number> = roundStartPointsSnapshotRef.current.value;
+  const roundStartRanksSnapshot: Record<string, number> = roundStartRanksSnapshotRef.current.value;
 
   const leader = sortedPlayers[0];
   const leaderId = leader?.id ?? null;
@@ -221,7 +236,7 @@ export default function ArenaSessionScreen() {
     value: option,
     label: optionLabels[index] ?? option,
   }));
-  const displayOptionRows: Array<{ value: string; label: string }[]> = [];
+  const displayOptionRows: { value: string; label: string }[][] = [];
 
   for (let index = 0; index < displayOptions.length; index += 2) {
     displayOptionRows.push(displayOptions.slice(index, index + 2));
@@ -282,15 +297,7 @@ export default function ArenaSessionScreen() {
   }, [phase, questionTimingKey, timerTotal]);
 
   useEffect(() => {
-    if (!room || room.status !== 'playing' || !game) {
-      if (!hasNavigatedToResults.current) {
-        logger.log('[Session] No active game, redirecting');
-        router.replace('/arena' as any);
-      }
-      return;
-    }
-
-    if (phase === 'finished' && !hasNavigatedToResults.current) {
+    if (room && game && (phase === 'finished' || room.status === 'finished') && !hasNavigatedToResults.current) {
       hasNavigatedToResults.current = true;
       logger.log('[Session] Game finished, navigating to results');
       if (Platform.OS !== 'web') {
@@ -299,6 +306,14 @@ export default function ArenaSessionScreen() {
       setTimeout(() => {
         router.replace('/arena-results' as any);
       }, 500);
+      return;
+    }
+
+    if (!room || (!game && room.status !== 'finished')) {
+      if (!hasNavigatedToResults.current) {
+        logger.log('[Session] No active game, redirecting');
+        router.replace('/arena' as any);
+      }
     }
   }, [room, game, phase, router]);
 
@@ -317,14 +332,14 @@ export default function ArenaSessionScreen() {
   }, [connectionError, clearError, router]);
 
   useEffect(() => {
-    if (questionIndex !== prevQuestionIndexRef.current) {
+    if (questionRoundSnapshotKey !== prevQuestionSnapshotKeyRef.current) {
       const previousLeaderId = leaderAtQuestionStartRef.current;
       const dialogueEvent: ArenaDialogueEvent = previousLeaderId && leaderId && previousLeaderId !== leaderId
         ? 'leadChange'
         : 'intro';
       const line = selectAssistantDialogue({ mode: 'arena', event: dialogueEvent });
 
-      prevQuestionIndexRef.current = questionIndex;
+      prevQuestionSnapshotKeyRef.current = questionRoundSnapshotKey;
       setSelectedOption(null);
       setDealerReactionCorrect(undefined);
       setDealerLine(line);
@@ -351,7 +366,7 @@ export default function ArenaSessionScreen() {
         }).start();
       });
     }
-  }, [questionIndex, leaderId, cardAnimations, cardScales, shakeAnims, revealOpacity, leaderboardPanelAnim, leaderboardRowAnims, roundStartPointsSnapshot, roundStartRanksSnapshot]);
+  }, [questionRoundSnapshotKey, leaderId, cardAnimations, cardScales, shakeAnims, revealOpacity, leaderboardPanelAnim, leaderboardRowAnims, roundStartPointsSnapshot, roundStartRanksSnapshot, questionIndex]);
 
   useEffect(() => {
     if (lastAnswerCorrect !== null && selectedOption) {
@@ -486,7 +501,7 @@ export default function ArenaSessionScreen() {
     return 'idle';
   }, [phase, currentQuestion, selectedOption, hasAnsweredCurrent, isSubmitting]);
 
-  if (!room || !game || phase === 'finished') {
+  if (!room || !game || phase === 'finished' || room.status === 'finished') {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <LinearGradient
@@ -497,7 +512,7 @@ export default function ArenaSessionScreen() {
         />
         <SafeAreaView style={styles.loadingContainer}>
           <Text style={styles.loadingText}>
-            {phase === 'finished' ? 'Loading results...' : 'Connecting...'}
+            {(phase === 'finished' || room?.status === 'finished') ? 'Loading results...' : 'Connecting...'}
           </Text>
         </SafeAreaView>
       </View>

@@ -176,17 +176,20 @@ export const arenaRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       return roomRepository.withRoomLock(input.roomCode, async () => {
         const room = await requireRoom(input.roomCode);
-        engine.tick(room);
+        const tickChanged = engine.tick(room);
+
+        if (tickChanged) {
+          await roomRepository.saveRoom(room);
+        }
+
         const result = engine.submitAnswer(room, input.playerId, input.questionIndex, input.selectedOption);
         if (!result) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Cannot submit answer (already answered, wrong phase, or invalid question)",
-          });
+          return { isCorrect: false, room: engine.sanitizeRoom(room), expired: true };
         }
+
         engine.tick(result.room);
         const saved = await roomRepository.saveRoom(result.room);
-        return { isCorrect: result.isCorrect, room: engine.sanitizeRoom(saved) };
+        return { isCorrect: result.isCorrect, room: engine.sanitizeRoom(saved), expired: false };
       });
     }),
 
@@ -195,11 +198,17 @@ export const arenaRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       return roomRepository.withRoomLock(input.roomCode, async () => {
         const room = await requireRoom(input.roomCode);
-        engine.tick(room);
+        const tickChanged = engine.tick(room);
+
+        if (tickChanged) {
+          await roomRepository.saveRoom(room);
+        }
+
         const result = engine.advanceQuestion(room, input.playerId);
         if (!result) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot advance question" });
+          return { room: engine.sanitizeRoom(room) };
         }
+
         const saved = await roomRepository.saveRoom(result);
         return { room: engine.sanitizeRoom(saved) };
       });

@@ -18,7 +18,7 @@ const PLAYER_NAME_KEY = 'flashquest_arena_player_name';
 const POLL_LOBBY_MS = 2200;
 const POLL_QUESTION_MS = 350;
 const POLL_REVEAL_MS = 350;
-const POLL_FINISHED_MS = 10000;
+const POLL_FINISHED_MS = 2500;
 const HEARTBEAT_INTERVAL_MS = 3000;
 
 type PendingDeckSelection = {
@@ -461,8 +461,12 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     },
   });
   const submitAnswerMut = trpc.arena.submitAnswer.useMutation({
-    onSuccess: (data: { isCorrect: boolean; room: SanitizedRoom }) => {
+    onSuccess: (data: { isCorrect: boolean; room: SanitizedRoom; expired?: boolean }) => {
       applyIncomingRoom(data.room);
+      if (data.expired) {
+        logger.log('[Arena] Answer expired before submission completed');
+        return;
+      }
       setHasAnsweredCurrent(true);
       setLastAnswerCorrect(data.isCorrect);
       logger.log('[Arena] Answer submitted, correct:', data.isCorrect);
@@ -572,7 +576,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     updateSettingsMut.mutate({ roomCode, playerId, settings });
   }, [roomCode, playerId, serverRoom?.settings, updateSettingsMut]);
 
-  const startGame = useCallback((questions: Array<{ cardId: string; question: string; correctAnswer: string; options: string[] }>) => {
+  const startGame = useCallback((questions: { cardId: string; question: string; correctAnswer: string; options: string[] }[]) => {
     if (!roomCode || !playerId) return;
     startGameMut.mutate({ roomCode, playerId, questions });
   }, [roomCode, playerId, startGameMut]);

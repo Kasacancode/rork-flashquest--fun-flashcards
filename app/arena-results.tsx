@@ -298,7 +298,7 @@ export default function ArenaResultsScreen() {
       id: `arena_${Date.now()}`,
       deckId: data.deckId || '',
       deckName: data.deckName || 'Unknown',
-      winnerName: winnerDisplayName,
+      winnerName: winnerName,
       winnerPoints: winnerData?.points ?? 0,
       winnerAccuracy: totalQ > 0 ? (winnerData?.correct ?? 0) / totalQ : 0,
       playerCount: data.players.length,
