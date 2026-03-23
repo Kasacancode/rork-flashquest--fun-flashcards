@@ -127,8 +127,8 @@ export default function ArenaMenuScreen() {
   const backgroundGradient = useMemo(
     () => (
       isDark
-        ? ['#1b2435', '#28180f', '#0d1422'] as const
-        : ['#fff5ec', '#ffe3cf', '#ffb169'] as const
+        ? ['#172033', '#231820', '#0c1424'] as const
+        : ['#fff8f2', '#ffe8d8', '#ffd1a8'] as const
     ),
     [isDark],
   );
@@ -136,8 +136,8 @@ export default function ArenaMenuScreen() {
   const overlayGlow = useMemo(
     () => (
       isDark
-        ? ['rgba(251, 146, 60, 0.22)', 'rgba(251, 146, 60, 0.05)', 'rgba(15, 23, 42, 0)'] as const
-        : ['rgba(255, 255, 255, 0.55)', 'rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0)'] as const
+        ? ['rgba(251, 146, 60, 0.16)', 'rgba(251, 146, 60, 0.04)', 'rgba(15, 23, 42, 0)'] as const
+        : ['rgba(255, 255, 255, 0.66)', 'rgba(255, 255, 255, 0.18)', 'rgba(255, 255, 255, 0)'] as const
     ),
     [isDark],
   );
@@ -145,25 +145,29 @@ export default function ArenaMenuScreen() {
   const lowerBlend = useMemo(
     () => (
       isDark
-        ? ['rgba(99, 102, 241, 0)', 'rgba(99, 102, 241, 0.08)', 'rgba(15, 23, 42, 0.38)'] as const
-        : ['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.18)', 'rgba(255, 255, 255, 0.32)'] as const
+        ? ['rgba(59, 130, 246, 0)', 'rgba(59, 130, 246, 0.08)', 'rgba(15, 23, 42, 0.34)'] as const
+        : ['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.3)'] as const
     ),
     [isDark],
   );
 
-  const statSurface = isDark ? 'rgba(10, 17, 30, 0.8)' : 'rgba(255, 255, 255, 0.72)';
-  const primarySurface = isDark ? 'rgba(9, 15, 28, 0.88)' : 'rgba(255, 255, 255, 0.94)';
-  const secondarySurface = isDark ? 'rgba(14, 22, 37, 0.82)' : 'rgba(255, 255, 255, 0.86)';
-  const controlSurface = isDark ? 'rgba(71, 85, 105, 0.42)' : 'rgba(255, 255, 255, 0.42)';
-  const insetSurface = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(249, 115, 22, 0.08)';
-  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(249, 115, 22, 0.12)';
-  const subtleBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(249, 115, 22, 0.08)';
+  const statSurface = isDark ? 'rgba(12, 19, 33, 0.82)' : 'rgba(255, 255, 255, 0.82)';
+  const primarySurface = isDark ? 'rgba(7, 13, 27, 0.9)' : 'rgba(255, 255, 255, 0.96)';
+  const secondarySurface = isDark ? 'rgba(11, 18, 32, 0.88)' : 'rgba(255, 255, 255, 0.92)';
+  const controlSurface = isDark ? 'rgba(17, 24, 39, 0.42)' : 'rgba(255, 255, 255, 0.5)';
+  const insetSurface = isDark ? 'rgba(255, 255, 255, 0.065)' : 'rgba(249, 115, 22, 0.07)';
+  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(249, 115, 22, 0.1)';
+  const subtleBorderColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(249, 115, 22, 0.08)';
   const startGradient = isDark ? ['#fb923c', '#ea580c'] as const : ['#fb923c', '#f97316'] as const;
   const disabledGradient = isDark ? ['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.04)'] as const : ['rgba(255, 255, 255, 0.45)', 'rgba(255, 255, 255, 0.3)'] as const;
   const modalSurface = isDark ? 'rgba(10, 17, 30, 0.98)' : 'rgba(255, 255, 255, 0.98)';
   const liveRoomSurface = isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(236, 253, 245, 0.92)';
   const liveRoomBorder = isDark ? 'rgba(16, 185, 129, 0.26)' : 'rgba(16, 185, 129, 0.18)';
-  const mutedTextColor = isDark ? 'rgba(241, 245, 249, 0.84)' : '#7c2d12';
+  const mutedTextColor = isDark ? 'rgba(241, 245, 249, 0.9)' : '#8c3412';
+  const headerContentColor = isDark ? '#f8fafc' : '#7c2d12';
+  const headerButtonBorder = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(249, 115, 22, 0.14)';
+  const headerTitleSurface = isDark ? 'rgba(10, 17, 30, 0.42)' : 'rgba(255, 255, 255, 0.42)';
+  const headerTitleBorder = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(249, 115, 22, 0.12)';
 
   const statItems = useMemo(
     () => [
@@ -190,22 +194,25 @@ export default function ArenaMenuScreen() {
   );
 
   const valueProp = roomCode
-    ? 'Your room is live — jump back in and keep the momentum on your side.'
-    : 'Challenge a friend to a fast flashcard face-off and see who stays sharp under pressure.';
+    ? 'Your room is live — jump back in and keep control of the match.'
+    : 'Head-to-head flashcard rounds for quick calls, clean wins, and real pressure.';
 
   const setupCopy = roomCode
-    ? `Room ${roomCode} live · deck, rounds, and timer are set in the room`
+    ? `Room ${roomCode} is live · deck, rounds, and timer stay with the room`
     : hasSavedPlayerName
-      ? `${savedPlayerName} · choose the deck, rounds, and timer after you create the room`
-      : 'Choose your name once · deck, rounds, and timer are set in the room';
+      ? 'Host picks the deck, rounds, and timer after the room opens'
+      : 'Set your battle profile once · host picks the deck, rounds, and timer';
 
   const startCardSubtitle = roomCode
-    ? 'Finish or leave your active room before starting another match.'
+    ? 'Jump back into your active room before opening another match.'
     : 'Create a room and invite a friend.';
 
   const joinCardSubtitle = roomCode
-    ? 'Rejoin your current room or leave it to enter a new code.'
-    : 'Enter a room code and jump straight into the match.';
+    ? 'Rejoin your current room or leave it before entering a new code.'
+    : 'Enter a room code and join the match in seconds.';
+
+  const startIdentityText = hasSavedPlayerName ? savedPlayerName : 'Choose your battle name';
+  const joinCardFootnote = roomCode ? 'Your current room is still active' : 'Best when a friend already has a live room';
 
   const nextCreateName = sanitizePlayerName(nameInput);
   const nextJoinName = hasSavedPlayerName ? savedPlayerName : sanitizePlayerName(nameInput);
@@ -298,19 +305,30 @@ export default function ArenaMenuScreen() {
               styles.headerButton,
               {
                 backgroundColor: controlSurface,
-                borderColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(255, 255, 255, 0.28)',
+                borderColor: headerButtonBorder,
+                shadowOpacity: isDark ? 0.2 : 0.1,
+                shadowRadius: isDark ? 14 : 10,
+                elevation: isDark ? 6 : 3,
               },
             ]}
             onPress={() => router.back()}
             activeOpacity={0.7}
             testID="battle-back-button"
           >
-            <ArrowLeft color="#fff" size={24} />
+            <ArrowLeft color={headerContentColor} size={24} />
           </TouchableOpacity>
 
-          <View style={styles.headerTitleContainer}>
-            <Swords color="#fff" size={26} strokeWidth={2.4} />
-            <Text style={styles.headerTitle}>Battle</Text>
+          <View
+            style={[
+              styles.headerTitleContainer,
+              {
+                backgroundColor: headerTitleSurface,
+                borderColor: headerTitleBorder,
+              },
+            ]}
+          >
+            <Swords color={headerContentColor} size={22} strokeWidth={2.4} />
+            <Text style={[styles.headerTitle, { color: headerContentColor }]}>Battle</Text>
           </View>
 
           <TouchableOpacity
@@ -318,7 +336,10 @@ export default function ArenaMenuScreen() {
               styles.headerButton,
               {
                 backgroundColor: controlSurface,
-                borderColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(255, 255, 255, 0.28)',
+                borderColor: headerButtonBorder,
+                shadowOpacity: isDark ? 0.2 : 0.1,
+                shadowRadius: isDark ? 14 : 10,
+                elevation: isDark ? 6 : 3,
               },
             ]}
             onPress={handleOpenSettings}
@@ -326,7 +347,7 @@ export default function ArenaMenuScreen() {
             accessibilityLabel="Open settings"
             testID="battle-settings-button"
           >
-            <Settings color="#fff" size={22} />
+            <Settings color={headerContentColor} size={22} />
           </TouchableOpacity>
         </View>
 
@@ -399,9 +420,12 @@ export default function ArenaMenuScreen() {
                   <Text style={styles.primaryActionTitle}>Start Battle</Text>
                   <Text style={styles.primaryActionSubtitle}>{startCardSubtitle}</Text>
                   <View style={styles.actionFooterRow}>
-                    <Text style={styles.primaryActionFootnote} numberOfLines={1}>
-                      {hasSavedPlayerName ? `Playing as ${savedPlayerName}` : 'Save your battle name once'}
-                    </Text>
+                    <View style={styles.primaryActionMeta}>
+                      <Text style={styles.primaryActionMetaLabel}>Battle profile</Text>
+                      <Text style={styles.primaryActionFootnote} numberOfLines={1}>
+                        {startIdentityText}
+                      </Text>
+                    </View>
                     <ChevronRight color="#fff" size={18} />
                   </View>
                 </View>
@@ -437,7 +461,7 @@ export default function ArenaMenuScreen() {
                 <Text style={[styles.secondaryActionSubtitle, { color: theme.textSecondary }]}>{joinCardSubtitle}</Text>
                 <View style={styles.actionFooterRow}>
                   <Text style={[styles.secondaryActionFootnote, { color: theme.textSecondary }]} numberOfLines={1}>
-                    Fast entry for live matches
+                    {joinCardFootnote}
                   </Text>
                   <ChevronRight color={arenaAccent} size={18} />
                 </View>
@@ -456,7 +480,11 @@ export default function ArenaMenuScreen() {
             testID="battle-config-strip"
           >
             <View style={[styles.configIconShell, { backgroundColor: insetSurface }]}>
-              <Settings color={arenaAccent} size={16} strokeWidth={2.4} />
+              {roomCode ? (
+                <Wifi color="#10b981" size={16} strokeWidth={2.4} />
+              ) : (
+                <Swords color={arenaAccent} size={16} strokeWidth={2.4} />
+              )}
             </View>
             <Text style={[styles.configText, { color: theme.textSecondary }]} numberOfLines={2}>
               {setupCopy}
@@ -481,7 +509,7 @@ export default function ArenaMenuScreen() {
                 <View style={styles.liveRoomInfo}>
                   <Text style={styles.liveRoomEyebrow}>Live room</Text>
                   <Text style={[styles.liveRoomCode, { color: theme.text }]}>{roomCode}</Text>
-                  <Text style={[styles.liveRoomDescription, { color: theme.textSecondary }]}>Jump back in or leave this room to start fresh.</Text>
+                  <Text style={[styles.liveRoomDescription, { color: theme.textSecondary }]}>Jump back in or leave this room before starting a new battle.</Text>
                 </View>
               </View>
               <View style={styles.liveRoomActions}>
@@ -523,7 +551,7 @@ export default function ArenaMenuScreen() {
                 <Trophy color={arenaAccent} size={20} strokeWidth={2.4} />
                 <Text style={[styles.recentTitle, { color: theme.text }]}>Recent Battles</Text>
               </View>
-              <Text style={[styles.recentHeaderCaption, { color: theme.textTertiary }]}>Last 5 saved results</Text>
+              <Text style={[styles.recentHeaderCaption, { color: theme.textTertiary }]}>Latest saved matches</Text>
             </View>
 
             {recentBattles.length === 0 ? (
@@ -532,7 +560,7 @@ export default function ArenaMenuScreen() {
                   <Swords color={arenaAccent} size={22} strokeWidth={2.3} />
                 </View>
                 <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No battles yet</Text>
-                <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>Start a match and your recent battle board will show up here.</Text>
+                <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>Finish a match to start your battle record.</Text>
               </View>
             ) : (
               <View style={styles.recentBattlesList}>
@@ -618,7 +646,7 @@ export default function ArenaMenuScreen() {
             ]}
           >
             <Text style={[styles.modalTitle, { color: theme.text }]}>Start Battle</Text>
-            <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>Pick the name your friends will see in battle. FlashQuest will remember it for next time.</Text>
+            <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>Choose the name other players will see. FlashQuest saves it for your next battle.</Text>
             <TextInput
               style={[
                 styles.modalInput,
@@ -697,7 +725,7 @@ export default function ArenaMenuScreen() {
             ]}
           >
             <Text style={[styles.modalTitle, { color: theme.text }]}>Join Battle</Text>
-            <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>Enter the room code to join a live match with your saved battle identity.</Text>
+            <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>Enter a room code to join a live match with your battle profile.</Text>
             {hasSavedPlayerName ? (
               <View
                 style={[
@@ -709,7 +737,7 @@ export default function ArenaMenuScreen() {
                 ]}
                 testID="battle-saved-name-card"
               >
-                <Text style={[styles.savedNameLabel, { color: theme.textSecondary }]}>Joining as</Text>
+                <Text style={[styles.savedNameLabel, { color: theme.textSecondary }]}>Battle profile</Text>
                 <Text style={[styles.savedNameValue, { color: theme.text }]} numberOfLines={1}>{savedPlayerName}</Text>
               </View>
             ) : (
@@ -811,20 +839,27 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   headerButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
   },
   headerTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 18,
+    borderWidth: 1,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800' as const,
     color: '#fff',
     letterSpacing: -0.5,
@@ -978,11 +1013,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
+  primaryActionMeta: {
+    flex: 1,
+    gap: 3,
+  },
+  primaryActionMetaLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.68)',
+    fontWeight: '700' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.7,
+  },
   primaryActionFootnote: {
     flex: 1,
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.82)',
-    fontWeight: '600' as const,
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.94)',
+    fontWeight: '700' as const,
   },
   secondaryActionFootnote: {
     flex: 1,
