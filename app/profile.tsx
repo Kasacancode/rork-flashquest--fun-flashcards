@@ -4,25 +4,17 @@ import {
   ArrowLeft,
   Award,
   BookOpen,
-  Check,
   Crown,
   Flame,
-  Moon,
-  Pencil,
-  Sun,
   User,
   Zap,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   useWindowDimensions,
@@ -32,6 +24,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import AvatarTab from '@/components/profile/AvatarTab';
+import AwardsTab from '@/components/profile/AwardsTab';
+import LevelsModal from '@/components/profile/LevelsModal';
+import OverviewTab from '@/components/profile/OverviewTab';
+import PlayerNameModal from '@/components/profile/PlayerNameModal';
+import ProfileHeroCard from '@/components/profile/ProfileHeroCard';
 import {
   AVATAR_COLORS,
   AVATAR_SUITS,
@@ -44,7 +42,7 @@ import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { logger } from '@/utils/logger';
-import { PLAYER_NAME_MAX_LENGTH, getPlayerNameValidationError } from '@/utils/playerName';
+import { getPlayerNameValidationError } from '@/utils/playerName';
 
 type TabType = 'overview' | 'avatar' | 'awards';
 
@@ -221,18 +219,9 @@ export default function ProfilePage() {
     [isDark]
   );
   const selectedColorValue = selectedColorData.value || AVATAR_COLORS[0]!.value;
-  const heroAvatarStyle = useMemo(() => [styles.heroAvatar, { backgroundColor: selectedColorValue }], [styles, selectedColorValue]);
   const avatarShowcaseGradient = useMemo(
     () => [selectedColorValue, theme.primaryDark, theme.gradientEnd] as [string, string, string],
     [selectedColorValue, theme.primaryDark, theme.gradientEnd]
-  );
-  const playerNameModalCardStyle = useMemo(
-    () => [styles.playerNameModalCard, { backgroundColor: theme.cardBackground }],
-    [styles, theme.cardBackground]
-  );
-  const levelModalCardStyle = useMemo(
-    () => [styles.levelModalCard, { backgroundColor: theme.cardBackground }],
-    [styles, theme.cardBackground]
   );
   const unselectedAvatarOptionColor = isDark ? '#CBD5E1' : '#64748B';
   const selectedSuitCardBackground = isDark ? 'rgba(15, 23, 42, 0.9)' : selectedColorData.light;
@@ -429,57 +418,19 @@ export default function ProfilePage() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.heroCard}>
-            <LinearGradient
-              colors={heroGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.heroCardGradient}
-            >
-              <View style={styles.heroTopRow}>
-                <View style={styles.heroIdentityRow}>
-                  <View style={heroAvatarStyle}>
-                    <Text style={styles.heroAvatarSymbol}>{selectedSuitData.symbol}</Text>
-                    <View style={styles.heroAvatarBadge}>
-                      <Zap color="#fff" size={12} strokeWidth={2.8} />
-                    </View>
-                  </View>
-
-                  <View style={styles.heroIdentityText}>
-                    <Text style={styles.heroEyebrow}>FlashQuest Profile</Text>
-                    <View style={styles.heroNameRow}>
-                      <Text style={styles.heroName} numberOfLines={1}>{profileDisplayName}</Text>
-                      <TouchableOpacity
-                        onPress={handleEditPlayerName}
-                        style={styles.heroNameEditButton}
-                        activeOpacity={0.84}
-                        disabled={!isPlayerNameReady}
-                        testID="profile-player-name-edit"
-                      >
-                        <Pencil color="rgba(255, 255, 255, 0.96)" size={14} strokeWidth={2.4} />
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={styles.heroSubtitle}>{levelEntry.title}</Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.heroLevelBadge}
-                  onPress={handleOpenLevels}
-                  activeOpacity={0.86}
-                  testID="profile-open-levels"
-                >
-                  <Text style={styles.heroLevelBadgeText}>Lv {level}</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.heroBottomRow}>
-                <View style={styles.heroMetaPill}>
-                  <Text style={styles.heroMetaText}>{selectedColorData.name} {selectedSuitData.name}</Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </View>
+          <ProfileHeroCard
+            profileDisplayName={profileDisplayName}
+            selectedSuitData={selectedSuitData}
+            selectedColorData={selectedColorData}
+            heroGradient={heroGradient}
+            level={level}
+            levelEntry={levelEntry}
+            isPlayerNameReady={isPlayerNameReady}
+            onEditPlayerName={handleEditPlayerName}
+            onOpenLevels={handleOpenLevels}
+            styles={styles}
+            theme={theme}
+          />
 
           <View style={styles.tabs}>
             {PROFILE_TABS.map((tab) => {
@@ -518,428 +469,69 @@ export default function ProfilePage() {
           </View>
 
           {activeTab === 'overview' && (
-            <View style={styles.tabContent}>
-              <View style={styles.cardShell}>
-                <LinearGradient
-                  colors={surfaceGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.appearanceCard}
-                >
-                  <View style={styles.toggleCard}>
-                    <View style={styles.toggleLeadingIcon}>
-                      {isDark ? (
-                        <Moon color={theme.primary} size={17} strokeWidth={2.3} />
-                      ) : (
-                        <Sun color={theme.primary} size={17} strokeWidth={2.3} />
-                      )}
-                    </View>
-                    <View style={styles.toggleTextWrap}>
-                      <Text style={styles.toggleTitle}>Dark mode</Text>
-                      <Text style={styles.toggleSubtitle}>
-                        {isDark ? 'Enabled for a low-light look.' : 'Switch on for a darker theme.'}
-                      </Text>
-                    </View>
-                    <Switch
-                      value={isDark}
-                      onValueChange={toggleTheme}
-                      trackColor={{ false: isDark ? '#475569' : '#CBD5E1', true: theme.primary }}
-                      thumbColor={theme.white}
-                      ios_backgroundColor={isDark ? '#475569' : '#CBD5E1'}
-                      testID="dark-mode-switch"
-                    />
-                  </View>
-                </LinearGradient>
-              </View>
-
-              <View style={styles.utilityGrid}>
-                <TouchableOpacity
-                  style={styles.utilityCard}
-                  onPress={() => handleComingSoon('Friends')}
-                  activeOpacity={0.88}
-                  testID="profile-card-friends"
-                >
-                  <LinearGradient
-                    colors={surfaceGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.utilityCardGradient}
-                  >
-                    <View style={styles.utilityIconWrap}>
-                      <User color={theme.primary} size={18} strokeWidth={2.3} />
-                    </View>
-                    <Text style={styles.utilityTitle}>Friends</Text>
-                    <Text style={styles.utilityDescription}>Follow classmates and compare progress soon.</Text>
-                    <Text style={styles.utilityTag}>Coming soon</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.utilityCard}
-                  onPress={() => handleComingSoon('Leaderboard')}
-                  activeOpacity={0.88}
-                  testID="profile-card-leaderboard"
-                >
-                  <LinearGradient
-                    colors={surfaceGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.utilityCardGradient}
-                  >
-                    <View style={styles.utilityIconWrap}>
-                      <Crown color={theme.primary} size={18} strokeWidth={2.3} />
-                    </View>
-                    <Text style={styles.utilityTitle}>Leaderboard</Text>
-                    <Text style={styles.utilityDescription}>Rank up against other players in future updates.</Text>
-                    <Text style={styles.utilityTag}>Coming soon</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-
-              {canAccessDeveloperTools ? (
-                <TouchableOpacity
-                  style={styles.debugButton}
-                  onPress={handleOpenAnalyticsDebug}
-                  activeOpacity={0.84}
-                  testID="profile-open-analytics-debug"
-                >
-                  <Text style={styles.debugButtonText}>Analytics Debug</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
+            <OverviewTab
+              isDark={isDark}
+              toggleTheme={toggleTheme}
+              canAccessDeveloperTools={canAccessDeveloperTools}
+              onOpenAnalyticsDebug={handleOpenAnalyticsDebug}
+              onComingSoon={handleComingSoon}
+              surfaceGradient={surfaceGradient}
+              styles={styles}
+              theme={theme}
+            />
           )}
 
           {activeTab === 'avatar' && (
-            <View style={styles.tabContent}>
-              <View style={styles.avatarShowcaseCard}>
-                <LinearGradient
-                  colors={avatarShowcaseGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.avatarShowcaseGradient}
-                >
-                  <View style={styles.avatarShowcaseHeader}>
-                    <View style={styles.avatarShowcaseBadge}>
-                      <Text style={styles.avatarShowcaseBadgeText}>Equipped</Text>
-                    </View>
-                    <Text style={styles.avatarShowcaseHint}>Used across FlashQuest menus</Text>
-                  </View>
-
-                  <View style={styles.avatarShowcaseBody}>
-                    <View style={styles.avatarShowcaseTile}>
-                      <Text style={styles.avatarShowcaseSymbol}>{selectedSuitData.symbol}</Text>
-                    </View>
-                    <View style={styles.avatarShowcaseTextBlock}>
-                      <Text style={styles.avatarShowcaseTitle}>
-                        {selectedColorData.name} {selectedSuitData.name}
-                      </Text>
-                      <Text style={styles.avatarShowcaseDescription}>
-                        Pick the badge that follows you through study, quests, and arena rooms.
-                      </Text>
-                    </View>
-                  </View>
-                </LinearGradient>
-              </View>
-
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Choose a suit</Text>
-                <Text style={styles.sectionSubtitle}>Select the symbol shown on your player badge.</Text>
-              </View>
-
-              <View style={styles.optionGrid}>
-                {AVATAR_SUITS.map((suit) => {
-                  const isSelected = selectedSuit === suit.id;
-                  const optionVisual = suitOptionVisuals[suit.id];
-
-                  return (
-                    <Pressable
-                      key={suit.id}
-                      style={styles.optionPressable}
-                      onPress={() => handleSelectSuit(suit.id)}
-                      testID={`profile-avatar-suit-${suit.id}`}
-                    >
-                      {({ pressed }) => (
-                        <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
-                          <Text style={optionVisual.symbolStyle}>{suit.symbol}</Text>
-                          <Text style={optionVisual.titleStyle}>{suit.name}</Text>
-                          <Text style={styles.optionDescription}>Tap to equip</Text>
-                          {isSelected ? (
-                            <View style={optionVisual.checkStyle}>
-                              <Check color="#fff" size={10} strokeWidth={3} />
-                            </View>
-                          ) : null}
-                        </View>
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Choose a color</Text>
-                <Text style={styles.sectionSubtitle}>Your hero card adapts to the color you equip.</Text>
-              </View>
-
-              <View style={styles.optionGrid}>
-                {AVATAR_COLORS.map((color) => {
-                  const isSelected = selectedColor === color.id;
-                  const optionVisual = colorOptionVisuals[color.id];
-
-                  return (
-                    <Pressable
-                      key={color.id}
-                      style={styles.optionPressable}
-                      onPress={() => handleSelectColor(color.id)}
-                      testID={`profile-avatar-color-${color.id}`}
-                    >
-                      {({ pressed }) => (
-                        <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
-                          <View style={optionVisual.swatchStyle} />
-                          <Text style={optionVisual.titleStyle}>{color.name}</Text>
-                          <Text style={styles.optionDescription}>Tap to equip</Text>
-                          {isSelected ? (
-                            <View style={optionVisual.checkStyle}>
-                              <Check color="#fff" size={10} strokeWidth={3} />
-                            </View>
-                          ) : null}
-                        </View>
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
+            <AvatarTab
+              selectedSuit={selectedSuit}
+              selectedColor={selectedColor}
+              selectedSuitData={selectedSuitData}
+              selectedColorData={selectedColorData}
+              suitOptionVisuals={suitOptionVisuals}
+              colorOptionVisuals={colorOptionVisuals}
+              avatarShowcaseGradient={avatarShowcaseGradient}
+              onSelectSuit={handleSelectSuit}
+              onSelectColor={handleSelectColor}
+              styles={styles}
+            />
           )}
 
           {activeTab === 'awards' && (
-            <View style={styles.tabContent}>
-              <View style={styles.sectionBanner}>
-                <View style={styles.sectionBannerTextWrap}>
-                  <Text style={styles.sectionBannerEyebrow}>Milestones</Text>
-                  <Text style={styles.sectionBannerTitle}>Awards</Text>
-                  <Text style={styles.sectionBannerSubtitle}>
-                    {nextAchievement ? `Next up: ${nextAchievement.name}` : 'Every current award is unlocked.'}
-                  </Text>
-                </View>
-                <View style={styles.sectionBannerBadge}>
-                  <Text style={styles.sectionBannerBadgeText}>{completedAchievements}/{ACHIEVEMENTS.length}</Text>
-                </View>
-              </View>
-
-              {ACHIEVEMENTS.map((achievement) => {
-                const isCompleted = achievement.progress >= achievement.total;
-                const progressPercent = Math.min((achievement.progress / achievement.total) * 100, 100);
-                const AchievementIcon = achievement.icon;
-
-                return (
-                  <View key={achievement.id} style={styles.achievementCard}>
-                    <LinearGradient
-                      colors={
-                        isCompleted
-                          ? (isDark
-                              ? ['rgba(16, 185, 129, 0.28)', 'rgba(6, 95, 70, 0.5)']
-                              : ['#ECFDF5', '#D1FAE5'])
-                          : (surfaceGradient as [string, string])
-                      }
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.achievementCardGradient}
-                    >
-                      <View style={styles.achievementHeader}>
-                        <View style={[styles.achievementIconWrap, { backgroundColor: achievement.color }]}> 
-                          <AchievementIcon color="#fff" size={19} strokeWidth={2.2} />
-                        </View>
-
-                        <View style={styles.achievementTextWrap}>
-                          <Text style={styles.achievementName}>{achievement.name}</Text>
-                          <Text style={styles.achievementDescription}>{achievement.description}</Text>
-                        </View>
-
-                        <View style={[styles.achievementXpBadge, isCompleted && styles.achievementXpBadgeCompleted]}>
-                          <Text style={styles.achievementXpText}>+{achievement.xp}</Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.achievementTrack}>
-                        <View
-                          style={[
-                            styles.achievementFill,
-                            {
-                              width: `${progressPercent}%`,
-                              backgroundColor: isCompleted ? '#10B981' : achievement.color,
-                            },
-                          ]}
-                        />
-                      </View>
-
-                      <View style={styles.achievementFooter}>
-                        <Text style={styles.achievementProgressText}>
-                          {achievement.progress}/{achievement.total}
-                        </Text>
-                        {isCompleted ? (
-                          <View style={styles.achievementCompletedPill}>
-                            <Check color="#fff" size={11} strokeWidth={3} />
-                            <Text style={styles.achievementCompletedPillText}>Unlocked</Text>
-                          </View>
-                        ) : (
-                          <Text style={styles.achievementRemainingText}>
-                            {achievement.total - achievement.progress} to go
-                          </Text>
-                        )}
-                      </View>
-                    </LinearGradient>
-                  </View>
-                );
-              })}
-            </View>
+            <AwardsTab
+              achievements={ACHIEVEMENTS}
+              completedAchievements={completedAchievements}
+              nextAchievement={nextAchievement}
+              isDark={isDark}
+              surfaceGradient={surfaceGradient}
+              styles={styles}
+              theme={theme}
+            />
           )}
         </ScrollView>
       </SafeAreaView>
 
-      <Modal
+      <PlayerNameModal
         visible={isEditingPlayerName}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCancelPlayerNameEdit}
-      >
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={StyleSheet.absoluteFill}
-            activeOpacity={1}
-            onPress={handleCancelPlayerNameEdit}
-            testID="profile-player-name-overlay"
-          />
+        playerNameInput={playerNameInput}
+        playerNameError={playerNameError}
+        isPlayerNameReady={isPlayerNameReady}
+        onChangeInput={handleChangePlayerNameInput}
+        onSave={handleSavePlayerName}
+        onCancel={handleCancelPlayerNameEdit}
+        tabActiveGradient={tabActiveGradient}
+        styles={styles}
+        theme={theme}
+      />
 
-          <View style={playerNameModalCardStyle} testID="profile-player-name-modal">
-            <Text style={styles.playerNameModalEyebrow}>FlashQuest Profile</Text>
-            <Text style={styles.playerNameModalTitle}>Edit player name</Text>
-            <Text style={styles.playerNameModalSubtitle}>Arena reuses this automatically when you host or join a battle.</Text>
-
-            <View style={styles.playerNameEditor}>
-              <TextInput
-                style={styles.playerNameInput}
-                value={playerNameInput}
-                onChangeText={handleChangePlayerNameInput}
-                placeholder="Enter your player name"
-                placeholderTextColor={theme.textTertiary}
-                maxLength={PLAYER_NAME_MAX_LENGTH}
-                autoFocus
-                autoCapitalize="words"
-                autoCorrect={false}
-                returnKeyType="done"
-                onSubmitEditing={handleSavePlayerName}
-                editable={isPlayerNameReady}
-                testID="profile-player-name-input"
-              />
-              <Text style={[styles.playerNameHelper, playerNameError ? styles.playerNameErrorText : null]}>
-                {playerNameError ?? `Max ${PLAYER_NAME_MAX_LENGTH} characters.`}
-              </Text>
-              <View style={styles.playerNameActions}>
-                <TouchableOpacity
-                  style={styles.playerNameSecondaryButton}
-                  onPress={handleCancelPlayerNameEdit}
-                  activeOpacity={0.84}
-                  testID="profile-player-name-cancel"
-                >
-                  <Text style={styles.playerNameSecondaryButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.playerNamePrimaryButton}
-                  onPress={handleSavePlayerName}
-                  activeOpacity={0.84}
-                  testID="profile-player-name-save"
-                >
-                  <LinearGradient
-                    colors={tabActiveGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.playerNamePrimaryGradient}
-                  >
-                    <Text style={styles.playerNamePrimaryButtonText}>Save</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
+      <LevelsModal
         visible={showLevels}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCloseLevels}
-      >
-        <View style={styles.levelModalOverlay}>
-          <TouchableOpacity
-            style={StyleSheet.absoluteFill}
-            activeOpacity={1}
-            onPress={handleCloseLevels}
-            testID="profile-levels-overlay"
-          />
-
-          <View style={levelModalCardStyle} testID="profile-levels-modal">
-            <View style={styles.levelModalHeader}>
-              <View style={styles.levelModalTitleWrap}>
-                <Text style={styles.levelModalEyebrow}>Rank progression</Text>
-                <Text style={styles.levelModalTitle}>Levels & titles</Text>
-                <Text style={styles.levelModalSubtitle}>Current rank: Lv {level} · {levelEntry.title}</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.settingsCloseButton}
-                onPress={handleCloseLevels}
-                activeOpacity={0.8}
-                testID="profile-close-levels"
-              >
-                <Text style={styles.settingsCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.levelList}
-            >
-              {LEVELS.map((item) => {
-                const isCurrent = item.level === levelEntry.level;
-                const isReached = level >= item.level;
-
-                return (
-                  <View
-                    key={item.level}
-                    style={[
-                      styles.levelRow,
-                      isCurrent && styles.levelRowCurrent,
-                      !isCurrent && isReached && styles.levelRowReached,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.levelBadge,
-                        isCurrent && { backgroundColor: theme.primary },
-                        !isCurrent && isReached && styles.levelBadgeReached,
-                      ]}
-                    >
-                      <Text style={[styles.levelBadgeText, isCurrent && styles.levelBadgeTextCurrent]}>Lv {item.level}</Text>
-                    </View>
-
-                    <View style={styles.levelRowTextWrap}>
-                      <Text style={styles.levelRowTitle}>{item.title}</Text>
-                      <Text style={styles.levelRowSubtitle}>{item.subtitle}</Text>
-                      <Text style={styles.levelRowMeta}>{item.xpRequired} XP unlock</Text>
-                    </View>
-
-                    {isReached && (
-                      <View style={styles.levelReachedPill}>
-                        <Check color="#fff" size={10} strokeWidth={3} />
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        level={level}
+        levelEntry={levelEntry}
+        levels={LEVELS}
+        onClose={handleCloseLevels}
+        styles={styles}
+        theme={theme}
+      />
     </View>
   );
 }
