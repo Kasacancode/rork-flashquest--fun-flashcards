@@ -18,9 +18,11 @@ interface ProfileHeroCardProps {
   heroGradient: GradientTriplet;
   level: number;
   levelEntry: { title: string };
+  progress: { current: number; required: number; percent: number };
   isPlayerNameReady: boolean;
   onEditPlayerName: () => void;
   onOpenLevels: () => void;
+  selectedColorValue: string;
   styles: ViewStyles<
     | 'heroCard'
     | 'heroCardGradient'
@@ -32,6 +34,10 @@ interface ProfileHeroCardProps {
     | 'heroNameRow'
     | 'heroNameEditButton'
     | 'heroLevelBadge'
+    | 'heroProgressBlock'
+    | 'heroProgressLabelRow'
+    | 'heroProgressTrack'
+    | 'heroProgressFill'
     | 'heroBottomRow'
     | 'heroMetaPill'
   > &
@@ -41,6 +47,8 @@ interface ProfileHeroCardProps {
       | 'heroName'
       | 'heroSubtitle'
       | 'heroLevelBadgeText'
+      | 'heroProgressLabel'
+      | 'heroProgressValue'
       | 'heroMetaText'
     >;
   theme: Theme;
@@ -53,12 +61,16 @@ export default function ProfileHeroCard({
   heroGradient,
   level,
   levelEntry,
+  progress,
   isPlayerNameReady,
   onEditPlayerName,
   onOpenLevels,
+  selectedColorValue,
   styles,
   theme,
 }: ProfileHeroCardProps) {
+  const progressWidth = `${Math.max(0, Math.min(progress.percent, 1)) * 100}%` as `${number}%`;
+
   return (
     <View style={styles.heroCard}>
       <LinearGradient
@@ -69,7 +81,7 @@ export default function ProfileHeroCard({
       >
         <View style={styles.heroTopRow}>
           <View style={styles.heroIdentityRow}>
-            <View style={[styles.heroAvatar, { backgroundColor: selectedColorData.value || theme.primary }]}>
+            <View style={[styles.heroAvatar, { backgroundColor: selectedColorData.value || theme.primary }]}> 
               <Text style={styles.heroAvatarSymbol}>{selectedSuitData.symbol}</Text>
               <View style={styles.heroAvatarBadge}>
                 <Zap color="#fff" size={12} strokeWidth={2.8} />
@@ -102,6 +114,16 @@ export default function ProfileHeroCard({
           >
             <Text style={styles.heroLevelBadgeText}>Lv {level}</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.heroProgressBlock}>
+          <View style={styles.heroProgressLabelRow}>
+            <Text style={styles.heroProgressLabel}>Level progress</Text>
+            <Text style={styles.heroProgressValue}>{progress.current} / {progress.required} XP</Text>
+          </View>
+          <View style={styles.heroProgressTrack}>
+            <View style={[styles.heroProgressFill, { width: progressWidth, backgroundColor: selectedColorValue }]} />
+          </View>
         </View>
 
         <View style={styles.heroBottomRow}>

@@ -209,7 +209,7 @@ export default function QuestSessionScreen() {
     recordSessionResult({
       mode: GAME_MODE.QUEST,
       deckId: settings.deckId,
-      xpEarned: score,
+      xpEarned: Math.round(score * 0.4),
       cardsAttempted: totalRounds,
       correctCount,
       timestampISO: new Date().toISOString(),
@@ -455,7 +455,7 @@ export default function QuestSessionScreen() {
       recordSessionResult({
         mode: GAME_MODE.QUEST,
         deckId: settings.deckId,
-        xpEarned: score,
+        xpEarned: Math.round(score * 0.4),
         cardsAttempted: effectiveRunLength,
         correctCount,
         timestampISO: new Date().toISOString(),

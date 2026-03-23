@@ -275,7 +275,11 @@ export default function ArenaResultsScreen() {
       xpRecordedRef.current = true;
       const myScore = data.scores[playerId];
       const isWinner = winner?.id === playerId;
-      const xp = isWinner ? 200 : 100;
+      const accuracy = data.totalQuestions > 0 ? (myScore?.correct ?? 0) / data.totalQuestions : 0;
+      const baseXp = isWinner ? 80 : 30;
+      const accuracyBonus = Math.round(accuracy * 60);
+      const questionBonus = Math.min(data.totalQuestions * 2, 40);
+      const xp = baseXp + accuracyBonus + questionBonus;
 
       recordSessionResult({
         mode: GAME_MODE.ARENA,

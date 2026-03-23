@@ -73,7 +73,7 @@ export default function StudyPage() {
 
   const handleComplete = useCallback(() => {
     if (selectedDeck) {
-      const xpEarned = sessionResolved * 5;
+      const xpEarned = sessionResolved * 2;
       recordSessionResult({
         mode: GAME_MODE.STUDY,
         deckId: selectedDeck.id,

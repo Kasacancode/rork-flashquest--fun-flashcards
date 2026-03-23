@@ -451,7 +451,8 @@ export default function PracticeSessionPage() {
 
   if (currentBattle.status === 'completed') {
     const won = currentBattle.playerScore > currentBattle.opponentScore;
-    const practiceXp = won ? 50 : 20;
+    const accuracy = currentBattle.totalRounds > 0 ? currentBattle.playerScore / currentBattle.totalRounds : 0;
+    const practiceXp = won ? Math.round(30 + accuracy * 40) : Math.round(10 + accuracy * 20);
 
     return (
       <View style={styles.container}>
