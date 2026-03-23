@@ -12,6 +12,7 @@ import { DeveloperAccessProvider } from '@/context/DeveloperAccessContext';
 import { FlashQuestProvider } from '@/context/FlashQuestContext';
 import { PerformanceProvider } from '@/context/PerformanceContext';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { trackEvent } from '@/lib/analytics';
 import { trpc, trpcClient } from '@/lib/trpc';
 
 try {
@@ -63,6 +64,7 @@ export default function RootLayout() {
   useEffect(() => {
     const timer = setTimeout(() => {
       SplashScreen.hideAsync().catch(() => {});
+      trackEvent({ event: 'app_opened' });
     }, 100);
     return () => clearTimeout(timer);
   }, []);

@@ -214,6 +214,20 @@ export default function QuestSessionScreen() {
       correctCount,
       timestampISO: new Date().toISOString(),
     });
+    trackEvent({
+      event: 'quest_completed',
+      deckId: settings.deckId,
+      properties: {
+        mode: settings.mode,
+        rounds: totalRounds,
+        correct: correctCount,
+        accuracy: totalRounds > 0 ? Math.round((correctCount / totalRounds) * 100) : 0,
+        best_streak: bestStreak,
+        score,
+        timer_seconds: settings.timerSeconds,
+        focus_weak: settings.focusWeakOnly,
+      },
+    });
     logger.log('[Quest] Early finish - no more cards. score:', score, 'rounds:', totalRounds);
 
     const result: QuestRunResult = {
@@ -459,6 +473,20 @@ export default function QuestSessionScreen() {
         cardsAttempted: effectiveRunLength,
         correctCount,
         timestampISO: new Date().toISOString(),
+      });
+      trackEvent({
+        event: 'quest_completed',
+        deckId: settings.deckId,
+        properties: {
+          mode: settings.mode,
+          rounds: effectiveRunLength,
+          correct: correctCount,
+          accuracy: effectiveRunLength > 0 ? Math.round((correctCount / effectiveRunLength) * 100) : 0,
+          best_streak: bestStreak,
+          score,
+          timer_seconds: settings.timerSeconds,
+          focus_weak: settings.focusWeakOnly,
+        },
       });
       logger.log('[Quest] Recorded session result, score:', score, 'cards:', effectiveRunLength);
 

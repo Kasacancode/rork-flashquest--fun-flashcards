@@ -1,13 +1,17 @@
 import { analyticsRepository } from './repository';
 import type {
+  AnalyticsAIMetrics,
   AnalyticsArenaMetrics,
+  AnalyticsEngagementMetrics,
   AnalyticsEvent,
   AnalyticsEventInput,
   AnalyticsSummary,
   AnalyticsSummaryCounts,
 } from './types';
 import {
+  createEmptyAnalyticsAIMetrics,
   createEmptyAnalyticsArenaMetrics,
+  createEmptyAnalyticsEngagementMetrics,
   createEmptyAnalyticsSummaryCounts,
   getAnalyticsDay,
   isValidAnalyticsDay,
@@ -47,6 +51,36 @@ export function computeArenaMetrics(
     battleStartRate: safeRate(battleStartedCount, battleCreatedCount),
     battleCompletionRate: safeRate(battleFinishedCount, battleStartedCount),
     rematchRate: safeRate(rematchStartedCount, battleFinishedCount),
+  };
+}
+
+export function computeEngagementMetrics(counts: Partial<AnalyticsSummaryCounts>): AnalyticsEngagementMetrics {
+  return {
+    dailySessions: counts.app_opened ?? 0,
+    questCompletions: counts.quest_completed ?? 0,
+    studyCompletions: counts.study_completed ?? 0,
+    practiceCompletions: counts.practice_completed ?? 0,
+    decksCreated: counts.deck_created ?? 0,
+  };
+}
+
+export function computeAIMetrics(counts: Partial<AnalyticsSummaryCounts>): AnalyticsAIMetrics {
+  const scanAttempts = counts.ai_scan_started ?? 0;
+  const scanSuccesses = counts.ai_scan_completed ?? 0;
+  const scanFailures = counts.ai_scan_failed ?? 0;
+  const textAttempts = counts.ai_text_started ?? 0;
+  const textSuccesses = counts.ai_text_completed ?? 0;
+  const textFailures = counts.ai_text_failed ?? 0;
+
+  return {
+    scanAttempts,
+    scanSuccesses,
+    scanFailures,
+    scanSuccessRate: safeRate(scanSuccesses, scanAttempts),
+    textAttempts,
+    textSuccesses,
+    textFailures,
+    textSuccessRate: safeRate(textSuccesses, textAttempts),
   };
 }
 
@@ -102,6 +136,8 @@ class AnalyticsService {
       day: resolvedDay,
       counts,
       metrics: computeArenaMetrics(counts),
+      engagement: computeEngagementMetrics(counts),
+      aiMetrics: computeAIMetrics(counts),
       deckCounts,
     };
   }
@@ -115,6 +151,8 @@ class AnalyticsService {
       day: resolvedDay,
       counts: createEmptyAnalyticsSummaryCounts(),
       metrics: createEmptyAnalyticsArenaMetrics(),
+      engagement: createEmptyAnalyticsEngagementMetrics(),
+      aiMetrics: createEmptyAnalyticsAIMetrics(),
       deckCounts: {},
     };
   }

@@ -264,6 +264,92 @@ export default function AnalyticsDebugScreen() {
         </View>
 
         <View style={sectionStyle}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Engagement</Text>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Daily Sessions</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatValue(summaryQuery.data?.engagement?.dailySessions)}
+            </Text>
+          </View>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Quest Completions</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatValue(summaryQuery.data?.engagement?.questCompletions)}
+            </Text>
+          </View>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Study Completions</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatValue(summaryQuery.data?.engagement?.studyCompletions)}
+            </Text>
+          </View>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Practice Completions</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatValue(summaryQuery.data?.engagement?.practiceCompletions)}
+            </Text>
+          </View>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Decks Created</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatValue(summaryQuery.data?.engagement?.decksCreated)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={sectionStyle}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>AI Features</Text>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Scan Attempts</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatValue(summaryQuery.data?.aiMetrics?.scanAttempts)}
+            </Text>
+          </View>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Scan Successes</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatValue(summaryQuery.data?.aiMetrics?.scanSuccesses)}
+            </Text>
+          </View>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Scan Failures</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatValue(summaryQuery.data?.aiMetrics?.scanFailures)}
+            </Text>
+          </View>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Scan Success Rate</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatMetricPercentage(summaryQuery.data?.aiMetrics?.scanSuccessRate)}
+            </Text>
+          </View>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Text Attempts</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatValue(summaryQuery.data?.aiMetrics?.textAttempts)}
+            </Text>
+          </View>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Text Successes</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatValue(summaryQuery.data?.aiMetrics?.textSuccesses)}
+            </Text>
+          </View>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Text Failures</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatValue(summaryQuery.data?.aiMetrics?.textFailures)}
+            </Text>
+          </View>
+          <View style={[styles.row, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.rowLabel, { color: theme.text }]}>Text Success Rate</Text>
+            <Text style={[styles.rowValue, { color: theme.textSecondary }]}>
+              {formatMetricPercentage(summaryQuery.data?.aiMetrics?.textSuccessRate)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={sectionStyle}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Counts</Text>
           {countEntries.length === 0 ? (
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No counts returned.</Text>

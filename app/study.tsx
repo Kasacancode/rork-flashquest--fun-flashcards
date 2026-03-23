@@ -81,6 +81,14 @@ export default function StudyPage() {
         cardsAttempted: sessionResolved,
         timestampISO: new Date().toISOString(),
       });
+      trackEvent({
+        event: 'study_completed',
+        deckId: selectedDeck.id,
+        properties: {
+          cards_studied: sessionResolved,
+          deck_name: selectedDeck.name,
+        },
+      });
       logger.log('[Study] Session complete, cards:', sessionResolved, 'xp:', xpEarned);
     }
     setShowResults(true);

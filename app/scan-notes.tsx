@@ -20,6 +20,7 @@ import * as z from 'zod/v4';
 
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
+import { trackEvent } from '@/lib/analytics';
 import { Flashcard } from '@/types/flashcard';
 import { generateObject } from '@rork-ai/toolkit-sdk';
 
@@ -84,6 +85,8 @@ export default function ScanNotesPage() {
         throw new Error('OFFLINE');
       }
 
+      trackEvent({ event: 'ai_scan_started' });
+
       const result = await generateObject({
         messages: [
           {
@@ -112,8 +115,21 @@ export default function ScanNotesPage() {
       setGeneratedCards(cards);
       setDeckName(result.deckName);
       setDeckDescription(result.deckDescription);
+      trackEvent({
+        event: 'ai_scan_completed',
+        properties: {
+          cards_generated: cards.length,
+          deck_name: result.deckName,
+        },
+      });
       setStep('review');
     } catch (error) {
+      trackEvent({
+        event: 'ai_scan_failed',
+        properties: {
+          error: error instanceof Error ? error.message.slice(0, 100) : 'unknown',
+        },
+      });
       if (error instanceof Error && error.message === 'OFFLINE') {
         Alert.alert('No Connection', 'You appear to be offline. Please check your connection and try again.');
         setStep('pick');
@@ -220,6 +236,14 @@ export default function ScanNotesPage() {
       flashcards,
       isCustom: true,
       createdAt: Date.now(),
+    });
+    trackEvent({
+      event: 'deck_created',
+      properties: {
+        method: 'ai_scan',
+        card_count: validCards.length,
+        deck_name: deckName.trim(),
+      },
     });
 
     Alert.alert('Deck Created!', `${validCards.length} flashcards generated from your notes.`, [

@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { TimerProgressBar, StreakIndicator } from '@/components/GameUI';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
+import { trackEvent } from '@/lib/analytics';
 import { GAME_MODE } from '@/types/game';
 import type { PracticeMode, PracticeSessionState } from '@/types/practice';
 import { generateDistractors, pickDistractor, getOpponentBehavior, clearDistractorCache } from '@/utils/battleAI';
@@ -495,6 +496,17 @@ export default function PracticeSessionPage() {
                 cardsAttempted: currentBattle.totalRounds,
                 correctCount: currentBattle.playerScore,
                 timestampISO: new Date().toISOString(),
+              });
+              trackEvent({
+                event: 'practice_completed',
+                deckId: deckId,
+                properties: {
+                  won,
+                  player_score: currentBattle.playerScore,
+                  opponent_score: currentBattle.opponentScore,
+                  total_rounds: currentBattle.totalRounds,
+                  accuracy: currentBattle.totalRounds > 0 ? Math.round((currentBattle.playerScore / currentBattle.totalRounds) * 100) : 0,
+                },
               });
               logger.log('[Practice] Recorded session result, xp:', practiceXp);
               endBattle();

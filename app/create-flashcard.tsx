@@ -18,6 +18,7 @@ import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
+import { trackEvent } from '@/lib/analytics';
 import { Flashcard } from '@/types/flashcard';
 import { logger } from '@/utils/logger';
 import { generateUUID } from '@/utils/uuid';
@@ -151,6 +152,14 @@ export default function CreateFlashcardPage() {
         flashcards,
         isCustom: true,
         createdAt: Date.now(),
+      });
+      trackEvent({
+        event: 'deck_created',
+        properties: {
+          method: 'manual',
+          card_count: validCards.length,
+          deck_name: deckName.trim(),
+        },
       });
 
       Alert.alert('Success', 'Deck created successfully!', [
