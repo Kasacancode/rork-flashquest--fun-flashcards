@@ -8,12 +8,20 @@ const CARD_PADDING = 12;
 const GRID_HORIZONTAL_MARGIN = 12;
 const AVAILABLE_WIDTH = SCREEN_WIDTH - (GRID_HORIZONTAL_MARGIN * 2) - (CARD_PADDING * 2) - CARD_GAP;
 const CARD_WIDTH = Math.floor(AVAILABLE_WIDTH / 2);
-const CARD_HEIGHT = Math.min(Math.max(CARD_WIDTH * 0.98, 118), 134);
+const CARD_HEIGHT = Math.min(Math.max(CARD_WIDTH * 1.05, 130), 152);
 
 export type CardSuit = '♠' | '♥' | '♦' | '♣';
 export type AnswerCardState = 'idle' | 'selected' | 'correct' | 'wrong' | 'disabled';
 
 const SUITS: CardSuit[] = ['♠', '♥', '♦', '♣'];
+
+function getOptionFontSize(text: string): { fontSize: number; lineHeight: number } {
+  const len = text.length;
+  if (len <= 15) return { fontSize: 16, lineHeight: 21 };
+  if (len <= 30) return { fontSize: 14, lineHeight: 19 };
+  if (len <= 50) return { fontSize: 12, lineHeight: 17 };
+  return { fontSize: 11, lineHeight: 15 };
+}
 
 const SUIT_COLORS: Record<CardSuit, string> = {
   '♠': '#1e293b',
@@ -210,18 +218,24 @@ export function AnswerCard({
         </View>
         
         <View style={styles.cardContent}>
-          <Text
-            style={[
-              styles.optionText,
-              state === 'correct' && styles.optionTextCorrect,
-              state === 'wrong' && styles.optionTextWrong,
-            ]}
-            numberOfLines={4}
-            adjustsFontSizeToFit
-            minimumFontScale={0.76}
-          >
-            {optionText}
-          </Text>
+          {(() => {
+            const sizing = getOptionFontSize(optionText);
+            return (
+              <Text
+                style={[
+                  styles.optionText,
+                  { fontSize: sizing.fontSize, lineHeight: sizing.lineHeight },
+                  state === 'correct' && styles.optionTextCorrect,
+                  state === 'wrong' && styles.optionTextWrong,
+                ]}
+                numberOfLines={6}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+              >
+                {optionText}
+              </Text>
+            );
+          })()}
         </View>
 
         {state === 'correct' && (
@@ -367,15 +381,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 16,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
   },
   optionText: {
-    fontSize: 16,
     fontWeight: '700' as const,
     color: '#1e293b',
     textAlign: 'center',
-    lineHeight: 21,
   },
   optionTextCorrect: {
     color: '#166534',

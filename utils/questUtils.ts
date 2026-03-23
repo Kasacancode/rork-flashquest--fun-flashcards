@@ -562,8 +562,12 @@ export function generateOptions(params: {
     recentDistractors: params.recentDistractors,
   });
 
+  const MAX_DISTRACTOR_LENGTH = 70;
+  const allCandidates = [...aiCandidates, ...fallbackCandidates];
+  const shortCandidates = allCandidates.filter(candidate => candidate.answer.length <= MAX_DISTRACTOR_LENGTH);
+
   const distractors = selectDistractors({
-    candidates: [...aiCandidates, ...fallbackCandidates],
+    candidates: shortCandidates.length >= 3 ? shortCandidates : allCandidates,
     count: 3,
   });
 

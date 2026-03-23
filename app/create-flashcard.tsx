@@ -560,7 +560,7 @@ export default function CreateFlashcardPage() {
                     placeholder="Enter the answer..."
                     placeholderTextColor={placeholderColor}
                     multiline
-                    maxLength={200}
+                    maxLength={80}
                     testID={`cardAnswerInput-${card.id}`}
                   />
                 </View>

@@ -31,7 +31,7 @@ import { generateObject } from '@rork-ai/toolkit-sdk';
 const flashcardSchema = z.object({
   cards: z.array(z.object({
     question: z.string().describe('A clear question based on the text content'),
-    answer: z.string().describe('A concise, accurate answer to the question'),
+    answer: z.string().describe('A concise answer, maximum 60 characters. Use short phrases, not full sentences.'),
   })).describe('Array of flashcard question-answer pairs extracted from the text'),
   deckName: z.string().describe('A short descriptive name for this deck based on the content'),
   deckDescription: z.string().describe('A brief description of what these flashcards cover'),
@@ -43,6 +43,17 @@ type GeneratedCard = {
   question: string;
   answer: string;
 };
+
+function trimAnswer(answer: string, maxLen: number = 70): string {
+  const normalized = answer.trim();
+  if (normalized.length <= maxLen) {
+    return normalized;
+  }
+
+  const trimmed = normalized.slice(0, maxLen).trimEnd();
+  const lastSpace = trimmed.lastIndexOf(' ');
+  return (lastSpace > maxLen * 0.6 ? trimmed.slice(0, lastSpace) : trimmed).trimEnd();
+}
 
 type Step = 'input' | 'processing' | 'review';
 
@@ -136,7 +147,7 @@ export default function TextToDeckPage() {
         messages: [
           {
             role: 'user',
-            content: `Read the following notes/text and create flashcard question-answer pairs from it. Extract the key concepts, definitions, facts, and important details. Create between 3-20 flashcards depending on how much content there is. Make questions clear and specific. Make answers concise but complete. Also suggest a deck name and description based on the content.\n\nText:\n${sourceText}`,
+            content: `Read the following notes/text and create flashcard question-answer pairs from it. Extract the key concepts, definitions, facts, and important details. Create between 3-20 flashcards depending on how much content there is. Make questions clear and specific. Make answers concise but complete. Keep all answers under 60 characters. Use short phrases, abbreviations, or key terms — not full sentences. Also suggest a deck name and description based on the content.\n\nText:\n${sourceText}`,
           },
         ],
         schema: flashcardSchema,
@@ -147,7 +158,7 @@ export default function TextToDeckPage() {
       const cards: GeneratedCard[] = result.cards.map((card, index) => ({
         id: `gen_${Date.now()}_${index}`,
         question: card.question.slice(0, 500),
-        answer: card.answer.slice(0, 200),
+        answer: trimAnswer(card.answer, 70),
       }));
 
       setGeneratedCards(cards);
@@ -486,6 +497,7 @@ export default function TextToDeckPage() {
                         placeholder="Answer..."
                         placeholderTextColor={placeholderColor}
                         multiline
+                        maxLength={80}
                         testID={`textToDeckCardA-${card.id}`}
                       />
                     </View>
