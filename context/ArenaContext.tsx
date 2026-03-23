@@ -15,7 +15,7 @@ import { sanitizePlayerName } from '@/utils/playerName';
 const LEADERBOARD_KEY = 'flashquest_arena_leaderboard';
 const PLAYER_NAME_KEY = 'flashquest_arena_player_name';
 
-const POLL_LOBBY_MS = 2200;
+const POLL_LOBBY_MS = 1000;
 const POLL_QUESTION_MS = 350;
 const POLL_REVEAL_MS = 350;
 const POLL_FINISHED_MS = 2500;
