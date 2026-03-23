@@ -74,7 +74,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'wc6',
         question: 'What is the capital of South Africa?',
-        answer: 'Pretoria (executive), Cape Town (legislative), Bloemfontein (judicial)',
+        answer: 'Pretoria, Cape Town, Bloemfontein',
         deckId: 'world-capitals',
         difficulty: 'hard',
         tags: ['africa', 'capitals'],
@@ -199,7 +199,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'pc1',
         question: 'What is a variable?',
-        answer: 'A container that stores data values in programming',
+        answer: 'Named storage for a value',
         deckId: 'programming-concepts',
         difficulty: 'easy',
         tags: ['basics', 'variables'],
@@ -223,7 +223,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'pc3',
         question: 'What is recursion?',
-        answer: 'A function that calls itself to solve a problem',
+        answer: 'A function calling itself',
         deckId: 'programming-concepts',
         difficulty: 'medium',
         tags: ['algorithms', 'functions'],
@@ -235,7 +235,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'pc4',
         question: 'What is Big O notation?',
-        answer: 'A way to measure algorithm efficiency and scalability',
+        answer: 'Algorithm efficiency measure',
         deckId: 'programming-concepts',
         difficulty: 'hard',
         tags: ['algorithms', 'performance'],
@@ -247,7 +247,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'pc5',
         question: 'What is polymorphism?',
-        answer: 'The ability of objects to take multiple forms in OOP',
+        answer: 'Objects taking many forms',
         deckId: 'programming-concepts',
         difficulty: 'hard',
         tags: ['oop', 'advanced'],
@@ -281,7 +281,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'pc8',
         question: 'What is the difference between == and === in JavaScript?',
-        answer: '== checks value equality with type coercion, === checks both value and type',
+        answer: '== coerces; === is strict',
         deckId: 'programming-concepts',
         difficulty: 'medium',
         tags: ['javascript', 'operators'],
@@ -292,7 +292,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'pc9',
         question: 'What is an array?',
-        answer: 'An ordered collection of elements accessed by index',
+        answer: 'Ordered list accessed by index',
         deckId: 'programming-concepts',
         difficulty: 'easy',
         tags: ['data-structures', 'basics'],
@@ -314,7 +314,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'pc11',
         question: 'What is a boolean?',
-        answer: 'A data type with only two values: true or false',
+        answer: 'True/false data type',
         deckId: 'programming-concepts',
         difficulty: 'easy',
         tags: ['data-types', 'basics'],
@@ -325,7 +325,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'pc12',
         question: 'What is the purpose of a constructor in object-oriented programming?',
-        answer: 'To initialize a new object with default or provided values',
+        answer: 'Initialize a new object',
         deckId: 'programming-concepts',
         difficulty: 'medium',
         tags: ['oop', 'classes'],
@@ -336,7 +336,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'pc13',
         question: 'What is Git used for?',
-        answer: 'Version control — tracking changes to code over time',
+        answer: 'Version control system',
         deckId: 'programming-concepts',
         difficulty: 'easy',
         tags: ['tools', 'basics'],
@@ -347,7 +347,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'pc14',
         question: 'What is an algorithm?',
-        answer: 'A step-by-step set of instructions to solve a specific problem',
+        answer: 'Steps to solve a problem',
         deckId: 'programming-concepts',
         difficulty: 'easy',
         tags: ['algorithms', 'basics'],
@@ -358,7 +358,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'pc15',
         question: 'What is the difference between a stack and a queue?',
-        answer: 'Stack is LIFO (last in, first out), queue is FIFO (first in, first out)',
+        answer: 'Stack = LIFO; queue = FIFO',
         deckId: 'programming-concepts',
         difficulty: 'medium',
         tags: ['data-structures'],
@@ -540,7 +540,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'sb15',
         question: 'How do you say "My name is..." in Spanish?',
-        answer: 'Me llamo...',
+        answer: 'Me llamo',
         deckId: 'spanish-basics',
         difficulty: 'easy',
         tags: ['introductions', 'basics'],
@@ -599,7 +599,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'sf4',
         question: 'What is a light-year?',
-        answer: 'The distance light travels in one year (~9.46 trillion km)',
+        answer: 'Distance light travels in 1 year',
         deckId: 'space-facts',
         difficulty: 'hard',
         tags: ['measurements', 'physics'],
@@ -611,7 +611,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'sf5',
         question: 'What is the largest known structure in the universe?',
-        answer: 'The Hercules-Corona Borealis Great Wall',
+        answer: 'Hercules-Corona Borealis Wall',
         deckId: 'space-facts',
         difficulty: 'hard',
         tags: ['universe', 'structures'],
@@ -656,7 +656,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'sf9',
         question: 'What causes a solar eclipse?',
-        answer: 'The Moon passes between the Earth and the Sun, blocking sunlight',
+        answer: 'Moon blocks the Sun',
         deckId: 'space-facts',
         difficulty: 'easy',
         tags: ['eclipses', 'moon'],
@@ -667,7 +667,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'sf10',
         question: 'What is the Milky Way?',
-        answer: 'The galaxy that contains our solar system',
+        answer: 'Galaxy containing our solar system',
         deckId: 'space-facts',
         difficulty: 'easy',
         tags: ['galaxies'],
@@ -860,7 +860,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'he11',
         question: 'What was the Renaissance?',
-        answer: 'A cultural and intellectual movement in Europe from the 14th to 17th century',
+        answer: 'European cultural rebirth',
         deckId: 'historical-events',
         difficulty: 'medium',
         tags: ['culture', 'europe'],
@@ -882,7 +882,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'he13',
         question: 'What caused the fall of the Roman Empire?',
-        answer: 'A combination of invasions, economic troubles, and internal political instability',
+        answer: 'Invasions, decline, instability',
         deckId: 'historical-events',
         difficulty: 'hard',
         tags: ['rome', 'ancient'],
@@ -904,7 +904,7 @@ export const SAMPLE_DECKS: Deck[] = [
       {
         id: 'he15',
         question: 'What was the Industrial Revolution?',
-        answer: 'The transition from hand production to machine manufacturing, starting in the late 1700s',
+        answer: 'Shift to machine manufacturing',
         deckId: 'historical-events',
         difficulty: 'medium',
         tags: ['economics', '18th-century'],

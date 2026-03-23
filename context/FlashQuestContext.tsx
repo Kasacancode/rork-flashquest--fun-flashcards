@@ -28,6 +28,60 @@ const DEFAULT_STATS: UserStats = {
   studyDates: [],
 };
 
+const SAMPLE_DECKS_BY_ID = new Map<string, Deck>(SAMPLE_DECKS.map((deck) => [deck.id, deck]));
+
+function syncSampleDeck(existingDeck: Deck | undefined, sampleDeck: Deck): Deck {
+  const existingCardsById = new Map<string, Flashcard>((existingDeck?.flashcards ?? []).map((card) => [card.id, card]));
+
+  return {
+    ...sampleDeck,
+    createdAt: existingDeck?.createdAt ?? sampleDeck.createdAt,
+    flashcards: sampleDeck.flashcards.map((card) => {
+      const existingCard = existingCardsById.get(card.id);
+      return {
+        ...card,
+        createdAt: existingCard?.createdAt ?? card.createdAt,
+      };
+    }),
+  };
+}
+
+function normalizeStoredDecks(storedDecks: Deck[]): { decks: Deck[]; didChange: boolean } {
+  const seenSampleDeckIds = new Set<string>();
+  let didChange = false;
+
+  const decks = storedDecks.map((deck) => {
+    if (deck.isCustom) {
+      return deck;
+    }
+
+    const sampleDeck = SAMPLE_DECKS_BY_ID.get(deck.id);
+    if (!sampleDeck) {
+      return deck;
+    }
+
+    seenSampleDeckIds.add(deck.id);
+    const syncedDeck = syncSampleDeck(deck, sampleDeck);
+
+    if (JSON.stringify(deck) !== JSON.stringify(syncedDeck)) {
+      didChange = true;
+    }
+
+    return syncedDeck;
+  });
+
+  SAMPLE_DECKS.forEach((sampleDeck) => {
+    if (seenSampleDeckIds.has(sampleDeck.id)) {
+      return;
+    }
+
+    decks.push(sampleDeck);
+    didChange = true;
+  });
+
+  return { decks, didChange };
+}
+
 function computeStreak(
   lastActiveDate: string,
   currentStreak: number,
@@ -63,7 +117,15 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     queryFn: async () => {
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.DECKS);
       if (stored) {
-        return JSON.parse(stored) as Deck[];
+        const parsedDecks = JSON.parse(stored) as Deck[];
+        const normalizedDecks = normalizeStoredDecks(parsedDecks);
+
+        if (normalizedDecks.didChange) {
+          logger.log('[FlashQuest] Synced built-in decks with latest default content');
+          await AsyncStorage.setItem(STORAGE_KEYS.DECKS, JSON.stringify(normalizedDecks.decks));
+        }
+
+        return normalizedDecks.decks;
       }
       return SAMPLE_DECKS;
     },
