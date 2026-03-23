@@ -212,7 +212,7 @@ export default function ArenaMenuScreen() {
     : 'Enter a room code and join the match in seconds.';
 
   const startIdentityText = hasSavedPlayerName ? savedPlayerName : 'Choose your battle name';
-  const joinCardFootnote = roomCode ? 'Your current room is still active' : 'Best when a friend already has a live room';
+  const joinCardFootnote = roomCode ? 'Your current room is still active' : 'Best with a live room code';
 
   const nextCreateName = sanitizePlayerName(nameInput);
   const nextJoinName = hasSavedPlayerName ? savedPlayerName : sanitizePlayerName(nameInput);
@@ -931,7 +931,8 @@ const styles = StyleSheet.create({
   secondaryActionCard: {
     borderRadius: 24,
     borderWidth: 1,
-    padding: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
     marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -962,9 +963,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaryActionIconShell: {
-    width: 56,
-    height: 56,
-    borderRadius: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1005,7 +1006,7 @@ const styles = StyleSheet.create({
   secondaryActionSubtitle: {
     fontSize: 15,
     lineHeight: 21,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   actionFooterRow: {
     flexDirection: 'row',
