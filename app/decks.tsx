@@ -459,6 +459,7 @@ const styles = StyleSheet.create({
   },
   categoryScroll: {
     marginBottom: 12,
+    flexGrow: 0,
   },
   categoryScrollContent: {
     paddingHorizontal: 16,
