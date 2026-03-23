@@ -1,50 +1,52 @@
-// ============================================
-// DECKS PAGE - View and Manage All Flashcard Decks
-// ============================================
-// This screen shows all available flashcard decks
-// Users can study, edit, or create new decks from here
-
-// ============================================
-// IMPORTS
-// ============================================
-// LinearGradient - creates smooth color transitions for backgrounds
 import { LinearGradient } from 'expo-linear-gradient';
-// useRouter - navigate between screens
 import { useRouter } from 'expo-router';
-// Icons from lucide-react-native
-import { ArrowLeft, BookOpen, Edit, Plus, Sparkles, PenLine, FileText } from 'lucide-react-native';
-import React, { useState, useCallback } from 'react';
-// React Native components
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
+  ArrowLeft,
+  BookOpen,
+  Edit,
+  FileText,
+  PenLine,
+  Plus,
+  Sparkles,
+  Trash2,
+} from 'lucide-react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  Alert,
   Modal,
   Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-// SafeAreaView - ensures content isn't hidden by notch/status bar
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Context hooks to access app data and theme
+import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { Deck } from '@/types/flashcard';
 
-// ============================================
-// DECKS PAGE COMPONENT
-// ============================================
 export default function DecksPage() {
-  // Get navigation function to move between screens
   const router = useRouter();
-  
-  // Get all decks from context
-  const { decks } = useFlashQuest();
-  
+  const { decks, deleteDeck } = useFlashQuest();
+  const { cleanupDeck } = useArena();
   const { theme, isDark } = useTheme();
 
   const [showMenu, setShowMenu] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const filteredDecks = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return decks;
+    }
+
+    return decks.filter((deck) => deck.name.toLowerCase().includes(normalizedQuery));
+  }, [decks, searchQuery]);
 
   const handleCreateManual = useCallback(() => {
     setShowMenu(false);
@@ -61,35 +63,30 @@ export default function DecksPage() {
     router.push('/text-to-deck' as any);
   }, [router]);
 
-  // ============================================
-  // EVENT HANDLERS
-  // ============================================
-  
-  // Function to start studying a specific deck
-  const handleStudyDeck = (deckId: string) => {
-    // Navigate to study screen with the deck ID as parameter
+  const handleStudyDeck = useCallback((deckId: string) => {
     router.push({ pathname: '/study' as any, params: { deckId } });
-  };
+  }, [router]);
 
-  // Function to edit an existing deck
-  const handleEditDeck = (deckId: string) => {
-    // Navigate to create/edit screen with the deck ID to edit
+  const handleEditDeck = useCallback((deckId: string) => {
     router.push({ pathname: '/create-flashcard' as any, params: { deckId } });
-  };
+  }, [router]);
 
+  const handleDeleteDeck = useCallback(async (deckId: string) => {
+    try {
+      await deleteDeck(deckId);
+      cleanupDeck(deckId);
+    } catch {
+      Alert.alert('Error', 'Failed to delete deck. Please try again.');
+    }
+  }, [cleanupDeck, deleteDeck]);
 
-  // ============================================
-  // RENDER UI
-  // ============================================
   return (
-    // Main container with background color from theme
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Gradient background overlay */}
+    <View style={[styles.container, { backgroundColor: theme.background }]}> 
       <LinearGradient
         colors={[theme.gradientStart, theme.gradientMid, theme.gradientEnd]}
-        start={{ x: 0, y: 0 }}  // Start top-left
-        end={{ x: 1, y: 1 }}    // End bottom-right
-        style={StyleSheet.absoluteFill}  // Fill entire screen
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
       />
       {isDark ? (
         <LinearGradient
@@ -101,21 +98,15 @@ export default function DecksPage() {
         />
       ) : null}
 
-      {/* Safe area ensures content isn't hidden by notch */}
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        {/* ============================================ */}
-        {/* HEADER BAR */}
-        {/* ============================================ */}
         <View style={styles.header}>
-          {/* Back button - returns to previous screen */}
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <ArrowLeft color="#fff" size={28} strokeWidth={2.5} />
           </TouchableOpacity>
-          
-          {/* Page title */}
+
           <Text style={styles.headerTitle}>My Decks</Text>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.addButton}
             onPress={() => setShowMenu(true)}
             testID="decksAddButton"
@@ -124,93 +115,126 @@ export default function DecksPage() {
           </TouchableOpacity>
         </View>
 
-        {/* ============================================ */}
-        {/* DECKS LIST */}
-        {/* ============================================ */}
+        <TextInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search decks..."
+          placeholderTextColor={theme.textTertiary}
+          style={[
+            styles.searchInput,
+            {
+              backgroundColor: theme.cardBackground,
+              color: theme.text,
+              borderColor: isDark ? 'rgba(148, 163, 184, 0.18)' : theme.border,
+            },
+          ]}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+          testID="decks-search-input"
+        />
+
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}  // Hide scroll indicator
+          showsVerticalScrollIndicator={false}
         >
-          {/* Show total number of decks */}
           <Text style={styles.deckCount}>
-            {decks.length} {decks.length === 1 ? 'deck' : 'decks'} available
+            {filteredDecks.length} {filteredDecks.length === 1 ? 'deck' : 'decks'} available
           </Text>
 
-          {/* Loop through all decks and display each one */}
-          {decks.map((deck: Deck) => (
-            <View
-              key={deck.id}
-              style={[
-                styles.deckCard,
-                {
-                  backgroundColor: isDark ? 'rgba(10, 17, 34, 0.88)' : theme.cardBackground,
-                  borderWidth: isDark ? 1 : 0,
-                  borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
-                  shadowOpacity: isDark ? 0.24 : 0.1,
-                  shadowRadius: isDark ? 16 : 12,
-                  elevation: isDark ? 8 : 4,
-                },
-              ]}
-            >
-              {/* Colored bar at top of card (uses deck's color) */}
-              <View style={[styles.deckColorBar, { backgroundColor: deck.color }]} />
-              
-              {/* Deck information section */}
-              <View style={styles.deckContent}>
-                {/* Deck name and description */}
-                <View style={styles.deckHeader}>
-                  <View style={styles.deckInfo}>
-                    {/* Deck name - truncate if too long */}
-                    <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={1}>
-                      {deck.name}
-                    </Text>
-                    {/* Deck description - show up to 2 lines */}
-                    <Text style={[styles.deckDescription, { color: theme.textSecondary }]} numberOfLines={2}>
-                      {deck.description}
-                    </Text>
-                  </View>
-                </View>
+          {filteredDecks.length === 0 && searchQuery.trim() ? (
+            <View style={styles.emptySearchState}>
+              <Text style={[styles.emptySearchText, { color: theme.textSecondary }]}>No decks match your search</Text>
+            </View>
+          ) : (
+            filteredDecks.map((deck: Deck) => (
+              <View
+                key={deck.id}
+                style={[
+                  styles.deckCard,
+                  {
+                    backgroundColor: isDark ? 'rgba(10, 17, 34, 0.88)' : theme.cardBackground,
+                    borderWidth: isDark ? 1 : 0,
+                    borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
+                    shadowOpacity: isDark ? 0.24 : 0.1,
+                    shadowRadius: isDark ? 16 : 12,
+                    elevation: isDark ? 8 : 4,
+                  },
+                ]}
+              >
+                <View style={[styles.deckColorBar, { backgroundColor: deck.color }]} />
 
-                {/* Deck statistics (card count and category) */}
-                <View style={styles.deckStats}>
-                  {/* Number of cards in deck */}
-                  <View style={styles.statBadge}>
-                    <BookOpen color={theme.textSecondary} size={16} strokeWidth={2} />
-                    <Text style={[styles.statText, { color: theme.textSecondary }]}>
-                      {deck.flashcards.length} cards
-                    </Text>
-                  </View>
-                  {/* Deck category badge */}
-                  <View style={[styles.categoryBadge, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.82)' : theme.background }]}>
-                    <Text style={[styles.categoryText, { color: theme.text }]}>{deck.category}</Text>
-                  </View>
-                </View>
+                <View style={styles.deckContent}>
+                  <View style={styles.deckHeader}>
+                    <View style={styles.deckInfo}>
+                      <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={1}>
+                        {deck.name}
+                      </Text>
+                      <Text style={[styles.deckDescription, { color: theme.textSecondary }]} numberOfLines={2}>
+                        {deck.description}
+                      </Text>
+                    </View>
 
-                {/* Action buttons (Study and Edit) */}
-                <View style={styles.deckActions}>
-                  {/* Study button - primary action */}
-                  <TouchableOpacity
-                    style={[styles.studyButton, { backgroundColor: theme.primary }]}
-                    onPress={() => handleStudyDeck(deck.id)}
-                    activeOpacity={0.8}  // Slight transparency when pressed
-                  >
-                    <BookOpen color="#fff" size={20} strokeWidth={2.5} />
-                    <Text style={styles.studyButtonText}>Study</Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.deleteButton,
+                        {
+                          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.72)' : 'rgba(15, 23, 42, 0.04)',
+                          borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)',
+                        },
+                      ]}
+                      onPress={() => {
+                        Alert.alert(
+                          'Delete Deck',
+                          `Are you sure you want to delete "${deck.name}"? This cannot be undone.`,
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Delete', style: 'destructive', onPress: () => void handleDeleteDeck(deck.id) },
+                          ]
+                        );
+                      }}
+                      activeOpacity={0.8}
+                      testID={`deck-delete-button-${deck.id}`}
+                    >
+                      <Trash2 color={theme.textSecondary} size={16} strokeWidth={2.3} />
+                    </TouchableOpacity>
+                  </View>
 
-                  {/* Edit button - secondary action */}
-                  <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.82)' : theme.background }]}
-                    onPress={() => handleEditDeck(deck.id)}
-                    activeOpacity={0.8}
-                  >
-                    <Edit color={theme.text} size={20} strokeWidth={2.5} />
-                  </TouchableOpacity>
+                  <View style={styles.deckStats}>
+                    <View style={styles.statBadge}>
+                      <BookOpen color={theme.textSecondary} size={16} strokeWidth={2} />
+                      <Text style={[styles.statText, { color: theme.textSecondary }]}>
+                        {deck.flashcards.length} cards
+                      </Text>
+                    </View>
+                    <View style={[styles.categoryBadge, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.82)' : theme.background }]}> 
+                      <Text style={[styles.categoryText, { color: theme.text }]}>{deck.category}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.deckActions}>
+                    <TouchableOpacity
+                      style={[styles.studyButton, { backgroundColor: theme.primary }]}
+                      onPress={() => handleStudyDeck(deck.id)}
+                      activeOpacity={0.8}
+                    >
+                      <BookOpen color="#fff" size={20} strokeWidth={2.5} />
+                      <Text style={styles.studyButtonText}>Study</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.actionButton, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.82)' : theme.background }]}
+                      onPress={() => handleEditDeck(deck.id)}
+                      activeOpacity={0.8}
+                    >
+                      <Edit color={theme.text} size={20} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
+            ))
+          )}
         </ScrollView>
       </SafeAreaView>
 
@@ -240,7 +264,7 @@ export default function DecksPage() {
               activeOpacity={0.8}
               testID="menuScanNotes"
             >
-              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(139,92,246,0.2)' : 'rgba(102,126,234,0.15)' }]}>
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(139,92,246,0.2)' : 'rgba(102,126,234,0.15)' }]}> 
                 <Sparkles color={theme.primary} size={24} strokeWidth={2} />
               </View>
               <View style={styles.menuOptionText}>
@@ -255,7 +279,7 @@ export default function DecksPage() {
               activeOpacity={0.8}
               testID="menuTextToDeck"
             >
-              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.15)' }]}>
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.15)' }]}> 
                 <FileText color={isDark ? '#60a5fa' : '#3b82f6'} size={24} strokeWidth={2} />
               </View>
               <View style={styles.menuOptionText}>
@@ -270,7 +294,7 @@ export default function DecksPage() {
               activeOpacity={0.8}
               testID="menuCreateManual"
             >
-              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.15)' }]}>
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.15)' }]}> 
                 <PenLine color={theme.success} size={24} strokeWidth={2} />
               </View>
               <View style={styles.menuOptionText}>
@@ -293,146 +317,132 @@ export default function DecksPage() {
   );
 }
 
-// ============================================
-// STYLES
-// ============================================
-// All visual styling for this component
 const styles = StyleSheet.create({
-  // Main container - fills entire screen
   container: {
     flex: 1,
   },
-  // Safe area container
   safeArea: {
     flex: 1,
   },
-  // Header bar at top
   header: {
-    flexDirection: 'row',           // Arrange children horizontally
-    alignItems: 'center',           // Center vertically
-    justifyContent: 'space-between', // Space between back, title, and add button
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  // Back button container
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Header title text
   headerTitle: {
     fontSize: 24,
     fontWeight: '800' as const,
     color: '#fff',
   },
-  // Add deck button
   addButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Scrollable area
+  searchInput: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    fontSize: 15,
+    fontWeight: '600' as const,
+  },
   scrollView: {
     flex: 1,
   },
-  // Content inside scroll view
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 40,  // Extra space at bottom
+    paddingBottom: 40,
   },
-  // Deck count text
   deckCount: {
     fontSize: 14,
     fontWeight: '600' as const,
     marginBottom: 16,
     color: '#fff',
   },
-  // Individual deck card
   deckCard: {
     backgroundColor: '#fff',
     borderRadius: 20,
     marginBottom: 16,
-    overflow: 'hidden',  // Clip children to rounded corners
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
-    elevation: 4,  // Android shadow
+    elevation: 4,
   },
-  // Colored bar at top of deck card
   deckColorBar: {
     height: 6,
     width: '100%',
   },
-  // Content area inside deck card
   deckContent: {
     padding: 20,
   },
-  // Header section of deck card
   deckHeader: {
     marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
   },
-  // Deck info container
   deckInfo: {
     flex: 1,
   },
-  // Deck name text
   deckName: {
     fontSize: 20,
     fontWeight: '800' as const,
     color: '#333',
     marginBottom: 6,
   },
-  // Deck description text
   deckDescription: {
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
     fontWeight: '500' as const,
   },
-  // Stats section (card count and category)
   deckStats: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     marginBottom: 16,
   },
-  // Card count badge
   statBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  // Stat text
   statText: {
     fontSize: 13,
     fontWeight: '600' as const,
     color: '#666',
   },
-  // Category badge
   categoryBadge: {
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 8,
     backgroundColor: '#f5f5f5',
   },
-  // Category text
   categoryText: {
     fontSize: 12,
     fontWeight: '700' as const,
     color: '#333',
   },
-  // Action buttons container
   deckActions: {
     flexDirection: 'row',
     gap: 12,
   },
-  // Study button (primary)
   studyButton: {
-    flex: 1,  // Take up remaining space
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -441,13 +451,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 8,
   },
-  // Study button text
   studyButtonText: {
     fontSize: 16,
     fontWeight: '700' as const,
     color: '#fff',
   },
-  // Edit button (secondary)
   actionButton: {
     width: 48,
     height: 48,
@@ -455,6 +463,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 12,
     backgroundColor: '#f5f5f5',
+  },
+  deleteButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    opacity: 0.8,
+  },
+  emptySearchState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+  },
+  emptySearchText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    textAlign: 'center' as const,
   },
   menuOverlay: {
     flex: 1,

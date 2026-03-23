@@ -40,6 +40,7 @@ import { useArena } from '@/context/ArenaContext';
 import { useAvatar } from '@/context/AvatarContext';
 import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
+import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { logger } from '@/utils/logger';
 import { getPlayerNameValidationError } from '@/utils/playerName';
@@ -84,49 +85,6 @@ const PROFILE_TABS: readonly { id: TabType; label: string; icon: IconComponent }
   { id: 'overview', label: 'Overview', icon: User },
   { id: 'avatar', label: 'Avatar', icon: Zap },
   { id: 'awards', label: 'Awards', icon: Award },
-] as const;
-
-const ACHIEVEMENTS: readonly AchievementItem[] = [
-  {
-    id: 'first_steps',
-    name: 'First Steps',
-    description: 'Complete your first flashcard session',
-    xp: 50,
-    progress: 1,
-    total: 1,
-    color: '#4ECDC4',
-    icon: BookOpen,
-  },
-  {
-    id: 'quick_draw',
-    name: 'Quick Draw',
-    description: 'Answer 10 questions in under 5 seconds each',
-    xp: 100,
-    progress: 7,
-    total: 10,
-    color: '#667EEA',
-    icon: Zap,
-  },
-  {
-    id: 'fire_streak',
-    name: 'Fire Streak',
-    description: 'Maintain a 7-day study streak',
-    xp: 200,
-    progress: 7,
-    total: 7,
-    color: '#FF6B6B',
-    icon: Flame,
-  },
-  {
-    id: 'knowledge_master',
-    name: 'Knowledge Master',
-    description: 'Complete 50 flashcard sessions',
-    xp: 500,
-    progress: 12,
-    total: 50,
-    color: '#F093FB',
-    icon: Crown,
-  },
 ] as const;
 
 const LEVELS: readonly LevelItem[] = [
@@ -210,8 +168,9 @@ export default function ProfilePage() {
   const navigation = useRouter();
   const { canAccessDeveloperTools } = useDeveloperAccess();
   const { width } = useWindowDimensions();
-  const { stats } = useFlashQuest();
-  const { playerName, updatePlayerName, isPlayerNameReady } = useArena();
+  const { stats, decks } = useFlashQuest();
+  const { performance } = usePerformance();
+  const { playerName, updatePlayerName, isPlayerNameReady, leaderboard } = useArena();
   const { theme, isDark, toggleTheme } = useTheme();
   const { selectedSuit, selectedColor, setSelectedSuit, setSelectedColor } = useAvatar();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -227,6 +186,128 @@ export default function ProfilePage() {
   const selectedColorData = AVATAR_COLORS.find((color) => color.id === selectedColor) ?? AVATAR_COLORS[0]!;
   const currentPlayerName = playerName.trim();
   const profileDisplayName = currentPlayerName || 'FlashQuest Player';
+  const achievements: AchievementItem[] = useMemo(() => [
+    {
+      id: 'first_steps',
+      name: 'First Steps',
+      description: 'Study your first flashcard',
+      xp: 50,
+      progress: Math.min(stats.totalCardsStudied, 1),
+      total: 1,
+      color: '#4ECDC4',
+      icon: BookOpen,
+    },
+    {
+      id: 'card_collector',
+      name: 'Card Collector',
+      description: 'Study 100 flashcards',
+      xp: 100,
+      progress: Math.min(stats.totalCardsStudied, 100),
+      total: 100,
+      color: '#667EEA',
+      icon: BookOpen,
+    },
+    {
+      id: 'study_machine',
+      name: 'Study Machine',
+      description: 'Study 500 flashcards',
+      xp: 250,
+      progress: Math.min(stats.totalCardsStudied, 500),
+      total: 500,
+      color: '#8B5CF6',
+      icon: Zap,
+    },
+    {
+      id: 'fire_streak_3',
+      name: 'Warming Up',
+      description: 'Maintain a 3-day study streak',
+      xp: 75,
+      progress: Math.min(stats.longestStreak, 3),
+      total: 3,
+      color: '#FF6B6B',
+      icon: Flame,
+    },
+    {
+      id: 'fire_streak_7',
+      name: 'On Fire',
+      description: 'Maintain a 7-day study streak',
+      xp: 200,
+      progress: Math.min(stats.longestStreak, 7),
+      total: 7,
+      color: '#F97316',
+      icon: Flame,
+    },
+    {
+      id: 'fire_streak_14',
+      name: 'Unstoppable',
+      description: 'Maintain a 14-day study streak',
+      xp: 500,
+      progress: Math.min(stats.longestStreak, 14),
+      total: 14,
+      color: '#EF4444',
+      icon: Flame,
+    },
+    {
+      id: 'xp_hunter',
+      name: 'XP Hunter',
+      description: 'Earn 1,000 total XP',
+      xp: 100,
+      progress: Math.min(stats.totalScore, 1000),
+      total: 1000,
+      color: '#F093FB',
+      icon: Crown,
+    },
+    {
+      id: 'xp_legend',
+      name: 'XP Legend',
+      description: 'Earn 10,000 total XP',
+      xp: 500,
+      progress: Math.min(stats.totalScore, 10000),
+      total: 10000,
+      color: '#A855F7',
+      icon: Crown,
+    },
+    {
+      id: 'battle_ready',
+      name: 'Battle Ready',
+      description: 'Complete your first arena battle',
+      xp: 75,
+      progress: Math.min(leaderboard.length, 1),
+      total: 1,
+      color: '#F59E0B',
+      icon: Award,
+    },
+    {
+      id: 'battle_veteran',
+      name: 'Battle Veteran',
+      description: 'Complete 10 arena battles',
+      xp: 300,
+      progress: Math.min(leaderboard.length, 10),
+      total: 10,
+      color: '#FB923C',
+      icon: Award,
+    },
+    {
+      id: 'quest_streak',
+      name: 'Quest Streak',
+      description: 'Get a 5-answer streak in Quest mode',
+      xp: 100,
+      progress: Math.min(performance.bestQuestStreak, 5),
+      total: 5,
+      color: '#6366F1',
+      icon: Zap,
+    },
+    {
+      id: 'deck_creator',
+      name: 'Deck Creator',
+      description: 'Create your first custom deck',
+      xp: 75,
+      progress: Math.min(decks.filter((deck) => deck.isCustom).length, 1),
+      total: 1,
+      color: '#14B8A6',
+      icon: BookOpen,
+    },
+  ], [decks, leaderboard, performance.bestQuestStreak, stats]);
 
   const styles = useMemo(() => createStyles(theme, isDark, width), [theme, isDark, width]);
 
@@ -314,13 +395,13 @@ export default function ProfilePage() {
   }, [isDark, selectedColor, styles]);
 
   const completedAchievements = useMemo(
-    () => ACHIEVEMENTS.filter((achievement) => achievement.progress >= achievement.total).length,
-    []
+    () => achievements.filter((achievement) => achievement.progress >= achievement.total).length,
+    [achievements]
   );
 
   const nextAchievement = useMemo(
-    () => ACHIEVEMENTS.find((achievement) => achievement.progress < achievement.total) ?? null,
-    []
+    () => achievements.find((achievement) => achievement.progress < achievement.total) ?? null,
+    [achievements]
   );
 
   useEffect(() => {
@@ -542,7 +623,7 @@ export default function ProfilePage() {
 
           {activeTab === 'awards' && (
             <AwardsTab
-              achievements={ACHIEVEMENTS}
+              achievements={achievements}
               completedAchievements={completedAchievements}
               nextAchievement={nextAchievement}
               isDark={isDark}
