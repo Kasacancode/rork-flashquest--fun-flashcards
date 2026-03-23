@@ -211,21 +211,14 @@ export default function DecksPage() {
           })}
         </ScrollView>
 
-        <ScrollView
-          ref={deckListScrollRef}
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          contentInsetAdjustmentBehavior="never"
-          automaticallyAdjustContentInsets={false}
-          automaticallyAdjustsScrollIndicatorInsets={false}
-        >
+        <View style={styles.listSection}>
           <Text style={styles.deckCount}>
             {filteredDecks.length} {filteredDecks.length === 1 ? 'deck' : 'decks'} {activeCategory === ALL_DECK_CATEGORIES_LABEL ? 'total' : `in ${activeCategory}`}
           </Text>
 
           {hasNoDecks ? (
-            <View style={styles.emptyState}>
+            <View style={styles.emptyStateContainer}>
+              <View style={styles.emptyState}>
               <BookOpen color={theme.textTertiary} size={48} strokeWidth={2.2} />
               <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No decks yet</Text>
               <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>Create your first deck to start studying.</Text>
@@ -237,14 +230,23 @@ export default function DecksPage() {
               >
                 <Text style={styles.emptyStateButtonText}>Create Deck</Text>
               </TouchableOpacity>
+              </View>
             </View>
           ) : hasNoSearchResults ? (
-            <View style={styles.emptyState}>
+            <View style={styles.emptyStateContainer}>
+              <View style={styles.emptyState}>
               <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No decks match your search</Text>
               <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>Try a different search term.</Text>
+              </View>
             </View>
           ) : (
-            filteredDecks.map((deck: Deck) => (
+            <ScrollView
+              ref={deckListScrollRef}
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {filteredDecks.map((deck: Deck) => (
               <View
                 key={deck.id}
                 style={[
@@ -329,9 +331,10 @@ export default function DecksPage() {
                   </View>
                 </View>
               </View>
-            ))
+              ))}
+            </ScrollView>
           )}
-        </ScrollView>
+        </View>
       </SafeAreaView>
 
       <Modal
@@ -473,6 +476,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600' as const,
   },
+  listSection: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },
@@ -483,6 +489,7 @@ const styles = StyleSheet.create({
   deckCount: {
     fontSize: 14,
     fontWeight: '600' as const,
+    marginHorizontal: 20,
     marginBottom: 16,
     color: '#fff',
   },
@@ -587,6 +594,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     opacity: 0.8,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
   },
   emptyState: {
     minHeight: 320,
