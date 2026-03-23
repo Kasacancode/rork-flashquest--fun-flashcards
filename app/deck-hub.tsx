@@ -119,15 +119,21 @@ export default function DeckHubScreen() {
             <ArrowLeft color="#fff" size={24} strokeWidth={2.5} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle} numberOfLines={1}>{deck.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: deck.color }} />
+              <Text style={styles.headerTitle} numberOfLines={1}>{deck.name}</Text>
+            </View>
             <Text style={styles.headerSub}>{deck.flashcards.length} cards · {deck.category}</Text>
           </View>
           <View style={{ width: 40 }} />
         </View>
 
+        <View style={[styles.accentBar, { backgroundColor: deck.color }]} />
+
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isDark ? 1 : 0 }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isDark ? 1 : 0, borderTopColor: deck.color, borderTopWidth: 3 }]}>
+
             <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>MASTERY</Text>
             <Text style={[styles.bigPct, { color: theme.primary }]}>{pctMastered}%</Text>
             <Text style={[styles.cardSub, { color: theme.textSecondary }]}>{mastery.mastered}/{mastery.total} cards mastered</Text>
@@ -159,7 +165,7 @@ export default function DeckHubScreen() {
             </View>
           </View>
 
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.primary }]} onPress={() => router.push({ pathname: '/study', params: { deckId: deck.id } } as Href)} activeOpacity={0.85}>
+          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.primary, borderLeftWidth: 4, borderLeftColor: deck.color }]} onPress={() => router.push({ pathname: '/study', params: { deckId: deck.id } } as Href)} activeOpacity={0.85}>
             <BookOpen color="#fff" size={22} strokeWidth={2.2} />
             <View style={styles.actionText}>
               <Text style={styles.actionTitle}>Study</Text>
@@ -189,7 +195,7 @@ export default function DeckHubScreen() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: cardBg, borderWidth: 1, borderColor: isDark ? 'rgba(148,163,184,0.16)' : theme.border }]} onPress={() => router.push({ pathname: '/practice', params: { deckId: deck.id } } as Href)} activeOpacity={0.85}>
+          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: cardBg, borderWidth: 1, borderColor: isDark ? 'rgba(148,163,184,0.16)' : theme.border }]} onPress={() => router.push({ pathname: '/practice-session', params: { deckId: deck.id, mode: 'ai' } } as Href)} activeOpacity={0.85}>
             <Swords color={theme.primary} size={22} strokeWidth={2.2} />
             <View style={styles.actionText}>
               <Text style={[styles.actionTitle, { color: theme.text }]}>Practice vs AI</Text>
@@ -231,24 +237,25 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#fff' },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
   headerSub: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.6)', marginTop: 2 },
-  content: { padding: 20, paddingBottom: 40, gap: 12 },
+  accentBar: { height: 4, borderRadius: 2, marginHorizontal: 20, marginBottom: 4 },
+  content: { padding: 20, paddingBottom: 40, gap: 14 },
   errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorText: { fontSize: 16 },
   card: { borderRadius: 20, padding: 20, alignItems: 'center' },
   cardLabel: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 },
-  bigPct: { fontSize: 48, fontWeight: '800' },
+  bigPct: { fontSize: 44, fontWeight: '800' },
   cardSub: { fontSize: 14, fontWeight: '600', marginTop: 4, marginBottom: 16 },
   barBg: { height: 8, borderRadius: 4, flexDirection: 'row', overflow: 'hidden', width: '100%', marginBottom: 16 },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', paddingHorizontal: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 11, fontWeight: '600' },
   statsRow: { flexDirection: 'row', gap: 10 },
   statBox: { flex: 1, borderRadius: 16, padding: 14, alignItems: 'center' },
-  statVal: { fontSize: 20, fontWeight: '800' },
-  statLbl: { fontSize: 11, fontWeight: '600', marginTop: 4 },
+  statVal: { fontSize: 18, fontWeight: '800' },
+  statLbl: { fontSize: 11, fontWeight: '600', marginTop: 4, textAlign: 'center' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, padding: 16, gap: 14 },
   actionText: { flex: 1 },
   actionTitle: { fontSize: 16, fontWeight: '700', color: '#fff' },

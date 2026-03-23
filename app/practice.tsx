@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { ArrowLeft, Bot, Users, Play, BookOpen } from 'lucide-react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -13,12 +13,10 @@ import type { PracticeMode } from '@/types/practice';
 
 export default function PracticePage() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ deckId?: string }>();
   const { decks } = useFlashQuest();
   const { theme } = useTheme();
-  const [selectedMode, setSelectedMode] = useState<PracticeMode | null>(params.deckId ? 'ai' : null);
+  const [selectedMode, setSelectedMode] = useState<PracticeMode | null>(null);
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(false);
-  const autoSelectedRef = useRef(false);
 
   const handleModeSelect = (mode: PracticeMode) => {
     setSelectedMode(mode);
@@ -26,8 +24,7 @@ export default function PracticePage() {
   };
 
   const handleDeckSelect = useCallback((deckId: string) => {
-    const resolvedMode = selectedMode ?? (params.deckId ? 'ai' : null);
-    if (resolvedMode) {
+    if (selectedMode) {
       const selectedDeck = decks.find((deck) => deck.id === deckId);
       setShowDeckSelector(false);
       trackEvent({
@@ -36,26 +33,12 @@ export default function PracticePage() {
         properties: {
           deck_name: selectedDeck?.name ?? null,
           mode: GAME_MODE.PRACTICE,
-          player_count: resolvedMode === 'multiplayer' ? 2 : 1,
+          player_count: selectedMode === 'multiplayer' ? 2 : 1,
         },
       });
-      router.push({ pathname: '/practice-session' as any, params: { deckId, mode: resolvedMode } });
+      router.push({ pathname: '/practice-session' as any, params: { deckId, mode: selectedMode } });
     }
-  }, [decks, params.deckId, router, selectedMode]);
-
-  useEffect(() => {
-    if (autoSelectedRef.current) {
-      return;
-    }
-    if (!params.deckId) {
-      return;
-    }
-    const exists = decks.find((deck) => deck.id === params.deckId);
-    if (exists) {
-      autoSelectedRef.current = true;
-      handleDeckSelect(params.deckId);
-    }
-  }, [decks, handleDeckSelect, params.deckId]);
+  }, [decks, router, selectedMode]);
 
   return (
     <View style={styles.container}>
