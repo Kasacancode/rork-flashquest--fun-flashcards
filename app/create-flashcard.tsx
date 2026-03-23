@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Plus, Share2, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Plus, Share2, Trash2, FileText, ChevronUp, ChevronDown } from 'lucide-react-native';
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import {
@@ -152,6 +152,85 @@ export default function CreateFlashcardPage() {
       Alert.alert('Error', 'Failed to copy deck. Please try again.');
     }
   }, [decks, editingDeckId]);
+
+  const handleBulkPaste = useCallback(async () => {
+    try {
+      const text = await Clipboard.getStringAsync();
+      if (!text || !text.trim()) {
+        Alert.alert('Nothing to Paste', 'Copy a list of questions and answers to your clipboard first.\n\nFormat: one card per line, separated by | or ; or tab.\n\nExample:\nWhat is 2+2? | 4\nCapital of France? | Paris');
+        return;
+      }
+
+      const lines = text.trim().split('\n').filter((line) => line.trim());
+      const newCards: CardInput[] = [];
+
+      for (const line of lines) {
+        let parts: string[] = [];
+        if (line.includes('|')) {
+          parts = line.split('|').map((segment) => segment.trim());
+        } else if (line.includes(';')) {
+          parts = line.split(';').map((segment) => segment.trim());
+        } else if (line.includes('\t')) {
+          parts = line.split('\t').map((segment) => segment.trim());
+        }
+
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          newCards.push({
+            id: generateUUID(),
+            originalCardId: null,
+            question: parts[0].slice(0, 500),
+            answer: parts[1].slice(0, 200),
+          });
+        }
+      }
+
+      if (newCards.length === 0) {
+        Alert.alert('No Cards Found', 'Could not parse any question-answer pairs.\n\nMake sure each line has a question and answer separated by | or ; or tab.\n\nExample:\nWhat is 2+2? | 4\nCapital of France? | Paris');
+        return;
+      }
+
+      Alert.alert(
+        `${newCards.length} Cards Found`,
+        `Add ${newCards.length} cards from your clipboard?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Add Cards',
+            onPress: () => {
+              const existingNonEmpty = cards.filter((card) => card.question.trim() || card.answer.trim());
+              setCards([...existingNonEmpty, ...newCards]);
+            },
+          },
+        ]
+      );
+    } catch {
+      Alert.alert('Paste Failed', 'Could not read from clipboard.');
+    }
+  }, [cards]);
+
+  const moveCardUp = useCallback((index: number) => {
+    if (index <= 0) {
+      return;
+    }
+
+    setCards((prev) => {
+      const next = [...prev];
+      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+      return next;
+    });
+  }, []);
+
+  const moveCardDown = useCallback((index: number) => {
+    setCards((prev) => {
+      if (index >= prev.length - 1) {
+        return prev;
+      }
+
+      const next = [...prev];
+      [next[index], next[index + 1]] = [next[index + 1], next[index]];
+      return next;
+    });
+  }, []);
 
   const handleSave = () => {
     if (!deckName.trim()) {
@@ -400,10 +479,21 @@ export default function CreateFlashcardPage() {
           <View style={styles.cardsSection}>
             <View style={styles.cardsSectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.white }]}>Flashcards</Text>
-              <TouchableOpacity onPress={addCard} style={[styles.addCardButton, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.25)' }]} activeOpacity={0.85} testID="addCardButton">
-                <Plus color={theme.white} size={20} strokeWidth={2.5} />
-                <Text style={[styles.addCardText, { color: theme.white }]}>Add Card</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  onPress={() => void handleBulkPaste()}
+                  style={[styles.addCardButton, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.25)' }]}
+                  activeOpacity={0.85}
+                  testID="pasteCardsButton"
+                >
+                  <FileText color={theme.white} size={18} strokeWidth={2.5} />
+                  <Text style={[styles.addCardText, { color: theme.white }]}>Paste</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={addCard} style={[styles.addCardButton, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.25)' }]} activeOpacity={0.85} testID="addCardButton">
+                  <Plus color={theme.white} size={20} strokeWidth={2.5} />
+                  <Text style={[styles.addCardText, { color: theme.white }]}>Add Card</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {cards.map((card, index) => (
@@ -411,16 +501,38 @@ export default function CreateFlashcardPage() {
                 testID={`cardForm-${index + 1}`}>
                 <View style={styles.cardHeader}>
                   <Text style={[styles.cardNumber, { color: theme.text }]}>Card {index + 1}</Text>
-                  {cards.length > 1 && (
-                    <TouchableOpacity
-                      onPress={() => removeCard(card.id)}
-                      style={styles.deleteButton}
-                      activeOpacity={0.8}
-                      testID={`removeCardButton-${card.id}`}
-                    >
-                      <Trash2 color={theme.error} size={20} strokeWidth={2} />
-                    </TouchableOpacity>
-                  )}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    {index > 0 && (
+                      <TouchableOpacity
+                        onPress={() => moveCardUp(index)}
+                        style={{ width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 8, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}
+                        activeOpacity={0.7}
+                        testID={`moveCardUpButton-${card.id}`}
+                      >
+                        <ChevronUp color={theme.textSecondary} size={18} strokeWidth={2.5} />
+                      </TouchableOpacity>
+                    )}
+                    {index < cards.length - 1 && (
+                      <TouchableOpacity
+                        onPress={() => moveCardDown(index)}
+                        style={{ width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 8, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}
+                        activeOpacity={0.7}
+                        testID={`moveCardDownButton-${card.id}`}
+                      >
+                        <ChevronDown color={theme.textSecondary} size={18} strokeWidth={2.5} />
+                      </TouchableOpacity>
+                    )}
+                    {cards.length > 1 && (
+                      <TouchableOpacity
+                        onPress={() => removeCard(card.id)}
+                        style={styles.deleteButton}
+                        activeOpacity={0.8}
+                        testID={`removeCardButton-${card.id}`}
+                      >
+                        <Trash2 color={theme.error} size={20} strokeWidth={2} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
 
                 <View style={styles.cardInputGroup}>

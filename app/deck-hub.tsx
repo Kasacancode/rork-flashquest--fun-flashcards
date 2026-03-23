@@ -1,18 +1,19 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle } from 'lucide-react-native';
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy } from 'lucide-react-native';
+import React, { useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
+import { generateUUID } from '@/utils/uuid';
 
 export default function DeckHubScreen() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
-  const { decks } = useFlashQuest();
+  const { decks, addDeck } = useFlashQuest();
   const { performance, getDeckAccuracy, getWeakCards, getCardsDueForReview } = usePerformance();
   const { theme, isDark } = useTheme();
 
@@ -52,6 +53,41 @@ export default function DeckHubScreen() {
     if (days === 1) return 'Yesterday';
     return `${days} days ago`;
   }, [deckId, performance.deckStatsById]);
+
+  const handleDuplicateDeck = useCallback(() => {
+    if (!deck) {
+      return;
+    }
+
+    const newDeckId = `deck_${generateUUID()}`;
+    const now = Date.now();
+    const flashcards = deck.flashcards.map((card) => ({
+      id: `dup_${generateUUID()}`,
+      question: card.question,
+      answer: card.answer,
+      deckId: newDeckId,
+      difficulty: card.difficulty,
+      createdAt: now,
+      hint1: card.hint1,
+      hint2: card.hint2,
+      explanation: card.explanation,
+      tags: card.tags,
+    }));
+
+    addDeck({
+      id: newDeckId,
+      name: `${deck.name} (Copy)`,
+      description: deck.description,
+      color: deck.color,
+      icon: deck.icon,
+      category: deck.category,
+      flashcards,
+      isCustom: true,
+      createdAt: now,
+    });
+
+    Alert.alert('Deck Duplicated', `"${deck.name} (Copy)" has been created with ${flashcards.length} cards.`);
+  }, [addDeck, deck]);
 
   if (!deck) {
     return (
@@ -170,6 +206,19 @@ export default function DeckHubScreen() {
               </View>
             </TouchableOpacity>
           )}
+
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: cardBg, borderWidth: 1, borderColor: isDark ? 'rgba(148,163,184,0.16)' : theme.border }]}
+            onPress={handleDuplicateDeck}
+            activeOpacity={0.85}
+            testID="duplicateDeckButton"
+          >
+            <Copy color={theme.textSecondary} size={22} strokeWidth={2.2} />
+            <View style={styles.actionText}>
+              <Text style={[styles.actionTitle, { color: theme.text }]}>Duplicate Deck</Text>
+              <Text style={[styles.actionDesc, { color: theme.textSecondary }]}>Create a copy to customize</Text>
+            </View>
+          </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
     </View>
