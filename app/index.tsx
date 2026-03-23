@@ -1,8 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, type Href } from 'expo-router';
 import { Trophy, BookOpen, Swords, Target, User } from 'lucide-react-native';
-import React, { useCallback, useMemo, useRef } from 'react';
-import { Alert, View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Alert, View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Animated, type StyleProp, type TextStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
@@ -11,6 +11,22 @@ import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 
 const { width } = Dimensions.get('window');
+
+function AnimatedStatValue({ animValue, style }: { animValue: Animated.Value; style: StyleProp<TextStyle> }) {
+  const [display, setDisplay] = React.useState<string>('0');
+
+  React.useEffect(() => {
+    const listenerId = animValue.addListener(({ value }) => {
+      setDisplay(Math.round(value).toLocaleString());
+    });
+
+    return () => {
+      animValue.removeListener(listenerId);
+    };
+  }, [animValue]);
+
+  return <Text style={style}>{display}</Text>;
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -24,6 +40,21 @@ export default function HomePage() {
     isReady: isDeveloperAccessReady,
   } = useDeveloperAccess();
   const didHandleLongPressRef = useRef<boolean>(false);
+  const xpAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
+  const streakAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
+  const cardsAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    xpAnim.setValue(0);
+    streakAnim.setValue(0);
+    cardsAnim.setValue(0);
+
+    Animated.stagger(100, [
+      Animated.timing(xpAnim, { toValue: stats.totalScore, duration: 800, useNativeDriver: false }),
+      Animated.timing(streakAnim, { toValue: stats.currentStreak, duration: 600, useNativeDriver: false }),
+      Animated.timing(cardsAnim, { toValue: stats.totalCardsStudied, duration: 800, useNativeDriver: false }),
+    ]).start();
+  }, [cardsAnim, stats.currentStreak, stats.totalCardsStudied, stats.totalScore, streakAnim, xpAnim]);
 
   const recommendations = useMemo(() => {
     if (decks.length === 0) {
@@ -164,17 +195,17 @@ export default function HomePage() {
             ]}
           >
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.primary }]}>{stats.totalScore}</Text>
+              <AnimatedStatValue animValue={xpAnim} style={[styles.statValue, { color: theme.primary }]} />
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Total XP</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: isDark ? 'rgba(148, 163, 184, 0.14)' : '#e0e0e0' }]} />
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.primary }]}>{stats.currentStreak}</Text>
+              <AnimatedStatValue animValue={streakAnim} style={[styles.statValue, { color: theme.primary }]} />
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Day Streak</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: isDark ? 'rgba(148, 163, 184, 0.14)' : '#e0e0e0' }]} />
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.primary }]}>{stats.totalCardsStudied}</Text>
+              <AnimatedStatValue animValue={cardsAnim} style={[styles.statValue, { color: theme.primary }]} />
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Cards Studied</Text>
             </View>
           </View>

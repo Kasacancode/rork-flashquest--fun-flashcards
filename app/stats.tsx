@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Trophy, Flame, Target, Award, TrendingUp } from 'lucide-react-native';
+import { ArrowLeft, Trophy, Flame, Target, Award, TrendingUp, Calendar } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -43,6 +43,52 @@ export default function StatsPage() {
   }, [stats.studyDates]);
 
   const activeDaysCount = useMemo(() => calendarData.filter((day) => day.active).length, [calendarData]);
+
+  const weeklySummary = useMemo(() => {
+    const studySet = new Set(stats.studyDates ?? []);
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+    let thisWeekDays = 0;
+    for (let i = 0; i <= mondayOffset; i += 1) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      if (studySet.has(date.toISOString().slice(0, 10))) {
+        thisWeekDays += 1;
+      }
+    }
+
+    let lastWeekDays = 0;
+    for (let i = mondayOffset + 1; i <= mondayOffset + 7; i += 1) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      if (studySet.has(date.toISOString().slice(0, 10))) {
+        lastWeekDays += 1;
+      }
+    }
+
+    const totalDaysThisWeek = mondayOffset + 1;
+    let comparison: string;
+    if (thisWeekDays > lastWeekDays) {
+      comparison = `${thisWeekDays - lastWeekDays} more than last week`;
+    } else if (thisWeekDays < lastWeekDays) {
+      comparison = `${lastWeekDays - thisWeekDays} fewer than last week`;
+    } else {
+      comparison = lastWeekDays === 0 ? 'Start your week strong!' : 'Same as last week';
+    }
+
+    return { thisWeekDays, lastWeekDays, totalDaysThisWeek, comparison };
+  }, [stats.studyDates]);
+
+  const accuracySummary = useMemo(() => {
+    const attempted = stats.totalQuestionsAttempted ?? 0;
+    const correct = stats.totalCorrectAnswers ?? 0;
+    if (attempted === 0) {
+      return null;
+    }
+    return Math.round((correct / attempted) * 100);
+  }, [stats.totalQuestionsAttempted, stats.totalCorrectAnswers]);
 
   const backgroundGradient = useMemo(
     () => (
@@ -141,6 +187,34 @@ export default function StatsPage() {
               <Text style={styles.scoreValue}>{stats.totalScore}</Text>
               <Text style={styles.scoreLabel}>Total Points</Text>
             </LinearGradient>
+          </View>
+
+          <View style={styles.weeklyCard}>
+            <View style={styles.weeklyHeader}>
+              <Calendar color={theme.primary} size={20} strokeWidth={2.2} />
+              <Text style={styles.weeklyTitle}>This Week</Text>
+            </View>
+            <View style={styles.weeklyStatsRow}>
+              <View style={styles.weeklyStat}>
+                <Text style={[styles.weeklyStatValue, { color: theme.primary }]}>{weeklySummary.thisWeekDays}</Text>
+                <Text style={styles.weeklyStatLabel}>Days Active</Text>
+              </View>
+              <View style={[styles.weeklyDivider, { backgroundColor: isDark ? 'rgba(148,163,184,0.14)' : '#e0e0e0' }]} />
+              <View style={styles.weeklyStat}>
+                <Text style={[styles.weeklyStatValue, { color: theme.primary }]}>{stats.currentStreak}</Text>
+                <Text style={styles.weeklyStatLabel}>Current Streak</Text>
+              </View>
+              {accuracySummary !== null ? (
+                <>
+                  <View style={[styles.weeklyDivider, { backgroundColor: isDark ? 'rgba(148,163,184,0.14)' : '#e0e0e0' }]} />
+                  <View style={styles.weeklyStat}>
+                    <Text style={[styles.weeklyStatValue, { color: accuracySummary >= 70 ? theme.success : theme.warning }]}>{accuracySummary}%</Text>
+                    <Text style={styles.weeklyStatLabel}>Accuracy</Text>
+                  </View>
+                </>
+              ) : null}
+            </View>
+            <Text style={styles.weeklyComparison}>{weeklySummary.comparison}</Text>
           </View>
 
           <View style={styles.statsGrid}>
@@ -300,6 +374,56 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       fontSize: 18,
       color: 'rgba(255, 255, 255, 0.95)',
       fontWeight: '600' as const,
+    },
+    weeklyCard: {
+      marginHorizontal: 24,
+      marginBottom: 24,
+      borderRadius: 20,
+      padding: 20,
+      backgroundColor: statSurface,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: surfaceBorderColor,
+    },
+    weeklyHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 16,
+    },
+    weeklyTitle: {
+      fontSize: 16,
+      fontWeight: '700' as const,
+      color: theme.text,
+    },
+    weeklyStatsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    weeklyStat: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    weeklyStatValue: {
+      fontSize: 28,
+      fontWeight: '800' as const,
+    },
+    weeklyStatLabel: {
+      fontSize: 12,
+      fontWeight: '600' as const,
+      color: theme.textSecondary,
+      marginTop: 4,
+    },
+    weeklyDivider: {
+      width: 1,
+      height: 36,
+    },
+    weeklyComparison: {
+      fontSize: 13,
+      fontWeight: '600' as const,
+      color: theme.textTertiary,
+      textAlign: 'center',
+      marginTop: 14,
     },
     statsGrid: {
       paddingHorizontal: 24,
