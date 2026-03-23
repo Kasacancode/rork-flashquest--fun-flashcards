@@ -87,10 +87,14 @@ export default function ArenaLobbyScreen() {
   }, [room?.status, router]);
 
   useEffect(() => {
+    if (connectionError) {
+      return;
+    }
+
     if (!roomCode && !room) {
       router.replace('/arena' as any);
     }
-  }, [roomCode, room, router]);
+  }, [connectionError, roomCode, room, router]);
 
   useEffect(() => {
     if (connectionError) {

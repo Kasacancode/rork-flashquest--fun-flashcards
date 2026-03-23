@@ -28,6 +28,7 @@ type PendingDeckSelection = {
 
 type ArenaBackendErrorData = {
   backendCode?: unknown;
+  code?: unknown;
 };
 
 function getArenaErrorMessage(error: unknown): string {
@@ -50,6 +51,24 @@ function getArenaBackendErrorCode(error: unknown): string | null {
 
   const data = (error as { data?: ArenaBackendErrorData }).data;
   return typeof data?.backendCode === 'string' ? data.backendCode : null;
+}
+
+function getArenaTrpcErrorCode(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null || !('data' in error)) {
+    return null;
+  }
+
+  const data = (error as { data?: ArenaBackendErrorData }).data;
+  return typeof data?.code === 'string' ? data.code : null;
+}
+
+function isArenaRoomNotFoundError(error: unknown): boolean {
+  const trpcCode = getArenaTrpcErrorCode(error);
+  const normalizedMessage = getArenaErrorMessage(error).toLowerCase();
+
+  return trpcCode === 'NOT_FOUND'
+    || normalizedMessage.includes('room not found')
+    || normalizedMessage.includes('room expired');
 }
 
 function isRedisConfigArenaError(error: unknown): boolean {
@@ -153,6 +172,33 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const [pollInterval, setPollInterval] = useState<number>(POLL_LOBBY_MS);
   const lastVersionRef = useRef<number>(0);
 
+  const clearArenaConnection = useCallback((nextError: string | null) => {
+    setRoomCode(null);
+    setPlayerId(null);
+    setConnectionError(nextError);
+    setOptimisticSettings(null);
+    setOptimisticDeckSelection(null);
+    setHasAnsweredCurrent(false);
+    setLastAnswerCorrect(null);
+    setStableRoom(null);
+    prevQuestionRoundRef.current = null;
+    pollFailCountRef.current = 0;
+    lastErrorMsgRef.current = null;
+    connectedAtRef.current = 0;
+    lastVersionRef.current = 0;
+    logger.log('[Arena] Disconnected');
+  }, []);
+
+  const getRoomClosedMessage = useCallback((currentRoom: SanitizedRoom | null) => {
+    if (currentRoom && playerId && currentRoom.hostId !== playerId) {
+      return currentRoom.status === 'playing'
+        ? 'The host left the match.'
+        : 'The host closed the room.';
+    }
+
+    return 'Room expired or not found';
+  }, [playerId]);
+
   const roomQuery = trpc.arena.getRoomState.useQuery(
     { roomCode: roomCode!, playerId: playerId! },
     {
@@ -207,6 +253,14 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     if (roomQuery.error && roomCode) {
       const msg = normalizeArenaConnectionError(roomQuery.error);
       const hasRedisConfigError = isRedisConfigArenaError(roomQuery.error);
+
+      if (isArenaRoomNotFoundError(roomQuery.error)) {
+        const nextMessage = getRoomClosedMessage(stableRoom);
+        logger.log('[Arena] Room closed while polling, disconnecting:', nextMessage);
+        clearArenaConnection(nextMessage);
+        return;
+      }
+
       const timeSinceConnect = Date.now() - connectedAtRef.current;
       if (timeSinceConnect < GRACE_PERIOD_MS) {
         logger.log('[Arena] Poll error during grace period, ignoring:', msg);
@@ -214,13 +268,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       }
       if (hasRedisConfigError) {
         logger.log('[Arena] Backend configuration error while polling, disconnecting:', msg);
-        setRoomCode(null);
-        setPlayerId(null);
-        setStableRoom(null);
-        prevQuestionRoundRef.current = null;
-        setConnectionError(msg);
-        pollFailCountRef.current = 0;
-        lastErrorMsgRef.current = null;
+        clearArenaConnection(msg);
         return;
       }
       if (msg !== lastErrorMsgRef.current) {
@@ -232,16 +280,10 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       logger.log('[Arena] Poll error (attempt', pollFailCountRef.current, '/', MAX_POLL_FAILURES, '):', msg);
       if (pollFailCountRef.current >= MAX_POLL_FAILURES) {
         logger.log('[Arena] Max poll failures reached, disconnecting');
-        setRoomCode(null);
-        setPlayerId(null);
-        setStableRoom(null);
-        prevQuestionRoundRef.current = null;
-        setConnectionError('Room expired or not found');
-        pollFailCountRef.current = 0;
-        lastErrorMsgRef.current = null;
+        clearArenaConnection('Room expired or not found');
       }
     }
-  }, [roomQuery.error, roomCode]);
+  }, [clearArenaConnection, getRoomClosedMessage, roomCode, roomQuery.error, stableRoom]);
 
   const serverRoom = stableRoom;
   const room = useMemo<SanitizedRoom | null>(() => {
@@ -476,8 +518,16 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       setLastAnswerCorrect(data.isCorrect);
       logger.log('[Arena] Answer submitted, correct:', data.isCorrect);
     },
-    onError: (err: { message: string }) => {
-      logger.log('[Arena] Submit error:', err.message);
+    onError: (error: unknown) => {
+      if (isArenaRoomNotFoundError(error)) {
+        const nextMessage = getRoomClosedMessage(stableRoom);
+        logger.log('[Arena] Submit failed because room closed:', nextMessage);
+        clearArenaConnection(nextMessage);
+        return;
+      }
+
+      const normalizedError = normalizeArenaConnectionError(error);
+      logger.log('[Arena] Submit error:', normalizedError);
       void roomQuery.refetch();
     },
   });
@@ -542,21 +592,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     if (roomCode && playerId) {
       leaveMut.mutate({ roomCode, playerId });
     }
-    setRoomCode(null);
-    setPlayerId(null);
-    setConnectionError(null);
-    setOptimisticSettings(null);
-    setOptimisticDeckSelection(null);
-    setHasAnsweredCurrent(false);
-    setLastAnswerCorrect(null);
-    setStableRoom(null);
-    prevQuestionRoundRef.current = null;
-    pollFailCountRef.current = 0;
-    lastErrorMsgRef.current = null;
-    connectedAtRef.current = 0;
-    lastVersionRef.current = 0;
-    logger.log('[Arena] Disconnected');
-  }, [roomCode, playerId, leaveMut]);
+    clearArenaConnection(null);
+  }, [clearArenaConnection, roomCode, playerId, leaveMut]);
 
   const selectDeck = useCallback((deckId: string, deckName: string) => {
     if (!roomCode || !playerId) return;

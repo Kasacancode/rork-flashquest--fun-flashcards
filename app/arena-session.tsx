@@ -297,6 +297,10 @@ export default function ArenaSessionScreen() {
   }, [phase, questionTimingKey, timerTotal]);
 
   useEffect(() => {
+    if (connectionError) {
+      return;
+    }
+
     if (room && game && (phase === 'finished' || room.status === 'finished') && !hasNavigatedToResults.current) {
       hasNavigatedToResults.current = true;
       logger.log('[Session] Game finished, navigating to results');
@@ -315,7 +319,7 @@ export default function ArenaSessionScreen() {
         router.replace('/arena' as any);
       }
     }
-  }, [room, game, phase, router]);
+  }, [connectionError, room, game, phase, router]);
 
   useEffect(() => {
     if (connectionError) {
