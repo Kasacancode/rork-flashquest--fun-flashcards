@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Sparkles, Check, Plus, Trash2, FileText, Wand2, RotateCcw } from 'lucide-react-native';
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as z from 'zod/v4';
 
+import DeckCategoryPicker from '@/components/DeckCategoryPicker';
+import {
+  AI_DEFAULT_DECK_CATEGORY,
+  PRESET_DECK_CATEGORIES,
+} from '@/constants/deckCategories';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
@@ -30,6 +35,7 @@ const flashcardSchema = z.object({
   })).describe('Array of flashcard question-answer pairs extracted from the text'),
   deckName: z.string().describe('A short descriptive name for this deck based on the content'),
   deckDescription: z.string().describe('A brief description of what these flashcards cover'),
+  category: z.string().describe('A category label for this deck. Choose from: Science, History, Languages, Math, Geography, Technology, Art, Business, or suggest a fitting custom category. Use one or two words.'),
 });
 
 type GeneratedCard = {
@@ -50,6 +56,9 @@ export default function TextToDeckPage() {
   const [generatedCards, setGeneratedCards] = useState<GeneratedCard[]>([]);
   const [deckName, setDeckName] = useState<string>('');
   const [deckDescription, setDeckDescription] = useState<string>('');
+  const [deckCategory, setDeckCategory] = useState<string>(AI_DEFAULT_DECK_CATEGORY);
+  const [showCustomCategory, setShowCustomCategory] = useState<boolean>(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -69,6 +78,39 @@ export default function TextToDeckPage() {
     pulseAnim.stopAnimation();
     pulseAnim.setValue(1);
   }, [pulseAnim]);
+
+  const categoryOptions = useMemo(() => {
+    const normalizedCategory = deckCategory.trim();
+    if (normalizedCategory && !PRESET_DECK_CATEGORIES.includes(normalizedCategory as typeof PRESET_DECK_CATEGORIES[number])) {
+      return [...PRESET_DECK_CATEGORIES, normalizedCategory];
+    }
+    return [...PRESET_DECK_CATEGORIES];
+  }, [deckCategory]);
+
+  const handleSelectCategory = useCallback((category: string) => {
+    setDeckCategory(category);
+    setShowCustomCategory(false);
+    setCustomCategoryInput('');
+  }, []);
+
+  const handlePressCustomCategory = useCallback(() => {
+    const normalizedCategory = deckCategory.trim();
+    setCustomCategoryInput(
+      normalizedCategory && !PRESET_DECK_CATEGORIES.includes(normalizedCategory as typeof PRESET_DECK_CATEGORIES[number])
+        ? normalizedCategory
+        : ''
+    );
+    setShowCustomCategory(true);
+  }, [deckCategory]);
+
+  const handleSubmitCustomCategory = useCallback(() => {
+    const normalizedCustomCategory = customCategoryInput.trim();
+    if (normalizedCustomCategory) {
+      setDeckCategory(normalizedCustomCategory);
+      setCustomCategoryInput(normalizedCustomCategory);
+    }
+    setShowCustomCategory(false);
+  }, [customCategoryInput]);
 
   const handleGenerate = useCallback(async () => {
     if (!isTextValid) {
@@ -111,6 +153,9 @@ export default function TextToDeckPage() {
       setGeneratedCards(cards);
       setDeckName(result.deckName);
       setDeckDescription(result.deckDescription);
+      setDeckCategory(result.category || AI_DEFAULT_DECK_CATEGORY);
+      setCustomCategoryInput('');
+      setShowCustomCategory(false);
       trackEvent({
         event: 'ai_text_completed',
         properties: {
@@ -170,6 +215,7 @@ export default function TextToDeckPage() {
       return;
     }
 
+    const resolvedCategory = deckCategory.trim() || AI_DEFAULT_DECK_CATEGORY;
     const colors = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#9B59B6', '#E67E22', '#3498DB', '#1ABC9C'];
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
     const newDeckId = `deck_${Date.now()}`;
@@ -189,7 +235,7 @@ export default function TextToDeckPage() {
       description: deckDescription.trim() || 'AI-generated deck from text',
       color: randomColor,
       icon: 'file-text',
-      category: 'AI Generated',
+      category: resolvedCategory,
       flashcards,
       isCustom: true,
       createdAt: Date.now(),
@@ -206,13 +252,16 @@ export default function TextToDeckPage() {
     Alert.alert('Deck Created!', `${validCards.length} flashcards generated from your text.`, [
       { text: 'View Decks', onPress: () => router.replace('/decks' as any) },
     ]);
-  }, [deckName, deckDescription, generatedCards, addDeck, router]);
+  }, [deckCategory, deckName, deckDescription, generatedCards, addDeck, router]);
 
   const handleReset = useCallback(() => {
     setStep('input');
     setGeneratedCards([]);
     setDeckName('');
     setDeckDescription('');
+    setDeckCategory(AI_DEFAULT_DECK_CATEGORY);
+    setShowCustomCategory(false);
+    setCustomCategoryInput('');
     setErrorMessage(null);
   }, []);
 
@@ -369,6 +418,19 @@ export default function TextToDeckPage() {
                   placeholderTextColor={placeholderColor}
                   multiline
                   testID="textToDeckDesc"
+                />
+                <DeckCategoryPicker
+                  categories={categoryOptions}
+                  selectedCategory={deckCategory}
+                  showCustomCategory={showCustomCategory}
+                  customCategoryInput={customCategoryInput}
+                  onSelectCategory={handleSelectCategory}
+                  onPressCustom={handlePressCustomCategory}
+                  onChangeCustomCategoryInput={setCustomCategoryInput}
+                  onSubmitCustomCategory={handleSubmitCustomCategory}
+                  theme={theme}
+                  isDark={isDark}
+                  testIDPrefix="text-to-deck-category"
                 />
               </View>
 

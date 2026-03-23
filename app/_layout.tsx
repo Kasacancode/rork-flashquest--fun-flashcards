@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Platform, LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
+import AchievementMonitor from '@/components/AchievementMonitor';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { ArenaProvider } from '@/context/ArenaContext';
 import { AvatarProvider } from '@/context/AvatarContext';
@@ -171,6 +172,7 @@ export default function RootLayout() {
                     <ArenaProvider>
                       <GestureHandlerRootView style={{ flex: 1 }}>
                         <RootLayoutContent isOnboardingComplete={isOnboardingComplete} />
+                        <AchievementMonitor />
                       </GestureHandlerRootView>
                     </ArenaProvider>
                   </PerformanceProvider>

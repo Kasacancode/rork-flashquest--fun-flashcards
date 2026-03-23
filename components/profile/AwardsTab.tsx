@@ -13,37 +13,17 @@ import {
 } from 'react-native';
 
 import type { Theme } from '@/constants/colors';
-
-type IconComponent = React.ComponentType<{
-  color?: string;
-  size?: number;
-  strokeWidth?: number;
-}>;
-
-type AchievementCategoryId = 'study' | 'streaks' | 'xp' | 'battle' | 'quest' | 'accuracy' | 'building' | 'collection';
-
-type AchievementCategory = {
-  id: AchievementCategoryId;
-  label: string;
-};
-
-type Achievement = {
-  id: string;
-  name: string;
-  description: string;
-  xp: number;
-  progress: number;
-  total: number;
-  color: string;
-  icon: IconComponent;
-  category: AchievementCategoryId;
-};
+import type {
+  AchievementCategory,
+  AchievementCategoryId,
+  AchievementItem,
+} from '@/utils/achievements';
 
 type ViewStyles<K extends string> = { [P in K]: StyleProp<ViewStyle> };
 type TextStyles<K extends string> = { [P in K]: StyleProp<TextStyle> };
 
 interface AwardsTabProps {
-  achievements: readonly Achievement[];
+  achievements: readonly AchievementItem[];
   completedAchievements: number;
   nextAchievement: {
     name: string;
@@ -51,7 +31,7 @@ interface AwardsTabProps {
   achievementCategories: readonly AchievementCategory[];
   activeAchievementCategory: AchievementCategoryId;
   activeAchievementCategoryLabel: string;
-  activeCategoryAchievements: readonly Achievement[];
+  activeCategoryAchievements: readonly AchievementItem[];
   activeCategoryCompletedAchievements: number;
   onSelectAchievementCategory: (categoryId: AchievementCategoryId) => void;
   achievementCategoryFade: Animated.Value;

@@ -10,7 +10,7 @@ import {
   Sparkles,
   Trash2,
 } from 'lucide-react-native';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ALL_DECK_CATEGORIES_LABEL } from '@/constants/deckCategories';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -37,20 +38,45 @@ export default function DecksPage() {
 
   const [showMenu, setShowMenu] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [activeCategory, setActiveCategory] = useState<string>(ALL_DECK_CATEGORIES_LABEL);
+
+  const categories = useMemo(() => {
+    const uniqueCategories = Array.from(new Set(decks.map((deck) => deck.category).filter(Boolean)));
+    return [ALL_DECK_CATEGORIES_LABEL, ...uniqueCategories.sort()];
+  }, [decks]);
+
+  const categoryCounts = useMemo(() => {
+    return categories.reduce<Record<string, number>>((accumulator, category) => {
+      accumulator[category] = category === ALL_DECK_CATEGORIES_LABEL
+        ? decks.length
+        : decks.filter((deck) => deck.category === category).length;
+      return accumulator;
+    }, {});
+  }, [categories, decks]);
 
   const filteredDecks = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
+    let result = decks;
 
-    if (!normalizedQuery) {
-      return decks;
+    if (activeCategory !== ALL_DECK_CATEGORIES_LABEL) {
+      result = result.filter((deck) => deck.category === activeCategory);
     }
 
-    return decks.filter((deck) => deck.name.toLowerCase().includes(normalizedQuery));
-  }, [decks, searchQuery]);
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (normalizedQuery) {
+      result = result.filter((deck) => deck.name.toLowerCase().includes(normalizedQuery));
+    }
 
-  const hasSearchQuery = searchQuery.trim().length > 0;
+    return result;
+  }, [decks, activeCategory, searchQuery]);
+
   const hasNoDecks = decks.length === 0;
-  const hasNoSearchResults = decks.length > 0 && filteredDecks.length === 0 && hasSearchQuery;
+  const hasNoSearchResults = decks.length > 0 && filteredDecks.length === 0;
+
+  useEffect(() => {
+    if (!categories.includes(activeCategory)) {
+      setActiveCategory(ALL_DECK_CATEGORIES_LABEL);
+    }
+  }, [activeCategory, categories]);
 
   const handleCreateManual = useCallback(() => {
     setShowMenu(false);
@@ -83,6 +109,11 @@ export default function DecksPage() {
       Alert.alert('Error', 'Failed to delete deck. Please try again.');
     }
   }, [cleanupDeck, deleteDeck]);
+
+  const handleSelectCategory = useCallback((category: string) => {
+    setActiveCategory(category);
+    setSearchQuery('');
+  }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}> 
@@ -139,12 +170,44 @@ export default function DecksPage() {
         />
 
         <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryScroll}
+          contentContainerStyle={styles.categoryScrollContent}
+        >
+          {categories.map((category) => {
+            const isActive = activeCategory === category;
+            const count = categoryCounts[category] ?? 0;
+
+            return (
+              <TouchableOpacity
+                key={category}
+                onPress={() => handleSelectCategory(category)}
+                activeOpacity={0.84}
+                style={[
+                  styles.categoryPill,
+                  {
+                    backgroundColor: isActive ? theme.primary : theme.cardBackground,
+                    borderColor: isActive ? theme.primary : theme.border,
+                  },
+                ]}
+                testID={`deck-category-pill-${category.replace(/\s+/g, '-').toLowerCase()}`}
+              >
+                <Text style={[styles.categoryPillText, { color: isActive ? '#fff' : theme.textSecondary }]}>
+                  {category} ({count})
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           <Text style={styles.deckCount}>
-            {filteredDecks.length} {filteredDecks.length === 1 ? 'deck' : 'decks'} available
+            {filteredDecks.length} {filteredDecks.length === 1 ? 'deck' : 'decks'} {activeCategory === ALL_DECK_CATEGORIES_LABEL ? 'total' : `in ${activeCategory}`}
           </Text>
 
           {hasNoDecks ? (
@@ -375,6 +438,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 13,
     fontSize: 15,
+    fontWeight: '600' as const,
+  },
+  categoryScroll: {
+    marginBottom: 12,
+  },
+  categoryScrollContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  categoryPill: {
+    height: 34,
+    paddingHorizontal: 14,
+    borderRadius: 17,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryPillText: {
+    fontSize: 13,
     fontWeight: '600' as const,
   },
   scrollView: {

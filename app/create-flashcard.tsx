@@ -14,6 +14,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import DeckCategoryPicker from '@/components/DeckCategoryPicker';
+import {
+  MANUAL_DEFAULT_DECK_CATEGORY,
+  PRESET_DECK_CATEGORIES,
+} from '@/constants/deckCategories';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
@@ -44,6 +49,9 @@ export default function CreateFlashcardPage() {
     { id: '1', originalCardId: null, question: '', answer: '' },
   ]);
   const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>(MANUAL_DEFAULT_DECK_CATEGORY);
+  const [showCustomCategory, setShowCustomCategory] = useState<boolean>(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
 
   useEffect(() => {
     if (deckId && typeof deckId === 'string') {
@@ -57,6 +65,10 @@ export default function CreateFlashcardPage() {
           question: f.question,
           answer: f.answer,
         })));
+        const deckCategory = deck.category?.trim() || MANUAL_DEFAULT_DECK_CATEGORY;
+        setSelectedCategory(deckCategory);
+        setCustomCategoryInput(PRESET_DECK_CATEGORIES.includes(deckCategory as typeof PRESET_DECK_CATEGORIES[number]) ? '' : deckCategory);
+        setShowCustomCategory(false);
         setEditingDeckId(deck.id);
       }
     }
@@ -78,6 +90,39 @@ export default function CreateFlashcardPage() {
     );
   };
 
+  const categoryOptions = useMemo(() => {
+    const normalizedSelectedCategory = selectedCategory.trim();
+    if (normalizedSelectedCategory && !PRESET_DECK_CATEGORIES.includes(normalizedSelectedCategory as typeof PRESET_DECK_CATEGORIES[number])) {
+      return [...PRESET_DECK_CATEGORIES, normalizedSelectedCategory];
+    }
+    return [...PRESET_DECK_CATEGORIES];
+  }, [selectedCategory]);
+
+  const handleSelectCategory = (category: string) => {
+    setSelectedCategory(category);
+    setShowCustomCategory(false);
+    setCustomCategoryInput('');
+  };
+
+  const handlePressCustomCategory = () => {
+    const normalizedSelectedCategory = selectedCategory.trim();
+    setCustomCategoryInput(
+      normalizedSelectedCategory && !PRESET_DECK_CATEGORIES.includes(normalizedSelectedCategory as typeof PRESET_DECK_CATEGORIES[number])
+        ? normalizedSelectedCategory
+        : ''
+    );
+    setShowCustomCategory(true);
+  };
+
+  const handleSubmitCustomCategory = () => {
+    const normalizedCustomCategory = customCategoryInput.trim();
+    if (normalizedCustomCategory) {
+      setSelectedCategory(normalizedCustomCategory);
+      setCustomCategoryInput(normalizedCustomCategory);
+    }
+    setShowCustomCategory(false);
+  };
+
   const handleSave = () => {
     if (!deckName.trim()) {
       Alert.alert('Error', 'Please enter a deck name');
@@ -90,6 +135,8 @@ export default function CreateFlashcardPage() {
       Alert.alert('Error', 'Please add at least one complete flashcard');
       return;
     }
+
+    const resolvedCategory = selectedCategory.trim() || MANUAL_DEFAULT_DECK_CATEGORY;
 
     if (editingDeckId) {
       const existingDeck = decks.find(d => d.id === editingDeckId);
@@ -119,6 +166,7 @@ export default function CreateFlashcardPage() {
       updateDeck(editingDeckId, {
         name: deckName.trim(),
         description: deckDescription.trim() || 'Custom deck',
+        category: resolvedCategory,
         flashcards,
       });
 
@@ -148,7 +196,7 @@ export default function CreateFlashcardPage() {
         description: deckDescription.trim() || 'Custom deck',
         color: randomColor,
         icon: 'star',
-        category: 'Custom',
+        category: resolvedCategory,
         flashcards,
         isCustom: true,
         createdAt: Date.now(),
@@ -293,6 +341,20 @@ export default function CreateFlashcardPage() {
                 testID="deckDescriptionInput"
               />
             </View>
+
+            <DeckCategoryPicker
+              categories={categoryOptions}
+              selectedCategory={selectedCategory}
+              showCustomCategory={showCustomCategory}
+              customCategoryInput={customCategoryInput}
+              onSelectCategory={handleSelectCategory}
+              onPressCustom={handlePressCustomCategory}
+              onChangeCustomCategoryInput={setCustomCategoryInput}
+              onSubmitCustomCategory={handleSubmitCustomCategory}
+              theme={theme}
+              isDark={isDark}
+              testIDPrefix="create-deck-category"
+            />
           </View>
 
           <View style={styles.cardsSection}>

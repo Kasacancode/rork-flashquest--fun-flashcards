@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Camera, ImageIcon, Sparkles, Check, Plus, Trash2 } from 'lucide-react-native';
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as z from 'zod/v4';
 
+import DeckCategoryPicker from '@/components/DeckCategoryPicker';
+import {
+  AI_DEFAULT_DECK_CATEGORY,
+  PRESET_DECK_CATEGORIES,
+} from '@/constants/deckCategories';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
@@ -31,6 +36,7 @@ const flashcardSchema = z.object({
   })).describe('Array of flashcard question-answer pairs extracted from the image'),
   deckName: z.string().describe('A short descriptive name for this deck based on the content'),
   deckDescription: z.string().describe('A brief description of what these flashcards cover'),
+  category: z.string().describe('A category label for this deck. Choose from: Science, History, Languages, Math, Geography, Technology, Art, Business, or suggest a fitting custom category. Use one or two words.'),
 });
 
 type GeneratedCard = {
@@ -51,6 +57,9 @@ export default function ScanNotesPage() {
   const [generatedCards, setGeneratedCards] = useState<GeneratedCard[]>([]);
   const [deckName, setDeckName] = useState<string>('');
   const [deckDescription, setDeckDescription] = useState<string>('');
+  const [deckCategory, setDeckCategory] = useState<string>(AI_DEFAULT_DECK_CATEGORY);
+  const [showCustomCategory, setShowCustomCategory] = useState<boolean>(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -67,6 +76,39 @@ export default function ScanNotesPage() {
     pulseAnim.stopAnimation();
     pulseAnim.setValue(1);
   }, [pulseAnim]);
+
+  const categoryOptions = useMemo(() => {
+    const normalizedCategory = deckCategory.trim();
+    if (normalizedCategory && !PRESET_DECK_CATEGORIES.includes(normalizedCategory as typeof PRESET_DECK_CATEGORIES[number])) {
+      return [...PRESET_DECK_CATEGORIES, normalizedCategory];
+    }
+    return [...PRESET_DECK_CATEGORIES];
+  }, [deckCategory]);
+
+  const handleSelectCategory = useCallback((category: string) => {
+    setDeckCategory(category);
+    setShowCustomCategory(false);
+    setCustomCategoryInput('');
+  }, []);
+
+  const handlePressCustomCategory = useCallback(() => {
+    const normalizedCategory = deckCategory.trim();
+    setCustomCategoryInput(
+      normalizedCategory && !PRESET_DECK_CATEGORIES.includes(normalizedCategory as typeof PRESET_DECK_CATEGORIES[number])
+        ? normalizedCategory
+        : ''
+    );
+    setShowCustomCategory(true);
+  }, [deckCategory]);
+
+  const handleSubmitCustomCategory = useCallback(() => {
+    const normalizedCustomCategory = customCategoryInput.trim();
+    if (normalizedCustomCategory) {
+      setDeckCategory(normalizedCustomCategory);
+      setCustomCategoryInput(normalizedCustomCategory);
+    }
+    setShowCustomCategory(false);
+  }, [customCategoryInput]);
 
   const processImage = useCallback(async (base64: string | null) => {
     if (!base64) {
@@ -115,6 +157,9 @@ export default function ScanNotesPage() {
       setGeneratedCards(cards);
       setDeckName(result.deckName);
       setDeckDescription(result.deckDescription);
+      setDeckCategory(result.category || AI_DEFAULT_DECK_CATEGORY);
+      setCustomCategoryInput('');
+      setShowCustomCategory(false);
       trackEvent({
         event: 'ai_scan_completed',
         properties: {
@@ -213,6 +258,7 @@ export default function ScanNotesPage() {
       return;
     }
 
+    const resolvedCategory = deckCategory.trim() || AI_DEFAULT_DECK_CATEGORY;
     const colors = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#9B59B6', '#E67E22', '#3498DB', '#1ABC9C'];
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
     const newDeckId = `deck_${Date.now()}`;
@@ -232,7 +278,7 @@ export default function ScanNotesPage() {
       description: deckDescription.trim() || 'AI-generated deck from notes',
       color: randomColor,
       icon: 'sparkles',
-      category: 'AI Generated',
+      category: resolvedCategory,
       flashcards,
       isCustom: true,
       createdAt: Date.now(),
@@ -249,7 +295,7 @@ export default function ScanNotesPage() {
     Alert.alert('Deck Created!', `${validCards.length} flashcards generated from your notes.`, [
       { text: 'View Decks', onPress: () => router.replace('/decks' as any) },
     ]);
-  }, [deckName, deckDescription, generatedCards, addDeck, router]);
+  }, [deckCategory, deckName, deckDescription, generatedCards, addDeck, router]);
 
   const handleRetry = useCallback(() => {
     setStep('pick');
@@ -257,6 +303,9 @@ export default function ScanNotesPage() {
     setGeneratedCards([]);
     setDeckName('');
     setDeckDescription('');
+    setDeckCategory(AI_DEFAULT_DECK_CATEGORY);
+    setShowCustomCategory(false);
+    setCustomCategoryInput('');
     setErrorMessage(null);
   }, []);
 
@@ -396,6 +445,19 @@ export default function ScanNotesPage() {
                   placeholderTextColor={placeholderColor}
                   multiline
                   testID="scanDeckDesc"
+                />
+                <DeckCategoryPicker
+                  categories={categoryOptions}
+                  selectedCategory={deckCategory}
+                  showCustomCategory={showCustomCategory}
+                  customCategoryInput={customCategoryInput}
+                  onSelectCategory={handleSelectCategory}
+                  onPressCustom={handlePressCustomCategory}
+                  onChangeCustomCategoryInput={setCustomCategoryInput}
+                  onSubmitCustomCategory={handleSubmitCustomCategory}
+                  theme={theme}
+                  isDark={isDark}
+                  testIDPrefix="scan-category"
                 />
               </View>
 
