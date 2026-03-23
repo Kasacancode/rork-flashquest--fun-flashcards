@@ -9,9 +9,10 @@ import {
   User,
   Zap,
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
   ScrollView,
   StyleSheet,
   Text,
@@ -55,6 +56,19 @@ type IconComponent = React.ComponentType<{
   strokeWidth?: number;
 }>;
 
+const ACHIEVEMENT_CATEGORIES = [
+  { id: 'study', label: '📚 Study' },
+  { id: 'streaks', label: '🔥 Streaks' },
+  { id: 'xp', label: '⭐ XP' },
+  { id: 'battle', label: '⚔️ Battle' },
+  { id: 'quest', label: '🎯 Quest' },
+  { id: 'accuracy', label: '✅ Accuracy' },
+  { id: 'building', label: '🛠️ Building' },
+  { id: 'collection', label: '📦 Collection' },
+] as const;
+
+type AchievementCategoryId = (typeof ACHIEVEMENT_CATEGORIES)[number]['id'];
+
 interface AchievementItem {
   id: string;
   name: string;
@@ -64,6 +78,7 @@ interface AchievementItem {
   total: number;
   color: string;
   icon: IconComponent;
+  category: AchievementCategoryId;
 }
 
 interface LevelItem {
@@ -174,6 +189,7 @@ export default function ProfilePage() {
   const { theme, isDark, toggleTheme } = useTheme();
   const { selectedSuit, selectedColor, setSelectedSuit, setSelectedColor } = useAvatar();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [activeAchievementCategory, setActiveAchievementCategory] = useState<AchievementCategoryId>(ACHIEVEMENT_CATEGORIES[0].id);
   const [showLevels, setShowLevels] = useState<boolean>(false);
   const [isEditingPlayerName, setIsEditingPlayerName] = useState<boolean>(false);
   const [playerNameInput, setPlayerNameInput] = useState<string>('');
@@ -198,6 +214,7 @@ export default function ProfilePage() {
       total: 1,
       color: '#4ECDC4',
       icon: BookOpen,
+      category: 'study',
     },
     {
       id: 'getting_the_hang',
@@ -208,6 +225,7 @@ export default function ProfilePage() {
       total: 50,
       color: '#4ECDC4',
       icon: BookOpen,
+      category: 'study',
     },
     {
       id: 'card_cruncher',
@@ -218,6 +236,7 @@ export default function ProfilePage() {
       total: 250,
       color: '#4ECDC4',
       icon: BookOpen,
+      category: 'study',
     },
     {
       id: 'study_machine',
@@ -228,6 +247,7 @@ export default function ProfilePage() {
       total: 1000,
       color: '#4ECDC4',
       icon: BookOpen,
+      category: 'study',
     },
     {
       id: 'knowledge_titan',
@@ -238,6 +258,7 @@ export default function ProfilePage() {
       total: 5000,
       color: '#4ECDC4',
       icon: BookOpen,
+      category: 'study',
     },
     {
       id: 'warming_up',
@@ -248,6 +269,7 @@ export default function ProfilePage() {
       total: 3,
       color: '#FF6B6B',
       icon: Flame,
+      category: 'streaks',
     },
     {
       id: 'on_fire',
@@ -258,6 +280,7 @@ export default function ProfilePage() {
       total: 7,
       color: '#F97316',
       icon: Flame,
+      category: 'streaks',
     },
     {
       id: 'unstoppable',
@@ -268,6 +291,7 @@ export default function ProfilePage() {
       total: 14,
       color: '#EF4444',
       icon: Flame,
+      category: 'streaks',
     },
     {
       id: 'iron_discipline',
@@ -278,6 +302,7 @@ export default function ProfilePage() {
       total: 30,
       color: '#DC2626',
       icon: Flame,
+      category: 'streaks',
     },
     {
       id: 'streak_legend',
@@ -288,6 +313,7 @@ export default function ProfilePage() {
       total: 60,
       color: '#B91C1C',
       icon: Flame,
+      category: 'streaks',
     },
     {
       id: 'rising_star',
@@ -298,6 +324,7 @@ export default function ProfilePage() {
       total: 500,
       color: '#F093FB',
       icon: Crown,
+      category: 'xp',
     },
     {
       id: 'xp_hunter',
@@ -308,6 +335,7 @@ export default function ProfilePage() {
       total: 2500,
       color: '#D946EF',
       icon: Crown,
+      category: 'xp',
     },
     {
       id: 'point_machine',
@@ -318,6 +346,7 @@ export default function ProfilePage() {
       total: 10000,
       color: '#A855F7',
       icon: Crown,
+      category: 'xp',
     },
     {
       id: 'xp_legend',
@@ -328,6 +357,7 @@ export default function ProfilePage() {
       total: 50000,
       color: '#7C3AED',
       icon: Crown,
+      category: 'xp',
     },
     {
       id: 'battle_ready',
@@ -338,6 +368,7 @@ export default function ProfilePage() {
       total: 1,
       color: '#F59E0B',
       icon: Award,
+      category: 'battle',
     },
     {
       id: 'arena_regular',
@@ -348,6 +379,7 @@ export default function ProfilePage() {
       total: 5,
       color: '#F59E0B',
       icon: Award,
+      category: 'battle',
     },
     {
       id: 'battle_hardened',
@@ -358,6 +390,7 @@ export default function ProfilePage() {
       total: 25,
       color: '#D97706',
       icon: Award,
+      category: 'battle',
     },
     {
       id: 'arena_veteran',
@@ -368,6 +401,7 @@ export default function ProfilePage() {
       total: 50,
       color: '#B45309',
       icon: Award,
+      category: 'battle',
     },
     {
       id: 'sharp_eye',
@@ -378,6 +412,7 @@ export default function ProfilePage() {
       total: 3,
       color: '#6366F1',
       icon: Zap,
+      category: 'quest',
     },
     {
       id: 'hot_hands',
@@ -388,6 +423,7 @@ export default function ProfilePage() {
       total: 7,
       color: '#6366F1',
       icon: Zap,
+      category: 'quest',
     },
     {
       id: 'flawless_run',
@@ -398,6 +434,7 @@ export default function ProfilePage() {
       total: 12,
       color: '#4F46E5',
       icon: Zap,
+      category: 'quest',
     },
     {
       id: 'perfect_mind',
@@ -408,6 +445,7 @@ export default function ProfilePage() {
       total: 20,
       color: '#4338CA',
       icon: Zap,
+      category: 'quest',
     },
     {
       id: 'sharpshooter',
@@ -418,6 +456,7 @@ export default function ProfilePage() {
       total: 50,
       color: '#10B981',
       icon: Zap,
+      category: 'accuracy',
     },
     {
       id: 'precision_player',
@@ -428,6 +467,7 @@ export default function ProfilePage() {
       total: 250,
       color: '#059669',
       icon: Zap,
+      category: 'accuracy',
     },
     {
       id: 'eagle_eye',
@@ -438,6 +478,7 @@ export default function ProfilePage() {
       total: 1000,
       color: '#047857',
       icon: Zap,
+      category: 'accuracy',
     },
     {
       id: 'answer_machine',
@@ -448,6 +489,7 @@ export default function ProfilePage() {
       total: 500,
       color: '#0EA5E9',
       icon: Award,
+      category: 'accuracy',
     },
     {
       id: 'quiz_marathon',
@@ -458,6 +500,7 @@ export default function ProfilePage() {
       total: 2000,
       color: '#0284C7',
       icon: Award,
+      category: 'accuracy',
     },
     {
       id: 'deck_creator',
@@ -468,6 +511,7 @@ export default function ProfilePage() {
       total: 1,
       color: '#14B8A6',
       icon: BookOpen,
+      category: 'building',
     },
     {
       id: 'deck_architect',
@@ -478,6 +522,7 @@ export default function ProfilePage() {
       total: 3,
       color: '#0D9488',
       icon: BookOpen,
+      category: 'building',
     },
     {
       id: 'deck_factory',
@@ -488,6 +533,7 @@ export default function ProfilePage() {
       total: 10,
       color: '#0F766E',
       icon: BookOpen,
+      category: 'building',
     },
     {
       id: 'starter_pack',
@@ -498,6 +544,7 @@ export default function ProfilePage() {
       total: 25,
       color: '#667EEA',
       icon: BookOpen,
+      category: 'collection',
     },
     {
       id: 'growing_library',
@@ -508,6 +555,7 @@ export default function ProfilePage() {
       total: 100,
       color: '#667EEA',
       icon: BookOpen,
+      category: 'collection',
     },
     {
       id: 'card_hoarder',
@@ -518,6 +566,7 @@ export default function ProfilePage() {
       total: 250,
       color: '#4F46E5',
       icon: BookOpen,
+      category: 'collection',
     },
     {
       id: 'master_collector',
@@ -528,6 +577,7 @@ export default function ProfilePage() {
       total: 500,
       color: '#4338CA',
       icon: BookOpen,
+      category: 'collection',
     },
     {
       id: 'living_encyclopedia',
@@ -538,6 +588,7 @@ export default function ProfilePage() {
       total: 1000,
       color: '#3730A3',
       icon: BookOpen,
+      category: 'collection',
     },
   ], [
     stats,
@@ -641,6 +692,28 @@ export default function ProfilePage() {
     () => achievements.find((achievement) => achievement.progress < achievement.total) ?? null,
     [achievements]
   );
+  const activeAchievementCategoryEntry = useMemo(
+    () => ACHIEVEMENT_CATEGORIES.find((category) => category.id === activeAchievementCategory) ?? ACHIEVEMENT_CATEGORIES[0],
+    [activeAchievementCategory]
+  );
+  const activeCategoryAchievements = useMemo(
+    () => achievements.filter((achievement) => achievement.category === activeAchievementCategory),
+    [achievements, activeAchievementCategory]
+  );
+  const activeCategoryCompletedAchievements = useMemo(
+    () => activeCategoryAchievements.filter((achievement) => achievement.progress >= achievement.total).length,
+    [activeCategoryAchievements]
+  );
+  const achievementCategoryFade = useRef<Animated.Value>(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    achievementCategoryFade.setValue(0);
+    Animated.timing(achievementCategoryFade, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  }, [achievementCategoryFade, activeAchievementCategory]);
 
   useEffect(() => {
     if (!isEditingPlayerName) {
@@ -661,6 +734,11 @@ export default function ProfilePage() {
   const handleOpenLevels = useCallback(() => {
     logger.log('[Profile] Opening levels modal');
     setShowLevels(true);
+  }, []);
+
+  const handleSelectAchievementCategory = useCallback((categoryId: AchievementCategoryId) => {
+    logger.log('[Profile] Switching achievement category to', categoryId);
+    setActiveAchievementCategory(categoryId);
   }, []);
 
   const handleCloseLevels = useCallback(() => {
@@ -864,6 +942,13 @@ export default function ProfilePage() {
               achievements={achievements}
               completedAchievements={completedAchievements}
               nextAchievement={nextAchievement}
+              achievementCategories={ACHIEVEMENT_CATEGORIES}
+              activeAchievementCategory={activeAchievementCategory}
+              activeAchievementCategoryLabel={activeAchievementCategoryEntry.label}
+              activeCategoryAchievements={activeCategoryAchievements}
+              activeCategoryCompletedAchievements={activeCategoryCompletedAchievements}
+              onSelectAchievementCategory={handleSelectAchievementCategory}
+              achievementCategoryFade={achievementCategoryFade}
               isDark={isDark}
               surfaceGradient={surfaceGradient}
               styles={styles}
@@ -1491,6 +1576,48 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       fontSize: 12,
       fontWeight: '700' as const,
       color: '#fff',
+    },
+    achievementCategoryScroll: {
+      marginTop: 4,
+    },
+    achievementCategoryScrollContent: {
+      flexDirection: 'row',
+      gap: 12,
+      paddingRight: 4,
+    },
+    achievementCategoryPill: {
+      minHeight: 36,
+      paddingHorizontal: 14,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.cardBackground,
+    },
+    achievementCategoryPillActive: {
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
+    },
+    achievementCategoryPillText: {
+      fontSize: 13,
+      fontWeight: '600' as const,
+      color: theme.textSecondary,
+    },
+    achievementCategoryPillTextActive: {
+      color: '#fff',
+    },
+    achievementCategorySummary: {
+      marginTop: 12,
+    },
+    achievementCategorySummaryText: {
+      fontSize: 13,
+      fontWeight: '700' as const,
+      color: theme.textSecondary,
+    },
+    achievementCategoryCards: {
+      marginTop: 12,
+      gap: 12,
     },
     achievementCard: {
       borderRadius: 22,
