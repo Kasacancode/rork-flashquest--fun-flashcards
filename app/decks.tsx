@@ -65,7 +65,7 @@ export default function DecksPage() {
   const router = useRouter();
   const { decks, deleteDeck, addDeck } = useFlashQuest();
   const { cleanupDeck } = useArena();
-  const { performance } = usePerformance();
+  const { performance, getCardsDueForReview } = usePerformance();
   const { theme, isDark } = useTheme();
 
   const [showMenu, setShowMenu] = useState<boolean>(false);
@@ -359,129 +359,146 @@ export default function DecksPage() {
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
             >
-              {filteredDecks.map((deck: Deck) => (
-              <View
-                key={deck.id}
-                style={[
-                  styles.deckCard,
-                  {
-                    backgroundColor: isDark ? 'rgba(10, 17, 34, 0.88)' : theme.cardBackground,
-                    borderWidth: isDark ? 1 : 0,
-                    borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
-                    shadowOpacity: isDark ? 0.24 : 0.1,
-                    shadowRadius: isDark ? 16 : 12,
-                    elevation: isDark ? 8 : 4,
-                  },
-                ]}
-              >
-                <View style={[styles.deckColorBar, { backgroundColor: deck.color }]} />
+              {filteredDecks.map((deck: Deck) => {
+                const mastery = computeDeckMastery(deck.flashcards, performance.cardStatsById);
+                const isFullyMastered = mastery.total > 0 && mastery.mastered === mastery.total;
+                const dueCount = getCardsDueForReview(deck.id, deck.flashcards).length;
+                const pMastered = mastery.total > 0 ? (mastery.mastered / mastery.total) * 100 : 0;
+                const pReviewing = mastery.total > 0 ? (mastery.reviewing / mastery.total) * 100 : 0;
+                const pLearning = mastery.total > 0 ? (mastery.learning / mastery.total) * 100 : 0;
 
-                <View style={styles.deckContent}>
-                  <View style={styles.deckHeader}>
-                    <TouchableOpacity
-                      style={styles.deckInfo}
-                      onPress={() => handleOpenDeckHub(deck.id)}
-                      activeOpacity={0.72}
-                      testID={`deck-hub-open-${deck.id}`}
-                    >
-                      <View style={styles.deckNameRow}>
-                        <Text style={[styles.deckName, styles.deckNameInline, { color: theme.text }]} numberOfLines={1}>
-                          {deck.name}
-                        </Text>
-                        <ChevronRight color={theme.textTertiary} size={14} strokeWidth={2.4} />
-                      </View>
-                      <Text style={[styles.deckDescription, { color: theme.textSecondary }]} numberOfLines={2}>
-                        {deck.description}
-                      </Text>
-                    </TouchableOpacity>
+                return (
+                  <View
+                    key={deck.id}
+                    style={[
+                      styles.deckCard,
+                      {
+                        backgroundColor: isDark ? 'rgba(10, 17, 34, 0.88)' : theme.cardBackground,
+                        borderWidth: isDark ? 1 : 0,
+                        borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
+                        shadowOpacity: isDark ? 0.24 : 0.1,
+                        shadowRadius: isDark ? 16 : 12,
+                        elevation: isDark ? 8 : 4,
+                      },
+                      isFullyMastered ? { borderColor: '#10B981', borderWidth: 2 } : null,
+                    ]}
+                  >
+                    <View style={[styles.deckColorBar, { backgroundColor: deck.color }]} />
 
-                    <TouchableOpacity
-                      style={[
-                        styles.deleteButton,
-                        {
-                          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.72)' : 'rgba(15, 23, 42, 0.04)',
-                          borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)',
-                        },
-                      ]}
-                      onPress={() => {
-                        Alert.alert(
-                          'Delete Deck',
-                          `Are you sure you want to delete "${deck.name}"? This cannot be undone.`,
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Delete', style: 'destructive', onPress: () => void handleDeleteDeck(deck.id) },
-                          ]
-                        );
-                      }}
-                      activeOpacity={0.8}
-                      testID={`deck-delete-button-${deck.id}`}
-                    >
-                      <Trash2 color={theme.textSecondary} size={16} strokeWidth={2.3} />
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.deckStats}>
-                    <View style={styles.statBadge}>
-                      <BookOpen color={theme.textSecondary} size={16} strokeWidth={2} />
-                      <Text style={[styles.statText, { color: theme.textSecondary }]}>
-                        {deck.flashcards.length} cards
-                      </Text>
-                    </View>
-                    <View style={[styles.categoryBadge, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.82)' : theme.background }]}> 
-                      <Text style={[styles.categoryText, { color: theme.text }]}>{deck.category}</Text>
-                    </View>
-                  </View>
-
-                  {(() => {
-                    const mastery = computeDeckMastery(deck.flashcards, performance.cardStatsById);
-                    if (mastery.total === 0) {
-                      return null;
-                    }
-
-                    const pMastered = (mastery.mastered / mastery.total) * 100;
-                    const pReviewing = (mastery.reviewing / mastery.total) * 100;
-                    const pLearning = (mastery.learning / mastery.total) * 100;
-
-                    return (
-                      <View style={styles.masterySection}>
-                        <View style={styles.masteryHeaderRow}>
-                          <Text style={[styles.masteryLabel, { color: theme.textSecondary }]}>
-                            {mastery.mastered}/{mastery.total} mastered
+                    <View style={styles.deckContent}>
+                      <View style={styles.deckHeader}>
+                        <TouchableOpacity
+                          style={styles.deckInfo}
+                          onPress={() => handleOpenDeckHub(deck.id)}
+                          activeOpacity={0.72}
+                          testID={`deck-hub-open-${deck.id}`}
+                        >
+                          <View style={styles.deckNameRow}>
+                            <Text style={[styles.deckName, styles.deckNameInline, { color: theme.text }]} numberOfLines={1}>
+                              {deck.name}
+                            </Text>
+                            <ChevronRight color={theme.textTertiary} size={14} strokeWidth={2.4} />
+                          </View>
+                          <Text style={[styles.deckDescription, { color: theme.textSecondary }]} numberOfLines={2}>
+                            {deck.description}
                           </Text>
-                          <Text style={[styles.masteryPercent, { color: theme.textTertiary }]}>
-                            {Math.round(pMastered)}%
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.deleteButton,
+                            {
+                              backgroundColor: isDark ? 'rgba(15, 23, 42, 0.72)' : 'rgba(15, 23, 42, 0.04)',
+                              borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)',
+                            },
+                          ]}
+                          onPress={() => {
+                            Alert.alert(
+                              'Delete Deck',
+                              `Are you sure you want to delete "${deck.name}"? This cannot be undone.`,
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                { text: 'Delete', style: 'destructive', onPress: () => void handleDeleteDeck(deck.id) },
+                              ]
+                            );
+                          }}
+                          activeOpacity={0.8}
+                          testID={`deck-delete-button-${deck.id}`}
+                        >
+                          <Trash2 color={theme.textSecondary} size={16} strokeWidth={2.3} />
+                        </TouchableOpacity>
+                      </View>
+
+                      <View style={styles.deckStats}>
+                        <View style={styles.statBadge}>
+                          <BookOpen color={theme.textSecondary} size={16} strokeWidth={2} />
+                          <Text style={[styles.statText, { color: theme.textSecondary }]}> 
+                            {deck.flashcards.length} cards
                           </Text>
                         </View>
-                        <View style={[styles.masteryTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
-                          {pMastered > 0 ? <View style={[styles.masterySegment, { width: `${pMastered}%`, backgroundColor: '#10B981' }]} /> : null}
-                          {pReviewing > 0 ? <View style={[styles.masterySegment, { width: `${pReviewing}%`, backgroundColor: '#3B82F6' }]} /> : null}
-                          {pLearning > 0 ? <View style={[styles.masterySegment, { width: `${pLearning}%`, backgroundColor: '#F59E0B' }]} /> : null}
+                        <View style={[styles.categoryBadge, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.82)' : theme.background }]}> 
+                          <Text style={[styles.categoryText, { color: theme.text }]}>{deck.category}</Text>
                         </View>
                       </View>
-                    );
-                  })()}
 
-                  <View style={styles.deckActions}>
-                    <TouchableOpacity
-                      style={[styles.studyButton, { backgroundColor: theme.primary }]}
-                      onPress={() => handleStudyDeck(deck.id)}
-                      activeOpacity={0.8}
-                    >
-                      <BookOpen color="#fff" size={20} strokeWidth={2.5} />
-                      <Text style={styles.studyButtonText}>Study</Text>
-                    </TouchableOpacity>
+                      {mastery.total > 0 ? (
+                        <View style={styles.masterySection}>
+                          <View style={styles.masteryHeaderRow}>
+                            <Text style={[styles.masteryLabel, { color: theme.textSecondary }]}> 
+                              {mastery.mastered}/{mastery.total} mastered
+                            </Text>
+                            <Text style={[styles.masteryPercent, { color: theme.textTertiary }]}>
+                              {Math.round(pMastered)}%
+                            </Text>
+                          </View>
+                          <View style={[styles.masteryTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
+                            {pMastered > 0 ? <View style={[styles.masterySegment, { width: `${pMastered}%`, backgroundColor: '#10B981' }]} /> : null}
+                            {pReviewing > 0 ? <View style={[styles.masterySegment, { width: `${pReviewing}%`, backgroundColor: '#3B82F6' }]} /> : null}
+                            {pLearning > 0 ? <View style={[styles.masterySegment, { width: `${pLearning}%`, backgroundColor: '#F59E0B' }]} /> : null}
+                          </View>
+                        </View>
+                      ) : null}
 
-                    <TouchableOpacity
-                      style={[styles.actionButton, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.82)' : theme.background }]}
-                      onPress={() => handleEditDeck(deck.id)}
-                      activeOpacity={0.8}
-                    >
-                      <Edit color={theme.text} size={20} strokeWidth={2.5} />
-                    </TouchableOpacity>
+                      {dueCount > 0 ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, marginBottom: isFullyMastered ? 2 : 0, gap: 4 }}>
+                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#3B82F6' }} />
+                          <Text style={{ fontSize: 11, fontWeight: '600', color: '#3B82F6' }}>
+                            {dueCount} due for review
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      {isFullyMastered ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 4 }}>
+                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' }} />
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: '#10B981' }}>
+                            ✓ Fully Mastered
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      <View style={styles.deckActions}>
+                        <TouchableOpacity
+                          style={[styles.studyButton, { backgroundColor: theme.primary }]}
+                          onPress={() => handleStudyDeck(deck.id)}
+                          activeOpacity={0.8}
+                        >
+                          <BookOpen color="#fff" size={20} strokeWidth={2.5} />
+                          <Text style={styles.studyButtonText}>Study</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[styles.actionButton, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.82)' : theme.background }]}
+                          onPress={() => handleEditDeck(deck.id)}
+                          activeOpacity={0.8}
+                        >
+                          <Edit color={theme.text} size={20} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   </View>
-                </View>
-              </View>
-              ))}
+                );
+              })}
             </ScrollView>
           )}
         </View>

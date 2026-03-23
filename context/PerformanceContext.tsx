@@ -28,7 +28,18 @@ const DEFAULT_CARD_STATS: CardStats = {
   incorrect: 0,
   streakCorrect: 0,
   lastAttemptAt: 0,
+  nextReviewAt: 0,
 };
+
+function computeNextReviewAt(streakCorrect: number, now: number): number {
+  const ONE_DAY = 86400000;
+  if (streakCorrect <= 0) return now;
+  if (streakCorrect === 1) return now + ONE_DAY;
+  if (streakCorrect === 2) return now + 3 * ONE_DAY;
+  if (streakCorrect === 3) return now + 7 * ONE_DAY;
+  if (streakCorrect === 4) return now + 14 * ONE_DAY;
+  return now + 30 * ONE_DAY;
+}
 
 const DEFAULT_DECK_STATS: DeckStats = {
   attempts: 0,
@@ -90,12 +101,14 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
       const cardStats = prev.cardStatsById[params.cardId] || { ...DEFAULT_CARD_STATS };
       const deckStats = prev.deckStatsById[params.deckId] || { ...DEFAULT_DECK_STATS };
 
+      const newStreak = params.isCorrect ? cardStats.streakCorrect + 1 : 0;
       const updatedCardStats: CardStats = {
         attempts: cardStats.attempts + 1,
         correct: cardStats.correct + (params.isCorrect ? 1 : 0),
         incorrect: cardStats.incorrect + (params.isCorrect ? 0 : 1),
-        streakCorrect: params.isCorrect ? cardStats.streakCorrect + 1 : 0,
+        streakCorrect: newStreak,
         lastAttemptAt: now,
+        nextReviewAt: computeNextReviewAt(newStreak, now),
       };
 
       const updatedDeckStats: DeckStats = {
@@ -182,6 +195,27 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
       .map(w => w.cardId);
   }, [performance.cardStatsById]);
 
+  const getCardsDueForReview = useCallback((deckId: string, cards: Flashcard[]): string[] => {
+    const now = Date.now();
+    const dueIds: string[] = [];
+
+    for (const card of cards) {
+      if (card.deckId !== deckId) continue;
+      const stats = performance.cardStatsById[card.id];
+
+      if (!stats || stats.attempts === 0) {
+        dueIds.push(card.id);
+        continue;
+      }
+
+      if (!stats.nextReviewAt || now >= stats.nextReviewAt) {
+        dueIds.push(card.id);
+      }
+    }
+
+    return dueIds;
+  }, [performance.cardStatsById]);
+
   const saveLastQuestSettings = useCallback((settings: QuestSettings) => {
     logger.log('[Performance] Saving last quest settings');
     setPerformance(prev => {
@@ -241,6 +275,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     getCardAccuracy,
     getDeckAccuracy,
     getWeakCards,
+    getCardsDueForReview,
     saveLastQuestSettings,
     getLastQuestSettings,
     getOverallQuestAccuracy,
@@ -253,6 +288,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     getCardAccuracy,
     getDeckAccuracy,
     getWeakCards,
+    getCardsDueForReview,
     saveLastQuestSettings,
     getLastQuestSettings,
     getOverallQuestAccuracy,

@@ -7,6 +7,7 @@ import { Platform, LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import AchievementMonitor from '@/components/AchievementMonitor';
+import DeckMasteryMonitor from '@/components/DeckMasteryMonitor';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import LevelUpMonitor from '@/components/LevelUpMonitor';
 import { ArenaProvider } from '@/context/ArenaContext';
@@ -176,6 +177,7 @@ export default function RootLayout() {
                         <RootLayoutContent isOnboardingComplete={isOnboardingComplete} />
                         <AchievementMonitor />
                         <LevelUpMonitor />
+                        <DeckMasteryMonitor />
                       </GestureHandlerRootView>
                     </ArenaProvider>
                   </PerformanceProvider>

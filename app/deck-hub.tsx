@@ -13,7 +13,7 @@ export default function DeckHubScreen() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
   const { decks } = useFlashQuest();
-  const { performance, getDeckAccuracy, getWeakCards } = usePerformance();
+  const { performance, getDeckAccuracy, getWeakCards, getCardsDueForReview } = usePerformance();
   const { theme, isDark } = useTheme();
 
   const deck = useMemo(() => decks.find(d => d.id === deckId), [decks, deckId]);
@@ -37,6 +37,11 @@ export default function DeckHubScreen() {
     if (!deck) return 0;
     return getWeakCards(deck.id, deck.flashcards, 50).length;
   }, [deck, getWeakCards]);
+
+  const dueForReviewCount = useMemo(() => {
+    if (!deck) return 0;
+    return getCardsDueForReview(deck.id, deck.flashcards).length;
+  }, [deck, getCardsDueForReview]);
 
   const lastStudied = useMemo(() => {
     if (!deckId) return null;
@@ -109,8 +114,8 @@ export default function DeckHubScreen() {
               <Text style={[styles.statLbl, { color: theme.textSecondary }]}>Accuracy</Text>
             </View>
             <View style={[styles.statBox, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isDark ? 1 : 0 }]}>
-              <Text style={[styles.statVal, { color: weakCardCount >= 3 ? '#F59E0B' : theme.primary }]}>{weakCardCount}</Text>
-              <Text style={[styles.statLbl, { color: theme.textSecondary }]}>Weak Cards</Text>
+              <Text style={[styles.statVal, { color: dueForReviewCount > 0 ? '#F59E0B' : theme.primary }]}>{dueForReviewCount}</Text>
+              <Text style={[styles.statLbl, { color: theme.textSecondary }]}>Due for Review</Text>
             </View>
             <View style={[styles.statBox, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isDark ? 1 : 0 }]}>
               <Text style={[styles.statVal, { color: theme.primary }]}>{lastStudied ?? 'Never'}</Text>
@@ -125,6 +130,20 @@ export default function DeckHubScreen() {
               <Text style={styles.actionDesc}>Flip through all cards</Text>
             </View>
           </TouchableOpacity>
+
+          {dueForReviewCount > 0 && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: 'rgba(59,130,246,0.12)', borderWidth: 1, borderColor: 'rgba(59,130,246,0.3)' }]}
+              onPress={() => router.push({ pathname: '/quest', params: { deckId: deck.id, focusWeak: 'true' } } as Href)}
+              activeOpacity={0.85}
+            >
+              <Target color="#3B82F6" size={22} strokeWidth={2.2} />
+              <View style={styles.actionText}>
+                <Text style={[styles.actionTitle, { color: '#3B82F6' }]}>Review Due Cards</Text>
+                <Text style={[styles.actionDesc, { color: theme.textSecondary }]}>{dueForReviewCount} cards ready for review</Text>
+              </View>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity style={[styles.actionBtn, { backgroundColor: cardBg, borderWidth: 1, borderColor: isDark ? 'rgba(148,163,184,0.16)' : theme.border }]} onPress={() => router.push({ pathname: '/quest', params: { deckId: deck.id } } as Href)} activeOpacity={0.85}>
             <Target color={theme.primary} size={22} strokeWidth={2.2} />

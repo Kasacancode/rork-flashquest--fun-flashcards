@@ -17,6 +17,7 @@ export interface CardStats {
   incorrect: number;
   streakCorrect: number;
   lastAttemptAt: number;
+  nextReviewAt: number;
 }
 
 export interface DeckStats {
