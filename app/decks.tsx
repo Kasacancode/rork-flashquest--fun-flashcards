@@ -48,6 +48,10 @@ export default function DecksPage() {
     return decks.filter((deck) => deck.name.toLowerCase().includes(normalizedQuery));
   }, [decks, searchQuery]);
 
+  const hasSearchQuery = searchQuery.trim().length > 0;
+  const hasNoDecks = decks.length === 0;
+  const hasNoSearchResults = decks.length > 0 && filteredDecks.length === 0 && hasSearchQuery;
+
   const handleCreateManual = useCallback(() => {
     setShowMenu(false);
     router.push('/create-flashcard' as any);
@@ -143,9 +147,24 @@ export default function DecksPage() {
             {filteredDecks.length} {filteredDecks.length === 1 ? 'deck' : 'decks'} available
           </Text>
 
-          {filteredDecks.length === 0 && searchQuery.trim() ? (
-            <View style={styles.emptySearchState}>
-              <Text style={[styles.emptySearchText, { color: theme.textSecondary }]}>No decks match your search</Text>
+          {hasNoDecks ? (
+            <View style={styles.emptyState}>
+              <BookOpen color={theme.textTertiary} size={48} strokeWidth={2.2} />
+              <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No decks yet</Text>
+              <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>Create your first deck to start studying.</Text>
+              <TouchableOpacity
+                style={[styles.emptyStateButton, { backgroundColor: theme.primary }]}
+                onPress={() => setShowMenu(true)}
+                activeOpacity={0.85}
+                testID="decks-empty-create-button"
+              >
+                <Text style={styles.emptyStateButtonText}>Create Deck</Text>
+              </TouchableOpacity>
+            </View>
+          ) : hasNoSearchResults ? (
+            <View style={styles.emptyState}>
+              <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No decks match your search</Text>
+              <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>Try a different search term.</Text>
             </View>
           ) : (
             filteredDecks.map((deck: Deck) => (
@@ -473,16 +492,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     opacity: 0.8,
   },
-  emptySearchState: {
+  emptyState: {
+    minHeight: 320,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 48,
     paddingHorizontal: 24,
   },
-  emptySearchText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
+  emptyStateTitle: {
+    marginTop: 20,
+    marginBottom: 10,
+    fontSize: 18,
+    fontWeight: '700' as const,
     textAlign: 'center' as const,
+  },
+  emptyStateSubtitle: {
+    maxWidth: 280,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '500' as const,
+    textAlign: 'center' as const,
+  },
+  emptyStateButton: {
+    marginTop: 20,
+    minWidth: 148,
+    borderRadius: 14,
+    paddingHorizontal: 22,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateButtonText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: '#fff',
   },
   menuOverlay: {
     flex: 1,

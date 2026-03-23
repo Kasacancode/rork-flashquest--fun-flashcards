@@ -7,6 +7,7 @@ import { SAMPLE_DECKS } from '@/data/sampleDecks';
 import type { Deck, Flashcard, UserProgress, UserStats } from '@/types/flashcard';
 import type { GameResultParams } from '@/types/game';
 import { logger } from '@/utils/logger';
+import { scheduleStreakReminder } from '@/utils/notifications';
 
 const STORAGE_KEYS = {
   DECKS: 'flashquest_decks',
@@ -195,6 +196,8 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       queryClient.setQueryData(['progress'], updatedProgress);
       saveProgressMutate(updatedProgress);
     }
+
+    scheduleStreakReminder().catch(() => {});
   }, [queryClient, saveProgressMutate, saveStatsMutate]);
 
   const addDeck = useCallback((deck: Deck) => {

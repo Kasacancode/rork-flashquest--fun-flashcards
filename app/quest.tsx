@@ -38,6 +38,7 @@ export default function QuestMenuScreen() {
   const backdropAnim = useRef(new Animated.Value(0)).current;
 
   const selectedDeck = useMemo(() => decks.find(d => d.id === selectedDeckId), [decks, selectedDeckId]);
+  const hasDecks = decks.length > 0;
 
   const overallAccuracy = getOverallQuestAccuracy();
   const deckAccuracy = selectedDeckId ? getDeckAccuracy(selectedDeckId) : null;
@@ -197,19 +198,35 @@ export default function QuestMenuScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View
-            style={[
-              styles.statsCard,
-              {
-                backgroundColor: statSurface,
-                borderWidth: isDark ? 1 : 0,
-                borderColor: surfaceBorderColor,
-                shadowOpacity: isDark ? 0.22 : 0.1,
-                shadowRadius: isDark ? 14 : 8,
-                elevation: isDark ? 7 : 4,
-              },
-            ]}
-          >
+          {!hasDecks ? (
+            <View style={styles.emptyState}>
+              <Target color={theme.textTertiary} size={48} strokeWidth={2.2} />
+              <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No decks available</Text>
+              <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>Create a deck first, then come back to start a quest.</Text>
+              <TouchableOpacity
+                style={[styles.emptyStateButton, { backgroundColor: theme.primary }]}
+                onPress={() => router.push('/decks' as any)}
+                activeOpacity={0.85}
+                testID="quest-empty-go-to-decks"
+              >
+                <Text style={styles.emptyStateButtonText}>Go to Decks</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <View
+                style={[
+                  styles.statsCard,
+                  {
+                    backgroundColor: statSurface,
+                    borderWidth: isDark ? 1 : 0,
+                    borderColor: surfaceBorderColor,
+                    shadowOpacity: isDark ? 0.22 : 0.1,
+                    shadowRadius: isDark ? 14 : 8,
+                    elevation: isDark ? 7 : 4,
+                  },
+                ]}
+              >
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: theme.primary }]}>
                 {overallAccuracy !== null ? `${Math.round(overallAccuracy * 100)}%` : '--'}
@@ -411,6 +428,8 @@ export default function QuestMenuScreen() {
               </TouchableOpacity>
             )}
           </View>
+            </>
+          )}
         </ScrollView>
       </SafeAreaView>
 
@@ -784,6 +803,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     marginLeft: 8,
+  },
+  emptyState: {
+    minHeight: 420,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+  },
+  emptyStateTitle: {
+    marginTop: 20,
+    marginBottom: 10,
+    fontSize: 18,
+    fontWeight: '700' as const,
+    textAlign: 'center' as const,
+  },
+  emptyStateSubtitle: {
+    maxWidth: 280,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '500' as const,
+    textAlign: 'center' as const,
+  },
+  emptyStateButton: {
+    marginTop: 20,
+    minWidth: 148,
+    borderRadius: 14,
+    paddingHorizontal: 22,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateButtonText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: '#fff',
   },
   buttonContainer: {
     marginTop: 8,

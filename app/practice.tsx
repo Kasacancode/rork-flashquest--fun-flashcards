@@ -1,11 +1,12 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Bot, Users, Play } from 'lucide-react-native';
+import { ArrowLeft, Bot, Users, Play, BookOpen } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import { GAME_MODE } from '@/types/game';
 import type { PracticeMode } from '@/types/practice';
@@ -13,6 +14,7 @@ import type { PracticeMode } from '@/types/practice';
 export default function PracticePage() {
   const router = useRouter();
   const { decks } = useFlashQuest();
+  const { theme } = useTheme();
   const [selectedMode, setSelectedMode] = useState<PracticeMode | null>(null);
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(false);
 
@@ -66,69 +68,87 @@ export default function PracticePage() {
             <Text style={styles.subtitle}>Sharpen your recall solo or with a friend</Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.modeCard}
-            onPress={() => handleModeSelect('ai')}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={['#667eea', '#764ba2']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.modeGradient}
-            >
-              <View style={styles.modeIcon}>
-                <Bot color="#fff" size={56} strokeWidth={2} />
-              </View>
-              <View style={styles.modeInfo}>
-                <Text style={styles.modeTitle}>Solo Practice</Text>
-                <Text style={styles.modeDescription}>
-                  Practice against our smart AI in a quick 5-round match
-                </Text>
-                <View style={styles.playButton}>
-                  <Play color="#fff" size={20} strokeWidth={2.5} fill="#fff" />
-                  <Text style={styles.playText}>Start Practice</Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.modeCard}
-            onPress={() => handleModeSelect('multiplayer')}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={['#F093FB', '#F5576C']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.modeGradient}
-            >
-              <View style={styles.modeIcon}>
-                <Users color="#fff" size={56} strokeWidth={2} />
-              </View>
-              <View style={styles.modeInfo}>
-                <Text style={styles.modeTitle}>Local Versus</Text>
-                <Text style={styles.modeDescription}>
-                  Pass the device for a local two-player practice match
-                </Text>
-                <View style={styles.playButton}>
-                  <Play color="#fff" size={20} strokeWidth={2.5} fill="#fff" />
-                  <Text style={styles.playText}>Start Practice</Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <View style={styles.infoSection}>
-            <Text style={styles.infoTitle}>How It Works</Text>
-            <View style={styles.infoCard}>
-              <Text style={styles.infoText}>• 5 rounds of flashcard questions</Text>
-              <Text style={styles.infoText}>• Race to answer correctly first</Text>
-              <Text style={styles.infoText}>• Win to earn bonus points</Text>
-              <Text style={styles.infoText}>• Build your win streak</Text>
+          {decks.length === 0 ? (
+            <View style={styles.emptyState}>
+              <BookOpen color={theme.textTertiary} size={48} strokeWidth={2.2} />
+              <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No decks available</Text>
+              <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>Create a deck to practice with.</Text>
+              <TouchableOpacity
+                style={[styles.emptyStateButton, { backgroundColor: theme.primary }]}
+                onPress={() => router.push('/decks' as any)}
+                activeOpacity={0.85}
+                testID="practice-empty-go-to-decks"
+              >
+                <Text style={styles.emptyStateButtonText}>Go to Decks</Text>
+              </TouchableOpacity>
             </View>
-          </View>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={styles.modeCard}
+                onPress={() => handleModeSelect('ai')}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={['#667eea', '#764ba2']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.modeGradient}
+                >
+                  <View style={styles.modeIcon}>
+                    <Bot color="#fff" size={56} strokeWidth={2} />
+                  </View>
+                  <View style={styles.modeInfo}>
+                    <Text style={styles.modeTitle}>Solo Practice</Text>
+                    <Text style={styles.modeDescription}>
+                      Practice against our smart AI in a quick 5-round match
+                    </Text>
+                    <View style={styles.playButton}>
+                      <Play color="#fff" size={20} strokeWidth={2.5} fill="#fff" />
+                      <Text style={styles.playText}>Start Practice</Text>
+                    </View>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modeCard}
+                onPress={() => handleModeSelect('multiplayer')}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={['#F093FB', '#F5576C']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.modeGradient}
+                >
+                  <View style={styles.modeIcon}>
+                    <Users color="#fff" size={56} strokeWidth={2} />
+                  </View>
+                  <View style={styles.modeInfo}>
+                    <Text style={styles.modeTitle}>Local Versus</Text>
+                    <Text style={styles.modeDescription}>
+                      Pass the device for a local two-player practice match
+                    </Text>
+                    <View style={styles.playButton}>
+                      <Play color="#fff" size={20} strokeWidth={2.5} fill="#fff" />
+                      <Text style={styles.playText}>Start Practice</Text>
+                    </View>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <View style={styles.infoSection}>
+                <Text style={styles.infoTitle}>How It Works</Text>
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoText}>• 5 rounds of flashcard questions</Text>
+                  <Text style={styles.infoText}>• Race to answer correctly first</Text>
+                  <Text style={styles.infoText}>• Win to earn bonus points</Text>
+                  <Text style={styles.infoText}>• Build your win streak</Text>
+                </View>
+              </View>
+            </>
+          )}
         </ScrollView>
       </SafeAreaView>
 
@@ -292,6 +312,41 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500' as const,
     lineHeight: 24,
+  },
+  emptyState: {
+    minHeight: 340,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+  },
+  emptyStateTitle: {
+    marginTop: 20,
+    marginBottom: 10,
+    fontSize: 18,
+    fontWeight: '700' as const,
+    textAlign: 'center' as const,
+  },
+  emptyStateSubtitle: {
+    maxWidth: 280,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '500' as const,
+    textAlign: 'center' as const,
+  },
+  emptyStateButton: {
+    marginTop: 20,
+    minWidth: 148,
+    borderRadius: 14,
+    paddingHorizontal: 22,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateButtonText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: '#fff',
   },
   modalOverlay: {
     flex: 1,

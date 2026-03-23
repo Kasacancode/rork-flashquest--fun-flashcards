@@ -244,12 +244,12 @@ export default function ArenaLobbyScreen() {
   }, [decks, room?.deckId]);
 
   const deckSelectionWarning = useMemo(() => {
-    if (room?.deckId) {
+    if (room?.deckId || decks.length === 0) {
       return null;
     }
 
     return isSelectingDeck ? 'Saving deck selection...' : 'Select a deck to continue';
-  }, [isSelectingDeck, room?.deckId]);
+  }, [decks.length, isSelectingDeck, room?.deckId]);
 
   const smallDeckWarning = selectedDeck && selectedDeck.flashcards.length < 8;
   const lobbyPlayers = (room?.players ?? []) as LobbyPlayer[];
@@ -577,42 +577,51 @@ export default function ArenaLobbyScreen() {
               ]}
             >
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Select Deck</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.deckList}
-                keyboardShouldPersistTaps="handled"
-                nestedScrollEnabled
-              >
-                {decks.map((deck) => (
-                  <TouchableOpacity
-                    key={deck.id}
-                    style={[
-                      styles.deckOption,
-                      { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background },
-                      room.deckId === deck.id && { borderColor: arenaAccent, borderWidth: 2 },
-                    ]}
-                    onPress={() => handleSelectDeck(deck.id)}
-                    activeOpacity={0.7}
-                    testID={`battle-lobby-deck-option-${deck.id}`}
+              {decks.length === 0 ? (
+                <View style={styles.emptyDeckState}>
+                  <Text style={[styles.emptyDeckStateTitle, { color: theme.text }]}>No decks on this device</Text>
+                  <Text style={[styles.emptyDeckStateSubtitle, { color: theme.textSecondary }]}>The host needs at least one deck to start a battle.</Text>
+                </View>
+              ) : (
+                <>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.deckList}
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
                   >
-                    <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
-                    <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={1}>{deck.name}</Text>
-                    <Text style={[styles.deckCardCount, { color: theme.textSecondary }]}>{deck.flashcards.length} cards</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              {!!smallDeckWarning && (
-                <View style={[styles.warningBox, { backgroundColor: theme.warning + '20', marginTop: 12 }]}>
-                  <AlertCircle color={theme.warning} size={16} />
-                  <Text style={[styles.warningText, { color: theme.warning }]}>Best with 8+ cards for variety</Text>
-                </View>
-              )}
-              {!!deckSelectionWarning && (
-                <View style={[styles.warningBox, { backgroundColor: isSelectingDeck ? theme.primary + '20' : theme.error + '20', marginTop: 12 }]}>
-                  <AlertCircle color={isSelectingDeck ? theme.primary : theme.error} size={16} />
-                  <Text style={[styles.warningText, { color: isSelectingDeck ? theme.primary : theme.error }]}>{deckSelectionWarning}</Text>
-                </View>
+                    {decks.map((deck) => (
+                      <TouchableOpacity
+                        key={deck.id}
+                        style={[
+                          styles.deckOption,
+                          { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background },
+                          room.deckId === deck.id && { borderColor: arenaAccent, borderWidth: 2 },
+                        ]}
+                        onPress={() => handleSelectDeck(deck.id)}
+                        activeOpacity={0.7}
+                        testID={`battle-lobby-deck-option-${deck.id}`}
+                      >
+                        <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
+                        <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={1}>{deck.name}</Text>
+                        <Text style={[styles.deckCardCount, { color: theme.textSecondary }]}>{deck.flashcards.length} cards</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  {!!smallDeckWarning && (
+                    <View style={[styles.warningBox, { backgroundColor: theme.warning + '20', marginTop: 12 }]}>
+                      <AlertCircle color={theme.warning} size={16} />
+                      <Text style={[styles.warningText, { color: theme.warning }]}>Best with 8+ cards for variety</Text>
+                    </View>
+                  )}
+                  {!!deckSelectionWarning && (
+                    <View style={[styles.warningBox, { backgroundColor: isSelectingDeck ? theme.primary + '20' : theme.error + '20', marginTop: 12 }]}>
+                      <AlertCircle color={isSelectingDeck ? theme.primary : theme.error} size={16} />
+                      <Text style={[styles.warningText, { color: isSelectingDeck ? theme.primary : theme.error }]}>{deckSelectionWarning}</Text>
+                    </View>
+                  )}
+                </>
               )}
             </View>
           ) : (
@@ -1211,6 +1220,25 @@ const styles = StyleSheet.create({
   },
   deckCardCount: {
     fontSize: 12,
+  },
+  emptyDeckState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 18,
+    paddingBottom: 8,
+  },
+  emptyDeckStateTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    textAlign: 'center' as const,
+    marginBottom: 10,
+  },
+  emptyDeckStateSubtitle: {
+    maxWidth: 280,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '500' as const,
+    textAlign: 'center' as const,
   },
   selectedDeckCard: {
     padding: 16,

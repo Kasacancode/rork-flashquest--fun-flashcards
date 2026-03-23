@@ -205,37 +205,52 @@ export default function HomePage() {
 
           <View style={styles.decksSection}>
             <Text style={styles.sectionTitle}>Quick Start</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.decksScroll}
-              testID="home-quick-start-scroll"
-            >
-              {decks.slice(0, 5).map((deck) => (
+            {decks.length === 0 ? (
+              <View style={styles.quickStartEmptyState}>
+                <Text style={styles.quickStartEmptyTitle}>No decks yet</Text>
+                <Text style={styles.quickStartEmptySubtitle}>Create a deck to see it here.</Text>
                 <TouchableOpacity
-                  key={deck.id}
-                  style={[
-                    styles.deckCard,
-                    {
-                      backgroundColor: isDark ? 'rgba(10, 17, 34, 0.88)' : theme.deckCardBg,
-                      borderWidth: isDark ? 1 : 0,
-                      borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
-                    },
-                  ]}
-                  onPress={() => router.push({ pathname: '/study', params: { deckId: deck.id } } as Href)}
-                  activeOpacity={0.9}
-                  testID={`home-quick-start-${deck.id}`}
+                  style={styles.quickStartEmptyButton}
+                  onPress={() => router.push('/decks' as Href)}
+                  activeOpacity={0.8}
+                  testID="home-empty-create-deck"
                 >
-                  <View style={[styles.deckColorStrip, { backgroundColor: deck.color }]} />
-                  <View style={styles.deckContent}>
-                    <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={2}>
-                      {deck.name}
-                    </Text>
-                    <Text style={[styles.deckCards, { color: theme.textSecondary }]}>{deck.flashcards.length} cards</Text>
-                  </View>
+                  <Text style={styles.quickStartEmptyButtonText}>Create Deck</Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.decksScroll}
+                testID="home-quick-start-scroll"
+              >
+                {decks.slice(0, 5).map((deck) => (
+                  <TouchableOpacity
+                    key={deck.id}
+                    style={[
+                      styles.deckCard,
+                      {
+                        backgroundColor: isDark ? 'rgba(10, 17, 34, 0.88)' : theme.deckCardBg,
+                        borderWidth: isDark ? 1 : 0,
+                        borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
+                      },
+                    ]}
+                    onPress={() => router.push({ pathname: '/study', params: { deckId: deck.id } } as Href)}
+                    activeOpacity={0.9}
+                    testID={`home-quick-start-${deck.id}`}
+                  >
+                    <View style={[styles.deckColorStrip, { backgroundColor: deck.color }]} />
+                    <View style={styles.deckContent}>
+                      <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={2}>
+                        {deck.name}
+                      </Text>
+                      <Text style={[styles.deckCards, { color: theme.textSecondary }]}>{deck.flashcards.length} cards</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -372,6 +387,38 @@ const styles = StyleSheet.create({
   decksScroll: {
     gap: 12,
     paddingRight: 24,
+  },
+  quickStartEmptyState: {
+    alignItems: 'flex-start',
+    padding: 18,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  quickStartEmptyTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: '#fff',
+    marginBottom: 8,
+  },
+  quickStartEmptySubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500' as const,
+    color: 'rgba(255, 255, 255, 0.82)',
+    marginBottom: 16,
+  },
+  quickStartEmptyButton: {
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  quickStartEmptyButtonText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#fff',
   },
   deckCard: {
     width: 160,

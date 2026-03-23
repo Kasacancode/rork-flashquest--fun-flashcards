@@ -1,7 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Redirect, Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Platform, LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -14,6 +15,9 @@ import { PerformanceProvider } from '@/context/PerformanceContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import { trpc, trpcClient } from '@/lib/trpc';
+import { requestNotificationPermission, scheduleStreakReminder } from '@/utils/notifications';
+
+const ONBOARDING_STORAGE_KEY = 'flashquest_onboarding_complete';
 
 try {
   void SplashScreen.preventAutoHideAsync();
@@ -38,6 +42,7 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: "Back", headerShown: false }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="stats" options={{ headerShown: false }} />
       <Stack.Screen name="profile" options={{ headerShown: false }} />
       <Stack.Screen name="decks" options={{ headerShown: false }} />
@@ -60,14 +65,99 @@ function RootLayoutNav() {
   );
 }
 
-export default function RootLayout() {
+function RootLayoutContent({ isOnboardingComplete }: { isOnboardingComplete: boolean | null }) {
+  const pathname = usePathname();
+  const previousPathnameRef = useRef<string | null>(null);
+  const isReturningFromOnboarding = previousPathnameRef.current === '/onboarding' && pathname === '/';
+
   useEffect(() => {
+    previousPathnameRef.current = pathname;
+  }, [pathname]);
+
+  if (isOnboardingComplete === null) {
+    return null;
+  }
+
+  if (!isOnboardingComplete && pathname !== '/onboarding' && !isReturningFromOnboarding) {
+    return <Redirect href="/onboarding" />;
+  }
+
+  if (isOnboardingComplete && pathname === '/onboarding') {
+    return <Redirect href="/" />;
+  }
+
+  return <RootLayoutNav />;
+}
+
+export default function RootLayout() {
+  const pathname = usePathname();
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState<boolean | null>(null);
+  const didTrackAppOpenRef = useRef<boolean>(false);
+  const didSetupNotificationsRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    AsyncStorage.getItem(ONBOARDING_STORAGE_KEY)
+      .then((value) => {
+        if (isMounted) {
+          setIsOnboardingComplete(value === 'true');
+        }
+      })
+      .catch((error) => {
+        console.warn('[Layout] Failed to read onboarding state:', error);
+        if (isMounted) {
+          setIsOnboardingComplete(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [pathname]);
+
+  useEffect(() => {
+    if (isOnboardingComplete === null) {
+      return;
+    }
+
+    const readyForDisplay = isOnboardingComplete || pathname === '/onboarding';
+
+    if (!readyForDisplay) {
+      return;
+    }
+
     const timer = setTimeout(() => {
       SplashScreen.hideAsync().catch(() => {});
-      trackEvent({ event: 'app_opened' });
+
+      if (!didTrackAppOpenRef.current) {
+        didTrackAppOpenRef.current = true;
+        trackEvent({ event: 'app_opened' });
+      }
     }, 100);
+
     return () => clearTimeout(timer);
-  }, []);
+  }, [isOnboardingComplete, pathname]);
+
+  useEffect(() => {
+    if (isOnboardingComplete === null || didSetupNotificationsRef.current) {
+      return;
+    }
+
+    didSetupNotificationsRef.current = true;
+
+    requestNotificationPermission()
+      .then((granted) => {
+        if (granted) {
+          return scheduleStreakReminder();
+        }
+
+        return Promise.resolve();
+      })
+      .catch((error) => {
+        console.warn('[Layout] Notification setup skipped:', error);
+      });
+  }, [isOnboardingComplete]);
 
   return (
     <ErrorBoundary>
@@ -80,7 +170,7 @@ export default function RootLayout() {
                   <PerformanceProvider>
                     <ArenaProvider>
                       <GestureHandlerRootView style={{ flex: 1 }}>
-                        <RootLayoutNav />
+                        <RootLayoutContent isOnboardingComplete={isOnboardingComplete} />
                       </GestureHandlerRootView>
                     </ArenaProvider>
                   </PerformanceProvider>
