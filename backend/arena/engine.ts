@@ -425,8 +425,9 @@ function checkTimerExpiry(room: Room): boolean {
     }
   }
 
+  const timerMs = room.settings.timerSeconds * 1000;
   room.game.phase = 'reveal';
-  room.game.revealStartedAt = Date.now();
+  room.game.revealStartedAt = room.game.questionStartedAt + timerMs;
   return true;
 }
 
@@ -466,12 +467,12 @@ function checkRevealAdvance(room: Room): boolean {
   const nextIndex = room.game.currentQuestionIndex + 1;
   if (nextIndex >= room.game.questions.length) {
     room.game.phase = 'finished';
-    room.game.finishedAt = Date.now();
+    room.game.finishedAt = room.game.revealStartedAt + REVEAL_DURATION_MS;
     room.status = 'finished';
     console.log(`[Engine] Game finished in room ${room.code}`);
   } else {
     room.game.currentQuestionIndex = nextIndex;
-    room.game.questionStartedAt = Date.now();
+    room.game.questionStartedAt = room.game.revealStartedAt + REVEAL_DURATION_MS;
     room.game.phase = 'question';
     room.game.revealStartedAt = null;
     console.log(`[Engine] Advanced to question ${nextIndex + 1} in room ${room.code}`);
