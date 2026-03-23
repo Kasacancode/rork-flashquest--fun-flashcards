@@ -284,7 +284,7 @@ export default function HomePage() {
                         borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
                       },
                     ]}
-                    onPress={() => router.push({ pathname: '/study', params: { deckId: rec.deckId } } as Href)}
+                    onPress={() => router.push({ pathname: '/deck-hub', params: { deckId: rec.deckId } } as Href)}
                     activeOpacity={0.9}
                     testID={`home-recommendation-${rec.deckId}`}
                   >
@@ -319,7 +319,7 @@ export default function HomePage() {
                         borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
                       },
                     ]}
-                    onPress={() => router.push({ pathname: '/study', params: { deckId: deck.id } } as Href)}
+                    onPress={() => router.push({ pathname: '/deck-hub', params: { deckId: deck.id } } as Href)}
                     activeOpacity={0.9}
                     testID={`home-quick-start-${deck.id}`}
                   >

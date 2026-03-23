@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import {
   ArrowLeft,
   BookOpen,
+  ChevronRight,
   Download,
   Edit,
   FileText,
@@ -127,6 +128,10 @@ export default function DecksPage() {
 
   const handleStudyDeck = useCallback((deckId: string) => {
     router.push({ pathname: '/study' as any, params: { deckId } });
+  }, [router]);
+
+  const handleOpenDeckHub = useCallback((deckId: string) => {
+    router.push({ pathname: '/deck-hub' as any, params: { deckId } });
   }, [router]);
 
   const handleImportDeck = useCallback(async () => {
@@ -373,14 +378,22 @@ export default function DecksPage() {
 
                 <View style={styles.deckContent}>
                   <View style={styles.deckHeader}>
-                    <View style={styles.deckInfo}>
-                      <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={1}>
-                        {deck.name}
-                      </Text>
+                    <TouchableOpacity
+                      style={styles.deckInfo}
+                      onPress={() => handleOpenDeckHub(deck.id)}
+                      activeOpacity={0.72}
+                      testID={`deck-hub-open-${deck.id}`}
+                    >
+                      <View style={styles.deckNameRow}>
+                        <Text style={[styles.deckName, styles.deckNameInline, { color: theme.text }]} numberOfLines={1}>
+                          {deck.name}
+                        </Text>
+                        <ChevronRight color={theme.textTertiary} size={14} strokeWidth={2.4} />
+                      </View>
                       <Text style={[styles.deckDescription, { color: theme.textSecondary }]} numberOfLines={2}>
                         {deck.description}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
 
                     <TouchableOpacity
                       style={[
@@ -676,11 +689,21 @@ const styles = StyleSheet.create({
   deckInfo: {
     flex: 1,
   },
+  deckNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
   deckName: {
     fontSize: 20,
     fontWeight: '800' as const,
     color: '#333',
     marginBottom: 6,
+  },
+  deckNameInline: {
+    flex: 1,
+    marginBottom: 0,
   },
   deckDescription: {
     fontSize: 14,

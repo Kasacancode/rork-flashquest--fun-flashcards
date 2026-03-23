@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import AchievementMonitor from '@/components/AchievementMonitor';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import LevelUpMonitor from '@/components/LevelUpMonitor';
 import { ArenaProvider } from '@/context/ArenaContext';
 import { AvatarProvider } from '@/context/AvatarContext';
 import { DeveloperAccessProvider } from '@/context/DeveloperAccessContext';
@@ -61,6 +62,7 @@ function RootLayoutNav() {
       <Stack.Screen name="join/[code]" options={{ headerShown: false }} />
       <Stack.Screen name="scan-notes" options={{ headerShown: false }} />
       <Stack.Screen name="text-to-deck" options={{ headerShown: false }} />
+      <Stack.Screen name="deck-hub" options={{ headerShown: false }} />
       <Stack.Screen name="analytics-debug" options={{ headerShown: false }} />
     </Stack>
   );
@@ -173,6 +175,7 @@ export default function RootLayout() {
                       <GestureHandlerRootView style={{ flex: 1 }}>
                         <RootLayoutContent isOnboardingComplete={isOnboardingComplete} />
                         <AchievementMonitor />
+                        <LevelUpMonitor />
                       </GestureHandlerRootView>
                     </ArenaProvider>
                   </PerformanceProvider>

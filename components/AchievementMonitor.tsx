@@ -5,6 +5,7 @@ import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { computeAchievements } from '@/utils/achievements';
+import { enqueueToastRunner, releaseToastRunner } from '@/utils/toastQueue';
 
 type ToastAchievement = {
   name: string;
@@ -18,9 +19,6 @@ export default function AchievementMonitor() {
   const { performance, isLoading: isPerformanceLoading } = usePerformance();
   const [toastAchievement, setToastAchievement] = useState<ToastAchievement | null>(null);
   const previouslyCompletedRef = useRef<Set<string> | null>(null);
-  const toastQueueRef = useRef<ToastAchievement[]>([]);
-  const isShowingRef = useRef<boolean>(false);
-  const nextToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const customDeckCount = useMemo(
     () => decks.filter((deck) => deck.isCustom).length,
@@ -40,33 +38,9 @@ export default function AchievementMonitor() {
     totalCardsOwned,
   }), [customDeckCount, leaderboard.length, performance.bestQuestStreak, stats, totalCardsOwned]);
 
-  const showNextToast = useCallback(() => {
-    if (toastQueueRef.current.length === 0) {
-      isShowingRef.current = false;
-      return;
-    }
-
-    isShowingRef.current = true;
-    const next = toastQueueRef.current.shift() ?? null;
-    if (next) {
-      setToastAchievement(next);
-    }
-  }, []);
-
   const handleDismiss = useCallback(() => {
     setToastAchievement(null);
-    if (nextToastTimeoutRef.current) {
-      clearTimeout(nextToastTimeoutRef.current);
-    }
-    nextToastTimeoutRef.current = setTimeout(showNextToast, 400);
-  }, [showNextToast]);
-
-  useEffect(() => {
-    return () => {
-      if (nextToastTimeoutRef.current) {
-        clearTimeout(nextToastTimeoutRef.current);
-      }
-    };
+    releaseToastRunner();
   }, []);
 
   useEffect(() => {
@@ -90,17 +64,15 @@ export default function AchievementMonitor() {
     }
 
     newlyCompleted.forEach((achievement) => {
-      toastQueueRef.current.push({
-        name: achievement.name,
-        xp: achievement.xp,
-        color: achievement.color,
+      enqueueToastRunner(() => {
+        setToastAchievement({
+          name: achievement.name,
+          xp: achievement.xp,
+          color: achievement.color,
+        });
       });
     });
-
-    if (!isShowingRef.current) {
-      showNextToast();
-    }
-  }, [achievements, isReady, showNextToast]);
+  }, [achievements, isReady]);
 
   if (!isReady && !toastAchievement) {
     return null;
