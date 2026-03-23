@@ -10,7 +10,7 @@ import {
   Sparkles,
   Trash2,
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -39,6 +39,7 @@ export default function DecksPage() {
   const [showMenu, setShowMenu] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string>(ALL_DECK_CATEGORIES_LABEL);
+  const deckListScrollRef = useRef<ScrollView | null>(null);
 
   const categories = useMemo(() => {
     const uniqueCategories = Array.from(new Set(decks.map((deck) => deck.category).filter(Boolean)));
@@ -113,7 +114,16 @@ export default function DecksPage() {
   const handleSelectCategory = useCallback((category: string) => {
     setActiveCategory(category);
     setSearchQuery('');
+    requestAnimationFrame(() => {
+      deckListScrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
   }, []);
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      deckListScrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
+  }, [activeCategory, searchQuery]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}> 
@@ -202,9 +212,13 @@ export default function DecksPage() {
         </ScrollView>
 
         <ScrollView
+          ref={deckListScrollRef}
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          contentInsetAdjustmentBehavior="never"
+          automaticallyAdjustContentInsets={false}
+          automaticallyAdjustsScrollIndicatorInsets={false}
         >
           <Text style={styles.deckCount}>
             {filteredDecks.length} {filteredDecks.length === 1 ? 'deck' : 'decks'} {activeCategory === ALL_DECK_CATEGORIES_LABEL ? 'total' : `in ${activeCategory}`}
