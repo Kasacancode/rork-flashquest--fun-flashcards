@@ -1,13 +1,15 @@
 // --- Arena Game Engine ---
 // Pure game logic. Functions take a Room, apply rules, return modified Room or null.
 // No persistence concerns here — the TRPC router handles load/save via repository.
-// This separation makes future websocket support straightforward.
 //
 // Phase progression model:
-//   - Time-based transitions (timer expiry, reveal advance) are NOT driven by heartbeat.
-//   - Mutations that depend on accurate phase call tick() to persist pending transitions.
-//   - sanitizeRoom() derives the effective phase from timestamps for read-only display,
-//     so clients always see the correct phase even between mutations.
+//   - deriveEffectivePhase() is the SINGLE SOURCE OF TRUTH for phase computation.
+//     It computes the correct phase from timestamps using chained arithmetic.
+//   - tick() calls deriveEffectivePhase() to determine where the game should be,
+//     then applies mutations (timeout answers, scores) to get the persisted state there.
+//   - sanitizeRoom() also calls deriveEffectivePhase() for read-only display.
+//   - Because tick and sanitizeRoom use the SAME function, they can never diverge.
+//   - submitAnswer calls checkAllAnswered() for real-time "everyone answered" transitions.
 //   - getRoomState is strictly read-only. heartbeat only updates presence/TTL.
 
 import type {
@@ -355,42 +357,100 @@ export function resetRoom(room: Room, playerId: string): Room | null {
   return room;
 }
 
-// --- Tick: advance game phases based on time ---
-// Called on MUTATION paths only (submitAnswer, nextQuestion) to persist pending transitions.
-// Never called from read paths (getRoomState) or heartbeat.
+// --- Tick: advance persisted game state to match real time ---
+// Called on mutation paths (submitAnswer, nextQuestion) to catch up the persisted room.
+// Delegates ALL phase computation to deriveEffectivePhase — the same function used by
+// sanitizeRoom for reads. This guarantees tick and the read path can never diverge.
+//
+// tick() does two things deriveEffectivePhase doesn't:
+//   1. Fills in timeout answers (with scores) for players who didn't answer expired questions
+//   2. Mutates the room object to persist the derived state
+//
 // Returns true if room state was mutated and needs to be saved.
 
 export function tick(room: Room): boolean {
   normalizeRoomPlayers(room);
   if (!room.game) return false;
 
-  let changed = false;
-  const maxIterations = (room.game.questions.length * 2) + 2;
-  let iterations = 0;
+  const g = room.game;
+  const derived = deriveEffectivePhase(room);
 
-  while (iterations++ < maxIterations) {
-    let stepChanged = false;
-
-    if (room.game.phase === 'question') {
-      if (checkTimerExpiry(room)) stepChanged = true;
-      if (checkDisconnectedPlayers(room)) stepChanged = true;
-      if (checkAllAnswered(room)) stepChanged = true;
-    } else if (room.game.phase === 'reveal') {
-      if (checkRevealAdvance(room)) stepChanged = true;
-    }
-
-    if (!stepChanged) {
-      break;
-    }
-
-    changed = true;
+  // If persisted state already matches derived state, nothing to do
+  if (
+    g.phase === derived.phase
+    && g.currentQuestionIndex === derived.currentQuestionIndex
+    && g.questionStartedAt === derived.questionStartedAt
+    && g.revealStartedAt === derived.revealStartedAt
+    && g.finishedAt === derived.finishedAt
+  ) {
+    return false;
   }
 
-  return changed;
+  // Fill in timeout answers for every question we're advancing past.
+  // If derived says we should be on question 5 but we're persisted at question 2,
+  // questions 2-4 need timeout answers for any player who didn't answer.
+  // If derived is in 'reveal' or 'finished', the current derived question also needs fills.
+  const lastQiNeedingFills = (derived.phase === 'reveal' || derived.phase === 'finished')
+    ? derived.currentQuestionIndex
+    : derived.currentQuestionIndex - 1;
+
+  for (let qi = g.currentQuestionIndex; qi <= lastQiNeedingFills; qi++) {
+    fillTimeoutAnswers(room, qi);
+  }
+
+  // Apply derived state to room
+  const previousQi = g.currentQuestionIndex;
+  g.phase = derived.phase;
+  g.currentQuestionIndex = derived.currentQuestionIndex;
+  g.questionStartedAt = derived.questionStartedAt;
+  g.revealStartedAt = derived.revealStartedAt;
+  g.finishedAt = derived.finishedAt;
+
+  if (derived.phase === 'finished') {
+    room.status = 'finished';
+    console.log(`[Engine] Game finished in room ${room.code}`);
+  } else if (derived.currentQuestionIndex !== previousQi) {
+    console.log(`[Engine] Advanced to question ${derived.currentQuestionIndex + 1} in room ${room.code}`);
+  }
+
+  room.lastActivity = Date.now();
+  return true;
 }
 
-// --- Internal tick helpers ---
+// Fill in blank (timeout) answers for a single question.
+// For every player who has no answer recorded for this question,
+// record a timeout answer and update their score.
+function fillTimeoutAnswers(room: Room, qi: number): void {
+  if (!room.game) return;
+  if (qi < 0 || qi >= room.game.questions.length) return;
 
+  const timerSeconds = room.settings.timerSeconds;
+  const timeoutMs = timerSeconds > 0
+    ? timerSeconds * 1000
+    : NO_TIMER_TIMEOUT_MS;
+
+  for (const p of room.players) {
+    if (room.game.answers[p.id]?.[qi]) continue;
+
+    if (!room.game.answers[p.id]) room.game.answers[p.id] = {};
+    room.game.answers[p.id][qi] = {
+      selectedOption: '',
+      isCorrect: false,
+      timeToAnswerMs: timeoutMs,
+    };
+
+    const s = room.game.scores[p.id];
+    if (s) {
+      s.incorrect++;
+      s.currentStreak = 0;
+    }
+  }
+}
+
+// checkAllAnswered: Real-time transition when all players answer the current question.
+// Called from submitAnswer (NOT from tick). When the last player submits their answer,
+// this immediately transitions to reveal with Date.now() as the start time.
+// This is the ONE place where a real-time (non-derived) transition happens.
 function checkAllAnswered(room: Room): boolean {
   if (!room.game || room.game.phase !== 'question') return false;
   const qi = room.game.currentQuestionIndex;
@@ -401,85 +461,6 @@ function checkAllAnswered(room: Room): boolean {
     return true;
   }
   return false;
-}
-
-function checkTimerExpiry(room: Room): boolean {
-  if (!room.game || room.settings.timerSeconds === 0) return false;
-  const elapsed = Date.now() - room.game.questionStartedAt;
-  if (elapsed < room.settings.timerSeconds * 1000) return false;
-
-  const qi = room.game.currentQuestionIndex;
-  for (const p of room.players) {
-    if (!room.game.answers[p.id]?.[qi]) {
-      if (!room.game.answers[p.id]) room.game.answers[p.id] = {};
-      room.game.answers[p.id][qi] = {
-        selectedOption: '',
-        isCorrect: false,
-        timeToAnswerMs: room.settings.timerSeconds * 1000,
-      };
-      const s = room.game.scores[p.id];
-      if (s) {
-        s.incorrect++;
-        s.currentStreak = 0;
-      }
-    }
-  }
-
-  const timerMs = room.settings.timerSeconds * 1000;
-  room.game.phase = 'reveal';
-  room.game.revealStartedAt = room.game.questionStartedAt + timerMs;
-  return true;
-}
-
-function checkDisconnectedPlayers(room: Room): boolean {
-  if (!room.game || room.settings.timerSeconds > 0) return false;
-  const qi = room.game.currentQuestionIndex;
-  const now = Date.now();
-  let changed = false;
-
-  for (const p of room.players) {
-    if (room.game.answers[p.id]?.[qi]) continue;
-    const timedOut = (now - room.game.questionStartedAt) > NO_TIMER_TIMEOUT_MS;
-    if (timedOut) {
-      if (!room.game.answers[p.id]) room.game.answers[p.id] = {};
-      room.game.answers[p.id][qi] = {
-        selectedOption: '',
-        isCorrect: false,
-        timeToAnswerMs: now - room.game.questionStartedAt,
-      };
-      const s = room.game.scores[p.id];
-      if (s) {
-        s.incorrect++;
-        s.currentStreak = 0;
-      }
-      changed = true;
-    }
-  }
-
-  if (changed) checkAllAnswered(room);
-  return changed;
-}
-
-function checkRevealAdvance(room: Room): boolean {
-  if (!room.game || room.game.phase !== 'reveal' || !room.game.revealStartedAt) return false;
-  if (Date.now() - room.game.revealStartedAt < REVEAL_DURATION_MS) return false;
-
-  const nextIndex = room.game.currentQuestionIndex + 1;
-  if (nextIndex >= room.game.questions.length) {
-    room.game.phase = 'finished';
-    room.game.finishedAt = room.game.revealStartedAt + REVEAL_DURATION_MS;
-    room.status = 'finished';
-    console.log(`[Engine] Game finished in room ${room.code}`);
-  } else {
-    room.game.currentQuestionIndex = nextIndex;
-    room.game.questionStartedAt = room.game.revealStartedAt + REVEAL_DURATION_MS;
-    room.game.phase = 'question';
-    room.game.revealStartedAt = null;
-    console.log(`[Engine] Advanced to question ${nextIndex + 1} in room ${room.code}`);
-  }
-
-  room.lastActivity = Date.now();
-  return true;
 }
 
 // --- Derive effective phase from timestamps (read-only, no mutation) ---
