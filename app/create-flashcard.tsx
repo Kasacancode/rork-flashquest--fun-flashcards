@@ -179,7 +179,7 @@ export default function CreateFlashcardPage() {
             id: generateUUID(),
             originalCardId: null,
             question: parts[0].slice(0, 500),
-            answer: parts[1].slice(0, 200),
+            answer: parts[1].slice(0, 80).trim(),
           });
         }
       }

@@ -35,6 +35,7 @@ const aiDistractorCache: AIDistractorCache = {};
 const distractorHistoryByCard: Record<string, string[]> = {};
 const AI_CACHE_MAX_SIZE = 200;
 const DISTRACTOR_HISTORY_LIMIT = 18;
+const MAX_DISTRACTOR_LENGTH = 70;
 
 function normalizeText(value: string): string {
   return value
@@ -198,6 +199,7 @@ function scoreDistractorCandidate(params: {
 
   const answerSimilarity = getAnswerSimilarityScore(answer, correctAnswer);
   const sourceVariationBonus = source === 'deck' ? 1.5 : source === 'ai' ? 1 : 0;
+  const lengthPenalty = answer.length > 52 ? Math.min(6, (answer.length - 52) / 4) : 0;
 
   return sourceBonus +
     sourceVariationBonus +
@@ -205,6 +207,7 @@ function scoreDistractorCandidate(params: {
     questionSimilarity +
     tagOverlap +
     difficultyBonus -
+    lengthPenalty -
     (freshnessPenalty * 3.5) -
     (cardReusePenalty * 4) +
     (Math.random() * 2.5);
@@ -372,7 +375,9 @@ function selectDistractors(params: {
 }): string[] {
   const { candidates, count } = params;
   const selected: string[] = [];
-  let remaining = dedupeCandidates(candidates);
+  const lengthFilteredCandidates = candidates.filter((candidate) => candidate.answer.length <= MAX_DISTRACTOR_LENGTH);
+  const candidatePool = lengthFilteredCandidates.length >= count ? lengthFilteredCandidates : candidates;
+  let remaining = dedupeCandidates(candidatePool);
 
   while (selected.length < count && remaining.length > 0) {
     const sorted = [...remaining].sort((a, b) => b.score - a.score);
@@ -562,12 +567,10 @@ export function generateOptions(params: {
     recentDistractors: params.recentDistractors,
   });
 
-  const MAX_DISTRACTOR_LENGTH = 70;
   const allCandidates = [...aiCandidates, ...fallbackCandidates];
-  const shortCandidates = allCandidates.filter(candidate => candidate.answer.length <= MAX_DISTRACTOR_LENGTH);
 
   const distractors = selectDistractors({
-    candidates: shortCandidates.length >= 3 ? shortCandidates : allCandidates,
+    candidates: allCandidates,
     count: 3,
   });
 

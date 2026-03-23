@@ -3,9 +3,9 @@ const QUESTION_BREAK_TOKENS = ['. ', '; ', ' — ', ' - ', ': '] as const;
 const OPTION_BREAK_TOKENS = ['; ', ' — ', ' - ', ': ', ' (', ', ', '. '] as const;
 
 const GAMEPLAY_QUESTION_MAX_CHARS = 92;
-const GAMEPLAY_OPTION_MAX_CHARS = 30;
+const GAMEPLAY_OPTION_MAX_CHARS = 80;
 const GAMEPLAY_HINT_MAX_CHARS = 72;
-const GAMEPLAY_OPTION_MAX_WORDS = 5;
+const GAMEPLAY_OPTION_MAX_WORDS = 12;
 const LEADING_WRAPPER_REGEX = /^["'“”‘’([{\s]+/g;
 const TRAILING_WRAPPER_REGEX = /["'“”‘’)\]}\s]+$/g;
 const TRAILING_OPTION_PUNCTUATION_REGEX = /[.;:!?]+$/g;
@@ -29,7 +29,7 @@ function trimAtWordBoundary(value: string, maxChars: number): string {
   const lastSpace = slice.lastIndexOf(' ');
   const cutIndex = lastSpace > Math.floor(maxChars * 0.6) ? lastSpace : maxChars;
 
-  return `${slice.slice(0, cutIndex).trim()}…`;
+  return slice.slice(0, cutIndex).trim();
 }
 
 function takeEarlierClause(value: string, tokens: readonly string[]): string {
@@ -108,7 +108,7 @@ export function buildGameplayOptionLabels(options: string[]): string[] {
       return label;
     }
 
-    return trimAtWordBoundary(normalizeGameplayCopy(option), 58);
+    return normalizeGameplayCopy(option);
   });
 }
 

@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
-import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, Dimensions } from 'react-native';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, Dimensions, NativeSyntheticEvent, TextLayoutEventData } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_GAP = 10;
@@ -15,12 +15,18 @@ export type AnswerCardState = 'idle' | 'selected' | 'correct' | 'wrong' | 'disab
 
 const SUITS: CardSuit[] = ['♠', '♥', '♦', '♣'];
 
-function getOptionFontSize(text: string): { fontSize: number; lineHeight: number } {
+type OptionSizing = {
+  fontSize: number;
+  lineHeight: number;
+};
+
+function getOptionFontSize(text: string): OptionSizing {
   const len = text.length;
-  if (len <= 15) return { fontSize: 16, lineHeight: 21 };
-  if (len <= 30) return { fontSize: 14, lineHeight: 19 };
-  if (len <= 50) return { fontSize: 12, lineHeight: 17 };
-  return { fontSize: 11, lineHeight: 15 };
+  if (len <= 12) return { fontSize: 16, lineHeight: 20 };
+  if (len <= 24) return { fontSize: 14, lineHeight: 18 };
+  if (len <= 40) return { fontSize: 12, lineHeight: 16 };
+  if (len <= 55) return { fontSize: 11, lineHeight: 14 };
+  return { fontSize: 10, lineHeight: 13 };
 }
 
 const SUIT_COLORS: Record<CardSuit, string> = {
@@ -69,6 +75,7 @@ export function AnswerCard({
   const scale = animatedScale || localScale;
   const shake = animatedShake || new Animated.Value(0);
   const opacity = animatedOpacity || new Animated.Value(1);
+  const [optionSizing, setOptionSizing] = useState<OptionSizing>(() => getOptionFontSize(optionText));
 
   useEffect(() => {
     pressDepthAnim.stopAnimation();
@@ -93,6 +100,32 @@ export function AnswerCard({
       glowAnim.setValue(0);
     }
   }, [state, glowAnim]);
+
+  useEffect(() => {
+    setOptionSizing(getOptionFontSize(optionText));
+  }, [optionText]);
+
+  const handleOptionTextLayout = useCallback((event: NativeSyntheticEvent<TextLayoutEventData>) => {
+    const lineCount = event.nativeEvent.lines.length;
+
+    setOptionSizing((previousSizing) => {
+      if (lineCount <= 5 || previousSizing.fontSize <= 9) {
+        return previousSizing;
+      }
+
+      const nextFontSize = Math.max(9, previousSizing.fontSize - 1);
+      const nextLineHeight = Math.max(12, previousSizing.lineHeight - 1);
+
+      if (nextFontSize === previousSizing.fontSize && nextLineHeight === previousSizing.lineHeight) {
+        return previousSizing;
+      }
+
+      return {
+        fontSize: nextFontSize,
+        lineHeight: nextLineHeight,
+      };
+    });
+  }, []);
 
   const handlePressIn = () => {
     if (state === 'idle') {
@@ -218,24 +251,17 @@ export function AnswerCard({
         </View>
         
         <View style={styles.cardContent}>
-          {(() => {
-            const sizing = getOptionFontSize(optionText);
-            return (
-              <Text
-                style={[
-                  styles.optionText,
-                  { fontSize: sizing.fontSize, lineHeight: sizing.lineHeight },
-                  state === 'correct' && styles.optionTextCorrect,
-                  state === 'wrong' && styles.optionTextWrong,
-                ]}
-                numberOfLines={6}
-                adjustsFontSizeToFit
-                minimumFontScale={0.85}
-              >
-                {optionText}
-              </Text>
-            );
-          })()}
+          <Text
+            style={[
+              styles.optionText,
+              { fontSize: optionSizing.fontSize, lineHeight: optionSizing.lineHeight },
+              state === 'correct' && styles.optionTextCorrect,
+              state === 'wrong' && styles.optionTextWrong,
+            ]}
+            onTextLayout={handleOptionTextLayout}
+          >
+            {optionText}
+          </Text>
         </View>
 
         {state === 'correct' && (
@@ -385,9 +411,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   optionText: {
+    width: '100%',
     fontWeight: '700' as const,
     color: '#1e293b',
     textAlign: 'center',
+    flexShrink: 1,
   },
   optionTextCorrect: {
     color: '#166534',
