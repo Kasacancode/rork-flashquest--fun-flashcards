@@ -39,15 +39,14 @@ export default function StudyFeed({
   onCardResolved,
   onUpdateCard,
 }: StudyFeedProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isRevealed, setIsRevealed] = useState(false);
-  const [hintShown, setHintShown] = useState(false);
-  
-  const [resolved, setResolved] = useState(false);
-  const [showHintOverlay, setShowHintOverlay] = useState(false);
-  const [showFeedbackOverlay, setShowFeedbackOverlay] = useState(false);
-  const [isGeneratingHint, setIsGeneratingHint] = useState(false);
-  const [isGeneratingExplanation, setIsGeneratingExplanation] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [isRevealed, setIsRevealed] = useState<boolean>(false);
+  const [hintShown, setHintShown] = useState<boolean>(false);
+  const [resolved, setResolved] = useState<boolean>(false);
+  const [showHintOverlay, setShowHintOverlay] = useState<boolean>(false);
+  const [showFeedbackOverlay, setShowFeedbackOverlay] = useState<boolean>(false);
+  const [isGeneratingHint, setIsGeneratingHint] = useState<boolean>(false);
+  const [isGeneratingExplanation, setIsGeneratingExplanation] = useState<boolean>(false);
 
   const flipAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -119,10 +118,17 @@ export default function StudyFeed({
       duration: 250,
       useNativeDriver: true,
     }).start(() => {
-      setIsRevealed(!isRevealed);
+      const nextIsRevealed = !isRevealed;
+      setIsRevealed(nextIsRevealed);
+
+      if (nextIsRevealed && !resolved && currentCard) {
+        setResolved(true);
+        onCardResolved?.(currentCard.id);
+      }
+
       isProcessingRef.current = false;
     });
-  }, [isRevealed, flipAnim, cardScale, triggerHaptic]);
+  }, [isRevealed, resolved, currentCard, flipAnim, cardScale, onCardResolved, triggerHaptic]);
 
   const dismissHintOverlay = useCallback(() => {
     if (hintDismissTimer.current) {
@@ -141,7 +147,7 @@ export default function StudyFeed({
   const handleShowHint = useCallback(() => {
     if (isProcessingRef.current) return;
     
-    if (isRevealed) {
+    if (isRevealed || resolved) {
       triggerShakeWithCooldown();
       return;
     }
@@ -170,7 +176,7 @@ export default function StudyFeed({
         dismissHintOverlay();
       }, 2500);
     }
-  }, [isRevealed, hintShown, showHintOverlay, currentCard, hintOpacity, triggerHaptic, triggerShakeWithCooldown, dismissHintOverlay]);
+  }, [isRevealed, resolved, hintShown, showHintOverlay, currentCard, hintOpacity, triggerHaptic, triggerShakeWithCooldown, dismissHintOverlay]);
 
   const handleShowFeedback = useCallback(() => {
     if (isProcessingRef.current) return;
@@ -180,12 +186,11 @@ export default function StudyFeed({
       return;
     }
     
-    if (resolved) return;
+    if (showFeedbackOverlay) return;
     
     isProcessingRef.current = true;
     triggerHaptic();
     setShowFeedbackOverlay(true);
-    setResolved(true);
 
     Animated.timing(feedbackOpacity, {
       toValue: 1,
@@ -193,11 +198,8 @@ export default function StudyFeed({
       useNativeDriver: true,
     }).start(() => {
       isProcessingRef.current = false;
-      if (currentCard) {
-        onCardResolved?.(currentCard.id);
-      }
     });
-  }, [isRevealed, resolved, currentCard, feedbackOpacity, onCardResolved, triggerHaptic, triggerShakeWithCooldown]);
+  }, [isRevealed, showFeedbackOverlay, feedbackOpacity, triggerHaptic, triggerShakeWithCooldown]);
 
   const handleNextCard = useCallback(() => {
     if (!resolved) {
@@ -439,7 +441,7 @@ export default function StudyFeed({
               {currentCard.answer}
             </Text>
             <Text style={[styles.cardHint, { color: isDark ? theme.textSecondary : '#999' }]}>
-              {resolved ? 'Swipe up to go to the next card.' : 'Swipe right to see explanation'}
+              Swipe up for the next card or right for explanation
             </Text>
           </Animated.View>
         </Animated.View>
