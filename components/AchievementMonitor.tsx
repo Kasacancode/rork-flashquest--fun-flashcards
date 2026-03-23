@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import AchievementToast from '@/components/AchievementToast';
@@ -6,6 +7,8 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { computeAchievements } from '@/utils/achievements';
 import { enqueueToastRunner, releaseToastRunner } from '@/utils/toastQueue';
+
+const COMPLETED_ACHIEVEMENTS_KEY = 'flashquest_completed_achievements';
 
 type ToastAchievement = {
   name: string;
@@ -18,7 +21,8 @@ export default function AchievementMonitor() {
   const { leaderboard, isLoading: isArenaLoading } = useArena();
   const { performance, isLoading: isPerformanceLoading } = usePerformance();
   const [toastAchievement, setToastAchievement] = useState<ToastAchievement | null>(null);
-  const previouslyCompletedRef = useRef<Set<string> | null>(null);
+  const previouslyCompletedRef = useRef<Set<string>>(new Set());
+  const hasLoadedRef = useRef(false);
 
   const customDeckCount = useMemo(
     () => decks.filter((deck) => deck.isCustom).length,
@@ -44,20 +48,35 @@ export default function AchievementMonitor() {
   }, []);
 
   useEffect(() => {
-    if (!isReady) {
+    AsyncStorage.getItem(COMPLETED_ACHIEVEMENTS_KEY)
+      .then((stored) => {
+        if (stored) {
+          try {
+            const ids = JSON.parse(stored) as string[];
+            previouslyCompletedRef.current = new Set(ids);
+          } catch {
+          }
+        }
+        hasLoadedRef.current = true;
+      })
+      .catch(() => {
+        hasLoadedRef.current = true;
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!isReady || !hasLoadedRef.current) {
       return;
     }
 
     const currentlyCompleted = achievements.filter((achievement) => achievement.progress >= achievement.total);
+    const currentIds = new Set(currentlyCompleted.map((achievement) => achievement.id));
+    const previousIds = previouslyCompletedRef.current;
 
-    if (previouslyCompletedRef.current === null) {
-      previouslyCompletedRef.current = new Set(currentlyCompleted.map((achievement) => achievement.id));
-      return;
-    }
+    const newlyCompleted = currentlyCompleted.filter((achievement) => !previousIds.has(achievement.id));
+    previouslyCompletedRef.current = currentIds;
 
-    const previouslyCompleted = previouslyCompletedRef.current;
-    const newlyCompleted = currentlyCompleted.filter((achievement) => !previouslyCompleted.has(achievement.id));
-    previouslyCompletedRef.current = new Set(currentlyCompleted.map((achievement) => achievement.id));
+    AsyncStorage.setItem(COMPLETED_ACHIEVEMENTS_KEY, JSON.stringify([...currentIds])).catch(() => {});
 
     if (newlyCompleted.length === 0) {
       return;

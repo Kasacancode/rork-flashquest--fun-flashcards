@@ -1,14 +1,18 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import LevelUpToast from '@/components/LevelUpToast';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { computeLevel, getLevelEntry } from '@/utils/levels';
 import { enqueueToastRunner, releaseToastRunner } from '@/utils/toastQueue';
 
+const LAST_LEVEL_KEY = 'flashquest_last_known_level';
+
 export default function LevelUpMonitor() {
   const { stats, isLoading } = useFlashQuest();
   const [toast, setToast] = useState<{ level: number; title: string } | null>(null);
-  const prevLevelRef = useRef<number | null>(null);
+  const prevLevelRef = useRef<number>(1);
+  const hasLoadedRef = useRef(false);
   const currentLevel = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
   const handleDismiss = useCallback(() => {
     setToast(null);
@@ -16,12 +20,23 @@ export default function LevelUpMonitor() {
   }, []);
 
   useEffect(() => {
-    if (isLoading) {
-      return;
-    }
+    AsyncStorage.getItem(LAST_LEVEL_KEY)
+      .then((stored) => {
+        if (stored) {
+          const parsed = parseInt(stored, 10);
+          if (!Number.isNaN(parsed)) {
+            prevLevelRef.current = parsed;
+          }
+        }
+        hasLoadedRef.current = true;
+      })
+      .catch(() => {
+        hasLoadedRef.current = true;
+      });
+  }, []);
 
-    if (prevLevelRef.current === null) {
-      prevLevelRef.current = currentLevel;
+  useEffect(() => {
+    if (isLoading || !hasLoadedRef.current) {
       return;
     }
 
@@ -33,6 +48,7 @@ export default function LevelUpMonitor() {
     }
 
     prevLevelRef.current = currentLevel;
+    AsyncStorage.setItem(LAST_LEVEL_KEY, String(currentLevel)).catch(() => {});
   }, [currentLevel, isLoading]);
 
   if (isLoading && !toast) {

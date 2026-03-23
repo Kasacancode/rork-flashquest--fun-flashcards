@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Target, Zap, Clock, Focus, Lightbulb, BookOpen, RefreshCw, Play, ChevronRight, Settings, X } from 'lucide-react-native';
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Animated, Dimensions, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -18,17 +18,18 @@ const SHEET_HEIGHT = SCREEN_HEIGHT * 0.65;
 
 export default function QuestMenuScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ deckId?: string; focusWeak?: string }>();
   const { theme, isDark } = useTheme();
   const { decks } = useFlashQuest();
   const { performance, getLastQuestSettings, getDeckAccuracy, getOverallQuestAccuracy, saveLastQuestSettings } = usePerformance();
 
   const lastSettings = getLastQuestSettings();
 
-  const [selectedDeckId, setSelectedDeckId] = useState<string>(lastSettings?.deckId || decks[0]?.id || '');
+  const [selectedDeckId, setSelectedDeckId] = useState<string>(params.deckId || lastSettings?.deckId || decks[0]?.id || '');
   const [mode, setMode] = useState<QuestMode>(lastSettings?.mode || 'learn');
   const [runLength, setRunLength] = useState<RunLength>(lastSettings?.runLength || 10);
   const [timerSeconds, setTimerSeconds] = useState<TimerOption>(lastSettings?.timerSeconds || 0);
-  const [focusWeakOnly, setFocusWeakOnly] = useState<boolean>(lastSettings?.focusWeakOnly || false);
+  const [focusWeakOnly, setFocusWeakOnly] = useState<boolean>(params.focusWeak === 'true' || lastSettings?.focusWeakOnly || false);
   const [hintsEnabled, setHintsEnabled] = useState<boolean>(lastSettings?.hintsEnabled ?? (mode === 'learn'));
   const [explanationsEnabled, setExplanationsEnabled] = useState<boolean>(lastSettings?.explanationsEnabled ?? (mode === 'learn'));
   const [secondChanceEnabled, setSecondChanceEnabled] = useState<boolean>(lastSettings?.secondChanceEnabled || false);
@@ -39,6 +40,15 @@ export default function QuestMenuScreen() {
 
   const selectedDeck = useMemo(() => decks.find(d => d.id === selectedDeckId), [decks, selectedDeckId]);
   const hasDecks = decks.length > 0;
+
+  useEffect(() => {
+    if (params.deckId && decks.some((deck) => deck.id === params.deckId)) {
+      setSelectedDeckId(params.deckId);
+    }
+    if (params.focusWeak === 'true') {
+      setFocusWeakOnly(true);
+    }
+  }, [decks, params.deckId, params.focusWeak]);
 
   const overallAccuracy = getOverallQuestAccuracy();
   const deckAccuracy = selectedDeckId ? getDeckAccuracy(selectedDeckId) : null;

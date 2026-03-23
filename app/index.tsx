@@ -291,12 +291,6 @@ export default function HomePage() {
                     <View style={[styles.deckColorStrip, { backgroundColor: rec.color }]} />
                     <View style={styles.deckContent}>
                       <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={2}>{rec.name}</Text>
-                      <Text
-                        style={[styles.recommendationMessage, { color: theme.primary }]}
-                        numberOfLines={1}
-                      >
-                        {rec.message}
-                      </Text>
                     </View>
                   </TouchableOpacity>
                 ))}
