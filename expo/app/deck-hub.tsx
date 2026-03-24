@@ -31,6 +31,44 @@ function withAlpha(color: string, alpha: number): string {
   return color;
 }
 
+function blendColors(baseColor: string, accentColor: string, accentStrength: number, alpha = 1): string {
+  const parseColor = (color: string): { r: number; g: number; b: number } | null => {
+    const normalized = color.replace('#', '').trim();
+
+    if (normalized.length === 3) {
+      return {
+        r: parseInt(normalized[0]! + normalized[0]!, 16),
+        g: parseInt(normalized[1]! + normalized[1]!, 16),
+        b: parseInt(normalized[2]! + normalized[2]!, 16),
+      };
+    }
+
+    if (normalized.length === 6) {
+      return {
+        r: parseInt(normalized.slice(0, 2), 16),
+        g: parseInt(normalized.slice(2, 4), 16),
+        b: parseInt(normalized.slice(4, 6), 16),
+      };
+    }
+
+    return null;
+  };
+
+  const base = parseColor(baseColor);
+  const accent = parseColor(accentColor);
+
+  if (!base || !accent) {
+    return alpha >= 1 ? accentColor : withAlpha(accentColor, alpha);
+  }
+
+  const strength = Math.max(0, Math.min(1, accentStrength));
+  const r = Math.round(base.r + (accent.r - base.r) * strength);
+  const g = Math.round(base.g + (accent.g - base.g) * strength);
+  const b = Math.round(base.b + (accent.b - base.b) * strength);
+
+  return alpha >= 1 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export default function DeckHubScreen() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
@@ -166,19 +204,28 @@ export default function DeckHubScreen() {
   }
 
   const pctMastered = mastery.total > 0 ? Math.round((mastery.mastered / mastery.total) * 100) : 0;
+  const deckActionStart = blendColors(theme.primary, deck.color, isDark ? 0.16 : 0.2);
+  const deckActionEnd = blendColors(theme.primaryDark, deck.color, isDark ? 0.12 : 0.18);
+  const deckActionShadow = blendColors(theme.primary, deck.color, isDark ? 0.26 : 0.34);
+  const secondaryActionAccent = blendColors(theme.primary, deck.color, isDark ? 0.14 : 0.18);
   const screenGradient = isDark
     ? ['#0a1427', '#12203a', '#091222'] as const
     : ['#f8fbff', '#eef4ff', '#fbf7ff'] as const;
   const cardBg = isDark ? 'rgba(10, 18, 34, 0.82)' : 'rgba(255, 255, 255, 0.84)';
-  const statBg = isDark ? 'rgba(8, 15, 28, 0.88)' : 'rgba(248, 250, 255, 0.92)';
+  const statBg = isDark ? 'rgba(8, 15, 28, 0.88)' : blendColors('#F8FAFF', deck.color, 0.04, 0.94);
   const cardBorder = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(148, 163, 184, 0.16)';
+  const heroBorderColor = isDark ? 'rgba(148, 163, 184, 0.16)' : blendColors('#D9E2F5', deck.color, 0.16, 0.9);
+  const actionBorder = isDark ? 'rgba(148, 163, 184, 0.18)' : blendColors('#DCE4FF', deck.color, 0.18, 0.92);
   const headerControlSurface = isDark ? 'rgba(10, 17, 34, 0.44)' : 'rgba(255, 255, 255, 0.48)';
   const headerControlBorder = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(148, 163, 184, 0.18)';
   const headerContentColor = isDark ? '#F8FAFC' : '#2D2A61';
-  const deckTint = withAlpha(deck.color, isDark ? 0.18 : 0.12);
-  const deckGlow = withAlpha(deck.color, isDark ? 0.32 : 0.18);
-  const topGlowColor = withAlpha(deck.color, isDark ? 0.16 : 0.12);
-  const bottomGlowColor = isDark ? 'rgba(56, 189, 248, 0.08)' : 'rgba(125, 211, 252, 0.1)';
+  const deckTint = withAlpha(deck.color, isDark ? 0.18 : 0.16);
+  const deckGlow = withAlpha(deck.color, isDark ? 0.32 : 0.22);
+  const topGlowColor = withAlpha(deck.color, isDark ? 0.16 : 0.1);
+  const bottomGlowColor = isDark ? 'rgba(56, 189, 248, 0.08)' : blendColors('#D7E7FF', deck.color, 0.16, 0.28);
+  const pageDeckFieldStart = isDark ? withAlpha(deck.color, 0.08) : blendColors('#FFFFFF', deck.color, 0.14, 0.28);
+  const pageDeckFieldMid = isDark ? 'rgba(59, 130, 246, 0.04)' : blendColors('#EEF4FF', deck.color, 0.1, 0.12);
+  const pageDeckFieldEnd = isDark ? 'rgba(14, 165, 233, 0.05)' : blendColors('#F5F3FF', deck.color, 0.16, 0.18);
   const menuSurface = isDark ? 'rgba(11, 18, 34, 0.98)' : 'rgba(255, 255, 255, 0.98)';
   const inactiveTrack = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)';
 
@@ -198,6 +245,13 @@ export default function DeckHubScreen() {
         }
         start={{ x: 0.08, y: 0 }}
         end={{ x: 0.95, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={[pageDeckFieldStart, pageDeckFieldMid, pageDeckFieldEnd]}
+        start={{ x: 0.04, y: 0.02 }}
+        end={{ x: 0.96, y: 0.98 }}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
@@ -260,16 +314,16 @@ export default function DeckHubScreen() {
               styles.card,
               {
                 backgroundColor: cardBg,
-                borderColor: cardBorder,
+                borderColor: heroBorderColor,
                 shadowColor: deckGlow,
-                shadowOpacity: isDark ? 0.24 : 0.12,
-                shadowRadius: isDark ? 22 : 14,
+                shadowOpacity: isDark ? 0.24 : 0.14,
+                shadowRadius: isDark ? 22 : 16,
                 elevation: isDark ? 10 : 4,
               },
             ]}
           >
             <LinearGradient
-              colors={[deckTint, 'transparent']}
+              colors={[deckTint, withAlpha(deck.color, isDark ? 0.1 : 0.04), 'transparent']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
@@ -310,9 +364,11 @@ export default function DeckHubScreen() {
             style={[
               styles.actionBtn,
               {
-                backgroundColor: theme.primary,
-                shadowColor: theme.primary,
-                shadowOpacity: isDark ? 0.26 : 0.16,
+                backgroundColor: 'transparent',
+                borderWidth: 1,
+                borderColor: actionBorder,
+                shadowColor: deckActionShadow,
+                shadowOpacity: isDark ? 0.26 : 0.18,
                 shadowRadius: isDark ? 18 : 12,
                 elevation: isDark ? 9 : 4,
               },
@@ -321,6 +377,13 @@ export default function DeckHubScreen() {
             activeOpacity={0.85}
             testID="deckHubPracticeButton"
           >
+            <LinearGradient
+              colors={[deckActionStart, deckActionEnd]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.actionGradientFill}
+              pointerEvents="none"
+            />
             <Swords color="#fff" size={22} strokeWidth={2.2} />
             <View style={styles.actionText}>
               <Text style={styles.actionTitle}>Practice vs AI</Text>
@@ -329,11 +392,20 @@ export default function DeckHubScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionBtn, styles.secondaryActionBtn, { backgroundColor: statBg, borderColor: cardBorder }]}
+            style={[
+              styles.actionBtn,
+              styles.secondaryActionBtn,
+              {
+                backgroundColor: statBg,
+                borderColor: actionBorder,
+                shadowColor: isDark ? '#000' : deckActionShadow,
+                shadowOpacity: isDark ? 0.08 : 0.07,
+              },
+            ]}
             onPress={() => router.push({ pathname: '/study', params: { deckId: deck.id } } as Href)}
             activeOpacity={0.85}
           >
-            <BookOpen color={theme.primary} size={22} strokeWidth={2.2} />
+            <BookOpen color={secondaryActionAccent} size={22} strokeWidth={2.2} />
             <View style={styles.actionText}>
               <Text style={[styles.actionTitle, { color: theme.text }]}>Study</Text>
               <Text style={[styles.secondaryActionDesc, { color: theme.textSecondary }]}>Flip through all cards</Text>
@@ -341,11 +413,20 @@ export default function DeckHubScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionBtn, styles.secondaryActionBtn, { backgroundColor: statBg, borderColor: cardBorder }]}
+            style={[
+              styles.actionBtn,
+              styles.secondaryActionBtn,
+              {
+                backgroundColor: statBg,
+                borderColor: actionBorder,
+                shadowColor: isDark ? '#000' : deckActionShadow,
+                shadowOpacity: isDark ? 0.08 : 0.07,
+              },
+            ]}
             onPress={() => router.push({ pathname: '/quest', params: { deckId: deck.id } } as Href)}
             activeOpacity={0.85}
           >
-            <Target color={theme.primary} size={22} strokeWidth={2.2} />
+            <Target color={secondaryActionAccent} size={22} strokeWidth={2.2} />
             <View style={styles.actionText}>
               <Text style={[styles.actionTitle, { color: theme.text }]}>Quest</Text>
               <Text style={[styles.secondaryActionDesc, { color: theme.textSecondary }]}>Test your knowledge</Text>
@@ -507,6 +588,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 14,
     elevation: 3,
+  },
+  actionGradientFill: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 20,
   },
   actionText: { flex: 1 },
   actionTitle: { fontSize: 16, fontWeight: '700' as const, color: '#fff' },
