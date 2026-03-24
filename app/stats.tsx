@@ -103,6 +103,7 @@ export default function StatsPage() {
   const { performance } = usePerformance();
   const { leaderboard, playerName: savedPlayerName } = useArena();
   const { theme, isDark } = useTheme();
+  const statsAccent = isDark ? '#38bdf8' : '#0ea5e9';
 
   const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
   const levelEntry = useMemo(() => getLevelEntry(level), [level]);
@@ -213,6 +214,10 @@ export default function StatsPage() {
       }
     }
 
+    if (stats.currentStreak > 0 && thisWeekDays === 0) {
+      thisWeekDays = 1;
+    }
+
     let lastWeekDays = 0;
     for (let i = mondayOffset + 1; i <= mondayOffset + 7; i += 1) {
       const date = new Date(today);
@@ -241,27 +246,41 @@ export default function StatsPage() {
     stats.lastActiveDate,
     stats.totalQuestionsAttempted,
     stats.totalCorrectAnswers,
+    stats.currentStreak,
   ]);
 
-  const totalSessions = useMemo(() => ({
-    study: stats.totalStudySessions ?? 0,
-    quest: stats.totalQuestSessions ?? 0,
-    practice: stats.totalPracticeSessions ?? 0,
-    arena: stats.totalArenaSessions ?? 0,
-    total:
-      (stats.totalStudySessions ?? 0)
-      + (stats.totalQuestSessions ?? 0)
-      + (stats.totalPracticeSessions ?? 0)
-      + (stats.totalArenaSessions ?? 0),
-  }), [
-    stats.totalStudySessions,
-    stats.totalQuestSessions,
-    stats.totalPracticeSessions,
-    stats.totalArenaSessions,
-  ]);
+  const displaySessions = useMemo(() => {
+    const study = stats.totalStudySessions ?? 0;
+    const quest = stats.totalQuestSessions ?? 0;
+    const practice = stats.totalPracticeSessions ?? 0;
+    const arena = stats.totalArenaSessions ?? 0;
+
+    const hasPreTrackingData = (study + quest + practice + arena) === 0 && stats.totalCardsStudied > 0;
+
+    if (hasPreTrackingData) {
+      const estimatedStudy = stats.studyDates?.length ?? 0;
+      const estimatedQuest = (stats.totalQuestionsAttempted ?? 0) > 0
+        ? Math.max(1, Math.round((stats.totalQuestionsAttempted ?? 0) / 10))
+        : 0;
+
+      return {
+        study: estimatedStudy,
+        quest: estimatedQuest,
+        practice: 0,
+        arena: 0,
+        estimated: true,
+      };
+    }
+
+    return { study, quest, practice, arena, estimated: false };
+  }, [stats]);
 
   const formattedStudyTime = useMemo(() => {
     const ms = stats.totalStudyTimeMs ?? 0;
+    if (ms < 30000) {
+      return '—';
+    }
+
     const minutes = Math.floor(ms / 60000);
 
     if (minutes < 60) {
@@ -285,6 +304,11 @@ export default function StatsPage() {
       };
     });
   }, [stats.weeklyAccuracy]);
+
+  const hasRealAccuracyData = useMemo(
+    () => accuracyTrend.some((entry) => entry.accuracy !== null),
+    [accuracyTrend],
+  );
 
   const calendarColumns = useMemo(() => {
     return Array.from({ length: 7 }, (_, weekIndex) => {
@@ -315,15 +339,15 @@ export default function StatsPage() {
       isDark
         ? [
             'rgba(255,255,255,0.04)',
-            'rgba(139,92,246,0.3)',
-            'rgba(139,92,246,0.55)',
-            'rgba(139,92,246,0.85)',
+            'rgba(56,189,248,0.2)',
+            'rgba(56,189,248,0.45)',
+            'rgba(56,189,248,0.75)',
           ] as const
         : [
             'rgba(0,0,0,0.05)',
-            'rgba(102,126,234,0.3)',
-            'rgba(102,126,234,0.55)',
-            'rgba(102,126,234,0.85)',
+            'rgba(14,165,233,0.2)',
+            'rgba(14,165,233,0.45)',
+            'rgba(14,165,233,0.75)',
           ] as const
     ),
     [isDark],
@@ -370,6 +394,12 @@ export default function StatsPage() {
           testID="stats-scroll-view"
         >
           <View style={styles.levelCard} testID="stats-score-card">
+            <LinearGradient
+              colors={isDark ? ['rgba(56, 189, 248, 0.08)', 'rgba(15, 23, 42, 0.78)'] : [theme.cardBackground, theme.cardBackground]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
             <View style={styles.levelBadge}>
               <Text style={styles.levelBadgeText}>{level}</Text>
             </View>
@@ -392,12 +422,12 @@ export default function StatsPage() {
 
           <View style={styles.weeklyCard}>
             <View style={styles.weeklyHeader}>
-              <Calendar color={theme.primary} size={20} strokeWidth={2.2} />
+              <Calendar color={statsAccent} size={20} strokeWidth={2.2} />
               <Text style={styles.weeklyTitle}>This Week</Text>
             </View>
             <View style={styles.weeklyStatsRow}>
               <View style={styles.weeklyStat}>
-                <Text style={[styles.weeklyStatValue, { color: theme.primary }]}>
+                <Text style={[styles.weeklyStatValue, { color: statsAccent }]}>
                   {weeklySummary.thisWeekDays}
                 </Text>
                 <Text style={styles.weeklyStatLabel}>Days Active</Text>
@@ -409,27 +439,31 @@ export default function StatsPage() {
                 ]}
               />
               <View style={styles.weeklyStat}>
-                <Text style={[styles.weeklyStatValue, { color: theme.primary }]}> 
+                <Text style={[styles.weeklyStatValue, { color: statsAccent }]}>
                   {stats.currentStreak}
                 </Text>
                 <Text style={styles.weeklyStatLabel}>Day Streak</Text>
               </View>
-              <View
-                style={[
-                  styles.weeklyDivider,
-                  { backgroundColor: isDark ? 'rgba(148,163,184,0.14)' : '#e0e0e0' },
-                ]}
-              />
-              <View style={styles.weeklyStat}>
-                <Text
-                  style={[styles.weeklyStatValue, { color: theme.primary }]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                >
-                  {formattedStudyTime}
-                </Text>
-                <Text style={styles.weeklyStatLabel}>Study Time</Text>
-              </View>
+              {formattedStudyTime !== '—' ? (
+                <>
+                  <View
+                    style={[
+                      styles.weeklyDivider,
+                      { backgroundColor: isDark ? 'rgba(148,163,184,0.14)' : '#e0e0e0' },
+                    ]}
+                  />
+                  <View style={styles.weeklyStat}>
+                    <Text
+                      style={[styles.weeklyStatValue, { color: statsAccent }]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                    >
+                      {formattedStudyTime}
+                    </Text>
+                    <Text style={styles.weeklyStatLabel}>Study Time</Text>
+                  </View>
+                </>
+              ) : null}
               {weeklySummary.accuracy !== null ? (
                 <>
                   <View
@@ -521,18 +555,22 @@ export default function StatsPage() {
             <View style={styles.streakRow}>
               <View style={styles.streakItem}>
                 <Flame color="#FF6B6B" size={16} strokeWidth={2.2} />
-                <Text style={styles.streakLabel}>Current: {stats.currentStreak} days</Text>
+                <Text style={styles.streakLabel}>
+                  Current: {stats.currentStreak} {stats.currentStreak === 1 ? 'day' : 'days'}
+                </Text>
               </View>
               <View style={styles.streakItem}>
-                <Star color="#F59E0B" size={16} strokeWidth={2.2} />
-                <Text style={styles.streakLabel}>Longest: {stats.longestStreak} days</Text>
+                <Star color={statsAccent} size={16} strokeWidth={2.2} />
+                <Text style={styles.streakLabel}>
+                  Longest: {stats.longestStreak} {stats.longestStreak === 1 ? 'day' : 'days'}
+                </Text>
               </View>
             </View>
           </View>
 
           <View style={styles.masteryCard}>
             <Text style={styles.sectionLabel}>MASTERY OVERVIEW</Text>
-            <Text style={[styles.masteryBigText, { color: theme.primary }]}>
+            <Text style={[styles.masteryBigText, { color: statsAccent }]}>
               {masteryOverview.mastered}/{masteryOverview.totalCards}
             </Text>
             <Text style={styles.masterySubtext}>
@@ -597,36 +635,58 @@ export default function StatsPage() {
           <View style={styles.performanceCard}>
             <Text style={styles.sectionLabel}>PERFORMANCE</Text>
             <View style={styles.perfRow}>
-              <BookOpen color={theme.primary} size={18} strokeWidth={2.2} />
-              <Text style={styles.perfLabel}>Study</Text>
-              <Text style={styles.perfValue}>{totalSessions.study} sessions · {formattedStudyTime} total</Text>
+              <View style={styles.perfIconWrap}>
+                <BookOpen color={statsAccent} size={18} strokeWidth={2.2} />
+              </View>
+              <View style={styles.perfContent}>
+                <Text style={styles.perfLabel}>Study</Text>
+                <Text style={styles.perfValue}>
+                  {displaySessions.study} sessions{formattedStudyTime !== '—' ? ` · ${formattedStudyTime} total` : ''}
+                </Text>
+              </View>
             </View>
             <View style={styles.perfRow}>
-              <Target color={theme.primary} size={18} strokeWidth={2.2} />
-              <Text style={styles.perfLabel}>Quest</Text>
-              <Text style={styles.perfValue}>
-                {totalSessions.quest} sessions · {stats.totalQuestionsAttempted ?? 0} questions
-                {weeklySummary.accuracy !== null ? ` · ${weeklySummary.accuracy}%` : ''}
-                {performance.bestQuestStreak > 0 ? ` · ${performance.bestQuestStreak} best streak` : ''}
-              </Text>
+              <View style={styles.perfIconWrap}>
+                <Target color={statsAccent} size={18} strokeWidth={2.2} />
+              </View>
+              <View style={styles.perfContent}>
+                <Text style={styles.perfLabel}>Quest</Text>
+                <Text style={styles.perfValue}>
+                  {displaySessions.quest} sessions · {stats.totalQuestionsAttempted ?? 0} questions
+                </Text>
+                {weeklySummary.accuracy !== null ? (
+                  <Text style={styles.perfDetail}>
+                    {weeklySummary.accuracy}% accuracy
+                    {performance.bestQuestStreak > 0 ? ` · ${performance.bestQuestStreak} best streak` : ''}
+                  </Text>
+                ) : null}
+              </View>
             </View>
             <View style={[styles.perfRow, !arenaStats ? styles.perfRowLast : null]}>
-              <Swords color={theme.primary} size={18} strokeWidth={2.2} />
-              <Text style={styles.perfLabel}>Practice</Text>
-              <Text style={styles.perfValue}>{totalSessions.practice} sessions · {stats.totalCardsStudied} cards studied</Text>
+              <View style={styles.perfIconWrap}>
+                <Swords color={statsAccent} size={18} strokeWidth={2.2} />
+              </View>
+              <View style={styles.perfContent}>
+                <Text style={styles.perfLabel}>Practice</Text>
+                <Text style={styles.perfValue}>{displaySessions.practice} sessions · {stats.totalCardsStudied} cards</Text>
+              </View>
             </View>
             {arenaStats ? (
               <View style={[styles.perfRow, styles.perfRowLast]}>
-                <Zap color={theme.primary} size={18} strokeWidth={2.2} />
-                <Text style={styles.perfLabel}>Arena</Text>
-                <Text style={styles.perfValue}>
-                  {totalSessions.arena} battles · {arenaStats.wins} wins · {arenaStats.winRate}% rate
-                </Text>
+                <View style={styles.perfIconWrap}>
+                  <Zap color={statsAccent} size={18} strokeWidth={2.2} />
+                </View>
+                <View style={styles.perfContent}>
+                  <Text style={styles.perfLabel}>Arena</Text>
+                  <Text style={styles.perfValue}>
+                    {displaySessions.arena || arenaStats.total} battles · {arenaStats.wins} wins · {arenaStats.winRate}% rate
+                  </Text>
+                </View>
               </View>
             ) : null}
           </View>
 
-          {accuracyTrend.length >= 2 ? (
+          {accuracyTrend.length >= 2 && hasRealAccuracyData ? (
             <View style={styles.trendCard}>
               <Text style={styles.sectionLabel}>ACCURACY TREND</Text>
               <View style={styles.trendRow}>
@@ -717,6 +777,11 @@ export default function StatsPage() {
 const createStyles = (theme: ThemeValues, isDark: boolean) => {
   const statSurface = isDark ? 'rgba(15, 23, 42, 0.78)' : theme.statsCard;
   const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'transparent';
+  const statsAccent = isDark ? '#38bdf8' : '#0ea5e9';
+  const accentTint = isDark ? 'rgba(56, 189, 248, 0.08)' : 'rgba(14, 165, 233, 0.06)';
+  const accentBorder = isDark ? 'rgba(56, 189, 248, 0.18)' : 'rgba(14, 165, 233, 0.12)';
+  const deepSurface = isDark ? 'rgba(10, 17, 34, 0.88)' : theme.cardBackground;
+  const cardSurface = isDark ? 'rgba(12, 19, 33, 0.82)' : theme.cardBackground;
 
   return StyleSheet.create({
     container: {
@@ -760,18 +825,25 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       borderRadius: 20,
       padding: 24,
       alignItems: 'center',
-      backgroundColor: statSurface,
+      justifyContent: 'center',
+      backgroundColor: cardSurface,
+      overflow: 'hidden',
       borderWidth: isDark ? 1 : 0,
-      borderColor: surfaceBorderColor,
+      borderColor: accentBorder,
     },
     levelBadge: {
       width: 56,
       height: 56,
       borderRadius: 28,
-      backgroundColor: theme.primary,
+      backgroundColor: statsAccent,
       justifyContent: 'center',
       alignItems: 'center',
       marginBottom: 12,
+      shadowColor: statsAccent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 6,
     },
     levelBadgeText: {
       fontSize: 24,
@@ -803,7 +875,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     levelBarFill: {
       height: '100%',
       borderRadius: 4,
-      backgroundColor: theme.primary,
+      backgroundColor: statsAccent,
     },
     levelBarLabel: {
       fontSize: 12,
@@ -818,9 +890,9 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       marginBottom: 20,
       borderRadius: 20,
       padding: 20,
-      backgroundColor: statSurface,
-      borderWidth: isDark ? 1 : 0,
-      borderColor: surfaceBorderColor,
+      backgroundColor: cardSurface,
+      borderWidth: 1,
+      borderColor: accentBorder,
     },
     weeklyHeader: {
       flexDirection: 'row',
@@ -869,9 +941,9 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       marginBottom: 20,
       borderRadius: 20,
       padding: 20,
-      backgroundColor: statSurface,
-      borderWidth: isDark ? 1 : 0,
-      borderColor: surfaceBorderColor,
+      backgroundColor: deepSurface,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
     },
     calendarTitle: {
       fontSize: 16,
@@ -978,17 +1050,17 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       marginBottom: 20,
       borderRadius: 20,
       padding: 20,
-      backgroundColor: statSurface,
-      borderWidth: isDark ? 1 : 0,
-      borderColor: surfaceBorderColor,
+      backgroundColor: cardSurface,
+      borderWidth: 1,
+      borderColor: accentBorder,
       alignItems: 'center',
     },
     sectionLabel: {
       fontSize: 12,
       fontWeight: '700' as const,
-      color: theme.textSecondary,
+      color: statsAccent,
       textTransform: 'uppercase',
-      letterSpacing: 0.8,
+      letterSpacing: 1,
       marginBottom: 12,
       alignSelf: 'flex-start',
     },
@@ -1029,14 +1101,14 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       marginBottom: 20,
       borderRadius: 20,
       padding: 20,
-      backgroundColor: statSurface,
-      borderWidth: isDark ? 1 : 0,
-      borderColor: surfaceBorderColor,
+      backgroundColor: cardSurface,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
     },
     perfRow: {
       flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 10,
+      alignItems: 'flex-start',
+      paddingVertical: 12,
       gap: 10,
       borderBottomWidth: 1,
       borderBottomColor: isDark ? 'rgba(148,163,184,0.08)' : 'rgba(0,0,0,0.04)',
@@ -1045,11 +1117,22 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       borderBottomWidth: 0,
       paddingBottom: 0,
     },
+    perfIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: accentTint,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    perfContent: {
+      flex: 1,
+    },
     perfLabel: {
-      fontSize: 14,
+      fontSize: 15,
       fontWeight: '700' as const,
       color: theme.text,
-      width: 65,
+      marginBottom: 2,
     },
     perfValue: {
       fontSize: 13,
@@ -1057,15 +1140,21 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       color: theme.textSecondary,
       flex: 1,
     },
+    perfDetail: {
+      fontSize: 12,
+      fontWeight: '500' as const,
+      color: theme.textTertiary,
+      marginTop: 2,
+    },
 
     trendCard: {
       marginHorizontal: 24,
       marginBottom: 20,
       borderRadius: 20,
       padding: 20,
-      backgroundColor: statSurface,
-      borderWidth: isDark ? 1 : 0,
-      borderColor: surfaceBorderColor,
+      backgroundColor: cardSurface,
+      borderWidth: 1,
+      borderColor: accentBorder,
     },
     trendRow: {
       flexDirection: 'row',
@@ -1108,12 +1197,12 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     },
     deckProgressCard: {
       flexDirection: 'row',
-      backgroundColor: statSurface,
+      backgroundColor: cardSurface,
       borderRadius: 16,
       marginBottom: 10,
       overflow: 'hidden',
-      borderWidth: isDark ? 1 : 0,
-      borderColor: surfaceBorderColor,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.1)' : 'transparent',
     },
     deckIndicator: {
       width: 4,
