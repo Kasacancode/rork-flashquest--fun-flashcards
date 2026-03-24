@@ -82,11 +82,8 @@ export default function LevelsModal({
   showRankIdentity = false,
 }: LevelsModalProps) {
   const activePalette = levelPalette ?? getLevelBandPalette(level, isDark);
-  const activeRankInfo = useMemo(() => getLevelRankBandInfo(level), [level]);
   const rankedStyles = useMemo(() => createRankedStyles(theme, isDark), [theme, isDark]);
-  const subtitle = showRankIdentity
-    ? `Current rank: ${activeRankInfo.label} · Lv ${level} · ${levelEntry.title}`
-    : `Current rank: Lv ${level} · ${levelEntry.title}`;
+  const subtitle = `Current rank: Lv ${level} · ${levelEntry.title}`;
 
   return (
     <Modal

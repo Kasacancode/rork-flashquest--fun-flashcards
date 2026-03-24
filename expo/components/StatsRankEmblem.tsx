@@ -37,6 +37,13 @@ interface RankFrameAccentProps {
   color: string;
 }
 
+interface RankCoreAccentProps {
+  band: LevelRankBand;
+  size: number;
+  color: string;
+  isDark?: boolean;
+}
+
 interface EmblemTokens {
   outer: number;
   halo: number;
@@ -459,7 +466,7 @@ const RankSigil = memo(function RankSigil({ band, color, size }: RankSigilProps)
 
   if (band === 'foundation') {
     return (
-      <View style={[styles.sigilRoot, { width: size, height: size }]}> 
+      <View style={[styles.sigilRoot, { width: size, height: size }]}>
         <Diamond size={diamondSize} color={color} />
         <View
           style={[
@@ -480,7 +487,7 @@ const RankSigil = memo(function RankSigil({ band, color, size }: RankSigilProps)
 
   if (band === 'momentum') {
     return (
-      <View style={[styles.sigilRoot, { width: size, height: size }]}> 
+      <View style={[styles.sigilRoot, { width: size, height: size }]}>
         <View
           style={[
             styles.sigilLine,
@@ -509,7 +516,7 @@ const RankSigil = memo(function RankSigil({ band, color, size }: RankSigilProps)
 
   if (band === 'skilled') {
     return (
-      <View style={[styles.sigilRoot, { width: size, height: size }]}> 
+      <View style={[styles.sigilRoot, { width: size, height: size }]}>
         <Diamond size={unit * 2.4} color={color} />
         <View
           style={[
@@ -546,7 +553,7 @@ const RankSigil = memo(function RankSigil({ band, color, size }: RankSigilProps)
 
   if (band === 'advanced') {
     return (
-      <View style={[styles.sigilRoot, { width: size, height: size }]}> 
+      <View style={[styles.sigilRoot, { width: size, height: size }]}>
         <Diamond
           size={miniDiamond}
           color={color}
@@ -585,7 +592,7 @@ const RankSigil = memo(function RankSigil({ band, color, size }: RankSigilProps)
   }
 
   return (
-    <View style={[styles.sigilRoot, { width: size, height: size }]}> 
+    <View style={[styles.sigilRoot, { width: size, height: size }]}>
       <Diamond size={unit * 2.4} color={color} />
       <Diamond
         size={miniDiamond}
@@ -606,6 +613,237 @@ const RankSigil = memo(function RankSigil({ band, color, size }: RankSigilProps)
         size={miniDiamond}
         color={color}
         style={{ position: 'absolute', bottom: unit * 0.75, opacity: strongOpacity }}
+      />
+    </View>
+  );
+});
+
+const RankCoreAccent = memo(function RankCoreAccent({
+  band,
+  size,
+  color,
+  isDark = false,
+}: RankCoreAccentProps) {
+  const unit = size / 12;
+  const softOpacity = isDark ? 0.12 : 0.1;
+  const strongOpacity = isDark ? 0.18 : 0.15;
+  const lineThickness = Math.max(unit * 0.5, 1);
+  const microDiamond = Math.max(unit * 1.2, 1.3);
+  const orbitSize = size * 0.58;
+
+  if (band === 'foundation') {
+    return (
+      <View pointerEvents="none" style={[styles.coreAccentRoot, { width: size, height: size }]}> 
+        <View
+          style={[
+            styles.coreAccentLine,
+            {
+              bottom: unit * 1,
+              width: lineThickness,
+              height: unit * 4.2,
+              borderRadius: 999,
+              backgroundColor: color,
+              opacity: softOpacity,
+            },
+          ]}
+        />
+        <Diamond
+          size={microDiamond}
+          color={color}
+          style={{ position: 'absolute', bottom: unit * 0.95, opacity: strongOpacity }}
+        />
+      </View>
+    );
+  }
+
+  if (band === 'momentum') {
+    return (
+      <View pointerEvents="none" style={[styles.coreAccentRoot, { width: size, height: size }]}> 
+        <View
+          style={[
+            styles.coreAccentLine,
+            {
+              width: lineThickness,
+              height: unit * 3.8,
+              bottom: unit * 1,
+              borderRadius: 999,
+              backgroundColor: color,
+              opacity: softOpacity,
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.coreAccentLine,
+            {
+              left: unit * 1.15,
+              bottom: unit * 3.55,
+              width: unit * 3.1,
+              height: lineThickness,
+              borderRadius: 999,
+              backgroundColor: color,
+              opacity: strongOpacity,
+              transform: [{ rotate: '-30deg' }],
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.coreAccentLine,
+            {
+              right: unit * 1.15,
+              bottom: unit * 3.55,
+              width: unit * 3.1,
+              height: lineThickness,
+              borderRadius: 999,
+              backgroundColor: color,
+              opacity: strongOpacity,
+              transform: [{ rotate: '30deg' }],
+            },
+          ]}
+        />
+      </View>
+    );
+  }
+
+  if (band === 'skilled') {
+    return (
+      <View pointerEvents="none" style={[styles.coreAccentRoot, { width: size, height: size }]}> 
+        <View
+          style={[
+            styles.coreAccentLine,
+            {
+              left: unit * 1.1,
+              width: unit * 2.4,
+              height: lineThickness,
+              borderRadius: 999,
+              backgroundColor: color,
+              opacity: strongOpacity,
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.coreAccentLine,
+            {
+              right: unit * 1.1,
+              width: unit * 2.4,
+              height: lineThickness,
+              borderRadius: 999,
+              backgroundColor: color,
+              opacity: strongOpacity,
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.coreAccentLine,
+            {
+              bottom: unit * 1.15,
+              width: lineThickness,
+              height: unit * 3,
+              borderRadius: 999,
+              backgroundColor: color,
+              opacity: softOpacity,
+            },
+          ]}
+        />
+        <Diamond
+          size={microDiamond}
+          color={color}
+          style={{ position: 'absolute', bottom: unit * 0.95, opacity: strongOpacity }}
+        />
+      </View>
+    );
+  }
+
+  if (band === 'advanced') {
+    return (
+      <View pointerEvents="none" style={[styles.coreAccentRoot, { width: size, height: size }]}> 
+        <Diamond
+          size={microDiamond}
+          color={color}
+          style={{ position: 'absolute', top: unit * 1.1, opacity: strongOpacity }}
+        />
+        <View
+          style={[
+            styles.coreAccentLine,
+            {
+              left: unit * 1.15,
+              top: unit * 3.2,
+              width: unit * 2.8,
+              height: lineThickness,
+              borderRadius: 999,
+              backgroundColor: color,
+              opacity: strongOpacity,
+              transform: [{ rotate: '-26deg' }],
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.coreAccentLine,
+            {
+              right: unit * 1.15,
+              top: unit * 3.2,
+              width: unit * 2.8,
+              height: lineThickness,
+              borderRadius: 999,
+              backgroundColor: color,
+              opacity: strongOpacity,
+              transform: [{ rotate: '26deg' }],
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.coreAccentLine,
+            {
+              bottom: unit * 1.1,
+              width: unit * 4.5,
+              height: lineThickness,
+              borderRadius: 999,
+              backgroundColor: color,
+              opacity: softOpacity,
+            },
+          ]}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View pointerEvents="none" style={[styles.coreAccentRoot, { width: size, height: size }]}> 
+      <View
+        style={{
+          position: 'absolute',
+          width: orbitSize,
+          height: orbitSize,
+          borderRadius: orbitSize / 2,
+          borderWidth: 1,
+          borderColor: color,
+          opacity: softOpacity,
+        }}
+      />
+      <Diamond
+        size={microDiamond}
+        color={color}
+        style={{ position: 'absolute', top: unit * 1, opacity: strongOpacity }}
+      />
+      <Diamond
+        size={microDiamond}
+        color={color}
+        style={{ position: 'absolute', left: unit * 1, opacity: strongOpacity }}
+      />
+      <Diamond
+        size={microDiamond}
+        color={color}
+        style={{ position: 'absolute', right: unit * 1, opacity: strongOpacity }}
+      />
+      <Diamond
+        size={microDiamond}
+        color={color}
+        style={{ position: 'absolute', bottom: unit * 1, opacity: strongOpacity }}
       />
     </View>
   );
@@ -700,6 +938,7 @@ function RankEmblem({
           end={{ x: 0.88, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
+        <RankCoreAccent band={rankInfo.band} size={innerSize} color={palette.badgeText} isDark={isDark} />
         <View
           pointerEvents="none"
           style={[
@@ -835,6 +1074,14 @@ const styles = StyleSheet.create({
   sigilRoot: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  coreAccentRoot: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coreAccentLine: {
+    position: 'absolute',
   },
   sigilLine: {
     position: 'absolute',

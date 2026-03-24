@@ -17,7 +17,6 @@ import {
   computeLevelProgress,
   getLevelBandPalette,
   getLevelEntry,
-  getLevelRankBandInfo,
 } from '@/utils/levels';
 import { computeDeckMastery } from '@/utils/mastery';
 
@@ -77,7 +76,6 @@ export default function StatsPage() {
   const levelEntry = useMemo(() => getLevelEntry(level), [level]);
   const levelProgress = useMemo(() => computeLevelProgress(stats.totalScore), [stats.totalScore]);
   const levelPalette = useMemo(() => getLevelBandPalette(level, isDark), [level, isDark]);
-  const levelRankInfo = useMemo(() => getLevelRankBandInfo(level), [level]);
 
   const masteryOverview = useMemo(() => {
     return decks.reduce((accumulator, deck) => {
@@ -475,7 +473,7 @@ export default function StatsPage() {
               style={StyleSheet.absoluteFill}
             />
             <View style={[styles.levelOrb, { backgroundColor: levelPalette.haloColor }]} />
-            <Text style={styles.levelEyebrow}>Progression · {levelRankInfo.label}</Text>
+            <Text style={styles.levelEyebrow}>Progression</Text>
             <StatsRankEmblem
               level={level}
               palette={levelPalette}
