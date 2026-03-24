@@ -62,65 +62,56 @@ export default function HomePage() {
   const backgroundGradient = useMemo(
     () => (
       isDark
-        ? ['#07101d', '#0c1730', '#08111f'] as const
-        : ['#f6f8fc', '#eef2f8', '#f8fafd'] as const
+        ? ['#081120', '#0b1730', '#091221'] as const
+        : ['#f5f7fb', '#eef3f9', '#f7f9fc'] as const
     ),
     [isDark],
   );
   const shellOverlayGradient = useMemo(
     () => (
       isDark
-        ? ['rgba(4, 8, 18, 0.04)', 'rgba(4, 8, 18, 0.18)', 'rgba(3, 7, 16, 0.38)'] as const
-        : ['rgba(255, 255, 255, 0.08)', 'rgba(244, 247, 251, 0.14)', 'rgba(236, 241, 247, 0.34)'] as const
+        ? ['rgba(15, 23, 42, 0.02)', 'rgba(9, 14, 24, 0.12)', 'rgba(4, 8, 18, 0.24)'] as const
+        : ['rgba(255, 255, 255, 0.02)', 'rgba(248, 250, 253, 0.1)', 'rgba(231, 237, 246, 0.24)'] as const
     ),
     [isDark],
   );
   const titleColor = isDark ? '#f8fafc' : '#172033';
-  const subtitleColor = isDark ? 'rgba(226, 232, 240, 0.72)' : 'rgba(71, 85, 105, 0.76)';
+  const subtitleColor = isDark ? 'rgba(226, 232, 240, 0.74)' : 'rgba(71, 85, 105, 0.76)';
   const sectionTitleColor = isDark ? '#f8fafc' : '#1f2b46';
-  const labelColor = isDark ? 'rgba(226, 232, 240, 0.44)' : 'rgba(71, 85, 105, 0.62)';
-  const topGlowColor = isDark ? 'rgba(99, 102, 241, 0.03)' : 'rgba(99, 102, 241, 0.03)';
-  const midGlowColor = isDark ? 'rgba(56, 189, 248, 0.024)' : 'rgba(59, 130, 246, 0.022)';
-  const bottomGlowColor = isDark ? 'rgba(249, 115, 22, 0.018)' : 'rgba(56, 189, 248, 0.018)';
-  const profileSurface = isDark ? 'rgba(8, 14, 27, 0.56)' : 'rgba(255, 255, 255, 0.86)';
-  const profileBorderColor = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(148, 163, 184, 0.18)';
+  const labelColor = isDark ? 'rgba(226, 232, 240, 0.4)' : 'rgba(71, 85, 105, 0.58)';
+  const topGlowColor = isDark ? 'rgba(99, 102, 241, 0.018)' : 'rgba(99, 102, 241, 0.018)';
+  const midGlowColor = isDark ? 'rgba(56, 189, 248, 0.014)' : 'rgba(59, 130, 246, 0.014)';
+  const bottomGlowColor = isDark ? 'rgba(139, 92, 246, 0.014)' : 'rgba(99, 102, 241, 0.014)';
+  const profileSurface = isDark ? 'rgba(9, 15, 29, 0.56)' : 'rgba(255, 255, 255, 0.88)';
+  const profileBorderColor = isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.16)';
   const profileGradient = isDark
-    ? ['rgba(129, 140, 248, 0.8)', 'rgba(99, 102, 241, 0.66)'] as const
-    : ['rgba(129, 140, 248, 0.96)', 'rgba(99, 102, 241, 0.82)'] as const;
+    ? ['rgba(129, 140, 248, 0.76)', 'rgba(99, 102, 241, 0.64)'] as const
+    : ['rgba(129, 140, 248, 0.9)', 'rgba(99, 102, 241, 0.76)'] as const;
   const statsCardGradient = isDark
-    ? ['rgba(8, 14, 27, 0.99)', 'rgba(12, 20, 36, 0.99)'] as const
-    : ['rgba(255, 255, 255, 0.99)', 'rgba(245, 248, 253, 0.99)'] as const;
-  const statsBorderColor = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(148, 163, 184, 0.16)';
-  const statsDividerColor = isDark ? 'rgba(148, 163, 184, 0.2)' : 'rgba(148, 163, 184, 0.18)';
+    ? ['rgba(14, 23, 40, 0.99)', 'rgba(11, 19, 34, 0.99)'] as const
+    : ['rgba(255, 255, 255, 0.99)', 'rgba(241, 245, 251, 0.99)'] as const;
+  const statsBorderColor = isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.14)';
+  const statsDividerColor = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(148, 163, 184, 0.18)';
   const statsShadowColor = isDark ? '#020617' : '#94a3b8';
   const statsValueColor = isDark ? '#f8fafc' : '#13233f';
-  const statsLevelColor = isDark ? '#c4b5fd' : '#5b48d9';
+  const statsLevelColor = isDark ? '#a78bfa' : '#5b48d9';
   const actionShadowColor = isDark ? '#020617' : '#94a3b8';
-  const actionBorderColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(148, 163, 184, 0.18)';
-  const actionTopTintGradient = isDark
-    ? ['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.02)'] as const
-    : ['rgba(255, 255, 255, 0.18)', 'rgba(255, 255, 255, 0.04)'] as const;
-  const actionBottomShadeGradient = isDark
-    ? ['rgba(2, 6, 23, 0)', 'rgba(2, 6, 23, 0.2)', 'rgba(2, 6, 23, 0.34)'] as const
-    : ['rgba(15, 23, 42, 0)', 'rgba(15, 23, 42, 0.08)', 'rgba(15, 23, 42, 0.14)'] as const;
-  const actionInnerBorderColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.2)';
-  const actionIconSurface = isDark ? 'rgba(7, 13, 24, 0.16)' : 'rgba(255, 255, 255, 0.16)';
-  const actionIconBorderColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.18)';
-  const deckCardSurface = isDark ? 'rgba(9, 15, 29, 0.95)' : 'rgba(255, 255, 255, 0.98)';
+  const actionBorderColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(15, 23, 42, 0.08)';
+  const deckCardSurface = isDark ? 'rgba(10, 16, 29, 0.96)' : 'rgba(255, 255, 255, 0.98)';
   const deckCardGradient = isDark
-    ? ['rgba(9, 15, 29, 0.99)', 'rgba(13, 21, 37, 0.99)'] as const
-    : ['rgba(255, 255, 255, 0.99)', 'rgba(245, 248, 253, 0.98)'] as const;
-  const deckCardBorderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(148, 163, 184, 0.16)';
+    ? ['rgba(10, 16, 29, 0.99)', 'rgba(12, 20, 34, 0.99)'] as const
+    : ['rgba(255, 255, 255, 0.99)', 'rgba(243, 247, 252, 0.99)'] as const;
+  const deckCardBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.14)';
   const deckCardShadowColor = isDark ? '#020617' : '#94a3b8';
-  const deckTrackColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(148, 163, 184, 0.18)';
-  const emptyStateSurface = isDark ? 'rgba(9, 15, 29, 0.88)' : 'rgba(255, 255, 255, 0.96)';
-  const emptyStateBorderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(148, 163, 184, 0.16)';
+  const deckTrackColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(148, 163, 184, 0.16)';
+  const emptyStateSurface = isDark ? 'rgba(10, 16, 29, 0.92)' : 'rgba(255, 255, 255, 0.97)';
+  const emptyStateBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.14)';
   const homeActionGradients = useMemo(
     () => ({
-      arena: isDark ? ['#f08940', '#c85319'] as const : ['#ef8750', '#d46230'] as const,
-      quest: isDark ? ['#846af3', '#5736cf'] as const : ['#8771ee', '#6248d8'] as const,
-      stats: isDark ? ['#2fa9dd', '#136fa9'] as const : ['#36abe0', '#1981be'] as const,
-      decks: isDark ? ['#6978ef', '#4957cf'] as const : ['#6d7ae6', '#5260d9'] as const,
+      arena: isDark ? ['#fb7415', '#eb5f08'] as const : ['#f07d20', '#de600f'] as const,
+      quest: isDark ? ['#8d5cf6', '#7a41ea'] as const : ['#8961ef', '#7046df'] as const,
+      stats: isDark ? ['#14b987', '#089b71'] as const : ['#16b888', '#0c9a73'] as const,
+      decks: isDark ? ['#6971f0', '#5258e7'] as const : ['#6871ee', '#5660e0'] as const,
     }),
     [isDark],
   );
@@ -224,11 +215,10 @@ export default function HomePage() {
           styles.actionCard,
           styles.actionCardMedium,
           {
-            backgroundColor: isDark ? 'rgba(7, 13, 27, 0.92)' : 'rgba(255, 255, 255, 0.94)',
             shadowColor: actionShadowColor,
-            shadowOpacity: isDark ? 0.24 : 0.1,
-            shadowRadius: isDark ? 18 : 12,
-            elevation: isDark ? 9 : 5,
+            shadowOpacity: isDark ? 0.22 : 0.1,
+            shadowRadius: isDark ? 12 : 8,
+            elevation: isDark ? 7 : 4,
             borderWidth: 1,
             borderColor: actionBorderColor,
           },
@@ -239,35 +229,12 @@ export default function HomePage() {
       >
         <LinearGradient
           colors={colors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          start={{ x: 0.08, y: 0.05 }}
+          end={{ x: 0.92, y: 0.95 }}
           style={styles.actionGradient}
         >
-          <LinearGradient
-            colors={actionTopTintGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0.4 }}
-            style={styles.actionTopTint}
-          />
-          <LinearGradient
-            colors={actionBottomShadeGradient}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            style={styles.actionBottomShade}
-          />
-          <View style={[styles.actionInnerBorder, { borderColor: actionInnerBorderColor }]} />
           <View style={styles.actionContent}>
-            <View
-              style={[
-                styles.actionIconWrap,
-                {
-                  backgroundColor: actionIconSurface,
-                  borderColor: actionIconBorderColor,
-                },
-              ]}
-            >
-              {icon}
-            </View>
+            <View style={styles.actionIconSlot}>{icon}</View>
             <Text style={styles.actionTitleMedium}>{title}</Text>
           </View>
         </LinearGradient>
@@ -337,7 +304,7 @@ export default function HomePage() {
             style={[
               styles.statsCard,
               {
-                backgroundColor: isDark ? 'rgba(10, 17, 31, 0.9)' : theme.statsCard,
+                backgroundColor: isDark ? '#101a2d' : 'rgba(255, 255, 255, 0.98)',
                 borderWidth: 1,
                 borderColor: statsBorderColor,
                 shadowColor: statsShadowColor,
@@ -568,11 +535,8 @@ const styles = StyleSheet.create<{
   actionCard: ViewStyle;
   actionCardMedium: ViewStyle;
   actionGradient: ViewStyle;
-  actionTopTint: ViewStyle;
-  actionBottomShade: ViewStyle;
-  actionInnerBorder: ViewStyle;
   actionContent: ViewStyle;
-  actionIconWrap: ViewStyle;
+  actionIconSlot: ViewStyle;
   actionTitleMedium: TextStyle;
   decksSection: ViewStyle;
   sectionTitle: TextStyle;
@@ -593,7 +557,7 @@ const styles = StyleSheet.create<{
 }>({
   container: {
     flex: 1,
-    backgroundColor: '#667eea',
+    backgroundColor: '#081120',
   },
   safeArea: {
     flex: 1,
@@ -606,27 +570,27 @@ const styles = StyleSheet.create<{
   },
   topGlow: {
     position: 'absolute',
-    top: -92,
-    right: -92,
-    width: 144,
-    height: 144,
-    borderRadius: 72,
+    top: -74,
+    right: -70,
+    width: 112,
+    height: 112,
+    borderRadius: 56,
   },
   midGlow: {
     position: 'absolute',
-    top: 388,
-    left: -108,
-    width: 136,
-    height: 136,
-    borderRadius: 68,
+    top: 404,
+    left: -88,
+    width: 104,
+    height: 104,
+    borderRadius: 52,
   },
   bottomGlow: {
     position: 'absolute',
-    bottom: 184,
-    right: -98,
-    width: 144,
-    height: 144,
-    borderRadius: 72,
+    bottom: 202,
+    right: -76,
+    width: 116,
+    height: 116,
+    borderRadius: 58,
   },
   header: {
     paddingHorizontal: 24,
@@ -642,9 +606,9 @@ const styles = StyleSheet.create<{
     borderRadius: 18,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
     elevation: 7,
   },
   profileGradient: {
@@ -666,22 +630,22 @@ const styles = StyleSheet.create<{
   },
   statsCard: {
     marginHorizontal: 24,
-    borderRadius: 24,
+    borderRadius: 22,
     paddingHorizontal: 18,
-    paddingVertical: 21,
+    paddingVertical: 20,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 14 },
+    shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.18,
-    shadowRadius: 22,
+    shadowRadius: 18,
     elevation: 10,
     overflow: 'hidden',
   },
   statsCardFrame: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 24,
+    borderRadius: 22,
     borderWidth: 1,
   },
   statItem: {
@@ -689,28 +653,28 @@ const styles = StyleSheet.create<{
     alignItems: 'center',
   },
   levelText: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: '800' as const,
-    marginBottom: 4,
-    letterSpacing: -0.9,
+    marginBottom: 6,
+    letterSpacing: -0.7,
   },
   statValue: {
-    fontSize: 33,
+    fontSize: 31,
     fontWeight: '800' as const,
     color: '#667eea',
-    marginBottom: 4,
-    letterSpacing: -0.8,
+    marginBottom: 6,
+    letterSpacing: -0.7,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 12.5,
     color: '#666',
     fontWeight: '700' as const,
     textAlign: 'center',
-    letterSpacing: 0.18,
+    letterSpacing: 0.14,
   },
   statDivider: {
     width: 1,
-    height: 56,
+    height: 58,
     backgroundColor: '#e0e0e0',
   },
   gridLabel: {
@@ -730,13 +694,13 @@ const styles = StyleSheet.create<{
     gap: 16,
   },
   actionCard: {
-    borderRadius: 24,
+    borderRadius: 22,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2,
-    shadowRadius: 18,
-    elevation: 9,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 8,
   },
   actionCardMedium: {
     width: (width - 64) / 2,
@@ -745,45 +709,19 @@ const styles = StyleSheet.create<{
   actionGradient: {
     flex: 1,
     paddingHorizontal: 18,
-    paddingVertical: 18,
-  },
-  actionTopTint: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 54,
-  },
-  actionBottomShade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 84,
-  },
-  actionInnerBorder: {
-    position: 'absolute',
-    top: 1,
-    left: 1,
-    right: 1,
-    bottom: 1,
-    borderRadius: 23,
-    borderWidth: 1,
+    paddingVertical: 16,
   },
   actionContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 2,
   },
-  actionIconWrap: {
-    width: 58,
-    height: 58,
-    borderRadius: 18,
+  actionIconSlot: {
+    width: 48,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 14,
-    borderWidth: 1,
+    marginBottom: 10,
   },
   actionTitleMedium: {
     fontSize: 19,
@@ -812,13 +750,13 @@ const styles = StyleSheet.create<{
   quickStartEmptyState: {
     alignItems: 'flex-start',
     padding: 20,
-    borderRadius: 22,
+    borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.14)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
     shadowRadius: 14,
     elevation: 6,
   },
@@ -850,48 +788,48 @@ const styles = StyleSheet.create<{
     width: 170,
     height: 126,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 9 },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
     shadowRadius: 14,
     elevation: 5,
   },
   deckCardFrame: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
   },
   deckColorStrip: {
-    height: 4,
+    height: 5,
     width: '100%',
   },
   deckContent: {
     flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
     justifyContent: 'flex-start',
   },
   deckName: {
-    fontSize: 15,
+    fontSize: 15.5,
     fontWeight: '800' as const,
     color: '#333',
-    marginBottom: 7,
+    marginBottom: 6,
     lineHeight: 20,
-    letterSpacing: -0.2,
+    letterSpacing: -0.24,
   },
   deckCards: {
-    fontSize: 12.5,
+    fontSize: 12,
     color: '#666',
     fontWeight: '700' as const,
-    letterSpacing: 0.1,
+    letterSpacing: 0.08,
   },
   deckMiniBar: {
     height: 4,
     borderRadius: 3,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginTop: 8,
+    marginTop: 9,
     overflow: 'hidden',
   },
   deckMiniBarFill: {
