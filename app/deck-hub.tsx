@@ -195,11 +195,11 @@ export default function DeckHubScreen() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: cardBg, borderWidth: 1, borderColor: isDark ? 'rgba(148,163,184,0.16)' : theme.border }]} onPress={() => router.push({ pathname: '/practice-session', params: { deckId: deck.id, mode: 'ai' } } as Href)} activeOpacity={0.85}>
+          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: cardBg, borderWidth: 1, borderColor: isDark ? 'rgba(148,163,184,0.16)' : theme.border }]} onPress={() => router.push({ pathname: '/practice', params: { deckId: deck.id } } as Href)} activeOpacity={0.85}>
             <Swords color={theme.primary} size={22} strokeWidth={2.2} />
             <View style={styles.actionText}>
               <Text style={[styles.actionTitle, { color: theme.text }]}>Practice vs AI</Text>
-              <Text style={[styles.actionDesc, { color: theme.textSecondary }]}>Battle an AI opponent</Text>
+              <Text style={[styles.actionDesc, { color: theme.textSecondary }]}>Choose a mode, then battle</Text>
             </View>
           </TouchableOpacity>
 

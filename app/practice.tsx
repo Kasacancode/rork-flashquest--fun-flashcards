@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Bot, Users, Play, BookOpen } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal } from 'react-native';
@@ -13,32 +13,46 @@ import type { PracticeMode } from '@/types/practice';
 
 export default function PracticePage() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ deckId?: string | string[] }>();
   const { decks } = useFlashQuest();
   const { theme } = useTheme();
   const [selectedMode, setSelectedMode] = useState<PracticeMode | null>(null);
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(false);
 
-  const handleModeSelect = (mode: PracticeMode) => {
+  const requestedDeckId = Array.isArray(params.deckId) ? params.deckId[0] : params.deckId;
+  const preselectedDeck = decks.find((deck) => deck.id === requestedDeckId);
+
+  const startPracticeSession = useCallback((deckId: string, mode: PracticeMode) => {
+    const selectedDeck = decks.find((deck) => deck.id === deckId);
+    trackEvent({
+      event: 'deck_played',
+      deckId,
+      properties: {
+        deck_name: selectedDeck?.name ?? null,
+        mode: GAME_MODE.PRACTICE,
+        player_count: mode === 'multiplayer' ? 2 : 1,
+      },
+    });
+    router.push({ pathname: '/practice-session' as any, params: { deckId, mode } });
+  }, [decks, router]);
+
+  const handleModeSelect = useCallback((mode: PracticeMode) => {
     setSelectedMode(mode);
+    if (preselectedDeck) {
+      startPracticeSession(preselectedDeck.id, mode);
+      return;
+    }
     setShowDeckSelector(true);
-  };
+  }, [preselectedDeck, startPracticeSession]);
 
   const handleDeckSelect = useCallback((deckId: string) => {
-    if (selectedMode) {
-      const selectedDeck = decks.find((deck) => deck.id === deckId);
-      setShowDeckSelector(false);
-      trackEvent({
-        event: 'deck_played',
-        deckId,
-        properties: {
-          deck_name: selectedDeck?.name ?? null,
-          mode: GAME_MODE.PRACTICE,
-          player_count: selectedMode === 'multiplayer' ? 2 : 1,
-        },
-      });
-      router.push({ pathname: '/practice-session' as any, params: { deckId, mode: selectedMode } });
+    if (!selectedMode) {
+      return;
     }
-  }, [decks, router, selectedMode]);
+
+    setShowDeckSelector(false);
+    startPracticeSession(deckId, selectedMode);
+  }, [selectedMode, startPracticeSession]);
 
   return (
     <View style={styles.container}>
@@ -65,7 +79,11 @@ export default function PracticePage() {
         >
           <View style={styles.titleSection}>
             <Text style={styles.title}>Choose Your Practice</Text>
-            <Text style={styles.subtitle}>Sharpen your recall solo or with a friend</Text>
+            <Text style={styles.subtitle}>
+              {preselectedDeck
+                ? `Using ${preselectedDeck.name} — pick solo or local versus`
+                : 'Sharpen your recall solo or with a friend'}
+            </Text>
           </View>
 
           {decks.length === 0 ? (
