@@ -85,7 +85,6 @@ export default function ProfileHeroCard({
             </View>
 
             <View style={styles.heroIdentityText}>
-              <Text style={styles.heroEyebrow}>FlashQuest Profile</Text>
               <View style={styles.heroNameRow}>
                 <Text style={styles.heroName} numberOfLines={1}>{profileDisplayName}</Text>
                 <TouchableOpacity

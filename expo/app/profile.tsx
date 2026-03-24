@@ -380,7 +380,6 @@ export default function ProfilePage() {
           </TouchableOpacity>
 
           <View style={styles.headerTextBlock}>
-            <Text style={styles.headerEyebrow}>FlashQuest</Text>
             <View style={styles.headerTitleWrap}>
               <UserRound color="#fff" size={20} strokeWidth={2.35} />
               <Text style={styles.headerTitle}>Profile</Text>
@@ -564,7 +563,6 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       alignItems: 'center',
       justifyContent: 'center',
       flex: 1,
-      gap: 4,
     },
     headerTitleWrap: {
       flexDirection: 'row',
