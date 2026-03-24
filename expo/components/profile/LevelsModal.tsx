@@ -235,9 +235,7 @@ export default function LevelsModal({
                       </View>
                       <Text style={styles.levelRowSubtitle}>{item.subtitle}</Text>
                       <Text style={[styles.levelRowMeta, metaTone]}>
-                        {showRankIdentity
-                          ? `${itemRankInfo.label} · ${item.xpRequired.toLocaleString()} XP unlock`
-                          : `${item.xpRequired.toLocaleString()} XP unlock`}
+                        {`${item.xpRequired.toLocaleString()} XP unlock`}
                       </Text>
                     </View>
 
