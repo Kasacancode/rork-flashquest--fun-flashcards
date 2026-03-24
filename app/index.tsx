@@ -9,6 +9,8 @@ import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
+import { computeLevel, getLevelEntry } from '@/utils/levels';
+import { computeDeckMastery } from '@/utils/mastery';
 
 const { width } = Dimensions.get('window');
 
@@ -43,6 +45,8 @@ export default function HomePage() {
   const xpAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
   const streakAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
   const cardsAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
+  const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
+  const levelEntry = useMemo(() => getLevelEntry(level), [level]);
 
   useEffect(() => {
     xpAnim.setValue(0);
@@ -195,8 +199,10 @@ export default function HomePage() {
             ]}
           >
             <View style={styles.statItem}>
-              <AnimatedStatValue animValue={xpAnim} style={[styles.statValue, { color: theme.primary }]} />
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Total XP</Text>
+              <View style={[styles.levelBadge, { backgroundColor: theme.primary }]}>
+                <Text style={styles.levelBadgeText}>{level}</Text>
+              </View>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{levelEntry.title}</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: isDark ? 'rgba(148, 163, 184, 0.14)' : '#e0e0e0' }]} />
             <View style={styles.statItem}>
@@ -209,6 +215,8 @@ export default function HomePage() {
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Cards Studied</Text>
             </View>
           </View>
+
+          <Text style={styles.gridLabel}>MODES</Text>
 
           <View style={styles.actionsGrid}>
             <TouchableOpacity
@@ -258,7 +266,7 @@ export default function HomePage() {
                 style={styles.actionGradient}
               >
                 <Trophy color="#fff" size={36} strokeWidth={2} />
-                <Text style={styles.actionTitleMedium}>Stats</Text>
+                <Text style={styles.actionTitleMedium}>Your Stats</Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -304,27 +312,39 @@ export default function HomePage() {
                 contentContainerStyle={styles.decksScroll}
                 testID="home-recommendations-scroll"
               >
-                {recommendations.map((rec) => (
-                  <TouchableOpacity
-                    key={rec.deckId}
-                    style={[
-                      styles.deckCard,
-                      {
-                        backgroundColor: isDark ? 'rgba(10, 17, 34, 0.88)' : theme.deckCardBg,
-                        borderWidth: isDark ? 1 : 0,
-                        borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
-                      },
-                    ]}
-                    onPress={() => router.push({ pathname: '/deck-hub', params: { deckId: rec.deckId } } as Href)}
-                    activeOpacity={0.9}
-                    testID={`home-recommendation-${rec.deckId}`}
-                  >
-                    <View style={[styles.deckColorStrip, { backgroundColor: rec.color }]} />
-                    <View style={styles.deckContent}>
-                      <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={2}>{rec.name}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                {recommendations.map((rec) => {
+                  const recDeck = decks.find((d) => d.id === rec.deckId);
+                  const recMastery = recDeck ? computeDeckMastery(recDeck.flashcards, performance.cardStatsById) : null;
+                  const recPct = recMastery && recMastery.total > 0 ? Math.round((recMastery.mastered / recMastery.total) * 100) : 0;
+
+                  return (
+                    <TouchableOpacity
+                      key={rec.deckId}
+                      style={[
+                        styles.deckCard,
+                        {
+                          backgroundColor: isDark ? 'rgba(10, 17, 34, 0.88)' : theme.deckCardBg,
+                          borderWidth: isDark ? 1 : 0,
+                          borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
+                        },
+                      ]}
+                      onPress={() => router.push({ pathname: '/deck-hub', params: { deckId: rec.deckId } } as Href)}
+                      activeOpacity={0.9}
+                      testID={`home-recommendation-${rec.deckId}`}
+                    >
+                      <View style={[styles.deckColorStrip, { backgroundColor: rec.color }]} />
+                      <View style={styles.deckContent}>
+                        <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={2}>{rec.name}</Text>
+                        <Text style={[styles.deckCards, { color: theme.textSecondary }]}>{recDeck?.flashcards.length ?? 0} cards · {recPct}%</Text>
+                        {recMastery && recMastery.total > 0 ? (
+                          <View style={styles.deckMiniBar}>
+                            <View style={[styles.deckMiniBarFill, { width: `${recPct}%`, backgroundColor: rec.color }]} />
+                          </View>
+                        ) : null}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             ) : (
               <ScrollView
@@ -333,30 +353,40 @@ export default function HomePage() {
                 contentContainerStyle={styles.decksScroll}
                 testID="home-quick-start-scroll"
               >
-                {decks.slice(0, 5).map((deck) => (
-                  <TouchableOpacity
-                    key={deck.id}
-                    style={[
-                      styles.deckCard,
-                      {
-                        backgroundColor: isDark ? 'rgba(10, 17, 34, 0.88)' : theme.deckCardBg,
-                        borderWidth: isDark ? 1 : 0,
-                        borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
-                      },
-                    ]}
-                    onPress={() => router.push({ pathname: '/deck-hub', params: { deckId: deck.id } } as Href)}
-                    activeOpacity={0.9}
-                    testID={`home-quick-start-${deck.id}`}
-                  >
-                    <View style={[styles.deckColorStrip, { backgroundColor: deck.color }]} />
-                    <View style={styles.deckContent}>
-                      <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={2}>
-                        {deck.name}
-                      </Text>
-                      <Text style={[styles.deckCards, { color: theme.textSecondary }]}>{deck.flashcards.length} cards</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                {decks.slice(0, 5).map((deck) => {
+                  const deckMastery = computeDeckMastery(deck.flashcards, performance.cardStatsById);
+                  const deckPct = deckMastery.total > 0 ? Math.round((deckMastery.mastered / deckMastery.total) * 100) : 0;
+
+                  return (
+                    <TouchableOpacity
+                      key={deck.id}
+                      style={[
+                        styles.deckCard,
+                        {
+                          backgroundColor: isDark ? 'rgba(10, 17, 34, 0.88)' : theme.deckCardBg,
+                          borderWidth: isDark ? 1 : 0,
+                          borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
+                        },
+                      ]}
+                      onPress={() => router.push({ pathname: '/deck-hub', params: { deckId: deck.id } } as Href)}
+                      activeOpacity={0.9}
+                      testID={`home-quick-start-${deck.id}`}
+                    >
+                      <View style={[styles.deckColorStrip, { backgroundColor: deck.color }]} />
+                      <View style={styles.deckContent}>
+                        <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={2}>
+                          {deck.name}
+                        </Text>
+                        <Text style={[styles.deckCards, { color: theme.textSecondary }]}>{deck.flashcards.length} cards · {deckPct}%</Text>
+                        {deckMastery.total > 0 ? (
+                          <View style={styles.deckMiniBar}>
+                            <View style={[styles.deckMiniBarFill, { width: `${deckPct}%`, backgroundColor: deck.color }]} />
+                          </View>
+                        ) : null}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             )}
           </View>
@@ -433,6 +463,19 @@ const styles = StyleSheet.create({
   statItem: {
     alignItems: 'center',
   },
+  levelBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  levelBadgeText: {
+    fontSize: 20,
+    fontWeight: '800' as const,
+    color: '#fff',
+  },
   statValue: {
     fontSize: 32,
     fontWeight: '800' as const,
@@ -449,9 +492,18 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: '#e0e0e0',
   },
+  gridLabel: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: 'rgba(255, 255, 255, 0.45)',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    paddingHorizontal: 24,
+    marginTop: 28,
+    marginBottom: 12,
+  },
   actionsGrid: {
     paddingHorizontal: 24,
-    marginTop: 32,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
@@ -530,7 +582,7 @@ const styles = StyleSheet.create({
   },
   deckCard: {
     width: 160,
-    height: 100,
+    height: 110,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 16,
     overflow: 'hidden',
@@ -559,6 +611,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     fontWeight: '500' as const,
+  },
+  deckMiniBar: {
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  deckMiniBarFill: {
+    height: '100%',
+    borderRadius: 2,
   },
   recommendationMessage: {
     fontSize: 12,
