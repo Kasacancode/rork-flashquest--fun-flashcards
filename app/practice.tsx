@@ -1,8 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Bot, Users, Play, BookOpen } from 'lucide-react-native';
-import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import { ArrowLeft, BookOpen, Bot, ChevronRight, Play, Settings, Users } from 'lucide-react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFlashQuest } from '@/context/FlashQuestContext';
@@ -15,7 +15,7 @@ export default function PracticePage() {
   const router = useRouter();
   const params = useLocalSearchParams<{ deckId?: string | string[] }>();
   const { decks } = useFlashQuest();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const [selectedMode, setSelectedMode] = useState<PracticeMode | null>(null);
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(false);
 
@@ -54,22 +54,75 @@ export default function PracticePage() {
     startPracticeSession(deckId, selectedMode);
   }, [selectedMode, startPracticeSession]);
 
+  const backgroundGradient = useMemo(
+    () => (
+      isDark
+        ? ['#171a2b', '#261a34', '#0b1120'] as const
+        : ['#f7f5ff', '#eef3ff', '#fff1f7'] as const
+    ),
+    [isDark],
+  );
+
+  const topGlow = isDark ? 'rgba(96, 165, 250, 0.18)' : 'rgba(99, 102, 241, 0.14)';
+  const bottomGlow = isDark ? 'rgba(244, 114, 182, 0.14)' : 'rgba(236, 72, 153, 0.12)';
+  const heroSurface = isDark ? 'rgba(10, 16, 29, 0.84)' : 'rgba(255, 255, 255, 0.78)';
+  const secondarySurface = isDark ? 'rgba(9, 15, 27, 0.88)' : 'rgba(255, 255, 255, 0.9)';
+  const headerSurface = isDark ? 'rgba(10, 17, 30, 0.42)' : 'rgba(255, 255, 255, 0.52)';
+  const headerBorder = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(99, 102, 241, 0.12)';
+  const headerButtonBorder = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(99, 102, 241, 0.14)';
+  const controlSurface = isDark ? 'rgba(17, 24, 39, 0.44)' : 'rgba(255, 255, 255, 0.62)';
+  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(99, 102, 241, 0.1)';
+  const subtleBorderColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(99, 102, 241, 0.08)';
+  const insetSurface = isDark ? 'rgba(255, 255, 255, 0.065)' : 'rgba(99, 102, 241, 0.08)';
+  const mutedTextColor = isDark ? 'rgba(226, 232, 240, 0.84)' : '#5b618d';
+  const headerContentColor = isDark ? '#f8fafc' : '#2f2b5d';
+  const aiGradient = isDark ? ['#4f7cff', '#6158f3'] as const : ['#5f7cff', '#7264ff'] as const;
+  const localAccent = isDark ? '#f472b6' : '#ec4899';
+  const modalSurface = isDark ? 'rgba(10, 16, 28, 0.98)' : 'rgba(255, 255, 255, 0.98)';
+  const summaryAccent = isDark ? '#93c5fd' : '#4f46e5';
+
+  const summaryTitle = preselectedDeck ? preselectedDeck.name : `${decks.length} decks ready`;
+  const summarySubtitle = preselectedDeck
+    ? `${preselectedDeck.flashcards.length} cards loaded for your next match`
+    : 'Pick a mode first, then choose the deck you want to practice';
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]} testID="practice-screen">
       <LinearGradient
-        colors={['#4ECDC4', '#44A08D', '#2E8B7D']}
+        colors={backgroundGradient}
         start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
+        end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+      <View style={[styles.topGlow, { backgroundColor: topGlow }]} pointerEvents="none" />
+      <View style={[styles.bottomGlow, { backgroundColor: bottomGlow }]} pointerEvents="none" />
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft color="#fff" size={28} strokeWidth={2.5} />
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={[
+              styles.headerButton,
+              {
+                backgroundColor: controlSurface,
+                borderColor: headerButtonBorder,
+                shadowOpacity: isDark ? 0.22 : 0.08,
+                shadowRadius: isDark ? 14 : 9,
+                elevation: isDark ? 6 : 3,
+              },
+            ]}
+            activeOpacity={0.75}
+            testID="practice-back-button"
+          >
+            <ArrowLeft color={headerContentColor} size={24} strokeWidth={2.4} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Practice</Text>
-          <View style={styles.placeholder} />
+
+          <View style={[styles.headerTitleContainer, { backgroundColor: headerSurface, borderColor: headerBorder }]}>
+            <Bot color={headerContentColor} size={20} strokeWidth={2.3} />
+            <Text style={[styles.headerTitle, { color: headerContentColor }]}>Practice</Text>
+          </View>
+
+          <View style={styles.headerPlaceholder} />
         </View>
 
         <ScrollView
@@ -79,18 +132,28 @@ export default function PracticePage() {
         >
           <View style={styles.titleSection}>
             <Text style={styles.title}>Choose Your Practice</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.subtitle, { color: mutedTextColor }]}>
               {preselectedDeck
-                ? `Using ${preselectedDeck.name} — pick solo or local versus`
-                : 'Sharpen your recall solo or with a friend'}
+                ? `Using ${preselectedDeck.name} — pick solo or local versus.`
+                : 'Quick head-to-head rounds with a sharper, cleaner setup.'}
             </Text>
           </View>
 
           {decks.length === 0 ? (
-            <View style={styles.emptyState}>
-              <BookOpen color={theme.textTertiary} size={48} strokeWidth={2.2} />
+            <View
+              style={[
+                styles.emptyState,
+                {
+                  backgroundColor: heroSurface,
+                  borderColor: surfaceBorderColor,
+                },
+              ]}
+            >
+              <View style={[styles.emptyStateIconShell, { backgroundColor: insetSurface }]}>
+                <BookOpen color={theme.textTertiary} size={28} strokeWidth={2.2} />
+              </View>
               <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No decks available</Text>
-              <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>Create a deck to practice with.</Text>
+              <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>Create a deck to start practicing.</Text>
               <TouchableOpacity
                 style={[styles.emptyStateButton, { backgroundColor: theme.primary }]}
                 onPress={() => router.push('/decks' as any)}
@@ -102,67 +165,158 @@ export default function PracticePage() {
             </View>
           ) : (
             <>
+              <View
+                style={[
+                  styles.summaryStrip,
+                  {
+                    backgroundColor: heroSurface,
+                    borderColor: surfaceBorderColor,
+                    shadowOpacity: isDark ? 0.2 : 0.08,
+                    shadowRadius: isDark ? 16 : 10,
+                    elevation: isDark ? 7 : 3,
+                  },
+                ]}
+              >
+                <View style={styles.summaryRow}>
+                  <View style={[styles.summaryIconShell, { backgroundColor: insetSurface }]}>
+                    <BookOpen color={summaryAccent} size={20} strokeWidth={2.3} />
+                  </View>
+                  <View style={styles.summaryCopy}>
+                    <Text style={[styles.summaryEyebrow, { color: summaryAccent }]}>
+                      {preselectedDeck ? 'Selected deck' : 'Deck lineup'}
+                    </Text>
+                    <Text style={[styles.summaryTitle, { color: theme.text }]} numberOfLines={1}>{summaryTitle}</Text>
+                    <Text style={[styles.summarySubtitle, { color: theme.textSecondary }]} numberOfLines={2}>{summarySubtitle}</Text>
+                  </View>
+                  <View style={[styles.summaryPill, { backgroundColor: insetSurface, borderColor: subtleBorderColor }]}>
+                    <Text style={[styles.summaryPillText, { color: summaryAccent }]}>5 rounds</Text>
+                  </View>
+                </View>
+              </View>
+
               <TouchableOpacity
-                style={styles.modeCard}
+                style={[
+                  styles.primaryActionCard,
+                  {
+                    shadowOpacity: isDark ? 0.26 : 0.14,
+                    shadowRadius: isDark ? 18 : 12,
+                    elevation: isDark ? 10 : 4,
+                  },
+                ]}
                 onPress={() => handleModeSelect('ai')}
-                activeOpacity={0.85}
+                activeOpacity={0.9}
+                testID="practice-ai-card"
               >
                 <LinearGradient
-                  colors={['#667eea', '#764ba2']}
+                  colors={aiGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={styles.modeGradient}
+                  style={styles.primaryActionGradient}
                 >
-                  <View style={styles.modeIcon}>
-                    <Bot color="#fff" size={56} strokeWidth={2} />
+                  <View style={styles.actionTopRow}>
+                    <Text style={styles.primaryEyebrow}>Smart AI match</Text>
+                    <View style={styles.settingsChip}>
+                      <Settings color="#fff" size={16} strokeWidth={2.2} />
+                    </View>
                   </View>
-                  <View style={styles.modeInfo}>
-                    <Text style={styles.modeTitle}>Solo Practice</Text>
-                    <Text style={styles.modeDescription}>
-                      Practice against our smart AI in a quick 5-round match
-                    </Text>
-                    <View style={styles.playButton}>
-                      <Play color="#fff" size={20} strokeWidth={2.5} fill="#fff" />
-                      <Text style={styles.playText}>Start Practice</Text>
+                  <View style={styles.actionRow}>
+                    <View style={styles.primaryIconShell}>
+                      <Bot color="#fff" size={30} strokeWidth={2.2} />
+                    </View>
+                    <View style={styles.actionContent}>
+                      <Text style={styles.primaryActionTitle}>Solo Practice</Text>
+                      <Text style={styles.primaryActionSubtitle}>
+                        Face the adaptive AI in a fast five-round match with clean pacing.
+                      </Text>
+                      <View style={styles.actionFooterRow}>
+                        <Text style={styles.primaryActionFootnote} numberOfLines={1}>
+                          {preselectedDeck ? `Using ${preselectedDeck.name}` : 'Choose a deck after tapping'}
+                        </Text>
+                        <View style={styles.primaryStartPill}>
+                          <Play color="#fff" size={16} strokeWidth={2.4} fill="#fff" />
+                          <Text style={styles.primaryStartText}>Start</Text>
+                        </View>
+                      </View>
                     </View>
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.modeCard}
+                style={[
+                  styles.secondaryActionCard,
+                  {
+                    backgroundColor: secondarySurface,
+                    borderColor: surfaceBorderColor,
+                    shadowOpacity: isDark ? 0.2 : 0.08,
+                    shadowRadius: isDark ? 14 : 8,
+                    elevation: isDark ? 6 : 2,
+                  },
+                ]}
                 onPress={() => handleModeSelect('multiplayer')}
                 activeOpacity={0.85}
+                testID="practice-local-card"
               >
-                <LinearGradient
-                  colors={['#F093FB', '#F5576C']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.modeGradient}
-                >
-                  <View style={styles.modeIcon}>
-                    <Users color="#fff" size={56} strokeWidth={2} />
-                  </View>
-                  <View style={styles.modeInfo}>
-                    <Text style={styles.modeTitle}>Local Versus</Text>
-                    <Text style={styles.modeDescription}>
-                      Pass the device for a local two-player practice match
-                    </Text>
-                    <View style={styles.playButton}>
-                      <Play color="#fff" size={20} strokeWidth={2.5} fill="#fff" />
-                      <Text style={styles.playText}>Start Practice</Text>
+                <View style={[styles.secondaryAccentBar, { backgroundColor: localAccent }]} />
+                <View style={styles.secondaryCardContent}>
+                  <View style={styles.actionTopRow}>
+                    <Text style={[styles.secondaryEyebrow, { color: localAccent }]}>Pass-and-play</Text>
+                    <View style={[styles.secondarySettingsChip, { backgroundColor: insetSurface, borderColor: subtleBorderColor }]}>
+                      <Settings color={localAccent} size={16} strokeWidth={2.2} />
                     </View>
                   </View>
-                </LinearGradient>
+                  <View style={styles.actionRow}>
+                    <View style={[styles.secondaryIconShell, { backgroundColor: insetSurface }]}>
+                      <Users color={localAccent} size={28} strokeWidth={2.2} />
+                    </View>
+                    <View style={styles.actionContent}>
+                      <Text style={[styles.secondaryActionTitle, { color: theme.text }]}>Local Versus</Text>
+                      <Text style={[styles.secondaryActionSubtitle, { color: theme.textSecondary }]}>Pass the device between two players for a quick local battle.</Text>
+                      <View style={styles.actionFooterRow}>
+                        <Text style={[styles.secondaryActionFootnote, { color: theme.textSecondary }]} numberOfLines={1}>
+                          {preselectedDeck ? `${preselectedDeck.flashcards.length} cards ready` : 'Choose a deck after tapping'}
+                        </Text>
+                        <View
+                          style={[
+                            styles.secondaryStartPill,
+                            {
+                              backgroundColor: isDark ? 'rgba(244, 114, 182, 0.14)' : 'rgba(236, 72, 153, 0.1)',
+                              borderColor: isDark ? 'rgba(244, 114, 182, 0.26)' : 'rgba(236, 72, 153, 0.16)',
+                            },
+                          ]}
+                        >
+                          <Play color={localAccent} size={16} strokeWidth={2.4} fill={localAccent} />
+                          <Text style={[styles.secondaryStartText, { color: localAccent }]}>Start</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                </View>
               </TouchableOpacity>
 
-              <View style={styles.infoSection}>
-                <Text style={styles.infoTitle}>How It Works</Text>
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoText}>• 5 rounds of flashcard questions</Text>
-                  <Text style={styles.infoText}>• Race to answer correctly first</Text>
-                  <Text style={styles.infoText}>• Win to earn bonus points</Text>
-                  <Text style={styles.infoText}>• Build your win streak</Text>
+              <View
+                style={[
+                  styles.infoCard,
+                  {
+                    backgroundColor: heroSurface,
+                    borderColor: surfaceBorderColor,
+                  },
+                ]}
+              >
+                <Text style={[styles.infoTitle, { color: theme.text }]}>How It Works</Text>
+                <View style={styles.infoList}>
+                  <View style={styles.infoRow}>
+                    <View style={[styles.infoDot, { backgroundColor: summaryAccent }]} />
+                    <Text style={[styles.infoText, { color: theme.textSecondary }]}>5 flashcard rounds with fast scoring and quick resets.</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <View style={[styles.infoDot, { backgroundColor: summaryAccent }]} />
+                    <Text style={[styles.infoText, { color: theme.textSecondary }]}>Solo uses the AI opponent. Local passes the device between two players.</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <View style={[styles.infoDot, { backgroundColor: summaryAccent }]} />
+                    <Text style={[styles.infoText, { color: theme.textSecondary }]}>Win clean rounds, learn faster, then jump back in for another set.</Text>
+                  </View>
                 </View>
               </View>
             </>
@@ -177,11 +331,22 @@ export default function PracticePage() {
         onRequestClose={() => setShowDeckSelector(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: modalSurface, borderColor: surfaceBorderColor }]}>
+            <View style={[styles.modalHandle, { backgroundColor: isDark ? 'rgba(148, 163, 184, 0.35)' : 'rgba(99, 102, 241, 0.18)' }]} />
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select a Deck</Text>
-              <TouchableOpacity onPress={() => setShowDeckSelector(false)}>
-                <Text style={styles.modalClose}>✕</Text>
+              <View style={styles.modalHeaderCopy}>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>Choose a deck</Text>
+                <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
+                  {selectedMode === 'multiplayer' ? 'Local Versus' : 'Solo Practice'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowDeckSelector(false)}
+                style={[styles.modalCloseButton, { backgroundColor: insetSurface, borderColor: subtleBorderColor }]}
+                activeOpacity={0.75}
+                testID="practice-close-deck-selector"
+              >
+                <Text style={[styles.modalCloseText, { color: theme.textSecondary }]}>✕</Text>
               </TouchableOpacity>
             </View>
 
@@ -189,15 +354,22 @@ export default function PracticePage() {
               {decks.map((deck) => (
                 <TouchableOpacity
                   key={deck.id}
-                  style={styles.deckOption}
+                  style={[styles.deckOption, { backgroundColor: secondarySurface, borderColor: surfaceBorderColor }]}
                   onPress={() => handleDeckSelect(deck.id)}
-                  activeOpacity={0.7}
+                  activeOpacity={0.8}
+                  testID={`practice-deck-option-${deck.id}`}
                 >
-                  <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
-                  <View style={styles.deckOptionInfo}>
-                    <Text style={styles.deckOptionName}>{deck.name}</Text>
-                    <Text style={styles.deckOptionCards}>{deck.flashcards.length} cards</Text>
+                  <View style={[styles.deckAccent, { backgroundColor: deck.color }]} />
+                  <View style={[styles.deckOptionIconShell, { backgroundColor: insetSurface }]}>
+                    <BookOpen color={deck.color} size={18} strokeWidth={2.3} />
                   </View>
+                  <View style={styles.deckOptionInfo}>
+                    <Text style={[styles.deckOptionName, { color: theme.text }]} numberOfLines={1}>{deck.name}</Text>
+                    <Text style={[styles.deckOptionCards, { color: theme.textSecondary }]} numberOfLines={1}>
+                      {deck.flashcards.length} cards · {deck.category}
+                    </Text>
+                  </View>
+                  <ChevronRight color={theme.textTertiary} size={18} strokeWidth={2.4} />
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -211,151 +383,368 @@ export default function PracticePage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#4ECDC4',
   },
   safeArea: {
     flex: 1,
+  },
+  topGlow: {
+    position: 'absolute',
+    top: -80,
+    right: -40,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+  },
+  bottomGlow: {
+    position: 'absolute',
+    bottom: 60,
+    left: -50,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 12,
   },
-  backButton: {
-    width: 40,
-    height: 40,
+  headerButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+  },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 22,
+    borderWidth: 1,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800' as const,
   },
-  placeholder: {
-    width: 40,
+  headerPlaceholder: {
+    width: 52,
+    height: 52,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
+    paddingHorizontal: 20,
     paddingBottom: 40,
+    gap: 16,
   },
   titleSection: {
-    paddingHorizontal: 24,
-    marginBottom: 32,
+    marginTop: 10,
+    marginBottom: 4,
   },
   title: {
-    fontSize: 36,
-    fontWeight: '800' as const,
+    fontSize: 42,
+    lineHeight: 46,
+    fontWeight: '900' as const,
     color: '#fff',
-    marginBottom: 8,
-    letterSpacing: -0.5,
+    letterSpacing: -1.1,
+    maxWidth: 280,
   },
   subtitle: {
+    marginTop: 12,
     fontSize: 17,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '500' as const,
+    lineHeight: 24,
+    fontWeight: '600' as const,
+    maxWidth: 340,
   },
-  modeCard: {
-    marginHorizontal: 24,
-    marginBottom: 20,
+  summaryStrip: {
+    borderRadius: 26,
+    padding: 18,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  summaryIconShell: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  summaryCopy: {
+    flex: 1,
+    marginRight: 12,
+  },
+  summaryEyebrow: {
+    fontSize: 12,
+    fontWeight: '800' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  summaryTitle: {
+    fontSize: 20,
+    fontWeight: '800' as const,
+  },
+  summarySubtitle: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600' as const,
+  },
+  summaryPill: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  summaryPillText: {
+    fontSize: 12,
+    fontWeight: '800' as const,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  primaryActionCard: {
+    borderRadius: 30,
+    overflow: 'hidden',
+    shadowColor: '#1d4ed8',
+    shadowOffset: { width: 0, height: 10 },
+  },
+  primaryActionGradient: {
+    padding: 20,
+  },
+  actionTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  primaryEyebrow: {
+    fontSize: 13,
+    fontWeight: '800' as const,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    color: 'rgba(255, 255, 255, 0.86)',
+  },
+  settingsChip: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  primaryIconShell: {
+    width: 72,
+    height: 72,
     borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    marginRight: 16,
+  },
+  actionContent: {
+    flex: 1,
+  },
+  primaryActionTitle: {
+    fontSize: 32,
+    lineHeight: 34,
+    fontWeight: '900' as const,
+    color: '#fff',
+    letterSpacing: -0.8,
+  },
+  primaryActionSubtitle: {
+    marginTop: 10,
+    fontSize: 16,
+    lineHeight: 23,
+    fontWeight: '600' as const,
+    color: 'rgba(255, 255, 255, 0.88)',
+    maxWidth: 240,
+  },
+  actionFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 18,
+    gap: 12,
+  },
+  primaryActionFootnote: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: 'rgba(255, 255, 255, 0.82)',
+  },
+  primaryStartPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  primaryStartText: {
+    fontSize: 14,
+    fontWeight: '800' as const,
+    color: '#fff',
+  },
+  secondaryActionCard: {
+    position: 'relative',
+    borderRadius: 28,
+    borderWidth: 1,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
   },
-  modeGradient: {
-    padding: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
+  secondaryAccentBar: {
+    position: 'absolute',
+    top: 18,
+    bottom: 18,
+    left: 0,
+    width: 5,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
   },
-  modeIcon: {
-    marginRight: 20,
+  secondaryCardContent: {
+    padding: 20,
+    paddingLeft: 22,
   },
-  modeInfo: {
-    flex: 1,
+  secondaryEyebrow: {
+    fontSize: 13,
+    fontWeight: '800' as const,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
   },
-  modeTitle: {
-    fontSize: 22,
-    fontWeight: '700' as const,
-    color: '#fff',
-    marginBottom: 8,
-  },
-  modeDescription: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 16,
-    lineHeight: 20,
-    fontWeight: '500' as const,
-  },
-  playButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  secondarySettingsChip: {
+    width: 34,
+    height: 34,
     borderRadius: 12,
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
   },
-  playText: {
-    fontSize: 15,
+  secondaryIconShell: {
+    width: 68,
+    height: 68,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  secondaryActionTitle: {
+    fontSize: 30,
+    lineHeight: 32,
+    fontWeight: '900' as const,
+    letterSpacing: -0.7,
+  },
+  secondaryActionSubtitle: {
+    marginTop: 10,
+    fontSize: 16,
+    lineHeight: 23,
+    fontWeight: '600' as const,
+    maxWidth: 240,
+  },
+  secondaryActionFootnote: {
+    flex: 1,
+    fontSize: 13,
     fontWeight: '700' as const,
-    color: '#fff',
   },
-  infoSection: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+  secondaryStartPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  secondaryStartText: {
+    fontSize: 14,
+    fontWeight: '800' as const,
+  },
+  infoCard: {
+    marginTop: 4,
+    borderRadius: 26,
+    padding: 20,
+    borderWidth: 1,
   },
   infoTitle: {
     fontSize: 24,
-    fontWeight: '700' as const,
-    color: '#fff',
-    marginBottom: 16,
+    fontWeight: '800' as const,
+    marginBottom: 14,
+    letterSpacing: -0.4,
   },
-  infoCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 20,
-    padding: 24,
+  infoList: {
     gap: 12,
   },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  infoDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 7,
+  },
   infoText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500' as const,
-    lineHeight: 24,
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '600' as const,
   },
   emptyState: {
-    minHeight: 340,
+    minHeight: 360,
+    marginTop: 8,
+    borderRadius: 28,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
+  },
+  emptyStateIconShell: {
+    width: 64,
+    height: 64,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyStateTitle: {
-    marginTop: 20,
-    marginBottom: 10,
-    fontSize: 18,
-    fontWeight: '700' as const,
-    textAlign: 'center' as const,
+    marginTop: 18,
+    fontSize: 20,
+    fontWeight: '800' as const,
+    textAlign: 'center',
   },
   emptyStateSubtitle: {
+    marginTop: 8,
     maxWidth: 280,
-    fontSize: 14,
-    lineHeight: 21,
-    fontWeight: '500' as const,
-    textAlign: 'center' as const,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '600' as const,
+    textAlign: 'center',
   },
   emptyStateButton: {
     marginTop: 20,
     minWidth: 148,
-    borderRadius: 14,
+    borderRadius: 16,
     paddingHorizontal: 22,
     paddingVertical: 14,
     alignItems: 'center',
@@ -363,68 +752,98 @@ const styles = StyleSheet.create({
   },
   emptyStateButtonText: {
     fontSize: 15,
-    fontWeight: '700' as const,
+    fontWeight: '800' as const,
     color: '#fff',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.56)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingTop: 24,
-    paddingBottom: 40,
-    maxHeight: '70%',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    borderWidth: 1,
+    paddingTop: 10,
+    paddingBottom: 36,
+    maxHeight: '78%',
+  },
+  modalHandle: {
+    alignSelf: 'center',
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    marginBottom: 16,
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 18,
+  },
+  modalHeaderCopy: {
+    flex: 1,
+    marginRight: 12,
   },
   modalTitle: {
     fontSize: 24,
-    fontWeight: '700' as const,
-    color: '#333',
+    fontWeight: '800' as const,
+    letterSpacing: -0.5,
   },
-  modalClose: {
-    fontSize: 28,
-    color: '#666',
-    fontWeight: '400' as const,
+  modalSubtitle: {
+    marginTop: 4,
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  modalCloseText: {
+    fontSize: 20,
+    fontWeight: '600' as const,
   },
   deckList: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   deckOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 14,
     marginBottom: 12,
   },
-  deckColorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 16,
+  deckAccent: {
+    width: 4,
+    alignSelf: 'stretch',
+    borderRadius: 4,
+    marginRight: 12,
+  },
+  deckOptionIconShell: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
   deckOptionInfo: {
     flex: 1,
+    marginRight: 12,
   },
   deckOptionName: {
-    fontSize: 17,
-    fontWeight: '700' as const,
-    color: '#333',
-    marginBottom: 2,
+    fontSize: 16,
+    fontWeight: '800' as const,
   },
   deckOptionCards: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500' as const,
+    marginTop: 3,
+    fontSize: 13,
+    fontWeight: '600' as const,
   },
 });

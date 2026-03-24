@@ -173,20 +173,6 @@ export default function DeckHubScreen() {
             </View>
           </TouchableOpacity>
 
-          {dueForReviewCount > 0 && (
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: 'rgba(59,130,246,0.12)', borderWidth: 1, borderColor: 'rgba(59,130,246,0.3)' }]}
-              onPress={() => router.push({ pathname: '/quest', params: { deckId: deck.id, focusWeak: 'true' } } as Href)}
-              activeOpacity={0.85}
-            >
-              <Target color="#3B82F6" size={22} strokeWidth={2.2} />
-              <View style={styles.actionText}>
-                <Text style={[styles.actionTitle, { color: '#3B82F6' }]}>Review Due Cards</Text>
-                <Text style={[styles.actionDesc, { color: theme.textSecondary }]}>{dueForReviewCount} cards ready for review</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-
           <TouchableOpacity style={[styles.actionBtn, { backgroundColor: cardBg, borderWidth: 1, borderColor: isDark ? 'rgba(148,163,184,0.16)' : theme.border }]} onPress={() => router.push({ pathname: '/quest', params: { deckId: deck.id } } as Href)} activeOpacity={0.85}>
             <Target color={theme.primary} size={22} strokeWidth={2.2} />
             <View style={styles.actionText}>
@@ -195,12 +181,23 @@ export default function DeckHubScreen() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: cardBg, borderWidth: 1, borderColor: isDark ? 'rgba(148,163,184,0.16)' : theme.border }]} onPress={() => router.push({ pathname: '/practice', params: { deckId: deck.id } } as Href)} activeOpacity={0.85}>
-            <Swords color={theme.primary} size={22} strokeWidth={2.2} />
-            <View style={styles.actionText}>
-              <Text style={[styles.actionTitle, { color: theme.text }]}>Practice vs AI</Text>
-              <Text style={[styles.actionDesc, { color: theme.textSecondary }]}>Choose a mode, then battle</Text>
-            </View>
+          <TouchableOpacity style={styles.practiceActionCard} onPress={() => router.push({ pathname: '/practice', params: { deckId: deck.id } } as Href)} activeOpacity={0.9} testID="deckHubPracticeButton">
+            <LinearGradient
+              colors={isDark ? ['#4F7CFF', '#6158F3'] : ['#5F7CFF', '#7264FF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.practiceActionGradient}
+            >
+              <View style={styles.practiceActionRow}>
+                <View style={styles.practiceIconShell}>
+                  <Swords color="#fff" size={24} strokeWidth={2.3} />
+                </View>
+                <View style={styles.actionText}>
+                  <Text style={styles.actionTitle}>Practice vs AI</Text>
+                  <Text style={styles.actionDesc}>Pick solo or local versus with this deck ready</Text>
+                </View>
+              </View>
+            </LinearGradient>
           </TouchableOpacity>
 
           {weakCardCount >= 1 && (
@@ -257,6 +254,25 @@ const styles = StyleSheet.create({
   statVal: { fontSize: 18, fontWeight: '800' },
   statLbl: { fontSize: 11, fontWeight: '600', marginTop: 4, textAlign: 'center' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, padding: 16, gap: 14 },
+  practiceActionCard: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    shadowColor: '#1D4ED8',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  practiceActionGradient: { padding: 16, borderRadius: 18 },
+  practiceActionRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  practiceIconShell: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
   actionText: { flex: 1 },
   actionTitle: { fontSize: 16, fontWeight: '700', color: '#fff' },
   actionDesc: { fontSize: 12, fontWeight: '500', color: 'rgba(255,255,255,0.7)', marginTop: 2 },
