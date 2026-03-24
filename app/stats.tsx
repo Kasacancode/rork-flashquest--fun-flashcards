@@ -296,10 +296,10 @@ export default function StatsPage() {
   const backgroundGradient = useMemo(
     () => (
       isDark
-        ? [theme.gradientStart, theme.gradientMid, theme.gradientEnd] as const
-        : ['#FF6B6B', '#FF8E53', '#FFA07A'] as const
+        ? ['#09111f', '#11203a', '#0a1323'] as const
+        : ['#fafcff', '#eef4ff', '#f9f7ff'] as const
     ),
-    [isDark, theme.gradientEnd, theme.gradientMid, theme.gradientStart],
+    [isDark],
   );
 
   const calendarIntensityColors = useMemo(
@@ -323,7 +323,9 @@ export default function StatsPage() {
 
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const levelModalStyles = useMemo(() => createLevelModalStyles(theme, isDark), [theme, isDark]);
-  const headerContentColor = isDark ? theme.text : theme.white;
+  const headerContentColor = isDark ? '#F8FAFC' : '#2D2A61';
+  const topGlowColor = isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(125, 211, 252, 0.18)';
+  const bottomGlowColor = isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(99, 102, 241, 0.1)';
 
   const handleOpenLevels = useCallback(() => {
     setShowLevels(true);
@@ -341,26 +343,49 @@ export default function StatsPage() {
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      {isDark ? (
-        <LinearGradient
-          colors={['rgba(6, 10, 22, 0.06)', 'rgba(6, 10, 22, 0.34)', 'rgba(5, 8, 20, 0.76)']}
-          start={{ x: 0.1, y: 0 }}
-          end={{ x: 0.95, y: 1 }}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-      ) : null}
+      <LinearGradient
+        colors={
+          isDark
+            ? ['rgba(6, 10, 22, 0.06)', 'rgba(6, 10, 22, 0.34)', 'rgba(5, 8, 20, 0.76)']
+            : ['rgba(255, 255, 255, 0.24)', 'rgba(239, 246, 255, 0.16)', 'rgba(248, 250, 252, 0.62)']
+        }
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.95, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View pointerEvents="none" style={[styles.topGlow, { backgroundColor: topGlowColor }]} />
+      <View pointerEvents="none" style={[styles.bottomGlow, { backgroundColor: bottomGlowColor }]} />
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => router.back()}
-            style={styles.backButton}
+            style={[
+              styles.backButton,
+              {
+                backgroundColor: isDark ? 'rgba(10, 17, 34, 0.46)' : 'rgba(255, 255, 255, 0.58)',
+                borderColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.18)',
+                shadowOpacity: isDark ? 0.22 : 0.08,
+                shadowRadius: isDark ? 14 : 10,
+                elevation: isDark ? 6 : 3,
+              },
+            ]}
             testID="stats-back-button"
           >
-            <ArrowLeft color={headerContentColor} size={28} strokeWidth={2.5} />
+            <ArrowLeft color={headerContentColor} size={24} strokeWidth={2.5} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: headerContentColor }]}>Your Stats</Text>
+          <View
+            style={[
+              styles.headerTitleWrap,
+              {
+                backgroundColor: isDark ? 'rgba(10, 17, 34, 0.42)' : 'rgba(255, 255, 255, 0.5)',
+                borderColor: isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(148, 163, 184, 0.16)',
+              },
+            ]}
+          >
+            <Text style={[styles.headerTitle, { color: headerContentColor }]}>Your Stats</Text>
+          </View>
           <View style={styles.placeholder} />
         </View>
 
@@ -377,11 +402,17 @@ export default function StatsPage() {
             testID="stats-score-card"
           >
             <LinearGradient
-              colors={isDark ? ['rgba(56, 189, 248, 0.08)', 'rgba(15, 23, 42, 0.78)'] : [theme.cardBackground, theme.cardBackground]}
+              colors={
+                isDark
+                  ? ['rgba(56, 189, 248, 0.18)', 'rgba(9, 17, 33, 0.98)']
+                  : ['rgba(255, 255, 255, 0.94)', 'rgba(229, 241, 255, 0.92)']
+              }
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
             />
+            <View style={[styles.levelOrb, { backgroundColor: isDark ? 'rgba(56, 189, 248, 0.2)' : 'rgba(125, 211, 252, 0.2)' }]} />
+            <Text style={styles.levelEyebrow}>Progression</Text>
             <View style={styles.levelBadge}>
               <Text style={styles.levelBadgeText}>{level}</Text>
             </View>
@@ -402,6 +433,7 @@ export default function StatsPage() {
                   : `${levelProgress.current} / ${levelProgress.required} to Level ${level + 1}`}
               </Text>
             </View>
+            <Text style={styles.levelHint}>Tap to view all levels</Text>
           </TouchableOpacity>
 
           <View style={styles.weeklyCard}>
@@ -769,18 +801,34 @@ export default function StatsPage() {
 }
 
 const createStyles = (theme: ThemeValues, isDark: boolean) => {
-  const statSurface = isDark ? 'rgba(15, 23, 42, 0.78)' : theme.statsCard;
-  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'transparent';
-  const statsAccent = isDark ? '#38bdf8' : '#0ea5e9';
-  const accentTint = isDark ? 'rgba(56, 189, 248, 0.08)' : 'rgba(14, 165, 233, 0.06)';
-  const accentBorder = isDark ? 'rgba(56, 189, 248, 0.18)' : 'rgba(14, 165, 233, 0.12)';
-  const deepSurface = isDark ? 'rgba(10, 17, 34, 0.88)' : theme.cardBackground;
-  const cardSurface = isDark ? 'rgba(12, 19, 33, 0.82)' : theme.cardBackground;
+  const statSurface = isDark ? 'rgba(9, 18, 35, 0.84)' : 'rgba(255, 255, 255, 0.84)';
+  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.16)';
+  const statsAccent = isDark ? '#38bdf8' : '#0284c7';
+  const accentTint = isDark ? 'rgba(56, 189, 248, 0.1)' : 'rgba(14, 165, 233, 0.1)';
+  const accentBorder = isDark ? 'rgba(56, 189, 248, 0.18)' : 'rgba(125, 211, 252, 0.26)';
+  const deepSurface = isDark ? 'rgba(7, 15, 31, 0.92)' : 'rgba(247, 250, 255, 0.9)';
+  const cardSurface = isDark ? 'rgba(11, 20, 37, 0.84)' : 'rgba(255, 255, 255, 0.88)';
 
   return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: theme.background,
+    },
+    topGlow: {
+      position: 'absolute',
+      top: -96,
+      right: -44,
+      width: 240,
+      height: 240,
+      borderRadius: 120,
+    },
+    bottomGlow: {
+      position: 'absolute',
+      bottom: 140,
+      left: -70,
+      width: 260,
+      height: 260,
+      borderRadius: 130,
     },
     safeArea: {
       flex: 1,
@@ -790,40 +838,73 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 20,
-      paddingVertical: 16,
+      paddingVertical: 14,
     },
     backButton: {
-      width: 40,
-      height: 40,
+      width: 46,
+      height: 46,
+      borderRadius: 16,
       justifyContent: 'center',
       alignItems: 'center',
+      borderWidth: 1,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+    },
+    headerTitleWrap: {
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      borderRadius: 18,
+      borderWidth: 1,
     },
     headerTitle: {
-      fontSize: 20,
-      fontWeight: '700' as const,
+      fontSize: 22,
+      fontWeight: '800' as const,
       color: theme.white,
+      letterSpacing: -0.5,
     },
     placeholder: {
-      width: 40,
+      width: 46,
+      height: 46,
     },
     scrollView: {
       flex: 1,
     },
     scrollContent: {
       paddingBottom: 40,
+      gap: 2,
     },
 
     levelCard: {
       marginHorizontal: 24,
-      marginBottom: 20,
-      borderRadius: 20,
-      padding: 24,
+      marginBottom: 18,
+      borderRadius: 28,
+      padding: 26,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: cardSurface,
       overflow: 'hidden',
-      borderWidth: isDark ? 1 : 0,
+      borderWidth: 1,
       borderColor: accentBorder,
+      shadowColor: isDark ? '#38bdf8' : '#93c5fd',
+      shadowOffset: { width: 0, height: 16 },
+      shadowOpacity: isDark ? 0.26 : 0.14,
+      shadowRadius: isDark ? 28 : 20,
+      elevation: isDark ? 10 : 5,
+    },
+    levelOrb: {
+      position: 'absolute',
+      top: -54,
+      width: 180,
+      height: 180,
+      borderRadius: 90,
+    },
+    levelEyebrow: {
+      fontSize: 11,
+      fontWeight: '800' as const,
+      color: theme.textTertiary,
+      letterSpacing: 1,
+      textTransform: 'uppercase' as const,
+      marginBottom: 12,
     },
     levelBadge: {
       width: 56,
@@ -853,7 +934,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     },
     levelXpText: {
       fontSize: 14,
-      fontWeight: '600' as const,
+      fontWeight: '700' as const,
       color: theme.textSecondary,
       marginBottom: 16,
     },
@@ -873,20 +954,31 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     },
     levelBarLabel: {
       fontSize: 12,
-      fontWeight: '600' as const,
+      fontWeight: '700' as const,
       color: theme.textTertiary,
       textAlign: 'center',
-      marginTop: 8,
+      marginTop: 10,
+    },
+    levelHint: {
+      fontSize: 12,
+      fontWeight: '700' as const,
+      color: statsAccent,
+      marginTop: 14,
     },
 
     weeklyCard: {
       marginHorizontal: 24,
-      marginBottom: 20,
-      borderRadius: 20,
-      padding: 20,
-      backgroundColor: cardSurface,
+      marginBottom: 18,
+      borderRadius: 24,
+      padding: 22,
+      backgroundColor: deepSurface,
       borderWidth: 1,
-      borderColor: accentBorder,
+      borderColor: surfaceBorderColor,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: isDark ? 0.14 : 0.06,
+      shadowRadius: isDark ? 18 : 12,
+      elevation: isDark ? 6 : 3,
     },
     weeklyHeader: {
       flexDirection: 'row',
@@ -932,12 +1024,17 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
 
     calendarCard: {
       marginHorizontal: 24,
-      marginBottom: 20,
-      borderRadius: 20,
-      padding: 20,
+      marginBottom: 18,
+      borderRadius: 24,
+      padding: 22,
       backgroundColor: deepSurface,
       borderWidth: 1,
-      borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
+      borderColor: surfaceBorderColor,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: isDark ? 0.16 : 0.06,
+      shadowRadius: isDark ? 18 : 12,
+      elevation: isDark ? 6 : 3,
     },
     calendarTitle: {
       fontSize: 16,
@@ -1041,18 +1138,23 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
 
     masteryCard: {
       marginHorizontal: 24,
-      marginBottom: 20,
-      borderRadius: 20,
-      padding: 20,
+      marginBottom: 18,
+      borderRadius: 24,
+      padding: 22,
       backgroundColor: cardSurface,
       borderWidth: 1,
-      borderColor: accentBorder,
+      borderColor: surfaceBorderColor,
       alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: isDark ? 0.14 : 0.06,
+      shadowRadius: isDark ? 18 : 12,
+      elevation: isDark ? 6 : 3,
     },
     sectionLabel: {
       fontSize: 12,
       fontWeight: '700' as const,
-      color: statsAccent,
+      color: theme.textTertiary,
       textTransform: 'uppercase',
       letterSpacing: 1,
       marginBottom: 12,
@@ -1092,12 +1194,17 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
 
     performanceCard: {
       marginHorizontal: 24,
-      marginBottom: 20,
-      borderRadius: 20,
-      padding: 20,
+      marginBottom: 18,
+      borderRadius: 24,
+      padding: 22,
       backgroundColor: cardSurface,
       borderWidth: 1,
-      borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
+      borderColor: surfaceBorderColor,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: isDark ? 0.14 : 0.06,
+      shadowRadius: isDark ? 18 : 12,
+      elevation: isDark ? 6 : 3,
     },
     perfRow: {
       flexDirection: 'row',
@@ -1143,12 +1250,17 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
 
     trendCard: {
       marginHorizontal: 24,
-      marginBottom: 20,
-      borderRadius: 20,
-      padding: 20,
+      marginBottom: 18,
+      borderRadius: 24,
+      padding: 22,
       backgroundColor: cardSurface,
       borderWidth: 1,
-      borderColor: accentBorder,
+      borderColor: surfaceBorderColor,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: isDark ? 0.14 : 0.06,
+      shadowRadius: isDark ? 18 : 12,
+      elevation: isDark ? 6 : 3,
     },
     trendRow: {
       flexDirection: 'row',
@@ -1192,11 +1304,16 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     deckProgressCard: {
       flexDirection: 'row',
       backgroundColor: cardSurface,
-      borderRadius: 16,
+      borderRadius: 20,
       marginBottom: 10,
       overflow: 'hidden',
       borderWidth: 1,
-      borderColor: isDark ? 'rgba(148, 163, 184, 0.1)' : 'transparent',
+      borderColor: surfaceBorderColor,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: isDark ? 0.12 : 0.04,
+      shadowRadius: 12,
+      elevation: isDark ? 4 : 2,
     },
     deckIndicator: {
       width: 4,

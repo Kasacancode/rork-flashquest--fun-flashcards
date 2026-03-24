@@ -57,17 +57,17 @@ export default function PracticePage() {
   const backgroundGradient = useMemo(
     () => (
       isDark
-        ? ['#171a2b', '#261a34', '#0b1120'] as const
-        : ['#f7f5ff', '#eef3ff', '#fff1f7'] as const
+        ? ['#101827', '#1b1d32', '#0b1322'] as const
+        : ['#faf7ff', '#f1f5ff', '#fff7fb'] as const
     ),
     [isDark],
   );
 
-  const topGlow = isDark ? 'rgba(96, 165, 250, 0.18)' : 'rgba(99, 102, 241, 0.14)';
-  const bottomGlow = isDark ? 'rgba(244, 114, 182, 0.14)' : 'rgba(236, 72, 153, 0.12)';
-  const heroSurface = isDark ? 'rgba(10, 16, 29, 0.84)' : 'rgba(255, 255, 255, 0.78)';
-  const secondarySurface = isDark ? 'rgba(9, 15, 27, 0.88)' : 'rgba(255, 255, 255, 0.9)';
-  const headerSurface = isDark ? 'rgba(10, 17, 30, 0.42)' : 'rgba(255, 255, 255, 0.52)';
+  const topGlow = isDark ? 'rgba(96, 165, 250, 0.14)' : 'rgba(99, 102, 241, 0.12)';
+  const bottomGlow = isDark ? 'rgba(244, 114, 182, 0.1)' : 'rgba(236, 72, 153, 0.08)';
+  const heroSurface = isDark ? 'rgba(10, 16, 29, 0.8)' : 'rgba(255, 255, 255, 0.8)';
+  const secondarySurface = isDark ? 'rgba(10, 17, 30, 0.84)' : 'rgba(255, 255, 255, 0.86)';
+  const headerSurface = isDark ? 'rgba(10, 17, 30, 0.4)' : 'rgba(255, 255, 255, 0.5)';
   const headerBorder = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(99, 102, 241, 0.12)';
   const headerButtonBorder = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(99, 102, 241, 0.14)';
   const controlSurface = isDark ? 'rgba(17, 24, 39, 0.44)' : 'rgba(255, 255, 255, 0.62)';
@@ -131,7 +131,7 @@ export default function PracticePage() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.titleSection}>
-            <Text style={styles.title}>Choose Your Practice</Text>
+            <Text style={[styles.title, { color: isDark ? '#F8FAFC' : '#2D2A61' }]}>Choose Your Practice</Text>
             <Text style={[styles.subtitle, { color: mutedTextColor }]}>
               {preselectedDeck
                 ? `Using ${preselectedDeck.name} — pick solo or local versus.`
@@ -298,7 +298,7 @@ export default function PracticePage() {
                 style={[
                   styles.infoCard,
                   {
-                    backgroundColor: heroSurface,
+                    backgroundColor: secondarySurface,
                     borderColor: surfaceBorderColor,
                   },
                 ]}
@@ -351,7 +351,21 @@ export default function PracticePage() {
             </View>
 
             <ScrollView style={styles.deckList} showsVerticalScrollIndicator={false}>
-              {decks.map((deck) => (
+              {decks.length === 0 ? (
+                <View style={styles.modalEmptyState}>
+                  <Text style={[styles.modalEmptyTitle, { color: theme.text }]}>No Decks Yet</Text>
+                  <Text style={[styles.modalEmptySubtitle, { color: theme.textSecondary }]}>Create your first deck to start practicing.</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowDeckSelector(false);
+                      router.push('/decks' as any);
+                    }}
+                    style={[styles.modalEmptyButton, { backgroundColor: theme.primary }]}
+                  >
+                    <Text style={styles.modalEmptyButtonText}>Go to Decks</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : decks.map((deck) => (
                 <TouchableOpacity
                   key={deck.id}
                   style={[styles.deckOption, { backgroundColor: secondarySurface, borderColor: surfaceBorderColor }]}
@@ -389,26 +403,26 @@ const styles = StyleSheet.create({
   },
   topGlow: {
     position: 'absolute',
-    top: -80,
-    right: -40,
+    top: -98,
+    right: -56,
     width: 220,
     height: 220,
     borderRadius: 110,
   },
   bottomGlow: {
     position: 'absolute',
-    bottom: 60,
-    left: -50,
-    width: 240,
-    height: 240,
-    borderRadius: 120,
+    bottom: 90,
+    left: -62,
+    width: 230,
+    height: 230,
+    borderRadius: 115,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   headerButton: {
     width: 52,
@@ -425,8 +439,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderRadius: 22,
+    paddingVertical: 12,
+    borderRadius: 20,
     borderWidth: 1,
   },
   headerTitle: {
@@ -443,11 +457,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
-    gap: 16,
+    gap: 14,
   },
   titleSection: {
-    marginTop: 10,
-    marginBottom: 4,
+    marginTop: 8,
+    marginBottom: 2,
   },
   title: {
     fontSize: 42,
@@ -465,11 +479,11 @@ const styles = StyleSheet.create({
     maxWidth: 340,
   },
   summaryStrip: {
-    borderRadius: 26,
+    borderRadius: 24,
     padding: 18,
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 10 },
   },
   summaryRow: {
     flexDirection: 'row',
@@ -517,13 +531,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   primaryActionCard: {
-    borderRadius: 30,
+    borderRadius: 28,
     overflow: 'hidden',
     shadowColor: '#1d4ed8',
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: 12 },
   },
   primaryActionGradient: {
     padding: 20,
+    minHeight: 222,
+    justifyContent: 'space-between',
   },
   actionTopRow: {
     flexDirection: 'row',
@@ -606,7 +622,7 @@ const styles = StyleSheet.create({
   },
   secondaryActionCard: {
     position: 'relative',
-    borderRadius: 28,
+    borderRadius: 26,
     borderWidth: 1,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -679,8 +695,8 @@ const styles = StyleSheet.create({
     fontWeight: '800' as const,
   },
   infoCard: {
-    marginTop: 4,
-    borderRadius: 26,
+    marginTop: 2,
+    borderRadius: 24,
     padding: 20,
     borderWidth: 1,
   },
@@ -767,6 +783,11 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 36,
     maxHeight: '78%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 12,
   },
   modalHandle: {
     alignSelf: 'center',
@@ -818,6 +839,33 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 14,
     marginBottom: 12,
+  },
+  modalEmptyState: {
+    alignItems: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+  },
+  modalEmptyTitle: {
+    fontSize: 18,
+    fontWeight: '800' as const,
+    marginBottom: 8,
+  },
+  modalEmptySubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500' as const,
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  modalEmptyButton: {
+    borderRadius: 16,
+    paddingHorizontal: 22,
+    paddingVertical: 14,
+  },
+  modalEmptyButtonText: {
+    fontSize: 15,
+    fontWeight: '800' as const,
+    color: '#fff',
   },
   deckAccent: {
     width: 4,

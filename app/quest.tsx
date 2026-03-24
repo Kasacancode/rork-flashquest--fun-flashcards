@@ -131,13 +131,21 @@ export default function QuestMenuScreen() {
   };
 
   const smallDeckWarning = selectedDeck && selectedDeck.flashcards.length < 8;
-  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'transparent';
-  const statSurface = isDark ? 'rgba(15, 23, 42, 0.78)' : theme.cardBackground;
-  const sectionSurface = isDark ? 'rgba(10, 17, 34, 0.88)' : theme.cardBackground;
-  const insetSurface = isDark ? 'rgba(15, 23, 42, 0.82)' : theme.background;
-  const controlSurface = isDark ? 'rgba(71, 85, 105, 0.72)' : 'rgba(255, 255, 255, 0.2)';
-  const sheetSurface = isDark ? 'rgba(10, 17, 34, 0.98)' : theme.cardBackground;
-  const inactiveToggleSurface = isDark ? 'rgba(71, 85, 105, 0.64)' : theme.border;
+  const screenGradient = isDark ? ['#0b1324', '#13203a', '#0a1224'] as const : ['#f8fbff', '#eef4ff', '#faf7ff'] as const;
+  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.13)' : 'rgba(148, 163, 184, 0.16)';
+  const subtleBorderColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(148, 163, 184, 0.1)';
+  const statSurface = isDark ? 'rgba(9, 17, 33, 0.78)' : 'rgba(255, 255, 255, 0.78)';
+  const sectionSurface = isDark ? 'rgba(10, 18, 34, 0.84)' : 'rgba(255, 255, 255, 0.84)';
+  const insetSurface = isDark ? 'rgba(16, 26, 44, 0.92)' : 'rgba(243, 246, 255, 0.96)';
+  const selectedSurface = isDark ? 'rgba(99, 102, 241, 0.14)' : 'rgba(79, 70, 229, 0.08)';
+  const controlSurface = isDark ? 'rgba(10, 17, 34, 0.46)' : 'rgba(255, 255, 255, 0.54)';
+  const headerSurface = isDark ? 'rgba(10, 17, 34, 0.42)' : 'rgba(255, 255, 255, 0.48)';
+  const sheetSurface = isDark ? 'rgba(10, 17, 34, 0.98)' : 'rgba(255, 255, 255, 0.96)';
+  const inactiveToggleSurface = isDark ? 'rgba(71, 85, 105, 0.58)' : 'rgba(203, 213, 225, 0.9)';
+  const questAccent = isDark ? '#A5B4FC' : '#4F46E5';
+  const headerContentColor = isDark ? '#F8FAFC' : '#2E2A60';
+  const topGlowColor = isDark ? 'rgba(99, 102, 241, 0.16)' : 'rgba(99, 102, 241, 0.12)';
+  const bottomGlowColor = isDark ? 'rgba(45, 212, 191, 0.1)' : 'rgba(56, 189, 248, 0.08)';
 
   const settingsLabel = useMemo(() => {
     const parts: string[] = [];
@@ -152,20 +160,24 @@ export default function QuestMenuScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LinearGradient
-        colors={[theme.gradientStart, theme.gradientMid, theme.gradientEnd]}
+        colors={screenGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      {isDark ? (
-        <LinearGradient
-          colors={['rgba(6, 10, 22, 0.06)', 'rgba(6, 10, 22, 0.34)', 'rgba(5, 8, 20, 0.76)']}
-          start={{ x: 0.1, y: 0 }}
-          end={{ x: 0.95, y: 1 }}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-      ) : null}
+      <LinearGradient
+        colors={
+          isDark
+            ? ['rgba(6, 10, 22, 0.04)', 'rgba(6, 10, 22, 0.28)', 'rgba(5, 8, 20, 0.74)']
+            : ['rgba(255, 255, 255, 0.22)', 'rgba(241, 245, 255, 0.12)', 'rgba(248, 250, 252, 0.58)']
+        }
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.95, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View pointerEvents="none" style={[styles.topGlow, { backgroundColor: topGlowColor }]} />
+      <View pointerEvents="none" style={[styles.bottomGlow, { backgroundColor: bottomGlowColor }]} />
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.header}>
@@ -174,32 +186,38 @@ export default function QuestMenuScreen() {
               styles.backButton,
               {
                 backgroundColor: controlSurface,
-                borderWidth: isDark ? 1 : 0,
-                borderColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'transparent',
+                borderWidth: 1,
+                borderColor: subtleBorderColor,
+                shadowOpacity: isDark ? 0.22 : 0.08,
+                shadowRadius: isDark ? 14 : 10,
+                elevation: isDark ? 6 : 3,
               },
             ]}
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
-            <ArrowLeft color="#fff" size={24} />
+            <ArrowLeft color={headerContentColor} size={24} />
           </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <Target color="#fff" size={28} />
-            <Text style={styles.headerTitle}>Quest Mode</Text>
+          <View style={[styles.headerTitleContainer, { backgroundColor: headerSurface, borderColor: subtleBorderColor }]}>
+            <Target color={headerContentColor} size={24} strokeWidth={2.4} />
+            <Text style={[styles.headerTitle, { color: headerContentColor }]}>Quest Mode</Text>
           </View>
           <TouchableOpacity
             style={[
               styles.settingsButton,
               {
                 backgroundColor: controlSurface,
-                borderWidth: isDark ? 1 : 0,
-                borderColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'transparent',
+                borderWidth: 1,
+                borderColor: subtleBorderColor,
+                shadowOpacity: isDark ? 0.22 : 0.08,
+                shadowRadius: isDark ? 14 : 10,
+                elevation: isDark ? 6 : 3,
               },
             ]}
             onPress={openSheet}
             activeOpacity={0.7}
           >
-            <Settings color="#fff" size={22} />
+            <Settings color={headerContentColor} size={22} />
           </TouchableOpacity>
         </View>
 
@@ -209,7 +227,7 @@ export default function QuestMenuScreen() {
           showsVerticalScrollIndicator={false}
         >
           {!hasDecks ? (
-            <View style={styles.emptyState}>
+            <View style={[styles.emptyState, { backgroundColor: sectionSurface, borderColor: surfaceBorderColor }]}> 
               <Target color={theme.textTertiary} size={48} strokeWidth={2.2} />
               <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No decks available</Text>
               <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>Create a deck first, then come back to start a quest.</Text>
@@ -239,9 +257,9 @@ export default function QuestMenuScreen() {
               >
             <View style={styles.statItem}>
               <View style={[styles.statIconShell, { backgroundColor: insetSurface }]}> 
-                <Target color={theme.primary} size={18} strokeWidth={2.2} />
+                <Target color={questAccent} size={18} strokeWidth={2.2} />
               </View>
-              <Text style={[styles.statValue, { color: theme.primary }]}>
+              <Text style={[styles.statValue, { color: theme.text }]}>
                 {overallAccuracy !== null ? `${Math.round(overallAccuracy * 100)}%` : '--'}
               </Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Quest Accuracy</Text>
@@ -254,9 +272,9 @@ export default function QuestMenuScreen() {
             />
             <View style={styles.statItem}>
               <View style={[styles.statIconShell, { backgroundColor: insetSurface }]}> 
-                <Flame color={theme.primary} size={18} strokeWidth={2.2} />
+                <Flame color={questAccent} size={18} strokeWidth={2.2} />
               </View>
-              <Text style={[styles.statValue, { color: theme.primary }]}>
+              <Text style={[styles.statValue, { color: theme.text }]}>
                 {performance.bestQuestStreak}
               </Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Best Streak</Text>
@@ -269,9 +287,9 @@ export default function QuestMenuScreen() {
             />
             <View style={styles.statItem}>
               <View style={[styles.statIconShell, { backgroundColor: insetSurface }]}> 
-                <Award color={theme.primary} size={18} strokeWidth={2.2} />
+                <Award color={questAccent} size={18} strokeWidth={2.2} />
               </View>
-              <Text style={[styles.statValue, { color: theme.primary }]}>
+              <Text style={[styles.statValue, { color: theme.text }]}>
                 {deckAccuracy !== null ? `${Math.round(deckAccuracy * 100)}%` : '--'}
               </Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Deck Accuracy</Text>
@@ -303,9 +321,13 @@ export default function QuestMenuScreen() {
                   style={[
                     styles.deckOption,
                     {
-                      backgroundColor: insetSurface,
-                      borderWidth: selectedDeckId === deck.id ? 2 : isDark ? 1 : 2,
+                      backgroundColor: selectedDeckId === deck.id ? selectedSurface : insetSurface,
+                      borderWidth: selectedDeckId === deck.id ? 1.5 : 1,
                       borderColor: selectedDeckId === deck.id ? theme.primary : surfaceBorderColor,
+                      shadowColor: deck.color,
+                      shadowOpacity: selectedDeckId === deck.id ? (isDark ? 0.18 : 0.08) : 0,
+                      shadowRadius: selectedDeckId === deck.id ? 12 : 0,
+                      elevation: selectedDeckId === deck.id ? 4 : 0,
                     },
                   ]}
                   onPress={() => setSelectedDeckId(deck.id)}
@@ -349,19 +371,25 @@ export default function QuestMenuScreen() {
               <TouchableOpacity
                 style={[
                   styles.modeButton,
-                  { backgroundColor: insetSurface },
-                  mode === 'learn' && { backgroundColor: theme.primary },
+                  {
+                    backgroundColor: mode === 'learn' ? selectedSurface : insetSurface,
+                    borderColor: mode === 'learn' ? theme.primary : subtleBorderColor,
+                    shadowColor: theme.primary,
+                    shadowOpacity: mode === 'learn' ? (isDark ? 0.18 : 0.06) : 0,
+                    shadowRadius: mode === 'learn' ? 12 : 0,
+                    elevation: mode === 'learn' ? 3 : 0,
+                  },
                 ]}
                 onPress={() => handleModeChange('learn')}
                 activeOpacity={0.7}
               >
                 <BookOpen
-                  color={mode === 'learn' ? '#fff' : theme.text}
+                  color={mode === 'learn' ? theme.primary : theme.textSecondary}
                   size={20}
                 />
                 <Text style={[
                   styles.modeText,
-                  { color: mode === 'learn' ? '#fff' : theme.text },
+                  { color: mode === 'learn' ? theme.text : theme.textSecondary },
                 ]}>
                   Learn
                 </Text>
@@ -369,19 +397,25 @@ export default function QuestMenuScreen() {
               <TouchableOpacity
                 style={[
                   styles.modeButton,
-                  { backgroundColor: insetSurface },
-                  mode === 'test' && { backgroundColor: theme.primary },
+                  {
+                    backgroundColor: mode === 'test' ? selectedSurface : insetSurface,
+                    borderColor: mode === 'test' ? theme.primary : subtleBorderColor,
+                    shadowColor: theme.primary,
+                    shadowOpacity: mode === 'test' ? (isDark ? 0.18 : 0.06) : 0,
+                    shadowRadius: mode === 'test' ? 12 : 0,
+                    elevation: mode === 'test' ? 3 : 0,
+                  },
                 ]}
                 onPress={() => handleModeChange('test')}
                 activeOpacity={0.7}
               >
                 <Zap
-                  color={mode === 'test' ? '#fff' : theme.text}
+                  color={mode === 'test' ? theme.primary : theme.textSecondary}
                   size={20}
                 />
                 <Text style={[
                   styles.modeText,
-                  { color: mode === 'test' ? '#fff' : theme.text },
+                  { color: mode === 'test' ? theme.text : theme.textSecondary },
                 ]}>
                   Test
                 </Text>
@@ -667,38 +701,63 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  topGlow: {
+    position: 'absolute',
+    top: -88,
+    right: -52,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+  },
+  bottomGlow: {
+    position: 'absolute',
+    bottom: 96,
+    left: -68,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
   },
   headerTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 18,
+    borderWidth: 1,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '700' as const,
+    fontSize: 22,
+    fontWeight: '800' as const,
     color: '#fff',
+    letterSpacing: -0.4,
   },
   settingsButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
   },
   scrollView: {
     flex: 1,
@@ -710,15 +769,15 @@ const styles = StyleSheet.create({
   statsCard: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    borderRadius: 24,
+    borderRadius: 26,
     borderWidth: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 10,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
     marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 12,
     elevation: 4,
   },
   statItem: {
@@ -750,13 +809,13 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   section: {
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 20,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowRadius: 12,
     elevation: 2,
   },
   sectionTitle: {
@@ -769,10 +828,10 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
   deckOption: {
-    width: 120,
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 2,
+    width: 128,
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1,
     borderColor: 'transparent',
   },
   deckColorDot: {
@@ -805,7 +864,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 14,
-    borderRadius: 14,
+    borderRadius: 16,
+    borderWidth: 1,
   },
   modeText: {
     fontSize: 16,
@@ -820,14 +880,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 14,
+    borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06,
-    shadowRadius: 4,
+    shadowRadius: 8,
     elevation: 1,
   },
   settingsSummaryLeft: {
@@ -851,7 +911,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingVertical: 24,
+    borderRadius: 28,
+    borderWidth: 1,
+    marginTop: 4,
   },
   emptyStateTitle: {
     marginTop: 20,
@@ -886,13 +949,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   startButton: {
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 6,
   },
   disabledButton: {
     opacity: 0.5,

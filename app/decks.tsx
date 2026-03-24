@@ -217,38 +217,86 @@ export default function DecksPage() {
     });
   }, [activeCategory, searchQuery]);
 
+  const backgroundGradient = useMemo(
+    () => (
+      isDark
+        ? ['#0b1427', '#13213c', '#091224'] as const
+        : ['#f8fbff', '#eef4ff', '#fbf7ff'] as const
+    ),
+    [isDark],
+  );
+  const headerControlSurface = isDark ? 'rgba(10, 17, 34, 0.46)' : 'rgba(255, 255, 255, 0.6)';
+  const headerControlBorder = isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.18)';
+  const searchSurface = isDark ? 'rgba(9, 18, 35, 0.78)' : 'rgba(255, 255, 255, 0.82)';
+  const quietSurface = isDark ? 'rgba(13, 21, 38, 0.8)' : 'rgba(243, 246, 255, 0.88)';
+  const deckSurface = isDark ? 'rgba(8, 17, 32, 0.84)' : 'rgba(255, 255, 255, 0.84)';
+  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.16)';
+  const subtleBorderColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(148, 163, 184, 0.1)';
+  const headerContentColor = isDark ? '#F8FAFC' : '#2D2A61';
+  const topGlowColor = isDark ? 'rgba(99, 102, 241, 0.14)' : 'rgba(129, 140, 248, 0.14)';
+  const bottomGlowColor = isDark ? 'rgba(56, 189, 248, 0.1)' : 'rgba(125, 211, 252, 0.12)';
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}> 
       <LinearGradient
-        colors={[theme.gradientStart, theme.gradientMid, theme.gradientEnd]}
+        colors={backgroundGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      {isDark ? (
-        <LinearGradient
-          colors={['rgba(6, 10, 22, 0.06)', 'rgba(6, 10, 22, 0.34)', 'rgba(5, 8, 20, 0.76)']}
-          start={{ x: 0.1, y: 0 }}
-          end={{ x: 0.95, y: 1 }}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-      ) : null}
+      <LinearGradient
+        colors={
+          isDark
+            ? ['rgba(6, 10, 22, 0.04)', 'rgba(6, 10, 22, 0.28)', 'rgba(5, 8, 20, 0.74)']
+            : ['rgba(255, 255, 255, 0.22)', 'rgba(241, 245, 255, 0.12)', 'rgba(248, 250, 252, 0.58)']
+        }
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.95, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View pointerEvents="none" style={[styles.topGlow, { backgroundColor: topGlowColor }]} />
+      <View pointerEvents="none" style={[styles.bottomGlow, { backgroundColor: bottomGlowColor }]} />
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft color="#fff" size={28} strokeWidth={2.5} />
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={[
+              styles.backButton,
+              {
+                backgroundColor: headerControlSurface,
+                borderColor: headerControlBorder,
+                shadowOpacity: isDark ? 0.22 : 0.08,
+                shadowRadius: isDark ? 14 : 10,
+                elevation: isDark ? 6 : 3,
+              },
+            ]}
+            activeOpacity={0.78}
+          >
+            <ArrowLeft color={headerContentColor} size={24} strokeWidth={2.5} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>My Decks</Text>
+          <View style={[styles.headerTitleWrap, { backgroundColor: isDark ? 'rgba(10, 17, 34, 0.42)' : 'rgba(255, 255, 255, 0.5)', borderColor: headerControlBorder }]}> 
+            <Text style={[styles.headerTitle, { color: headerContentColor }]}>My Decks</Text>
+          </View>
 
           <TouchableOpacity
-            style={styles.addButton}
+            style={[
+              styles.addButton,
+              {
+                backgroundColor: headerControlSurface,
+                borderColor: headerControlBorder,
+                shadowOpacity: isDark ? 0.22 : 0.08,
+                shadowRadius: isDark ? 14 : 10,
+                elevation: isDark ? 6 : 3,
+              },
+            ]}
             onPress={() => setShowMenu(true)}
             testID="decksAddButton"
+            activeOpacity={0.78}
           >
-            <Plus color="#fff" size={28} strokeWidth={2.5} />
+            <Plus color={headerContentColor} size={24} strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
 
@@ -260,9 +308,9 @@ export default function DecksPage() {
           style={[
             styles.searchInput,
             {
-              backgroundColor: theme.cardBackground,
+              backgroundColor: searchSurface,
               color: theme.text,
-              borderColor: isDark ? 'rgba(148, 163, 184, 0.18)' : theme.border,
+              borderColor: surfaceBorderColor,
             },
           ]}
           autoCapitalize="none"
@@ -289,8 +337,8 @@ export default function DecksPage() {
                 style={[
                   styles.categoryPill,
                   {
-                    backgroundColor: isActive ? theme.primary : theme.cardBackground,
-                    borderColor: isActive ? theme.primary : theme.border,
+                    backgroundColor: isActive ? theme.primary : quietSurface,
+                    borderColor: isActive ? theme.primary : subtleBorderColor,
                   },
                 ]}
                 testID={`deck-category-pill-${category.replace(/\s+/g, '-').toLowerCase()}`}
@@ -304,13 +352,13 @@ export default function DecksPage() {
         </ScrollView>
 
         <View style={styles.listSection}>
-          <Text style={styles.deckCount}>
+          <Text style={[styles.deckCount, { color: theme.textSecondary }]}> 
             {filteredDecks.length} {filteredDecks.length === 1 ? 'deck' : 'decks'} {activeCategory === ALL_DECK_CATEGORIES_LABEL ? 'total' : `in ${activeCategory}`}
           </Text>
 
           {hasNoDecks ? (
             <View style={styles.emptyStateContainer}>
-              <View style={styles.emptyState}>
+              <View style={[styles.emptyState, { backgroundColor: deckSurface, borderColor: surfaceBorderColor, borderWidth: 1 }]}> 
               <BookOpen color={theme.textTertiary} size={48} strokeWidth={2.2} />
               <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No decks yet</Text>
               <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>Create your first deck to start studying.</Text>
@@ -326,7 +374,7 @@ export default function DecksPage() {
             </View>
           ) : hasNoSearchResults ? (
             <View style={styles.emptyStateContainer}>
-              <View style={styles.emptyState}>
+              <View style={[styles.emptyState, { backgroundColor: deckSurface, borderColor: surfaceBorderColor, borderWidth: 1 }]}> 
               <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No decks match your search</Text>
               <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>Try a different search term.</Text>
               </View>
@@ -352,17 +400,18 @@ export default function DecksPage() {
                     style={[
                       styles.deckCard,
                       {
-                        backgroundColor: isDark ? 'rgba(10, 17, 34, 0.88)' : theme.cardBackground,
-                        borderWidth: isDark ? 1 : 0,
-                        borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
-                        shadowOpacity: isDark ? 0.24 : 0.1,
-                        shadowRadius: isDark ? 16 : 12,
+                        backgroundColor: deckSurface,
+                        borderWidth: 1,
+                        borderColor: surfaceBorderColor,
+                        shadowOpacity: isDark ? 0.24 : 0.08,
+                        shadowRadius: isDark ? 18 : 12,
                         elevation: isDark ? 8 : 4,
                       },
                       isFullyMastered ? { borderColor: '#10B981', borderWidth: 2 } : null,
                     ]}
                   >
                     <View style={[styles.deckColorBar, { backgroundColor: deck.color }]} />
+                    <View style={[styles.deckAura, { backgroundColor: deck.color }]} />
 
                     <View style={styles.deckContent}>
                       <View style={styles.deckHeader}>
@@ -387,8 +436,8 @@ export default function DecksPage() {
                           style={[
                             styles.deleteButton,
                             {
-                              backgroundColor: isDark ? 'rgba(15, 23, 42, 0.72)' : 'rgba(15, 23, 42, 0.04)',
-                              borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)',
+                              backgroundColor: quietSurface,
+                              borderColor: subtleBorderColor,
                             },
                           ]}
                           onPress={() => {
@@ -409,13 +458,13 @@ export default function DecksPage() {
                       </View>
 
                       <View style={styles.deckStats}>
-                        <View style={styles.statBadge}>
+                        <View style={[styles.statBadge, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
                           <BookOpen color={theme.textSecondary} size={16} strokeWidth={2} />
                           <Text style={[styles.statText, { color: theme.textSecondary }]}> 
                             {deck.flashcards.length} cards
                           </Text>
                         </View>
-                        <View style={[styles.categoryBadge, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.82)' : theme.background }]}> 
+                        <View style={[styles.categoryBadge, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
                           <Text style={[styles.categoryText, { color: theme.text }]}>{deck.category}</Text>
                         </View>
                       </View>
@@ -438,27 +487,38 @@ export default function DecksPage() {
                         </View>
                       ) : null}
 
-                      {dueCount > 0 ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, marginBottom: isFullyMastered ? 2 : 0, gap: 4 }}>
-                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#3B82F6' }} />
-                          <Text style={{ fontSize: 11, fontWeight: '600', color: '#3B82F6' }}>
-                            {dueCount} due for review
-                          </Text>
-                        </View>
-                      ) : null}
+                      {dueCount > 0 || isFullyMastered ? (
+                        <View style={styles.deckStatusRow}>
+                          {dueCount > 0 ? (
+                            <View style={[styles.statusPill, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
+                              <View style={[styles.statusDot, { backgroundColor: '#3B82F6' }]} />
+                              <Text style={[styles.statusText, { color: '#3B82F6' }]}>
+                                {dueCount} due for review
+                              </Text>
+                            </View>
+                          ) : null}
 
-                      {isFullyMastered ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 4 }}>
-                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' }} />
-                          <Text style={{ fontSize: 11, fontWeight: '800', color: '#10B981' }}>
-                            ✓ Fully Mastered
-                          </Text>
+                          {isFullyMastered ? (
+                            <View style={[styles.statusPill, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
+                              <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
+                              <Text style={[styles.statusText, { color: '#10B981' }]}>Fully Mastered</Text>
+                            </View>
+                          ) : null}
                         </View>
                       ) : null}
 
                       <View style={styles.deckActions}>
                         <TouchableOpacity
-                          style={[styles.studyButton, { backgroundColor: theme.primary }]}
+                          style={[
+                            styles.studyButton,
+                            {
+                              backgroundColor: theme.primary,
+                              shadowColor: theme.primary,
+                              shadowOpacity: isDark ? 0.24 : 0.14,
+                              shadowRadius: isDark ? 16 : 10,
+                              elevation: isDark ? 7 : 4,
+                            },
+                          ]}
                           onPress={() => handleStudyDeck(deck.id)}
                           activeOpacity={0.8}
                         >
@@ -467,7 +527,7 @@ export default function DecksPage() {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                          style={[styles.actionButton, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.82)' : theme.background }]}
+                          style={[styles.actionButton, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}
                           onPress={() => handleEditDeck(deck.id)}
                           activeOpacity={0.8}
                         >
@@ -587,39 +647,75 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  topGlow: {
+    position: 'absolute',
+    top: -96,
+    right: -48,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+  },
+  bottomGlow: {
+    position: 'absolute',
+    bottom: 120,
+    left: -72,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+  },
+  headerTitleWrap: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 18,
+    borderWidth: 1,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800' as const,
     color: '#fff',
+    letterSpacing: -0.5,
   },
   addButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
   },
   searchInput: {
     marginHorizontal: 20,
     marginBottom: 12,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     paddingHorizontal: 16,
-    paddingVertical: 13,
+    paddingVertical: 15,
     fontSize: 15,
     fontWeight: '600' as const,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 2,
   },
   categoryScroll: {
     marginBottom: 12,
@@ -652,32 +748,42 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   deckCount: {
-    fontSize: 14,
-    fontWeight: '600' as const,
+    fontSize: 13,
+    fontWeight: '700' as const,
     marginHorizontal: 20,
-    marginBottom: 16,
-    color: '#fff',
+    marginBottom: 14,
+    letterSpacing: 0.2,
   },
   deckCard: {
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 24,
     marginBottom: 16,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowRadius: 16,
     elevation: 4,
   },
   deckColorBar: {
-    height: 6,
+    height: 5,
     width: '100%',
+  },
+  deckAura: {
+    position: 'absolute',
+    top: -36,
+    right: -22,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    opacity: 0.08,
   },
   deckContent: {
     padding: 20,
+    gap: 2,
   },
   deckHeader: {
-    marginBottom: 12,
+    marginBottom: 14,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
@@ -706,6 +812,7 @@ const styles = StyleSheet.create({
     color: '#666',
     lineHeight: 20,
     fontWeight: '500' as const,
+    maxWidth: '96%',
   },
   deckStats: {
     flexDirection: 'row',
@@ -717,6 +824,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   statText: {
     fontSize: 13,
@@ -725,9 +836,10 @@ const styles = StyleSheet.create({
   },
   categoryBadge: {
     paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingVertical: 6,
+    borderRadius: 12,
     backgroundColor: '#f5f5f5',
+    borderWidth: 1,
   },
   categoryText: {
     fontSize: 12,
@@ -759,9 +871,35 @@ const styles = StyleSheet.create({
   masterySegment: {
     height: '100%',
   },
+  deckStatusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 14,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+  },
   deckActions: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 2,
   },
   studyButton: {
     flex: 1,
@@ -769,9 +907,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#667eea',
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 18,
+    paddingVertical: 15,
     gap: 8,
+    shadowOffset: { width: 0, height: 10 },
   },
   studyButtonText: {
     fontSize: 16,
@@ -779,21 +918,22 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   actionButton: {
-    width: 48,
-    height: 48,
+    width: 50,
+    height: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 18,
+    borderWidth: 1,
     backgroundColor: '#f5f5f5',
   },
   deleteButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 14,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    opacity: 0.8,
+    opacity: 0.84,
   },
   emptyStateContainer: {
     flex: 1,
@@ -805,6 +945,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 48,
     paddingHorizontal: 24,
+    borderRadius: 24,
   },
   emptyStateTitle: {
     marginTop: 20,

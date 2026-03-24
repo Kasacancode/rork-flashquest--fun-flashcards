@@ -1,8 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, MoreHorizontal } from 'lucide-react-native';
-import React, { useCallback, useMemo, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, Pressable } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFlashQuest } from '@/context/FlashQuestContext';
@@ -11,27 +11,53 @@ import { useTheme } from '@/context/ThemeContext';
 import { computeDeckMastery } from '@/utils/mastery';
 import { generateUUID } from '@/utils/uuid';
 
+function withAlpha(color: string, alpha: number): string {
+  const normalized = color.replace('#', '');
+
+  if (normalized.length === 3) {
+    const r = parseInt(normalized[0]! + normalized[0]!, 16);
+    const g = parseInt(normalized[1]! + normalized[1]!, 16);
+    const b = parseInt(normalized[2]! + normalized[2]!, 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  if (normalized.length === 6) {
+    const r = parseInt(normalized.slice(0, 2), 16);
+    const g = parseInt(normalized.slice(2, 4), 16);
+    const b = parseInt(normalized.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  return color;
+}
+
 export default function DeckHubScreen() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
   const { decks, addDeck } = useFlashQuest();
   const { performance, getDeckAccuracy, getWeakCards, getCardsDueForReview } = usePerformance();
   const { theme, isDark } = useTheme();
-  const [menuVisible, setMenuVisible] = useState(false);
+  const [menuVisible, setMenuVisible] = useState<boolean>(false);
   const menuBtnRef = useRef<View>(null);
-  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
 
-  const deck = useMemo(() => decks.find(d => d.id === deckId), [decks, deckId]);
+  const deck = useMemo(() => decks.find((item) => item.id === deckId), [decks, deckId]);
 
   const mastery = useMemo(() => {
-    if (!deck) return { mastered: 0, reviewing: 0, learning: 0, newCards: 0, total: 0 };
+    if (!deck) {
+      return { mastered: 0, reviewing: 0, learning: 0, newCards: 0, total: 0 };
+    }
+
     return computeDeckMastery(deck.flashcards, performance.cardStatsById);
   }, [deck, performance.cardStatsById]);
 
-  const accuracy = useMemo(() => deckId ? getDeckAccuracy(deckId) : null, [deckId, getDeckAccuracy]);
+  const accuracy = useMemo(() => (deckId ? getDeckAccuracy(deckId) : null), [deckId, getDeckAccuracy]);
 
   const weakCardCount = useMemo(() => {
-    if (!deck) return 0;
+    if (!deck) {
+      return 0;
+    }
+
     const weakIds = getWeakCards(deck.id, deck.flashcards, 50);
     return weakIds.filter((id) => {
       const stats = performance.cardStatsById[id];
@@ -40,23 +66,36 @@ export default function DeckHubScreen() {
   }, [deck, getWeakCards, performance.cardStatsById]);
 
   const dueForReviewCount = useMemo(() => {
-    if (!deck) return 0;
+    if (!deck) {
+      return 0;
+    }
+
     return getCardsDueForReview(deck.id, deck.flashcards).length;
   }, [deck, getCardsDueForReview]);
 
   const lastStudied = useMemo(() => {
-    if (!deckId) return null;
-    const ds = performance.deckStatsById[deckId];
-    if (!ds?.lastAttemptAt) return null;
-    const days = Math.floor((Date.now() - ds.lastAttemptAt) / 86400000);
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
+    if (!deckId) {
+      return null;
+    }
+
+    const deckStats = performance.deckStatsById[deckId];
+    if (!deckStats?.lastAttemptAt) {
+      return null;
+    }
+
+    const days = Math.floor((Date.now() - deckStats.lastAttemptAt) / 86400000);
+    if (days === 0) {
+      return 'Today';
+    }
+    if (days === 1) {
+      return 'Yesterday';
+    }
     return `${days} days ago`;
   }, [deckId, performance.deckStatsById]);
 
   const openMenu = useCallback(() => {
-    menuBtnRef.current?.measure((_x, _y, _w, _h, _px, py) => {
-      setMenuPos({ top: py + _h + 4, right: 16 });
+    menuBtnRef.current?.measure((_x, _y, _w, height, _px, py) => {
+      setMenuPos({ top: py + height + 6, right: 16 });
     });
     setMenuVisible(true);
   }, []);
@@ -107,18 +146,18 @@ export default function DeckHubScreen() {
           style={StyleSheet.absoluteFill}
         />
         <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.fallbackBackBtn}>
             <ArrowLeft color="#fff" size={24} strokeWidth={2.5} />
           </TouchableOpacity>
           <View style={styles.errorWrap}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 8 }}>Deck not found</Text>
-            <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', marginBottom: 24, textAlign: 'center' }}>This deck may have been deleted.</Text>
+            <Text style={styles.errorTitle}>Deck not found</Text>
+            <Text style={styles.errorSubtitle}>This deck may have been deleted.</Text>
             <TouchableOpacity
               onPress={() => router.replace('/decks' as any)}
-              style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 24 }}
+              style={styles.errorAction}
               testID="deck-hub-go-to-decks-button"
             >
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Go to Decks</Text>
+              <Text style={styles.errorActionText}>Go to Decks</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -127,29 +166,88 @@ export default function DeckHubScreen() {
   }
 
   const pctMastered = mastery.total > 0 ? Math.round((mastery.mastered / mastery.total) * 100) : 0;
-  const cardBg = isDark ? 'rgba(15,23,42,0.78)' : theme.cardBackground;
-  const cardBorder = isDark ? 'rgba(148,163,184,0.16)' : 'transparent';
+  const screenGradient = isDark
+    ? ['#0a1427', '#12203a', '#091222'] as const
+    : ['#f8fbff', '#eef4ff', '#fbf7ff'] as const;
+  const cardBg = isDark ? 'rgba(10, 18, 34, 0.82)' : 'rgba(255, 255, 255, 0.84)';
+  const statBg = isDark ? 'rgba(8, 15, 28, 0.88)' : 'rgba(248, 250, 255, 0.92)';
+  const cardBorder = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(148, 163, 184, 0.16)';
+  const headerControlSurface = isDark ? 'rgba(10, 17, 34, 0.44)' : 'rgba(255, 255, 255, 0.48)';
+  const headerControlBorder = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(148, 163, 184, 0.18)';
+  const headerContentColor = isDark ? '#F8FAFC' : '#2D2A61';
+  const deckTint = withAlpha(deck.color, isDark ? 0.18 : 0.12);
+  const deckGlow = withAlpha(deck.color, isDark ? 0.32 : 0.18);
+  const topGlowColor = withAlpha(deck.color, isDark ? 0.16 : 0.12);
+  const bottomGlowColor = isDark ? 'rgba(56, 189, 248, 0.08)' : 'rgba(125, 211, 252, 0.1)';
+  const menuSurface = isDark ? 'rgba(11, 18, 34, 0.98)' : 'rgba(255, 255, 255, 0.98)';
+  const inactiveTrack = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)';
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={[theme.gradientStart, theme.gradientMid, theme.gradientEnd]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-      {isDark && <LinearGradient colors={['rgba(6,10,22,0.06)', 'rgba(6,10,22,0.34)', 'rgba(5,8,20,0.76)']} start={{ x: 0.1, y: 0 }} end={{ x: 0.95, y: 1 }} style={StyleSheet.absoluteFill} pointerEvents="none" />}
+    <View style={styles.container} testID="deck-hub-screen">
+      <LinearGradient
+        colors={screenGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <LinearGradient
+        colors={
+          isDark
+            ? ['rgba(6,10,22,0.04)', 'rgba(6,10,22,0.26)', 'rgba(5,8,20,0.72)']
+            : ['rgba(255,255,255,0.22)', 'rgba(241,245,255,0.12)', 'rgba(248,250,252,0.58)']
+        }
+        start={{ x: 0.08, y: 0 }}
+        end={{ x: 0.95, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View pointerEvents="none" style={[styles.topGlow, { backgroundColor: topGlowColor }]} />
+      <View pointerEvents="none" style={[styles.bottomGlow, { backgroundColor: bottomGlowColor }]} />
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <ArrowLeft color="#fff" size={24} strokeWidth={2.5} />
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={[
+              styles.backBtn,
+              {
+                backgroundColor: headerControlSurface,
+                borderColor: headerControlBorder,
+                shadowOpacity: isDark ? 0.22 : 0.1,
+                shadowRadius: isDark ? 14 : 10,
+                elevation: isDark ? 6 : 3,
+              },
+            ]}
+            activeOpacity={0.78}
+          >
+            <ArrowLeft color={headerContentColor} size={24} strokeWidth={2.5} />
           </TouchableOpacity>
+
           <View style={styles.headerCenter}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: deck.color }} />
-              <Text style={styles.headerTitle} numberOfLines={1}>{deck.name}</Text>
+            <View style={styles.headerTitleRow}>
+              <View style={[styles.headerDot, { backgroundColor: deck.color }]} />
+              <Text style={[styles.headerTitle, { color: headerContentColor }]} numberOfLines={1}>{deck.name}</Text>
             </View>
-            <Text style={styles.headerSub}>{deck.flashcards.length} cards · {deck.category}</Text>
+            <Text style={[styles.headerSub, { color: isDark ? 'rgba(248,255,252,0.68)' : 'rgba(45,42,97,0.68)' }]}>{deck.flashcards.length} cards · {deck.category}</Text>
           </View>
+
           <View ref={menuBtnRef} collapsable={false}>
-            <TouchableOpacity onPress={openMenu} style={styles.menuBtn} activeOpacity={0.7} testID="deckHubMenuButton">
-              <MoreHorizontal color="rgba(255,255,255,0.85)" size={22} strokeWidth={2.2} />
+            <TouchableOpacity
+              onPress={openMenu}
+              style={[
+                styles.menuBtn,
+                {
+                  backgroundColor: headerControlSurface,
+                  borderColor: headerControlBorder,
+                  shadowOpacity: isDark ? 0.22 : 0.1,
+                  shadowRadius: isDark ? 14 : 10,
+                  elevation: isDark ? 6 : 3,
+                },
+              ]}
+              activeOpacity={0.7}
+              testID="deckHubMenuButton"
+            >
+              <MoreHorizontal color={headerContentColor} size={22} strokeWidth={2.2} />
             </TouchableOpacity>
           </View>
         </View>
@@ -157,16 +255,33 @@ export default function DeckHubScreen() {
         <View style={[styles.accentBar, { backgroundColor: deck.color }]} />
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isDark ? 1 : 0 }]}>
-
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: cardBg,
+                borderColor: cardBorder,
+                shadowColor: deckGlow,
+                shadowOpacity: isDark ? 0.24 : 0.12,
+                shadowRadius: isDark ? 22 : 14,
+                elevation: isDark ? 10 : 4,
+              },
+            ]}
+          >
+            <LinearGradient
+              colors={[deckTint, 'transparent']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
             <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>MASTERY</Text>
-            <Text style={[styles.bigPct, { color: theme.primary }]}>{pctMastered}%</Text>
+            <Text style={[styles.bigPct, { color: deck.color }]}>{pctMastered}%</Text>
             <Text style={[styles.cardSub, { color: theme.textSecondary }]}>{mastery.mastered}/{mastery.total} cards mastered</Text>
-            <View style={[styles.barBg, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
-              {mastery.mastered > 0 && <View style={{ width: `${(mastery.mastered / mastery.total) * 100}%`, height: '100%', backgroundColor: '#10B981' }} />}
-              {mastery.reviewing > 0 && <View style={{ width: `${(mastery.reviewing / mastery.total) * 100}%`, height: '100%', backgroundColor: '#3B82F6' }} />}
-              {mastery.learning > 0 && <View style={{ width: `${(mastery.learning / mastery.total) * 100}%`, height: '100%', backgroundColor: '#F59E0B' }} />}
+            <View style={[styles.barBg, { backgroundColor: inactiveTrack }]}> 
+              {mastery.mastered > 0 ? <View style={{ width: `${(mastery.mastered / mastery.total) * 100}%`, height: '100%', backgroundColor: '#10B981' }} /> : null}
+              {mastery.reviewing > 0 ? <View style={{ width: `${(mastery.reviewing / mastery.total) * 100}%`, height: '100%', backgroundColor: '#3B82F6' }} /> : null}
+              {mastery.learning > 0 ? <View style={{ width: `${(mastery.learning / mastery.total) * 100}%`, height: '100%', backgroundColor: '#F59E0B' }} /> : null}
             </View>
             <View style={styles.legend}>
               <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#10B981' }]} /><Text style={[styles.legendText, { color: theme.textSecondary }]}>Mastered ({mastery.mastered})</Text></View>
@@ -177,21 +292,35 @@ export default function DeckHubScreen() {
           </View>
 
           <View style={styles.statsRow}>
-            <View style={[styles.statBox, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isDark ? 1 : 0 }]}>
-              <Text style={[styles.statVal, { color: accuracy !== null ? theme.primary : theme.textTertiary }]}>{accuracy !== null ? `${Math.round(accuracy * 100)}%` : '0%'}</Text>
+            <View style={[styles.statBox, { backgroundColor: statBg, borderColor: cardBorder }]}> 
+              <Text style={[styles.statVal, { color: accuracy !== null ? deck.color : theme.textTertiary }]}>{accuracy !== null ? `${Math.round(accuracy * 100)}%` : '0%'}</Text>
               <Text style={[styles.statLbl, { color: theme.textSecondary }]}>Accuracy</Text>
             </View>
-            <View style={[styles.statBox, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isDark ? 1 : 0 }]}>
-              <Text style={[styles.statVal, { color: dueForReviewCount > 0 ? '#F59E0B' : theme.primary }]}>{dueForReviewCount}</Text>
+            <View style={[styles.statBox, { backgroundColor: statBg, borderColor: cardBorder }]}> 
+              <Text style={[styles.statVal, { color: dueForReviewCount > 0 ? '#F59E0B' : theme.text }]}>{dueForReviewCount}</Text>
               <Text style={[styles.statLbl, { color: theme.textSecondary }]}>Due for Review</Text>
             </View>
-            <View style={[styles.statBox, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isDark ? 1 : 0 }]}>
-              <Text style={[styles.statVal, { color: theme.primary }]}>{lastStudied ?? 'Never'}</Text>
+            <View style={[styles.statBox, { backgroundColor: statBg, borderColor: cardBorder }]}> 
+              <Text style={[styles.statVal, { color: theme.text }]}>{lastStudied ?? 'Never'}</Text>
               <Text style={[styles.statLbl, { color: theme.textSecondary }]}>Last Studied</Text>
             </View>
           </View>
 
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.primary }]} onPress={() => router.push({ pathname: '/practice', params: { deckId: deck.id } } as Href)} activeOpacity={0.85} testID="deckHubPracticeButton">
+          <TouchableOpacity
+            style={[
+              styles.actionBtn,
+              {
+                backgroundColor: theme.primary,
+                shadowColor: theme.primary,
+                shadowOpacity: isDark ? 0.26 : 0.16,
+                shadowRadius: isDark ? 18 : 12,
+                elevation: isDark ? 9 : 4,
+              },
+            ]}
+            onPress={() => router.push({ pathname: '/practice', params: { deckId: deck.id } } as Href)}
+            activeOpacity={0.85}
+            testID="deckHubPracticeButton"
+          >
             <Swords color="#fff" size={22} strokeWidth={2.2} />
             <View style={styles.actionText}>
               <Text style={styles.actionTitle}>Practice vs AI</Text>
@@ -199,36 +328,55 @@ export default function DeckHubScreen() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: cardBg, borderWidth: 1, borderColor: isDark ? 'rgba(148,163,184,0.16)' : theme.border }]} onPress={() => router.push({ pathname: '/study', params: { deckId: deck.id } } as Href)} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.secondaryActionBtn, { backgroundColor: statBg, borderColor: cardBorder }]}
+            onPress={() => router.push({ pathname: '/study', params: { deckId: deck.id } } as Href)}
+            activeOpacity={0.85}
+          >
             <BookOpen color={theme.primary} size={22} strokeWidth={2.2} />
             <View style={styles.actionText}>
               <Text style={[styles.actionTitle, { color: theme.text }]}>Study</Text>
-              <Text style={[styles.actionDesc, { color: theme.textSecondary }]}>Flip through all cards</Text>
+              <Text style={[styles.secondaryActionDesc, { color: theme.textSecondary }]}>Flip through all cards</Text>
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: cardBg, borderWidth: 1, borderColor: isDark ? 'rgba(148,163,184,0.16)' : theme.border }]} onPress={() => router.push({ pathname: '/quest', params: { deckId: deck.id } } as Href)} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.secondaryActionBtn, { backgroundColor: statBg, borderColor: cardBorder }]}
+            onPress={() => router.push({ pathname: '/quest', params: { deckId: deck.id } } as Href)}
+            activeOpacity={0.85}
+          >
             <Target color={theme.primary} size={22} strokeWidth={2.2} />
             <View style={styles.actionText}>
               <Text style={[styles.actionTitle, { color: theme.text }]}>Quest</Text>
-              <Text style={[styles.actionDesc, { color: theme.textSecondary }]}>Test your knowledge</Text>
+              <Text style={[styles.secondaryActionDesc, { color: theme.textSecondary }]}>Test your knowledge</Text>
             </View>
           </TouchableOpacity>
 
-          {weakCardCount >= 1 && (
-            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: 'rgba(245,158,11,0.12)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)' }]} onPress={() => router.push({ pathname: '/quest', params: { deckId: deck.id, focusWeak: 'true' } } as Href)} activeOpacity={0.85}>
+          {weakCardCount >= 1 ? (
+            <TouchableOpacity
+              style={[
+                styles.actionBtn,
+                styles.secondaryActionBtn,
+                {
+                  backgroundColor: isDark ? 'rgba(245,158,11,0.12)' : 'rgba(245,158,11,0.08)',
+                  borderColor: 'rgba(245,158,11,0.24)',
+                },
+              ]}
+              onPress={() => router.push({ pathname: '/quest', params: { deckId: deck.id, focusWeak: 'true' } } as Href)}
+              activeOpacity={0.85}
+            >
               <AlertTriangle color="#F59E0B" size={22} strokeWidth={2.2} />
               <View style={styles.actionText}>
                 <Text style={[styles.actionTitle, { color: '#F59E0B' }]}>Drill Weak Cards</Text>
-                <Text style={[styles.actionDesc, { color: theme.textSecondary }]}>{weakCardCount} cards need more practice</Text>
+                <Text style={[styles.secondaryActionDesc, { color: theme.textSecondary }]}>{weakCardCount} cards need more practice</Text>
               </View>
             </TouchableOpacity>
-          )}
+          ) : null}
         </ScrollView>
 
         <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
           <Pressable style={styles.menuOverlay} onPress={() => setMenuVisible(false)}>
-            <View style={[styles.menuDropdown, { top: menuPos.top, right: menuPos.right, backgroundColor: isDark ? '#1e2a3a' : '#fff' }]}>
+            <View style={[styles.menuDropdown, { top: menuPos.top, right: menuPos.right, backgroundColor: menuSurface, borderColor: cardBorder }]}>
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={handleDuplicateDeck}
@@ -249,35 +397,119 @@ export default function DeckHubScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
-  backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  menuBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  topGlow: {
+    position: 'absolute',
+    top: -90,
+    right: -54,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+  },
+  bottomGlow: {
+    position: 'absolute',
+    bottom: 120,
+    left: -60,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+  },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+  },
+  fallbackBackBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  menuBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+  },
   menuOverlay: { flex: 1 },
-  menuDropdown: { position: 'absolute', borderRadius: 14, paddingVertical: 6, minWidth: 190, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 16, elevation: 12 },
+  menuDropdown: {
+    position: 'absolute',
+    borderRadius: 16,
+    paddingVertical: 6,
+    minWidth: 190,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 12,
+  },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
-  menuItemText: { fontSize: 15, fontWeight: '600' },
-  headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
-  headerSub: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.6)', marginTop: 2 },
-  accentBar: { height: 4, borderRadius: 2, marginHorizontal: 20, marginBottom: 4 },
+  menuItemText: { fontSize: 15, fontWeight: '600' as const },
+  headerCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 12 },
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' },
+  headerDot: { width: 10, height: 10, borderRadius: 5 },
+  headerTitle: { fontSize: 22, fontWeight: '800' as const, color: '#fff' },
+  headerSub: { fontSize: 13, fontWeight: '600' as const, color: 'rgba(255,255,255,0.64)', marginTop: 3 },
+  accentBar: { height: 5, borderRadius: 3, marginHorizontal: 20, marginBottom: 10 },
   content: { padding: 20, paddingBottom: 40, gap: 14 },
-  errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorText: { fontSize: 16 },
-  card: { borderRadius: 20, padding: 20, alignItems: 'center' },
-  cardLabel: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 },
-  bigPct: { fontSize: 44, fontWeight: '800' },
-  cardSub: { fontSize: 14, fontWeight: '600', marginTop: 4, marginBottom: 16 },
+  errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  errorTitle: { fontSize: 18, fontWeight: '700' as const, color: '#fff', marginBottom: 8 },
+  errorSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.6)', marginBottom: 24, textAlign: 'center' as const },
+  errorAction: { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 24 },
+  errorActionText: { fontSize: 16, fontWeight: '700' as const, color: '#fff' },
+  card: {
+    borderRadius: 26,
+    padding: 22,
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 12 },
+  },
+  cardLabel: { fontSize: 12, fontWeight: '700' as const, textTransform: 'uppercase' as const, letterSpacing: 0.8, marginBottom: 8 },
+  bigPct: { fontSize: 44, fontWeight: '800' as const },
+  cardSub: { fontSize: 14, fontWeight: '600' as const, marginTop: 4, marginBottom: 16 },
   barBg: { height: 8, borderRadius: 4, flexDirection: 'row', overflow: 'hidden', width: '100%', marginBottom: 16 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', paddingHorizontal: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontSize: 11, fontWeight: '600' },
-  statsRow: { flexDirection: 'row', gap: 10 },
-  statBox: { flex: 1, borderRadius: 16, padding: 14, alignItems: 'center' },
-  statVal: { fontSize: 18, fontWeight: '800' },
-  statLbl: { fontSize: 11, fontWeight: '600', marginTop: 4, textAlign: 'center' },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, padding: 16, gap: 14 },
+  legendText: { fontSize: 11, fontWeight: '600' as const },
+  statsRow: { flexDirection: 'row', gap: 12 },
+  statBox: {
+    flex: 1,
+    borderRadius: 20,
+    padding: 15,
+    alignItems: 'center',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 3,
+  },
+  statVal: { fontSize: 18, fontWeight: '800' as const, textAlign: 'center' as const },
+  statLbl: { fontSize: 11, fontWeight: '600' as const, marginTop: 4, textAlign: 'center' as const },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 20,
+    padding: 17,
+    gap: 14,
+  },
+  secondaryActionBtn: {
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 3,
+  },
   actionText: { flex: 1 },
-  actionTitle: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  actionDesc: { fontSize: 12, fontWeight: '500', color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  actionTitle: { fontSize: 16, fontWeight: '700' as const, color: '#fff' },
+  actionDesc: { fontSize: 12, fontWeight: '500' as const, color: 'rgba(255,255,255,0.74)', marginTop: 2 },
+  secondaryActionDesc: { fontSize: 12, fontWeight: '500' as const, marginTop: 2 },
 });
