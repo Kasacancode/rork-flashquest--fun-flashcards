@@ -62,56 +62,57 @@ export default function HomePage() {
   const backgroundGradient = useMemo(
     () => (
       isDark
-        ? ['#081120', '#0b1730', '#091221'] as const
-        : ['#f5f7fb', '#eef3f9', '#f7f9fc'] as const
+        ? ['#08111f', '#0c1730', '#09111d'] as const
+        : ['#f4f6fb', '#edf2f8', '#f7f9fc'] as const
     ),
     [isDark],
   );
   const shellOverlayGradient = useMemo(
     () => (
       isDark
-        ? ['rgba(15, 23, 42, 0.02)', 'rgba(9, 14, 24, 0.12)', 'rgba(4, 8, 18, 0.24)'] as const
-        : ['rgba(255, 255, 255, 0.02)', 'rgba(248, 250, 253, 0.1)', 'rgba(231, 237, 246, 0.24)'] as const
+        ? ['rgba(10, 16, 29, 0)', 'rgba(9, 16, 29, 0.08)', 'rgba(4, 8, 18, 0.18)'] as const
+        : ['rgba(255, 255, 255, 0)', 'rgba(246, 249, 252, 0.08)', 'rgba(226, 233, 242, 0.18)'] as const
     ),
     [isDark],
   );
-  const titleColor = isDark ? '#f8fafc' : '#172033';
-  const subtitleColor = isDark ? 'rgba(226, 232, 240, 0.74)' : 'rgba(71, 85, 105, 0.76)';
-  const sectionTitleColor = isDark ? '#f8fafc' : '#1f2b46';
-  const labelColor = isDark ? 'rgba(226, 232, 240, 0.4)' : 'rgba(71, 85, 105, 0.58)';
-  const topGlowColor = isDark ? 'rgba(99, 102, 241, 0.018)' : 'rgba(99, 102, 241, 0.018)';
-  const midGlowColor = isDark ? 'rgba(56, 189, 248, 0.014)' : 'rgba(59, 130, 246, 0.014)';
-  const bottomGlowColor = isDark ? 'rgba(139, 92, 246, 0.014)' : 'rgba(99, 102, 241, 0.014)';
-  const profileSurface = isDark ? 'rgba(9, 15, 29, 0.56)' : 'rgba(255, 255, 255, 0.88)';
-  const profileBorderColor = isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.16)';
+  const titleColor = isDark ? '#f8fafc' : '#162033';
+  const subtitleColor = isDark ? 'rgba(226, 232, 240, 0.86)' : 'rgba(71, 85, 105, 0.82)';
+  const sectionTitleColor = isDark ? '#f8fafc' : '#1a2740';
+  const topGlowColor = isDark ? 'rgba(88, 97, 215, 0.075)' : 'rgba(99, 102, 241, 0.06)';
+  const midGlowColor = isDark ? 'rgba(44, 166, 154, 0.038)' : 'rgba(59, 130, 246, 0.038)';
+  const bottomGlowColor = isDark ? 'rgba(96, 72, 191, 0.035)' : 'rgba(99, 102, 241, 0.032)';
+  const profileSurface = isDark ? 'rgba(29, 38, 57, 0.92)' : 'rgba(255, 255, 255, 0.94)';
+  const profileBorderColor = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(148, 163, 184, 0.18)';
   const profileGradient = isDark
-    ? ['rgba(129, 140, 248, 0.76)', 'rgba(99, 102, 241, 0.64)'] as const
-    : ['rgba(129, 140, 248, 0.9)', 'rgba(99, 102, 241, 0.76)'] as const;
+    ? ['rgba(40, 52, 74, 0.98)', 'rgba(31, 41, 60, 0.98)'] as const
+    : ['rgba(255, 255, 255, 0.98)', 'rgba(245, 248, 252, 0.98)'] as const;
+  const profileIconColor = isDark ? '#f8fafc' : '#334155';
   const statsCardGradient = isDark
-    ? ['rgba(14, 23, 40, 0.99)', 'rgba(11, 19, 34, 0.99)'] as const
-    : ['rgba(255, 255, 255, 0.99)', 'rgba(241, 245, 251, 0.99)'] as const;
-  const statsBorderColor = isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.14)';
-  const statsDividerColor = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(148, 163, 184, 0.18)';
+    ? ['rgba(18, 28, 45, 0.99)', 'rgba(14, 22, 37, 0.99)'] as const
+    : ['rgba(255, 255, 255, 0.99)', 'rgba(242, 246, 251, 0.99)'] as const;
+  const statsBorderColor = isDark ? 'rgba(110, 130, 162, 0.18)' : 'rgba(148, 163, 184, 0.16)';
+  const statsDividerColor = isDark ? 'rgba(112, 132, 163, 0.24)' : 'rgba(148, 163, 184, 0.22)';
   const statsShadowColor = isDark ? '#020617' : '#94a3b8';
   const statsValueColor = isDark ? '#f8fafc' : '#13233f';
-  const statsLevelColor = isDark ? '#a78bfa' : '#5b48d9';
+  const statsLabelColor = isDark ? 'rgba(203, 213, 225, 0.86)' : 'rgba(71, 85, 105, 0.86)';
+  const statsLevelColor = isDark ? '#8f67f5' : '#6446d9';
   const actionShadowColor = isDark ? '#020617' : '#94a3b8';
-  const actionBorderColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(15, 23, 42, 0.08)';
-  const deckCardSurface = isDark ? 'rgba(10, 16, 29, 0.96)' : 'rgba(255, 255, 255, 0.98)';
+  const actionBorderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.1)';
+  const deckCardSurface = isDark ? 'rgba(9, 17, 31, 0.98)' : 'rgba(255, 255, 255, 0.99)';
   const deckCardGradient = isDark
-    ? ['rgba(10, 16, 29, 0.99)', 'rgba(12, 20, 34, 0.99)'] as const
-    : ['rgba(255, 255, 255, 0.99)', 'rgba(243, 247, 252, 0.99)'] as const;
-  const deckCardBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.14)';
+    ? ['rgba(9, 18, 31, 0.995)', 'rgba(13, 21, 36, 0.995)'] as const
+    : ['rgba(255, 255, 255, 0.995)', 'rgba(244, 247, 251, 0.995)'] as const;
+  const deckCardBorderColor = isDark ? 'rgba(124, 140, 168, 0.14)' : 'rgba(148, 163, 184, 0.14)';
   const deckCardShadowColor = isDark ? '#020617' : '#94a3b8';
   const deckTrackColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(148, 163, 184, 0.16)';
-  const emptyStateSurface = isDark ? 'rgba(10, 16, 29, 0.92)' : 'rgba(255, 255, 255, 0.97)';
-  const emptyStateBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.14)';
+  const emptyStateSurface = isDark ? 'rgba(10, 17, 31, 0.96)' : 'rgba(255, 255, 255, 0.98)';
+  const emptyStateBorderColor = isDark ? 'rgba(124, 140, 168, 0.14)' : 'rgba(148, 163, 184, 0.14)';
   const homeActionGradients = useMemo(
     () => ({
-      arena: isDark ? ['#fb7415', '#eb5f08'] as const : ['#f07d20', '#de600f'] as const,
-      quest: isDark ? ['#8d5cf6', '#7a41ea'] as const : ['#8961ef', '#7046df'] as const,
-      stats: isDark ? ['#14b987', '#089b71'] as const : ['#16b888', '#0c9a73'] as const,
-      decks: isDark ? ['#6971f0', '#5258e7'] as const : ['#6871ee', '#5660e0'] as const,
+      arena: isDark ? ['#ff6d10', '#ff6208'] as const : ['#ef7721', '#e46512'] as const,
+      quest: isDark ? ['#935ff7', '#7d45eb'] as const : ['#8e63ef', '#7648df'] as const,
+      stats: isDark ? ['#12b985', '#0ea678'] as const : ['#18b382', '#109f76'] as const,
+      decks: isDark ? ['#6870f1', '#565ee7'] as const : ['#6870eb', '#5860df'] as const,
     }),
     [isDark],
   );
@@ -215,10 +216,11 @@ export default function HomePage() {
           styles.actionCard,
           styles.actionCardMedium,
           {
+            backgroundColor: colors[1],
             shadowColor: actionShadowColor,
-            shadowOpacity: isDark ? 0.22 : 0.1,
-            shadowRadius: isDark ? 12 : 8,
-            elevation: isDark ? 7 : 4,
+            shadowOpacity: isDark ? 0.24 : 0.12,
+            shadowRadius: isDark ? 16 : 10,
+            elevation: isDark ? 9 : 5,
             borderWidth: 1,
             borderColor: actionBorderColor,
           },
@@ -229,8 +231,8 @@ export default function HomePage() {
       >
         <LinearGradient
           colors={colors}
-          start={{ x: 0.08, y: 0.05 }}
-          end={{ x: 0.92, y: 0.95 }}
+          start={{ x: 0.12, y: 0.08 }}
+          end={{ x: 0.88, y: 0.92 }}
           style={styles.actionGradient}
         >
           <View style={styles.actionContent}>
@@ -295,7 +297,7 @@ export default function HomePage() {
                 end={{ x: 1, y: 1 }}
                 style={styles.profileGradient}
               >
-                <User color="#fff" size={24} strokeWidth={2.5} />
+                <User color={profileIconColor} size={24} strokeWidth={2.5} />
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -304,13 +306,13 @@ export default function HomePage() {
             style={[
               styles.statsCard,
               {
-                backgroundColor: isDark ? '#101a2d' : 'rgba(255, 255, 255, 0.98)',
+                backgroundColor: isDark ? '#111b2f' : 'rgba(255, 255, 255, 0.99)',
                 borderWidth: 1,
                 borderColor: statsBorderColor,
                 shadowColor: statsShadowColor,
-                shadowOpacity: isDark ? 0.24 : 0.12,
-                shadowRadius: isDark ? 18 : 12,
-                elevation: isDark ? 10 : 5,
+                shadowOpacity: isDark ? 0.26 : 0.12,
+                shadowRadius: isDark ? 20 : 12,
+                elevation: isDark ? 11 : 5,
               },
             ]}
           >
@@ -324,49 +326,47 @@ export default function HomePage() {
 
             <View style={styles.statItem}>
               <Text style={[styles.levelText, { color: statsLevelColor }]}>LV {level}</Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{levelEntry.title}</Text>
+              <Text style={[styles.statLabel, { color: statsLabelColor }]}>{levelEntry.title}</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: statsDividerColor }]} />
             <View style={styles.statItem}>
               <AnimatedStatValue animValue={streakAnim} style={[styles.statValue, { color: statsValueColor }]} />
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Day Streak</Text>
+              <Text style={[styles.statLabel, { color: statsLabelColor }]}>Day Streak</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: statsDividerColor }]} />
             <View style={styles.statItem}>
               <AnimatedStatValue animValue={cardsAnim} style={[styles.statValue, { color: statsValueColor }]} />
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Cards Studied</Text>
+              <Text style={[styles.statLabel, { color: statsLabelColor }]}>Cards Studied</Text>
             </View>
           </View>
-
-          <Text style={[styles.gridLabel, { color: labelColor }]}>MODES</Text>
 
           <View style={styles.actionsGrid}>
             {renderActionCard({
               route: '/arena' as Href,
               colors: homeActionGradients.arena,
               title: 'Battle',
-              icon: <Swords color="#fff" size={34} strokeWidth={2.1} />,
+              icon: <Swords color="#fff" size={40} strokeWidth={2.15} />,
               testID: 'home-action-battle',
             })}
             {renderActionCard({
               route: '/quest' as Href,
               colors: homeActionGradients.quest,
               title: 'Quest',
-              icon: <Target color="#fff" size={34} strokeWidth={2.1} />,
+              icon: <Target color="#fff" size={40} strokeWidth={2.15} />,
               testID: 'home-action-quest',
             })}
             {renderActionCard({
               route: '/stats' as Href,
               colors: homeActionGradients.stats,
-              title: 'Your Stats',
-              icon: <Trophy color="#fff" size={34} strokeWidth={2.1} />,
+              title: 'Stats',
+              icon: <Trophy color="#fff" size={40} strokeWidth={2.15} />,
               testID: 'home-action-stats',
             })}
             {renderActionCard({
               route: '/decks' as Href,
               colors: homeActionGradients.decks,
               title: 'Decks',
-              icon: <BookOpen color="#fff" size={34} strokeWidth={2.1} />,
+              icon: <BookOpen color="#fff" size={40} strokeWidth={2.15} />,
               testID: 'home-action-decks',
             })}
           </View>
@@ -530,7 +530,6 @@ const styles = StyleSheet.create<{
   statValue: TextStyle;
   statLabel: TextStyle;
   statDivider: ViewStyle;
-  gridLabel: TextStyle;
   actionsGrid: ViewStyle;
   actionCard: ViewStyle;
   actionCardMedium: ViewStyle;
@@ -566,36 +565,36 @@ const styles = StyleSheet.create<{
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 56,
+    paddingBottom: 50,
   },
   topGlow: {
     position: 'absolute',
-    top: -74,
-    right: -70,
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+    top: -92,
+    right: -126,
+    width: 252,
+    height: 252,
+    borderRadius: 126,
   },
   midGlow: {
     position: 'absolute',
-    top: 404,
-    left: -88,
-    width: 104,
-    height: 104,
-    borderRadius: 52,
+    top: 566,
+    left: -172,
+    width: 288,
+    height: 288,
+    borderRadius: 144,
   },
   bottomGlow: {
     position: 'absolute',
-    bottom: 202,
-    right: -76,
-    width: 116,
-    height: 116,
-    borderRadius: 58,
+    bottom: -98,
+    right: -118,
+    width: 228,
+    height: 228,
+    borderRadius: 114,
   },
   header: {
     paddingHorizontal: 24,
     paddingTop: 20,
-    paddingBottom: 26,
+    paddingBottom: 22,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -607,9 +606,9 @@ const styles = StyleSheet.create<{
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.14,
-    shadowRadius: 16,
-    elevation: 7,
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 6,
   },
   profileGradient: {
     flex: 1,
@@ -617,35 +616,35 @@ const styles = StyleSheet.create<{
     alignItems: 'center',
   },
   title: {
-    fontSize: 42,
+    fontSize: 44,
     fontWeight: '800' as const,
     color: '#fff',
-    marginBottom: 4,
-    letterSpacing: -1,
+    marginBottom: 3,
+    letterSpacing: -1.1,
   },
   subtitle: {
     fontSize: 18,
     color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '500' as const,
+    fontWeight: '600' as const,
   },
   statsCard: {
     marginHorizontal: 24,
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 20,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 19,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 11,
     overflow: 'hidden',
   },
   statsCardFrame: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 22,
+    borderRadius: 24,
     borderWidth: 1,
   },
   statItem: {
@@ -653,63 +652,54 @@ const styles = StyleSheet.create<{
     alignItems: 'center',
   },
   levelText: {
-    fontSize: 28,
+    fontSize: 29,
     fontWeight: '800' as const,
-    marginBottom: 6,
+    marginBottom: 4,
     letterSpacing: -0.7,
   },
   statValue: {
-    fontSize: 31,
+    fontSize: 32,
     fontWeight: '800' as const,
     color: '#667eea',
-    marginBottom: 6,
-    letterSpacing: -0.7,
+    marginBottom: 4,
+    letterSpacing: -0.8,
   },
   statLabel: {
     fontSize: 12.5,
     color: '#666',
     fontWeight: '700' as const,
     textAlign: 'center',
-    letterSpacing: 0.14,
+    letterSpacing: 0.08,
   },
   statDivider: {
     width: 1,
-    height: 58,
+    height: 56,
     backgroundColor: '#e0e0e0',
-  },
-  gridLabel: {
-    fontSize: 11.5,
-    fontWeight: '700' as const,
-    color: 'rgba(255, 255, 255, 0.45)',
-    textTransform: 'uppercase',
-    letterSpacing: 1.6,
-    paddingHorizontal: 24,
-    marginTop: 30,
-    marginBottom: 14,
   },
   actionsGrid: {
     paddingHorizontal: 24,
+    marginTop: 28,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
   },
   actionCard: {
-    borderRadius: 22,
+    borderRadius: 24,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 9,
   },
   actionCardMedium: {
     width: (width - 64) / 2,
-    height: 146,
+    height: 148,
   },
   actionGradient: {
     flex: 1,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
   },
   actionContent: {
     flex: 1,
@@ -717,14 +707,14 @@ const styles = StyleSheet.create<{
     alignItems: 'center',
   },
   actionIconSlot: {
-    width: 48,
-    height: 48,
+    width: 54,
+    height: 54,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   actionTitleMedium: {
-    fontSize: 19,
+    fontSize: 18.5,
     fontWeight: '800' as const,
     color: '#fff',
     marginTop: 0,
@@ -732,14 +722,14 @@ const styles = StyleSheet.create<{
     letterSpacing: -0.42,
   },
   decksSection: {
-    marginTop: 42,
+    marginTop: 38,
     paddingHorizontal: 24,
   },
   sectionTitle: {
     fontSize: 24,
     fontWeight: '800' as const,
     color: '#fff',
-    marginBottom: 18,
+    marginBottom: 16,
     letterSpacing: -0.5,
   },
   decksScroll: {
@@ -750,14 +740,14 @@ const styles = StyleSheet.create<{
   quickStartEmptyState: {
     alignItems: 'flex-start',
     padding: 20,
-    borderRadius: 20,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.14)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.12,
-    shadowRadius: 14,
+    shadowRadius: 16,
     elevation: 6,
   },
   quickStartEmptyTitle: {
@@ -785,15 +775,15 @@ const styles = StyleSheet.create<{
     color: '#fff',
   },
   deckCard: {
-    width: 170,
-    height: 126,
+    width: 166,
+    height: 124,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.12,
-    shadowRadius: 14,
+    shadowRadius: 16,
     elevation: 5,
   },
   deckCardFrame: {
@@ -807,7 +797,7 @@ const styles = StyleSheet.create<{
   },
   deckContent: {
     flex: 1,
-    paddingHorizontal: 15,
+    paddingHorizontal: 14,
     paddingVertical: 14,
     justifyContent: 'flex-start',
   },
@@ -815,7 +805,7 @@ const styles = StyleSheet.create<{
     fontSize: 15.5,
     fontWeight: '800' as const,
     color: '#333',
-    marginBottom: 6,
+    marginBottom: 5,
     lineHeight: 20,
     letterSpacing: -0.24,
   },
@@ -829,7 +819,7 @@ const styles = StyleSheet.create<{
     height: 4,
     borderRadius: 3,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginTop: 9,
+    marginTop: 10,
     overflow: 'hidden',
   },
   deckMiniBarFill: {
