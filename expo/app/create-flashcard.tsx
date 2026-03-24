@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Plus, Share2, Trash2, FileText, ChevronUp, ChevronDown } from 'lucide-react-native';
+import { ArrowLeft, Plus, Share2, Trash2, ChevronUp, ChevronDown } from 'lucide-react-native';
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import {
@@ -152,66 +152,6 @@ export default function CreateFlashcardPage() {
       Alert.alert('Error', 'Failed to copy deck. Please try again.');
     }
   }, [decks, editingDeckId]);
-
-  const handleBulkPaste = useCallback(async () => {
-    try {
-      const text = await Clipboard.getStringAsync();
-      if (!text || !text.trim()) {
-        Alert.alert('Nothing to Paste', 'Copy a list of questions and answers to your clipboard first.\n\nFormat: one card per line, separated by | or ; or tab.\n\nExample:\nWhat is 2+2? | 4\nCapital of France? | Paris');
-        return;
-      }
-
-      if (text.length > 100000) {
-        Alert.alert('Too Much Text', 'The clipboard content is too large. Try pasting fewer cards at a time.');
-        return;
-      }
-
-      const lines = text.trim().split('\n').filter((line) => line.trim());
-      const newCards: CardInput[] = [];
-
-      for (const line of lines) {
-        let parts: string[] = [];
-        if (line.includes('|')) {
-          parts = line.split('|').map((segment) => segment.trim());
-        } else if (line.includes(';')) {
-          parts = line.split(';').map((segment) => segment.trim());
-        } else if (line.includes('\t')) {
-          parts = line.split('\t').map((segment) => segment.trim());
-        }
-
-        if (parts.length >= 2 && parts[0] && parts[1]) {
-          newCards.push({
-            id: generateUUID(),
-            originalCardId: null,
-            question: parts[0].slice(0, 500),
-            answer: parts[1].slice(0, 80).trim(),
-          });
-        }
-      }
-
-      if (newCards.length === 0) {
-        Alert.alert('No Cards Found', 'Could not parse any question-answer pairs.\n\nMake sure each line has a question and answer separated by | or ; or tab.\n\nExample:\nWhat is 2+2? | 4\nCapital of France? | Paris');
-        return;
-      }
-
-      Alert.alert(
-        `${newCards.length} Cards Found`,
-        `Add ${newCards.length} cards from your clipboard?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Add Cards',
-            onPress: () => {
-              const existingNonEmpty = cards.filter((card) => card.question.trim() || card.answer.trim());
-              setCards([...existingNonEmpty, ...newCards]);
-            },
-          },
-        ]
-      );
-    } catch {
-      Alert.alert('Paste Failed', 'Could not read from clipboard.');
-    }
-  }, [cards]);
 
   const moveCardUp = useCallback((index: number) => {
     if (index <= 0) {
@@ -486,21 +426,10 @@ export default function CreateFlashcardPage() {
           <View style={styles.cardsSection}>
             <View style={styles.cardsSectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.white }]}>Flashcards</Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity
-                  onPress={() => void handleBulkPaste()}
-                  style={[styles.addCardButton, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.25)' }]}
-                  activeOpacity={0.85}
-                  testID="pasteCardsButton"
-                >
-                  <FileText color={theme.white} size={18} strokeWidth={2.5} />
-                  <Text style={[styles.addCardText, { color: theme.white }]}>Paste</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={addCard} style={[styles.addCardButton, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.25)' }]} activeOpacity={0.85} testID="addCardButton">
-                  <Plus color={theme.white} size={20} strokeWidth={2.5} />
-                  <Text style={[styles.addCardText, { color: theme.white }]}>Add Card</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity onPress={addCard} style={[styles.addCardButton, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.25)' }]} activeOpacity={0.85} testID="addCardButton">
+                <Plus color={theme.white} size={20} strokeWidth={2.5} />
+                <Text style={[styles.addCardText, { color: theme.white }]}>Add Card</Text>
+              </TouchableOpacity>
             </View>
 
             {cards.map((card, index) => (
