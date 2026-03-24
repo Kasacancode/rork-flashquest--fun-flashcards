@@ -414,7 +414,28 @@ export default function PracticeSessionPage() {
     }
   }, [timeLeft, gamePhase, currentCard]);
 
-  if (!deck || !currentBattle || !currentCard) {
+  if (!deckId || !currentBattle || !deck) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient
+          colors={isDark ? ['#0f172a', '#1e293b'] : ['#4338ca', '#6366f1']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 16 }}>Session not available</Text>
+            <TouchableOpacity onPress={() => router.back()} style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 24 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  if (!currentCard) {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>Practice session not found</Text>

@@ -290,7 +290,7 @@ function createAICandidatePool(params: {
   recentPenaltyMap: Map<string, number>;
   cardHistoryPenaltyMap: Map<string, number>;
 }): DistractorCandidate[] {
-  const { answers, correctAnswer, currentCardId, recentPenaltyMap, cardHistoryPenaltyMap } = params;
+  const { answers, correctAnswer, currentCardId: _currentCardId, recentPenaltyMap, cardHistoryPenaltyMap } = params;
   const normalizedCorrect = normalizeAnswer(correctAnswer);
   const seen = new Set<string>();
 
@@ -327,7 +327,7 @@ function createAICandidatePool(params: {
           questionSimilarity: 1,
           tagOverlap: 0,
           difficultyBonus: 0,
-        }) + (currentCardId.length > 0 ? 0 : 0),
+        }),
       } satisfies DistractorCandidate;
     });
 }

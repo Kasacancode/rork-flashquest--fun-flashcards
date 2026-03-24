@@ -415,7 +415,9 @@ export default function StatsPage() {
                 />
               </View>
               <Text style={styles.levelBarLabel}>
-                {levelProgress.current} / {levelProgress.required} to Level {level + 1}
+                {level >= 20
+                  ? 'Max Level Reached!'
+                  : `${levelProgress.current} / ${levelProgress.required} to Level ${level + 1}`}
               </Text>
             </View>
           </View>

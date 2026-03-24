@@ -135,7 +135,12 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     queryFn: async () => {
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.DECKS);
       if (stored) {
-        const parsedDecks = JSON.parse(stored) as Deck[];
+        let parsedDecks: Deck[];
+        try {
+          parsedDecks = JSON.parse(stored) as Deck[];
+        } catch {
+          parsedDecks = [];
+        }
         const normalizedDecks = normalizeStoredDecks(parsedDecks);
 
         if (normalizedDecks.didChange) {
@@ -153,7 +158,12 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     queryKey: ['progress'],
     queryFn: async () => {
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.PROGRESS);
-      return stored ? (JSON.parse(stored) as UserProgress[]) : [];
+      if (!stored) return [];
+      try {
+        return JSON.parse(stored) as UserProgress[];
+      } catch {
+        return [];
+      }
     },
   });
 
@@ -162,7 +172,12 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     queryFn: async () => {
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.STATS);
       if (stored) {
-        const stats = JSON.parse(stored) as UserStats;
+        let stats: UserStats;
+        try {
+          stats = JSON.parse(stored) as UserStats;
+        } catch {
+          return DEFAULT_STATS;
+        }
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 

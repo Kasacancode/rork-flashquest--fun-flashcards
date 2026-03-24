@@ -144,7 +144,12 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     queryKey: ['arena-leaderboard'],
     queryFn: async () => {
       const stored = await AsyncStorage.getItem(LEADERBOARD_KEY);
-      return stored ? (JSON.parse(stored) as ArenaLeaderboardEntry[]) : [];
+      if (!stored) return [];
+      try {
+        return JSON.parse(stored) as ArenaLeaderboardEntry[];
+      } catch {
+        return [];
+      }
     },
   });
 

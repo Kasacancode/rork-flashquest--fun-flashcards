@@ -598,9 +598,19 @@ export default function QuestSessionScreen() {
 
   if (!deck || !currentCard) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <SafeAreaView style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: theme.text }]}>Loading...</Text>
+      <View style={{ flex: 1, backgroundColor: theme.background }}>
+        <LinearGradient
+          colors={[theme.gradientStart, theme.gradientMid, theme.gradientEnd]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }} edges={['top', 'bottom']}>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 8 }}>Unable to start Quest</Text>
+          <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', marginBottom: 24, textAlign: 'center' }}>The deck or settings could not be loaded.</Text>
+          <TouchableOpacity onPress={() => router.replace('/quest' as any)} style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 24 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Back to Quest Menu</Text>
+          </TouchableOpacity>
         </SafeAreaView>
       </View>
     );

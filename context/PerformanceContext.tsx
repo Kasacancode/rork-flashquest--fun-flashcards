@@ -58,7 +58,12 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
       logger.log('[Performance] Loading performance data from storage');
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored) as QuestPerformance;
+        let parsed: QuestPerformance;
+        try {
+          parsed = JSON.parse(stored) as QuestPerformance;
+        } catch {
+          return DEFAULT_PERFORMANCE;
+        }
         logger.log('[Performance] Loaded performance:', Object.keys(parsed.cardStatsById).length, 'cards tracked');
         return parsed;
       }
