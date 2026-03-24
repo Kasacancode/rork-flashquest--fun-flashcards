@@ -31,6 +31,12 @@ interface RankSigilProps {
   size: number;
 }
 
+interface RankFrameAccentProps {
+  band: LevelRankBand;
+  size: number;
+  color: string;
+}
+
 interface EmblemTokens {
   outer: number;
   halo: number;
@@ -49,6 +55,21 @@ interface EmblemTokens {
   pipsSize: number;
   pipGap: number;
   pipBottom: number;
+}
+
+interface BandGeometry {
+  haloScale: number;
+  frameScale: number;
+  frameRadiusScale: number;
+  shellScale: number;
+  shellRadiusScale: number;
+  innerScale: number;
+  innerRadiusScale: number;
+  capWidthScale: number;
+  capHeightScale: number;
+  capTopOffset: number;
+  pipScale: number;
+  pipGapScale: number;
 }
 
 const HERO_TOKENS: EmblemTokens = {
@@ -116,79 +137,210 @@ const Diamond = memo(function Diamond({ size, color, style }: DiamondProps) {
   );
 });
 
-const RankSigil = memo(function RankSigil({ band, color, size }: RankSigilProps) {
+function getBandGeometry(band: LevelRankBand): BandGeometry {
+  switch (band) {
+    case 'foundation':
+      return {
+        haloScale: 0.96,
+        frameScale: 0.92,
+        frameRadiusScale: 1.12,
+        shellScale: 0.96,
+        shellRadiusScale: 1.18,
+        innerScale: 0.72,
+        innerRadiusScale: 1.18,
+        capWidthScale: 0.8,
+        capHeightScale: 0.96,
+        capTopOffset: 0,
+        pipScale: 0.9,
+        pipGapScale: 0.94,
+      };
+    case 'momentum':
+      return {
+        haloScale: 1,
+        frameScale: 0.99,
+        frameRadiusScale: 0.92,
+        shellScale: 0.99,
+        shellRadiusScale: 0.84,
+        innerScale: 0.72,
+        innerRadiusScale: 0.84,
+        capWidthScale: 0.92,
+        capHeightScale: 0.94,
+        capTopOffset: 0,
+        pipScale: 1,
+        pipGapScale: 1,
+      };
+    case 'skilled':
+      return {
+        haloScale: 1.02,
+        frameScale: 1.01,
+        frameRadiusScale: 1,
+        shellScale: 1.01,
+        shellRadiusScale: 1.02,
+        innerScale: 0.75,
+        innerRadiusScale: 1,
+        capWidthScale: 1.02,
+        capHeightScale: 0.92,
+        capTopOffset: -1,
+        pipScale: 1.04,
+        pipGapScale: 1.04,
+      };
+    case 'advanced':
+      return {
+        haloScale: 1.04,
+        frameScale: 1.05,
+        frameRadiusScale: 0.86,
+        shellScale: 1.03,
+        shellRadiusScale: 0.76,
+        innerScale: 0.74,
+        innerRadiusScale: 0.84,
+        capWidthScale: 1.1,
+        capHeightScale: 0.9,
+        capTopOffset: -1,
+        pipScale: 1.06,
+        pipGapScale: 1.1,
+      };
+    case 'prestige':
+      return {
+        haloScale: 1.08,
+        frameScale: 1.08,
+        frameRadiusScale: 1.18,
+        shellScale: 1.05,
+        shellRadiusScale: 1.24,
+        innerScale: 0.76,
+        innerRadiusScale: 1.16,
+        capWidthScale: 1.14,
+        capHeightScale: 0.86,
+        capTopOffset: -2,
+        pipScale: 1.1,
+        pipGapScale: 1.18,
+      };
+  }
+}
+
+const RankFrameAccent = memo(function RankFrameAccent({ band, size, color }: RankFrameAccentProps) {
   const unit = size / 12;
-  const softOpacity = 0.42;
-  const softColor = color;
-  const dotSize = Math.max(unit * 1.2, 1.5);
-  const lineThickness = Math.max(unit * 0.8, 1);
+  const lineThickness = Math.max(unit * 0.22, 1);
+  const strongOpacity = 0.28;
+  const softOpacity = 0.16;
+  const microDiamond = Math.max(unit * 1.45, 2);
+  const smallDiamond = Math.max(unit * 1.75, 2.4);
 
   if (band === 'foundation') {
     return (
-      <View style={[styles.sigilRoot, { width: size, height: size }]}>
-        <Diamond size={unit * 3.1} color={color} />
+      <View pointerEvents="none" style={[styles.frameAccentRoot, { width: size, height: size }]}>
+        <Diamond
+          size={smallDiamond}
+          color={color}
+          style={{
+            position: 'absolute',
+            top: unit * 1.2,
+            opacity: strongOpacity,
+          }}
+        />
+        <View
+          style={[
+            styles.verticalRail,
+            {
+              bottom: unit * 0.9,
+              width: lineThickness,
+              height: unit * 2.8,
+              borderRadius: 999,
+              backgroundColor: color,
+              opacity: softOpacity,
+            },
+          ]}
+        />
       </View>
     );
   }
 
   if (band === 'momentum') {
     return (
-      <View style={[styles.sigilRoot, { width: size, height: size }]}>
+      <View pointerEvents="none" style={[styles.frameAccentRoot, { width: size, height: size }]}>
         <View
           style={[
-            styles.sigilLine,
+            styles.verticalRail,
             {
+              left: unit * 1.85,
               width: lineThickness,
-              height: unit * 6,
-              backgroundColor: softColor,
-              opacity: softOpacity,
+              height: unit * 6.4,
               borderRadius: 999,
+              backgroundColor: color,
+              opacity: softOpacity,
             },
           ]}
         />
-        <Diamond size={unit * 2.4} color={color} style={{ position: 'absolute', top: unit * 1.4 }} />
-        <Diamond size={unit * 2.4} color={color} style={{ position: 'absolute', bottom: unit * 1.4 }} />
+        <View
+          style={[
+            styles.verticalRail,
+            {
+              right: unit * 1.85,
+              width: lineThickness,
+              height: unit * 6.4,
+              borderRadius: 999,
+              backgroundColor: color,
+              opacity: softOpacity,
+            },
+          ]}
+        />
+        <Diamond
+          size={microDiamond}
+          color={color}
+          style={{
+            position: 'absolute',
+            top: unit * 1.5,
+            opacity: strongOpacity,
+          }}
+        />
+        <Diamond
+          size={microDiamond}
+          color={color}
+          style={{
+            position: 'absolute',
+            bottom: unit * 1.5,
+            opacity: strongOpacity,
+          }}
+        />
       </View>
     );
   }
 
   if (band === 'skilled') {
     return (
-      <View style={[styles.sigilRoot, { width: size, height: size }]}>
-        <Diamond size={unit * 2.8} color={color} />
+      <View pointerEvents="none" style={[styles.frameAccentRoot, { width: size, height: size }]}>
         <View
           style={[
-            styles.sigilWing,
+            styles.chevronRail,
             {
-              left: unit * 0.8,
-              width: unit * 2.3,
+              left: unit * 0.55,
+              width: unit * 2.7,
               height: lineThickness,
-              backgroundColor: softColor,
-              opacity: softOpacity,
+              backgroundColor: color,
+              opacity: strongOpacity,
+              transform: [{ rotate: '-24deg' }],
             },
           ]}
         />
         <View
           style={[
-            styles.sigilWing,
+            styles.chevronRail,
             {
-              right: unit * 0.8,
-              width: unit * 2.3,
+              right: unit * 0.55,
+              width: unit * 2.7,
               height: lineThickness,
-              backgroundColor: softColor,
-              opacity: softOpacity,
+              backgroundColor: color,
+              opacity: strongOpacity,
+              transform: [{ rotate: '24deg' }],
             },
           ]}
         />
-        <View
+        <Diamond
+          size={microDiamond}
+          color={color}
           style={{
             position: 'absolute',
-            bottom: unit * 1.2,
-            width: dotSize,
-            height: dotSize,
-            borderRadius: dotSize / 2,
-            backgroundColor: softColor,
-            opacity: softOpacity,
+            bottom: unit * 1.4,
+            opacity: strongOpacity,
           }}
         />
       </View>
@@ -197,75 +349,263 @@ const RankSigil = memo(function RankSigil({ band, color, size }: RankSigilProps)
 
   if (band === 'advanced') {
     return (
-      <View style={[styles.sigilRoot, { width: size, height: size }]}>
-        <Diamond size={unit * 2.5} color={color} style={{ position: 'absolute', top: unit * 0.9, left: unit * 1.3 }} />
-        <Diamond size={unit * 2.5} color={color} style={{ position: 'absolute', top: unit * 0.9, right: unit * 1.3 }} />
-        <Diamond size={unit * 3} color={color} style={{ position: 'absolute', bottom: unit * 1.2 }} />
-        <View
+      <View pointerEvents="none" style={[styles.frameAccentRoot, { width: size, height: size }]}>
+        <Diamond
+          size={microDiamond}
+          color={color}
           style={{
             position: 'absolute',
-            bottom: unit * 0.6,
-            width: unit * 6,
-            height: lineThickness,
-            borderRadius: 999,
-            backgroundColor: softColor,
-            opacity: softOpacity,
+            top: unit * 1.2,
+            left: unit * 3.05,
+            opacity: strongOpacity,
           }}
+        />
+        <Diamond
+          size={smallDiamond}
+          color={color}
+          style={{
+            position: 'absolute',
+            top: unit * 0.55,
+            opacity: strongOpacity,
+          }}
+        />
+        <Diamond
+          size={microDiamond}
+          color={color}
+          style={{
+            position: 'absolute',
+            top: unit * 1.2,
+            right: unit * 3.05,
+            opacity: strongOpacity,
+          }}
+        />
+        <View
+          style={[
+            styles.horizontalRail,
+            {
+              bottom: unit * 1.15,
+              width: unit * 6.2,
+              height: lineThickness,
+              borderRadius: 999,
+              backgroundColor: color,
+              opacity: softOpacity,
+            },
+          ]}
         />
       </View>
     );
   }
 
   return (
-    <View style={[styles.sigilRoot, { width: size, height: size }]}>
-      <Diamond size={unit * 3} color={color} />
+    <View pointerEvents="none" style={[styles.frameAccentRoot, { width: size, height: size }]}>
       <View
         style={{
           position: 'absolute',
-          top: unit * 0.9,
-          left: unit * 1.3,
-          width: dotSize,
-          height: dotSize,
-          borderRadius: dotSize / 2,
-          backgroundColor: softColor,
+          width: size * 0.82,
+          height: size * 0.82,
+          borderRadius: (size * 0.82) / 2,
+          borderWidth: 1,
+          borderColor: color,
           opacity: softOpacity,
         }}
       />
-      <View
+      <Diamond
+        size={microDiamond}
+        color={color}
         style={{
           position: 'absolute',
-          top: unit * 0.9,
-          right: unit * 1.3,
-          width: dotSize,
-          height: dotSize,
-          borderRadius: dotSize / 2,
-          backgroundColor: softColor,
-          opacity: softOpacity,
+          top: unit * 1.2,
+          opacity: strongOpacity,
         }}
       />
-      <View
+      <Diamond
+        size={microDiamond}
+        color={color}
         style={{
           position: 'absolute',
-          bottom: unit * 1.1,
-          left: unit * 1.1,
-          width: dotSize,
-          height: dotSize,
-          borderRadius: dotSize / 2,
-          backgroundColor: softColor,
-          opacity: softOpacity,
+          bottom: unit * 1.2,
+          opacity: strongOpacity,
         }}
       />
-      <View
+      <Diamond
+        size={microDiamond}
+        color={color}
         style={{
           position: 'absolute',
-          bottom: unit * 1.1,
-          right: unit * 1.1,
-          width: dotSize,
-          height: dotSize,
-          borderRadius: dotSize / 2,
-          backgroundColor: softColor,
-          opacity: softOpacity,
+          left: unit * 1.2,
+          opacity: strongOpacity,
         }}
+      />
+      <Diamond
+        size={microDiamond}
+        color={color}
+        style={{
+          position: 'absolute',
+          right: unit * 1.2,
+          opacity: strongOpacity,
+        }}
+      />
+    </View>
+  );
+});
+
+const RankSigil = memo(function RankSigil({ band, color, size }: RankSigilProps) {
+  const unit = size / 12;
+  const softOpacity = 0.42;
+  const strongOpacity = 0.68;
+  const diamondSize = Math.max(unit * 2.6, 2);
+  const miniDiamond = Math.max(unit * 1.55, 1.5);
+  const lineThickness = Math.max(unit * 0.8, 1);
+
+  if (band === 'foundation') {
+    return (
+      <View style={[styles.sigilRoot, { width: size, height: size }]}> 
+        <Diamond size={diamondSize} color={color} />
+        <View
+          style={[
+            styles.sigilLine,
+            {
+              bottom: unit * 0.9,
+              width: lineThickness,
+              height: unit * 2.5,
+              backgroundColor: color,
+              opacity: softOpacity,
+              borderRadius: 999,
+            },
+          ]}
+        />
+      </View>
+    );
+  }
+
+  if (band === 'momentum') {
+    return (
+      <View style={[styles.sigilRoot, { width: size, height: size }]}> 
+        <View
+          style={[
+            styles.sigilLine,
+            {
+              width: lineThickness,
+              height: unit * 6.3,
+              backgroundColor: color,
+              opacity: softOpacity,
+              borderRadius: 999,
+            },
+          ]}
+        />
+        <Diamond
+          size={unit * 2.1}
+          color={color}
+          style={{ position: 'absolute', top: unit * 1.35, opacity: strongOpacity }}
+        />
+        <Diamond
+          size={unit * 2.1}
+          color={color}
+          style={{ position: 'absolute', bottom: unit * 1.35, opacity: strongOpacity }}
+        />
+      </View>
+    );
+  }
+
+  if (band === 'skilled') {
+    return (
+      <View style={[styles.sigilRoot, { width: size, height: size }]}> 
+        <Diamond size={unit * 2.4} color={color} />
+        <View
+          style={[
+            styles.sigilWing,
+            {
+              left: unit * 0.9,
+              width: unit * 2.35,
+              height: lineThickness,
+              backgroundColor: color,
+              opacity: softOpacity,
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.sigilWing,
+            {
+              right: unit * 0.9,
+              width: unit * 2.35,
+              height: lineThickness,
+              backgroundColor: color,
+              opacity: softOpacity,
+            },
+          ]}
+        />
+        <Diamond
+          size={miniDiamond}
+          color={color}
+          style={{ position: 'absolute', bottom: unit * 1.05, opacity: strongOpacity }}
+        />
+      </View>
+    );
+  }
+
+  if (band === 'advanced') {
+    return (
+      <View style={[styles.sigilRoot, { width: size, height: size }]}> 
+        <Diamond
+          size={miniDiamond}
+          color={color}
+          style={{ position: 'absolute', top: unit * 1.2, left: unit * 1.55, opacity: strongOpacity }}
+        />
+        <Diamond
+          size={unit * 2.2}
+          color={color}
+          style={{ position: 'absolute', top: unit * 0.45, opacity: strongOpacity }}
+        />
+        <Diamond
+          size={miniDiamond}
+          color={color}
+          style={{ position: 'absolute', top: unit * 1.2, right: unit * 1.55, opacity: strongOpacity }}
+        />
+        <Diamond
+          size={unit * 2.3}
+          color={color}
+          style={{ position: 'absolute', bottom: unit * 1.3, opacity: strongOpacity }}
+        />
+        <View
+          style={[
+            styles.sigilLine,
+            {
+              bottom: unit * 0.85,
+              width: unit * 5.7,
+              height: lineThickness,
+              backgroundColor: color,
+              opacity: softOpacity,
+              borderRadius: 999,
+            },
+          ]}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.sigilRoot, { width: size, height: size }]}> 
+      <Diamond size={unit * 2.4} color={color} />
+      <Diamond
+        size={miniDiamond}
+        color={color}
+        style={{ position: 'absolute', top: unit * 0.75, opacity: strongOpacity }}
+      />
+      <Diamond
+        size={miniDiamond}
+        color={color}
+        style={{ position: 'absolute', left: unit * 1.1, opacity: strongOpacity }}
+      />
+      <Diamond
+        size={miniDiamond}
+        color={color}
+        style={{ position: 'absolute', right: unit * 1.1, opacity: strongOpacity }}
+      />
+      <Diamond
+        size={miniDiamond}
+        color={color}
+        style={{ position: 'absolute', bottom: unit * 0.75, opacity: strongOpacity }}
       />
     </View>
   );
@@ -281,13 +621,24 @@ function RankEmblem({
 }: RankEmblemProps) {
   const rankInfo = useMemo(() => getLevelRankBandInfo(level), [level]);
   const tokens = size === 'hero' ? HERO_TOKENS : ROW_TOKENS;
-  const shellShadowOpacity = size === 'hero' ? (isDark ? 0.3 : 0.14) : isDark ? 0.2 : 0.1;
+  const geometry = useMemo(() => getBandGeometry(rankInfo.band), [rankInfo.band]);
+  const shadowBoost = rankInfo.band === 'prestige' ? 0.03 : rankInfo.band === 'advanced' ? 0.015 : 0;
+  const shellShadowOpacity =
+    (size === 'hero' ? (isDark ? 0.3 : 0.14) : isDark ? 0.2 : 0.1) + shadowBoost;
   const diamondSurface = isDark ? 'rgba(9, 16, 30, 0.42)' : 'rgba(255, 255, 255, 0.66)';
   const innerSurface = isDark ? 'rgba(5, 12, 24, 0.16)' : 'rgba(255, 255, 255, 0.14)';
   const capSurface = isDark ? 'rgba(5, 12, 24, 0.28)' : 'rgba(255, 255, 255, 0.24)';
   const innerBorder = isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.3)';
   const accentColor = isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.82)';
   const pips = rankPipCount[rankInfo.band];
+  const haloSize = tokens.halo * geometry.haloScale;
+  const frameSize = tokens.diamond * geometry.frameScale;
+  const shellSize = tokens.shell * geometry.shellScale;
+  const innerSize = tokens.inner * geometry.innerScale;
+  const capWidth = tokens.capWidth * geometry.capWidthScale;
+  const capHeight = tokens.capHeight * geometry.capHeightScale;
+  const pipSize = tokens.pipsSize * geometry.pipScale;
+  const pipGap = tokens.pipGap * geometry.pipGapScale;
 
   return (
     <View
@@ -306,21 +657,22 @@ function RankEmblem({
         style={[
           styles.halo,
           {
-            width: tokens.halo,
-            height: tokens.halo,
-            borderRadius: tokens.halo / 2,
+            width: haloSize,
+            height: haloSize,
+            borderRadius: haloSize / 2,
             backgroundColor: palette.haloColor,
           },
         ]}
       />
+      <RankFrameAccent band={rankInfo.band} size={tokens.outer} color={palette.badgeText} />
       <View
         pointerEvents="none"
         style={[
           styles.rotatedFrame,
           {
-            width: tokens.diamond,
-            height: tokens.diamond,
-            borderRadius: tokens.diamondRadius,
+            width: frameSize,
+            height: frameSize,
+            borderRadius: tokens.diamondRadius * geometry.frameRadiusScale,
             borderColor: palette.badgeBorder,
             backgroundColor: diamondSurface,
           },
@@ -330,9 +682,9 @@ function RankEmblem({
         style={[
           styles.shell,
           {
-            width: tokens.shell,
-            height: tokens.shell,
-            borderRadius: tokens.shellRadius,
+            width: shellSize,
+            height: shellSize,
+            borderRadius: tokens.shellRadius * geometry.shellRadiusScale,
             borderColor: palette.badgeBorder,
             shadowColor: palette.badgeShadow,
             shadowOpacity: shellShadowOpacity,
@@ -353,9 +705,9 @@ function RankEmblem({
           style={[
             styles.innerRing,
             {
-              width: tokens.inner,
-              height: tokens.inner,
-              borderRadius: tokens.innerRadius,
+              width: innerSize,
+              height: innerSize,
+              borderRadius: tokens.innerRadius * geometry.innerRadiusScale,
               borderColor: innerBorder,
               backgroundColor: innerSurface,
             },
@@ -366,9 +718,9 @@ function RankEmblem({
           style={[
             styles.sigilCap,
             {
-              top: tokens.capTop,
-              width: tokens.capWidth,
-              height: tokens.capHeight,
+              top: tokens.capTop + geometry.capTopOffset,
+              width: capWidth,
+              height: capHeight,
               borderRadius: tokens.capRadius,
               backgroundColor: capSurface,
               borderColor: palette.badgeBorder,
@@ -398,13 +750,18 @@ function RankEmblem({
             style={[
               styles.pipsRow,
               {
-                gap: tokens.pipGap,
+                gap: pipGap,
                 bottom: tokens.pipBottom,
               },
             ]}
           >
             {Array.from({ length: pips }).map((_, index) => (
-              <Diamond key={`${rankInfo.band}-${index}`} size={tokens.pipsSize} color={accentColor} />
+              <Diamond
+                key={`${rankInfo.band}-${index}`}
+                size={pipSize}
+                color={accentColor}
+                style={{ opacity: rankInfo.band === 'foundation' ? 0.8 : 1 }}
+              />
             ))}
           </View>
         ) : null}
@@ -422,6 +779,11 @@ const styles = StyleSheet.create({
   },
   halo: {
     position: 'absolute',
+  },
+  frameAccentRoot: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rotatedFrame: {
     position: 'absolute',
@@ -456,6 +818,19 @@ const styles = StyleSheet.create({
   },
   diamond: {
     transform: [{ rotate: '45deg' }],
+  },
+  verticalRail: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -26,
+  },
+  horizontalRail: {
+    position: 'absolute',
+  },
+  chevronRail: {
+    position: 'absolute',
+    top: '50%',
+    borderRadius: 999,
   },
   sigilRoot: {
     alignItems: 'center',
