@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, ChartBar, Flame, Target, Zap, Swords, Calendar, Star, BookOpen } from 'lucide-react-native';
+import { ArrowLeft, Trophy, Flame, Target, Zap, Swords, Calendar, Star, BookOpen } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -355,6 +355,10 @@ export default function StatsPage() {
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const levelModalStyles = useMemo(() => createLevelModalStyles(theme, isDark), [theme, isDark]);
   const headerContentColor = isDark ? '#F8FAFC' : '#173A71';
+  const headerPillBorderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(148, 163, 184, 0.16)';
+  const trophyBadgeBackground = isDark ? 'rgba(245, 158, 11, 0.16)' : 'rgba(245, 158, 11, 0.14)';
+  const trophyBadgeBorderColor = isDark ? 'rgba(252, 211, 77, 0.28)' : 'rgba(217, 119, 6, 0.18)';
+  const trophyIconColor = isDark ? '#FCD34D' : '#B45309';
   const topGlowColor = isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(96, 165, 250, 0.22)';
   const midGlowColor = isDark ? 'rgba(37, 99, 235, 0.1)' : 'rgba(125, 211, 252, 0.16)';
   const bottomGlowColor = isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(196, 181, 253, 0.14)';
@@ -423,11 +427,21 @@ export default function StatsPage() {
               styles.headerTitleWrap,
               {
                 backgroundColor: isDark ? 'rgba(10, 17, 34, 0.42)' : 'rgba(255, 255, 255, 0.5)',
-                borderColor: isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(148, 163, 184, 0.16)',
+                borderColor: headerPillBorderColor,
               },
             ]}
           >
-            <ChartBar color={headerContentColor} size={22} strokeWidth={2.35} />
+            <View
+              style={[
+                styles.headerIconBadge,
+                {
+                  backgroundColor: trophyBadgeBackground,
+                  borderColor: trophyBadgeBorderColor,
+                },
+              ]}
+            >
+              <Trophy color={trophyIconColor} size={18} strokeWidth={2.35} />
+            </View>
             <Text style={[styles.headerTitle, { color: headerContentColor }]}>Stats</Text>
           </View>
           <View style={styles.placeholder} />
@@ -958,9 +972,18 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       alignItems: 'center',
       justifyContent: 'center',
       gap: 10,
-      paddingHorizontal: 18,
-      paddingVertical: 12,
+      paddingLeft: 14,
+      paddingRight: 18,
+      paddingVertical: 10,
       borderRadius: 18,
+      borderWidth: 1,
+    },
+    headerIconBadge: {
+      width: 30,
+      height: 30,
+      borderRadius: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
       borderWidth: 1,
     },
     headerTitle: {
