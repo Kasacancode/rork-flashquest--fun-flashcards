@@ -1,10 +1,12 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Target, Zap, Clock, Focus, Lightbulb, BookOpen, RefreshCw, Play, ChevronRight, Settings, X, Flame, Award } from 'lucide-react-native';
+import { ArrowLeft, Target, Zap, BookOpen, Play, ChevronRight, Settings, X, Flame, Award } from 'lucide-react-native';
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Animated, Dimensions, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import QuestDeckSelector from '@/components/quest/QuestDeckSelector';
+import QuestSettingsOptions from '@/components/quest/QuestSettingsOptions';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -333,42 +335,16 @@ export default function QuestMenuScreen() {
             ]}
           >
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Select Deck</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.deckList}
-            >
-              {decks.map((deck) => (
-                <TouchableOpacity
-                  key={deck.id}
-                  style={[
-                    styles.deckOption,
-                    {
-                      backgroundColor: selectedDeckId === deck.id ? selectedSurface : insetSurface,
-                      borderWidth: selectedDeckId === deck.id ? 1.5 : 1,
-                      borderColor: selectedDeckId === deck.id ? theme.primary : surfaceBorderColor,
-                      shadowColor: deck.color,
-                      shadowOpacity: selectedDeckId === deck.id ? (isDark ? 0.18 : 0.08) : 0,
-                      shadowRadius: selectedDeckId === deck.id ? 12 : 0,
-                      elevation: selectedDeckId === deck.id ? 4 : 0,
-                    },
-                  ]}
-                  onPress={() => setSelectedDeckId(deck.id)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
-                  <Text
-                    style={[styles.deckName, { color: theme.text }]}
-                    numberOfLines={1}
-                  >
-                    {deck.name}
-                  </Text>
-                  <Text style={[styles.deckCardCount, { color: theme.textSecondary }]}>
-                    {deck.flashcards.length} cards
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            <QuestDeckSelector
+              decks={decks}
+              selectedDeckId={selectedDeckId}
+              onSelectDeck={setSelectedDeckId}
+              theme={theme}
+              isDark={isDark}
+              selectedSurface={selectedSurface}
+              insetSurface={insetSurface}
+              surfaceBorderColor={surfaceBorderColor}
+            />
             {!!smallDeckWarning && (
               <Text style={[styles.warningText, { color: theme.warning }]}>
                 For best experience, decks should have at least 8 cards.
@@ -559,147 +535,23 @@ export default function QuestMenuScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView
-              style={styles.sheetScroll}
-              contentContainerStyle={styles.sheetScrollContent}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.settingRow}>
-                <View style={styles.settingLabel}>
-                  <Target color={theme.textSecondary} size={18} />
-                  <Text style={[styles.settingText, { color: theme.text }]}>Run Length</Text>
-                </View>
-                <View style={styles.optionGroup}>
-                  {([5, 10, 20] as RunLength[]).map((val) => (
-                    <TouchableOpacity
-                      key={val}
-                      style={[
-                        styles.optionButton,
-                        { backgroundColor: insetSurface },
-                        runLength === val && { backgroundColor: theme.primary },
-                      ]}
-                      onPress={() => setRunLength(val)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[
-                        styles.optionText,
-                        { color: runLength === val ? '#fff' : theme.text },
-                      ]}>
-                        {val}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.settingRow}>
-                <View style={styles.settingLabel}>
-                  <Clock color={theme.textSecondary} size={18} />
-                  <Text style={[styles.settingText, { color: theme.text }]}>Timer (sec)</Text>
-                </View>
-                <View style={styles.optionGroup}>
-                  {([0, 5, 10] as TimerOption[]).map((val) => (
-                    <TouchableOpacity
-                      key={val}
-                      style={[
-                        styles.optionButton,
-                        { backgroundColor: insetSurface },
-                        timerSeconds === val && { backgroundColor: theme.primary },
-                      ]}
-                      onPress={() => setTimerSeconds(val)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[
-                        styles.optionText,
-                        { color: timerSeconds === val ? '#fff' : theme.text },
-                      ]}>
-                        {val === 0 ? 'Off' : val}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.toggleRow}
-                onPress={() => setFocusWeakOnly(!focusWeakOnly)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.settingLabel}>
-                  <Focus color={theme.textSecondary} size={18} />
-                  <Text style={[styles.settingText, { color: theme.text }]}>Focus Weak Cards</Text>
-                </View>
-                <View style={[
-                  styles.toggle,
-                  { backgroundColor: focusWeakOnly ? theme.primary : inactiveToggleSurface },
-                ]}>
-                  <View style={[
-                    styles.toggleKnob,
-                    { transform: [{ translateX: focusWeakOnly ? 20 : 2 }] },
-                  ]} />
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.toggleRow}
-                onPress={() => setHintsEnabled(!hintsEnabled)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.settingLabel}>
-                  <Lightbulb color={theme.textSecondary} size={18} />
-                  <Text style={[styles.settingText, { color: theme.text }]}>Hints</Text>
-                </View>
-                <View style={[
-                  styles.toggle,
-                  { backgroundColor: hintsEnabled ? theme.primary : inactiveToggleSurface },
-                ]}>
-                  <View style={[
-                    styles.toggleKnob,
-                    { transform: [{ translateX: hintsEnabled ? 20 : 2 }] },
-                  ]} />
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.toggleRow}
-                onPress={() => setExplanationsEnabled(!explanationsEnabled)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.settingLabel}>
-                  <BookOpen color={theme.textSecondary} size={18} />
-                  <Text style={[styles.settingText, { color: theme.text }]}>Explanations</Text>
-                </View>
-                <View style={[
-                  styles.toggle,
-                  { backgroundColor: explanationsEnabled ? theme.primary : inactiveToggleSurface },
-                ]}>
-                  <View style={[
-                    styles.toggleKnob,
-                    { transform: [{ translateX: explanationsEnabled ? 20 : 2 }] },
-                  ]} />
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.toggleRow, { marginBottom: 0 }]}
-                onPress={() => setSecondChanceEnabled(!secondChanceEnabled)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.settingLabel}>
-                  <RefreshCw color={theme.textSecondary} size={18} />
-                  <Text style={[styles.settingText, { color: theme.text }]}>Second Chance</Text>
-                </View>
-                <View style={[
-                  styles.toggle,
-                  { backgroundColor: secondChanceEnabled ? theme.primary : inactiveToggleSurface },
-                ]}>
-                  <View style={[
-                    styles.toggleKnob,
-                    { transform: [{ translateX: secondChanceEnabled ? 20 : 2 }] },
-                  ]} />
-                </View>
-              </TouchableOpacity>
-            </ScrollView>
+            <QuestSettingsOptions
+              theme={theme}
+              insetSurface={insetSurface}
+              inactiveToggleSurface={inactiveToggleSurface}
+              runLength={runLength}
+              timerSeconds={timerSeconds}
+              focusWeakOnly={focusWeakOnly}
+              hintsEnabled={hintsEnabled}
+              explanationsEnabled={explanationsEnabled}
+              secondChanceEnabled={secondChanceEnabled}
+              setRunLength={setRunLength}
+              setTimerSeconds={setTimerSeconds}
+              setFocusWeakOnly={setFocusWeakOnly}
+              setHintsEnabled={setHintsEnabled}
+              setExplanationsEnabled={setExplanationsEnabled}
+              setSecondChanceEnabled={setSecondChanceEnabled}
+            />
 
             <View style={styles.sheetFooter}>
               <TouchableOpacity

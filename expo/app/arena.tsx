@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ArenaRecentBattlesList from '@/components/arena/ArenaRecentBattlesList';
 import { useArena } from '@/context/ArenaContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { ArenaLeaderboardEntry } from '@/types/arena';
@@ -23,15 +24,6 @@ type BattleStats = {
 
 function normalizeRoomCodeInput(text: string): string {
   return text.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, ROOM_CODE_LENGTH);
-}
-
-function formatDate(timestamp: number): string {
-  const date = new Date(timestamp);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function formatTimerLabel(timerSeconds: number): string {
-  return timerSeconds > 0 ? `${timerSeconds}s timer` : 'No timer';
 }
 
 function getBattleStats(entries: ArenaLeaderboardEntry[], savedPlayerName: string): BattleStats {
@@ -566,63 +558,17 @@ export default function ArenaMenuScreen() {
                 <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>Finish a match to start your battle record.</Text>
               </View>
             ) : (
-              <View style={styles.recentBattlesList}>
-                {recentBattles.map((entry) => {
-                  const isPersonalWin = hasSavedPlayerName && entry.winnerName.toLowerCase() === savedPlayerName.toLowerCase();
-
-                  return (
-                    <View
-                      key={entry.id}
-                      style={[
-                        styles.recentBattleItem,
-                        {
-                          backgroundColor: secondarySurface,
-                          borderColor: subtleBorderColor,
-                        },
-                      ]}
-                    >
-                      <View style={styles.recentBattleMain}>
-                        <View style={styles.recentBattleTitleRow}>
-                          <Text style={[styles.recentBattleWinner, { color: theme.text }]} numberOfLines={1}>
-                            {entry.winnerName}
-                          </Text>
-                          <View
-                            style={[
-                              styles.resultPill,
-                              {
-                                backgroundColor: isPersonalWin ? (isDark ? 'rgba(251, 146, 60, 0.16)' : 'rgba(235, 106, 26, 0.1)') : insetSurface,
-                                borderColor: isPersonalWin ? (isDark ? 'rgba(251, 146, 60, 0.28)' : 'rgba(235, 106, 26, 0.15)') : subtleBorderColor,
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.resultPillText,
-                                { color: isPersonalWin ? arenaAccent : theme.textSecondary },
-                              ]}
-                            >
-                              {isPersonalWin ? 'You won' : 'Winner'}
-                            </Text>
-                          </View>
-                        </View>
-                        <Text style={[styles.recentBattleDeck, { color: theme.textSecondary }]} numberOfLines={1}>
-                          {entry.deckName}
-                        </Text>
-                        <Text style={[styles.recentBattleMeta, { color: theme.textTertiary }]} numberOfLines={2}>
-                          {`${entry.playerCount} players · ${entry.rounds} rounds · ${formatTimerLabel(entry.timerSeconds)} · ${formatDate(entry.completedAt)}`}
-                        </Text>
-                      </View>
-
-                      <View style={styles.recentBattleScoreBlock}>
-                        <Text style={[styles.recentBattlePoints, { color: theme.text }]}>{entry.winnerPoints}</Text>
-                        <Text style={[styles.recentBattleScoreLabel, { color: theme.textSecondary }]}>
-                          {`${Math.round(entry.winnerAccuracy * 100)}% acc`}
-                        </Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
+              <ArenaRecentBattlesList
+                entries={recentBattles}
+                theme={theme}
+                isDark={isDark}
+                arenaAccent={arenaAccent}
+                insetSurface={insetSurface}
+                secondarySurface={secondarySurface}
+                subtleBorderColor={subtleBorderColor}
+                hasSavedPlayerName={hasSavedPlayerName}
+                savedPlayerName={savedPlayerName}
+              />
             )}
           </View>
         </ScrollView>

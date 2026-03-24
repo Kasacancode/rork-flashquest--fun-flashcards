@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Users, X, Play, Settings, Clock, Target, AlertCircle, Wifi, WifiOff, Copy, Check, Swords, Share2 } from 'lucide-react-native';
+import { ArrowLeft, Users, X, Play, Settings, Clock, Target, AlertCircle, Wifi, Copy, Check, Swords, Share2 } from 'lucide-react-native';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert, Animated } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -13,6 +13,8 @@ import {
   type ArenaTimerOption,
   type RoomSettings,
 } from '@/backend/arena/types';
+import ArenaLobbyDeckSelector from '@/components/arena/ArenaLobbyDeckSelector';
+import ArenaLobbyPlayersList from '@/components/arena/ArenaLobbyPlayersList';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -445,116 +447,20 @@ export default function ArenaLobbyScreen() {
               {lobbyPlayers.length === 1 ? 'The table is open. Invite challengers to join.' : `${lobbyPlayers.length} players are seated and ready.`}
             </Text>
 
-            <View style={styles.playersList}>
-              {lobbyPlayers.map((player) => {
-                const playerEntryAnimation = getPlayerEntryAnimation(player.id);
-                const recentlyJoinedGlow = playerEntryAnimation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [1, 0],
-                });
-
-                return (
-                  <Animated.View
-                    key={player.id}
-                    style={{
-                      opacity: playerEntryAnimation,
-                      transform: [
-                        {
-                          translateY: playerEntryAnimation.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [14, 0],
-                          }),
-                        },
-                        {
-                          scale: playerEntryAnimation.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.98, 1],
-                          }),
-                        },
-                      ],
-                    }}
-                  >
-                    <View
-                      style={[
-                        styles.playerCard,
-                        {
-                          backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background,
-                          borderColor: `${player.color}33`,
-                        },
-                      ]}
-                    >
-                      <Animated.View style={[styles.playerAvatarGlow, { borderColor: player.color, opacity: recentlyJoinedGlow }]} />
-                      <View style={[styles.playerAvatar, { backgroundColor: player.color }]}> 
-                        <Text style={styles.playerInitial}>{player.suit}</Text>
-                      </View>
-                      <View style={styles.playerInfo}>
-                        <View style={styles.playerNameRow}>
-                          <View style={[styles.identityBadge, { borderColor: player.color, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : theme.cardBackground }]}> 
-                            <Text style={[styles.identityBadgeText, { color: player.color }]} numberOfLines={1}>
-                              {player.identityLabel}
-                            </Text>
-                          </View>
-                          <View style={[styles.suitBadge, { borderColor: `${player.color}55`, backgroundColor: `${player.color}18` }]}> 
-                            <Text style={[styles.suitBadgeText, { color: player.color }]}>{player.suit}</Text>
-                          </View>
-                          {player.id === playerId && (
-                            <Text style={[styles.youBadge, { color: theme.primary }]}>You</Text>
-                          )}
-                        </View>
-                        <Text style={[styles.playerName, { color: theme.text }]} numberOfLines={1}>
-                          {player.name}
-                        </Text>
-                        <View style={styles.playerMeta}>
-                          {player.isHost && (
-                            <Text style={[styles.hostBadge, { color: theme.warning }]}>Host</Text>
-                          )}
-                          <View style={styles.connectionStatus}>
-                            {player.connected ? (
-                              <Wifi color="#10b981" size={12} />
-                            ) : (
-                              <WifiOff color="#ef4444" size={12} />
-                            )}
-                            <Text style={{ fontSize: 11, color: player.connected ? '#10b981' : '#ef4444', fontWeight: '500' as const }}>
-                              {player.connected ? 'Online' : 'Offline'}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                      {isHost && !player.isHost && (
-                        <TouchableOpacity style={styles.removeButton} onPress={() => handleRemovePlayer(player.id)} activeOpacity={0.7}>
-                          <X color={theme.textTertiary} size={18} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </Animated.View>
-                );
-              })}
-              {hasInviteSlot && (
-                <TouchableOpacity
-                  key="invite-slot"
-                  style={[
-                    styles.emptySlotCard,
-                    {
-                      backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : theme.background,
-                      borderColor: isDark ? 'rgba(255,255,255,0.08)' : theme.border,
-                    },
-                  ]}
-                  onPress={handleCopyCode}
-                  activeOpacity={0.8}
-                  testID="battle-lobby-empty-slot-0"
-                >
-                  <View style={[styles.emptySlotAvatar, { borderColor: arenaAccent }]}> 
-                    <Text style={[styles.emptySlotPlus, { color: arenaAccent }]}>+</Text>
-                  </View>
-                  <View style={styles.playerInfo}>
-                    <Text style={[styles.emptySlotTitle, { color: theme.text }]}>+ Invite</Text>
-                    <Text style={[styles.emptySlotSubtitle, { color: codeCopied ? '#10b981' : theme.textSecondary }]}> 
-                      {codeCopied ? 'Room code copied' : `Tap to copy code ${room.code}`}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
+            <ArenaLobbyPlayersList
+              players={lobbyPlayers}
+              playerId={playerId}
+              isHost={isHost}
+              isDark={isDark}
+              theme={theme}
+              arenaAccent={arenaAccent}
+              codeCopied={codeCopied}
+              roomCode={room.code}
+              hasInviteSlot={hasInviteSlot}
+              onCopyCode={handleCopyCode}
+              onRemovePlayer={handleRemovePlayer}
+              getPlayerEntryAnimation={getPlayerEntryAnimation}
+            />
 
             {lobbyPlayers.length < 2 && (
               <View style={[styles.warningBox, { backgroundColor: theme.warning + '20' }]}>
@@ -585,31 +491,14 @@ export default function ArenaLobbyScreen() {
                 </View>
               ) : (
                 <>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.deckList}
-                    keyboardShouldPersistTaps="handled"
-                    nestedScrollEnabled
-                  >
-                    {decks.map((deck) => (
-                      <TouchableOpacity
-                        key={deck.id}
-                        style={[
-                          styles.deckOption,
-                          { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.background },
-                          room.deckId === deck.id && { borderColor: arenaAccent, borderWidth: 2 },
-                        ]}
-                        onPress={() => handleSelectDeck(deck.id)}
-                        activeOpacity={0.7}
-                        testID={`battle-lobby-deck-option-${deck.id}`}
-                      >
-                        <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
-                        <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={1}>{deck.name}</Text>
-                        <Text style={[styles.deckCardCount, { color: theme.textSecondary }]}>{deck.flashcards.length} cards</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+                  <ArenaLobbyDeckSelector
+                    decks={decks}
+                    selectedDeckId={room.deckId}
+                    theme={theme}
+                    isDark={isDark}
+                    arenaAccent={arenaAccent}
+                    onSelectDeck={handleSelectDeck}
+                  />
                   {!!smallDeckWarning && (
                     <View style={[styles.warningBox, { backgroundColor: theme.warning + '20', marginTop: 12 }]}>
                       <AlertCircle color={theme.warning} size={16} />
