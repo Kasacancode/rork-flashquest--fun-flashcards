@@ -1,15 +1,16 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Flame, Target, Zap, Swords, Calendar, Star, BookOpen } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import LevelsModal from '@/components/profile/LevelsModal';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
-import { computeLevel, computeLevelProgress, getLevelEntry } from '@/utils/levels';
+import { LEVELS, computeLevel, computeLevelProgress, getLevelEntry } from '@/utils/levels';
 import { computeDeckMastery } from '@/utils/mastery';
 
 type ThemeValues = ReturnType<typeof useTheme>['theme'];
@@ -61,6 +62,7 @@ export default function StatsPage() {
   const { performance } = usePerformance();
   const { leaderboard, playerName: savedPlayerName } = useArena();
   const { theme, isDark } = useTheme();
+  const [showLevels, setShowLevels] = useState<boolean>(false);
   const statsAccent = isDark ? '#38bdf8' : '#0ea5e9';
 
   const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
@@ -320,7 +322,16 @@ export default function StatsPage() {
   );
 
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const levelModalStyles = useMemo(() => createLevelModalStyles(theme, isDark), [theme, isDark]);
   const headerContentColor = isDark ? theme.text : theme.white;
+
+  const handleOpenLevels = useCallback(() => {
+    setShowLevels(true);
+  }, []);
+
+  const handleCloseLevels = useCallback(() => {
+    setShowLevels(false);
+  }, []);
 
   return (
     <View style={styles.container} testID="stats-screen">
@@ -359,7 +370,12 @@ export default function StatsPage() {
           showsVerticalScrollIndicator={false}
           testID="stats-scroll-view"
         >
-          <View style={styles.levelCard} testID="stats-score-card">
+          <TouchableOpacity
+            style={styles.levelCard}
+            onPress={handleOpenLevels}
+            activeOpacity={0.92}
+            testID="stats-score-card"
+          >
             <LinearGradient
               colors={isDark ? ['rgba(56, 189, 248, 0.08)', 'rgba(15, 23, 42, 0.78)'] : [theme.cardBackground, theme.cardBackground]}
               start={{ x: 0, y: 0 }}
@@ -386,7 +402,7 @@ export default function StatsPage() {
                   : `${levelProgress.current} / ${levelProgress.required} to Level ${level + 1}`}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
           <View style={styles.weeklyCard}>
             <View style={styles.weeklyHeader}>
@@ -738,6 +754,16 @@ export default function StatsPage() {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      <LevelsModal
+        visible={showLevels}
+        level={level}
+        levelEntry={levelEntry}
+        levels={LEVELS}
+        onClose={handleCloseLevels}
+        styles={levelModalStyles}
+        theme={theme}
+      />
     </View>
   );
 }
@@ -1221,6 +1247,144 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       fontWeight: '600' as const,
       color: theme.textSecondary,
       textAlign: 'center',
+    },
+  });
+};
+
+const createLevelModalStyles = (theme: ThemeValues, isDark: boolean) => {
+  return StyleSheet.create({
+    levelModalOverlay: {
+      flex: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+      backgroundColor: theme.modalOverlay,
+    },
+    levelModalCard: {
+      borderRadius: 28,
+      padding: 18,
+      maxHeight: '78%',
+      gap: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 14 },
+      shadowOpacity: 0.24,
+      shadowRadius: 22,
+      elevation: 12,
+    },
+    levelModalHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    levelModalTitleWrap: {
+      flex: 1,
+      gap: 4,
+    },
+    levelModalEyebrow: {
+      fontSize: 11,
+      fontWeight: '700' as const,
+      color: theme.textTertiary,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.9,
+    },
+    levelModalTitle: {
+      fontSize: 24,
+      fontWeight: '800' as const,
+      color: theme.text,
+      letterSpacing: -0.6,
+    },
+    levelModalSubtitle: {
+      fontSize: 13,
+      fontWeight: '500' as const,
+      color: theme.textSecondary,
+      lineHeight: 18,
+    },
+    settingsCloseButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      backgroundColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.05)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    settingsCloseText: {
+      fontSize: 22,
+      fontWeight: '500' as const,
+      color: theme.textSecondary,
+      lineHeight: 24,
+    },
+    levelList: {
+      gap: 10,
+      paddingBottom: 4,
+    },
+    levelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      padding: 14,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.08)',
+      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.46)' : 'rgba(15, 23, 42, 0.03)',
+    },
+    levelRowCurrent: {
+      borderColor: theme.primary,
+      backgroundColor: isDark ? 'rgba(99, 102, 241, 0.16)' : 'rgba(102, 126, 234, 0.1)',
+    },
+    levelRowReached: {
+      borderColor: isDark ? 'rgba(16, 185, 129, 0.22)' : 'rgba(16, 185, 129, 0.14)',
+    },
+    levelBadge: {
+      minWidth: 58,
+      paddingHorizontal: 10,
+      paddingVertical: 9,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)',
+    },
+    levelBadgeReached: {
+      backgroundColor: isDark ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.1)',
+    },
+    levelBadgeText: {
+      fontSize: 12,
+      fontWeight: '800' as const,
+      color: theme.textSecondary,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.4,
+    },
+    levelBadgeTextCurrent: {
+      color: '#fff',
+    },
+    levelRowTextWrap: {
+      flex: 1,
+      gap: 2,
+    },
+    levelRowTitle: {
+      fontSize: 15,
+      fontWeight: '800' as const,
+      color: theme.text,
+    },
+    levelRowSubtitle: {
+      fontSize: 12,
+      fontWeight: '500' as const,
+      color: theme.textSecondary,
+      lineHeight: 17,
+    },
+    levelRowMeta: {
+      fontSize: 11,
+      fontWeight: '700' as const,
+      color: theme.textTertiary,
+      letterSpacing: 0.3,
+      textTransform: 'uppercase' as const,
+    },
+    levelReachedPill: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: '#10B981',
+      justifyContent: 'center',
+      alignItems: 'center',
     },
   });
 };
