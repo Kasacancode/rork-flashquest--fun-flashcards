@@ -36,8 +36,12 @@ export default function DeckHubScreen() {
 
   const weakCardCount = useMemo(() => {
     if (!deck) return 0;
-    return getWeakCards(deck.id, deck.flashcards, 50).length;
-  }, [deck, getWeakCards]);
+    const weakIds = getWeakCards(deck.id, deck.flashcards, 50);
+    return weakIds.filter((id) => {
+      const stats = performance.cardStatsById[id];
+      return Boolean(stats && stats.attempts > 0);
+    }).length;
+  }, [deck, getWeakCards, performance.cardStatsById]);
 
   const dueForReviewCount = useMemo(() => {
     if (!deck) return 0;
@@ -132,7 +136,7 @@ export default function DeckHubScreen() {
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isDark ? 1 : 0, borderTopColor: deck.color, borderTopWidth: 3 }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isDark ? 1 : 0 }]}>
 
             <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>MASTERY</Text>
             <Text style={[styles.bigPct, { color: theme.primary }]}>{pctMastered}%</Text>
@@ -152,7 +156,7 @@ export default function DeckHubScreen() {
 
           <View style={styles.statsRow}>
             <View style={[styles.statBox, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isDark ? 1 : 0 }]}>
-              <Text style={[styles.statVal, { color: theme.primary }]}>{accuracy !== null ? `${Math.round(accuracy * 100)}%` : '—'}</Text>
+              <Text style={[styles.statVal, { color: accuracy !== null ? theme.primary : theme.textTertiary }]}>{accuracy !== null ? `${Math.round(accuracy * 100)}%` : '0%'}</Text>
               <Text style={[styles.statLbl, { color: theme.textSecondary }]}>Accuracy</Text>
             </View>
             <View style={[styles.statBox, { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: isDark ? 1 : 0 }]}>
@@ -165,11 +169,19 @@ export default function DeckHubScreen() {
             </View>
           </View>
 
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.primary, borderLeftWidth: 4, borderLeftColor: deck.color }]} onPress={() => router.push({ pathname: '/study', params: { deckId: deck.id } } as Href)} activeOpacity={0.85}>
-            <BookOpen color="#fff" size={22} strokeWidth={2.2} />
+          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.primary }]} onPress={() => router.push({ pathname: '/practice', params: { deckId: deck.id } } as Href)} activeOpacity={0.85} testID="deckHubPracticeButton">
+            <Swords color="#fff" size={22} strokeWidth={2.2} />
             <View style={styles.actionText}>
-              <Text style={styles.actionTitle}>Study</Text>
-              <Text style={styles.actionDesc}>Flip through all cards</Text>
+              <Text style={styles.actionTitle}>Practice vs AI</Text>
+              <Text style={styles.actionDesc}>Battle an AI opponent</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: cardBg, borderWidth: 1, borderColor: isDark ? 'rgba(148,163,184,0.16)' : theme.border }]} onPress={() => router.push({ pathname: '/study', params: { deckId: deck.id } } as Href)} activeOpacity={0.85}>
+            <BookOpen color={theme.primary} size={22} strokeWidth={2.2} />
+            <View style={styles.actionText}>
+              <Text style={[styles.actionTitle, { color: theme.text }]}>Study</Text>
+              <Text style={[styles.actionDesc, { color: theme.textSecondary }]}>Flip through all cards</Text>
             </View>
           </TouchableOpacity>
 
@@ -179,25 +191,6 @@ export default function DeckHubScreen() {
               <Text style={[styles.actionTitle, { color: theme.text }]}>Quest</Text>
               <Text style={[styles.actionDesc, { color: theme.textSecondary }]}>Test your knowledge</Text>
             </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.practiceActionCard} onPress={() => router.push({ pathname: '/practice', params: { deckId: deck.id } } as Href)} activeOpacity={0.9} testID="deckHubPracticeButton">
-            <LinearGradient
-              colors={isDark ? ['#4F7CFF', '#6158F3'] : ['#5F7CFF', '#7264FF']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.practiceActionGradient}
-            >
-              <View style={styles.practiceActionRow}>
-                <View style={styles.practiceIconShell}>
-                  <Swords color="#fff" size={24} strokeWidth={2.3} />
-                </View>
-                <View style={styles.actionText}>
-                  <Text style={styles.actionTitle}>Practice vs AI</Text>
-                  <Text style={styles.actionDesc}>Pick solo or local versus with this deck ready</Text>
-                </View>
-              </View>
-            </LinearGradient>
           </TouchableOpacity>
 
           {weakCardCount >= 1 && (
@@ -254,25 +247,6 @@ const styles = StyleSheet.create({
   statVal: { fontSize: 18, fontWeight: '800' },
   statLbl: { fontSize: 11, fontWeight: '600', marginTop: 4, textAlign: 'center' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, padding: 16, gap: 14 },
-  practiceActionCard: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    shadowColor: '#1D4ED8',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.22,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  practiceActionGradient: { padding: 16, borderRadius: 18 },
-  practiceActionRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  practiceIconShell: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.16)',
-  },
   actionText: { flex: 1 },
   actionTitle: { fontSize: 16, fontWeight: '700', color: '#fff' },
   actionDesc: { fontSize: 12, fontWeight: '500', color: 'rgba(255,255,255,0.7)', marginTop: 2 },
