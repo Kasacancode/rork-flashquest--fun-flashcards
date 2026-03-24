@@ -10,7 +10,7 @@ import { useTheme } from '@/context/ThemeContext';
 import type { ArenaLeaderboardEntry } from '@/types/arena';
 import { PLAYER_NAME_MAX_LENGTH, sanitizePlayerName } from '@/utils/playerName';
 
-const ARENA_ACCENT_LIGHT = '#f97316';
+const ARENA_ACCENT_LIGHT = '#eb6a1a';
 const ARENA_ACCENT_DARK = '#fb923c';
 const ROOM_CODE_LENGTH = 4;
 
@@ -128,7 +128,7 @@ export default function ArenaMenuScreen() {
     () => (
       isDark
         ? ['#172033', '#231820', '#0c1424'] as const
-        : ['#fff8f2', '#ffe8d8', '#ffd1a8'] as const
+        : ['#fdf5ed', '#ffe3cf', '#ffca9f'] as const
     ),
     [isDark],
   );
@@ -137,7 +137,7 @@ export default function ArenaMenuScreen() {
     () => (
       isDark
         ? ['rgba(251, 146, 60, 0.16)', 'rgba(251, 146, 60, 0.04)', 'rgba(15, 23, 42, 0)'] as const
-        : ['rgba(255, 255, 255, 0.66)', 'rgba(255, 255, 255, 0.18)', 'rgba(255, 255, 255, 0)'] as const
+        : ['rgba(255, 250, 245, 0.52)', 'rgba(255, 250, 245, 0.12)', 'rgba(255, 250, 245, 0)'] as const
     ),
     [isDark],
   );
@@ -146,28 +146,28 @@ export default function ArenaMenuScreen() {
     () => (
       isDark
         ? ['rgba(59, 130, 246, 0)', 'rgba(59, 130, 246, 0.08)', 'rgba(15, 23, 42, 0.34)'] as const
-        : ['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.3)'] as const
+        : ['rgba(255, 248, 241, 0)', 'rgba(255, 248, 241, 0.12)', 'rgba(255, 248, 241, 0.22)'] as const
     ),
     [isDark],
   );
 
-  const statSurface = isDark ? 'rgba(12, 19, 33, 0.82)' : 'rgba(255, 255, 255, 0.82)';
-  const primarySurface = isDark ? 'rgba(7, 13, 27, 0.9)' : 'rgba(255, 255, 255, 0.96)';
-  const secondarySurface = isDark ? 'rgba(11, 18, 32, 0.88)' : 'rgba(255, 255, 255, 0.92)';
-  const controlSurface = isDark ? 'rgba(17, 24, 39, 0.42)' : 'rgba(255, 255, 255, 0.5)';
-  const insetSurface = isDark ? 'rgba(255, 255, 255, 0.065)' : 'rgba(249, 115, 22, 0.07)';
-  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(249, 115, 22, 0.1)';
-  const subtleBorderColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(249, 115, 22, 0.08)';
-  const startGradient = isDark ? ['#fb923c', '#ea580c'] as const : ['#fb923c', '#f97316'] as const;
-  const disabledGradient = isDark ? ['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.04)'] as const : ['rgba(255, 255, 255, 0.45)', 'rgba(255, 255, 255, 0.3)'] as const;
-  const modalSurface = isDark ? 'rgba(10, 17, 30, 0.98)' : 'rgba(255, 255, 255, 0.98)';
+  const statSurface = isDark ? 'rgba(12, 19, 33, 0.82)' : 'rgba(255, 250, 246, 0.8)';
+  const primarySurface = isDark ? 'rgba(7, 13, 27, 0.9)' : 'rgba(255, 251, 247, 0.94)';
+  const secondarySurface = isDark ? 'rgba(11, 18, 32, 0.88)' : 'rgba(255, 250, 246, 0.9)';
+  const controlSurface = isDark ? 'rgba(17, 24, 39, 0.42)' : 'rgba(255, 251, 247, 0.42)';
+  const insetSurface = isDark ? 'rgba(255, 255, 255, 0.065)' : 'rgba(235, 106, 26, 0.06)';
+  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(235, 106, 26, 0.08)';
+  const subtleBorderColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(235, 106, 26, 0.065)';
+  const startGradient = isDark ? ['#fb923c', '#ea580c'] as const : ['#f28a35', '#ec5f0f'] as const;
+  const disabledGradient = isDark ? ['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.04)'] as const : ['rgba(255, 251, 247, 0.4)', 'rgba(255, 251, 247, 0.26)'] as const;
+  const modalSurface = isDark ? 'rgba(10, 17, 30, 0.98)' : 'rgba(255, 251, 247, 0.97)';
   const liveRoomSurface = isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(236, 253, 245, 0.92)';
   const liveRoomBorder = isDark ? 'rgba(16, 185, 129, 0.26)' : 'rgba(16, 185, 129, 0.18)';
   const mutedTextColor = isDark ? 'rgba(241, 245, 249, 0.9)' : '#8c3412';
   const headerContentColor = isDark ? '#f8fafc' : '#7c2d12';
-  const headerButtonBorder = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(249, 115, 22, 0.14)';
-  const headerTitleSurface = isDark ? 'rgba(10, 17, 30, 0.42)' : 'rgba(255, 255, 255, 0.42)';
-  const headerTitleBorder = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(249, 115, 22, 0.12)';
+  const headerButtonBorder = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(235, 106, 26, 0.12)';
+  const headerTitleSurface = isDark ? 'rgba(10, 17, 30, 0.42)' : 'rgba(255, 251, 247, 0.34)';
+  const headerTitleBorder = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(235, 106, 26, 0.1)';
 
   const statItems = useMemo(
     () => [
@@ -382,7 +382,7 @@ export default function ArenaMenuScreen() {
                   <View
                     style={[
                       styles.statDivider,
-                      { backgroundColor: isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(249, 115, 22, 0.12)' },
+                      { backgroundColor: isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(235, 106, 26, 0.1)' },
                     ]}
                   />
                 ) : null}
@@ -414,7 +414,7 @@ export default function ArenaMenuScreen() {
               style={styles.primaryActionGradient}
             >
               <View style={styles.actionRow}>
-                <View style={[styles.primaryActionIconShell, { backgroundColor: 'rgba(255, 255, 255, 0.16)' }]}>
+                <View style={[styles.primaryActionIconShell, { backgroundColor: 'rgba(255, 248, 241, 0.14)' }]}>
                   <Users color="#fff" size={30} strokeWidth={2.2} />
                 </View>
                 <View style={styles.actionContent}>
@@ -589,8 +589,8 @@ export default function ArenaMenuScreen() {
                             style={[
                               styles.resultPill,
                               {
-                                backgroundColor: isPersonalWin ? (isDark ? 'rgba(251, 146, 60, 0.16)' : 'rgba(249, 115, 22, 0.12)') : insetSurface,
-                                borderColor: isPersonalWin ? (isDark ? 'rgba(251, 146, 60, 0.28)' : 'rgba(249, 115, 22, 0.18)') : subtleBorderColor,
+                                backgroundColor: isPersonalWin ? (isDark ? 'rgba(251, 146, 60, 0.16)' : 'rgba(235, 106, 26, 0.1)') : insetSurface,
+                                borderColor: isPersonalWin ? (isDark ? 'rgba(251, 146, 60, 0.28)' : 'rgba(235, 106, 26, 0.15)') : subtleBorderColor,
                               },
                             ]}
                           >
