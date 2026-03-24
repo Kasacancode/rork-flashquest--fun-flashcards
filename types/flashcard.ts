@@ -42,6 +42,12 @@ export interface UserStats {
   totalCorrectAnswers: number;
   totalQuestionsAttempted: number;
   studyDates: string[];
+  totalStudySessions: number;
+  totalQuestSessions: number;
+  totalPracticeSessions: number;
+  totalArenaSessions: number;
+  totalStudyTimeMs: number;
+  weeklyAccuracy: { week: string; correct: number; attempted: number }[];
 }
 
 export interface Achievement {

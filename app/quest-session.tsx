@@ -213,6 +213,7 @@ export default function QuestSessionScreen() {
       cardsAttempted: totalRounds,
       correctCount,
       timestampISO: new Date().toISOString(),
+      durationMs: totalTimeMs,
     });
     trackEvent({
       event: 'quest_completed',
@@ -473,6 +474,7 @@ export default function QuestSessionScreen() {
         cardsAttempted: effectiveRunLength,
         correctCount,
         timestampISO: new Date().toISOString(),
+        durationMs: totalTimeMs,
       });
       trackEvent({
         event: 'quest_completed',

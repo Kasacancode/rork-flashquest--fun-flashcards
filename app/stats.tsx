@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Flame, Target, Zap, Swords, Calendar, Star } from 'lucide-react-native';
+import { ArrowLeft, Flame, Target, Zap, Swords, Calendar, Star, BookOpen } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -70,6 +70,31 @@ function buildDeckMasterySummary(
     total,
     pct: total > 0 ? Math.round((mastered / total) * 100) : 0,
   };
+}
+
+function getIsoWeekString(date: Date): string {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  normalized.setDate(normalized.getDate() + 3 - ((normalized.getDay() + 6) % 7));
+  const week1 = new Date(normalized.getFullYear(), 0, 4);
+  const weekNum = 1 + Math.round(
+    ((normalized.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7,
+  );
+
+  return `${normalized.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+}
+
+function getRecentWeekKeys(count: number): string[] {
+  const keys: string[] = [];
+  const today = new Date();
+
+  for (let index = count - 1; index >= 0; index -= 1) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - index * 7);
+    keys.push(getIsoWeekString(date));
+  }
+
+  return keys;
 }
 
 export default function StatsPage() {
@@ -218,6 +243,49 @@ export default function StatsPage() {
     stats.totalCorrectAnswers,
   ]);
 
+  const totalSessions = useMemo(() => ({
+    study: stats.totalStudySessions ?? 0,
+    quest: stats.totalQuestSessions ?? 0,
+    practice: stats.totalPracticeSessions ?? 0,
+    arena: stats.totalArenaSessions ?? 0,
+    total:
+      (stats.totalStudySessions ?? 0)
+      + (stats.totalQuestSessions ?? 0)
+      + (stats.totalPracticeSessions ?? 0)
+      + (stats.totalArenaSessions ?? 0),
+  }), [
+    stats.totalStudySessions,
+    stats.totalQuestSessions,
+    stats.totalPracticeSessions,
+    stats.totalArenaSessions,
+  ]);
+
+  const formattedStudyTime = useMemo(() => {
+    const ms = stats.totalStudyTimeMs ?? 0;
+    const minutes = Math.floor(ms / 60000);
+
+    if (minutes < 60) {
+      return `${minutes}m`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  }, [stats.totalStudyTimeMs]);
+
+  const accuracyTrend = useMemo(() => {
+    const weekly = stats.weeklyAccuracy ?? [];
+    const weeklyMap = new Map(weekly.map((entry) => [entry.week, entry]));
+
+    return getRecentWeekKeys(4).map((week) => {
+      const entry = weeklyMap.get(week);
+      return {
+        week,
+        accuracy: entry && entry.attempted > 0 ? Math.round((entry.correct / entry.attempted) * 100) : null,
+      };
+    });
+  }, [stats.weeklyAccuracy]);
+
   const calendarColumns = useMemo(() => {
     return Array.from({ length: 7 }, (_, weekIndex) => {
       return calendarWithIntensity.slice(weekIndex * 7, weekIndex * 7 + 7);
@@ -341,10 +409,26 @@ export default function StatsPage() {
                 ]}
               />
               <View style={styles.weeklyStat}>
-                <Text style={[styles.weeklyStatValue, { color: theme.primary }]}>
+                <Text style={[styles.weeklyStatValue, { color: theme.primary }]}> 
                   {stats.currentStreak}
                 </Text>
                 <Text style={styles.weeklyStatLabel}>Day Streak</Text>
+              </View>
+              <View
+                style={[
+                  styles.weeklyDivider,
+                  { backgroundColor: isDark ? 'rgba(148,163,184,0.14)' : '#e0e0e0' },
+                ]}
+              />
+              <View style={styles.weeklyStat}>
+                <Text
+                  style={[styles.weeklyStatValue, { color: theme.primary }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {formattedStudyTime}
+                </Text>
+                <Text style={styles.weeklyStatLabel}>Study Time</Text>
               </View>
               {weeklySummary.accuracy !== null ? (
                 <>
@@ -513,28 +597,65 @@ export default function StatsPage() {
           <View style={styles.performanceCard}>
             <Text style={styles.sectionLabel}>PERFORMANCE</Text>
             <View style={styles.perfRow}>
+              <BookOpen color={theme.primary} size={18} strokeWidth={2.2} />
+              <Text style={styles.perfLabel}>Study</Text>
+              <Text style={styles.perfValue}>{totalSessions.study} sessions · {formattedStudyTime} total</Text>
+            </View>
+            <View style={styles.perfRow}>
               <Target color={theme.primary} size={18} strokeWidth={2.2} />
               <Text style={styles.perfLabel}>Quest</Text>
               <Text style={styles.perfValue}>
-                {stats.totalQuestionsAttempted ?? 0} questions ·{' '}
-                {weeklySummary.accuracy !== null ? `${weeklySummary.accuracy}% accuracy` : 'No data'}
+                {totalSessions.quest} sessions · {stats.totalQuestionsAttempted ?? 0} questions
+                {weeklySummary.accuracy !== null ? ` · ${weeklySummary.accuracy}%` : ''}
+                {performance.bestQuestStreak > 0 ? ` · ${performance.bestQuestStreak} best streak` : ''}
               </Text>
             </View>
             <View style={[styles.perfRow, !arenaStats ? styles.perfRowLast : null]}>
               <Swords color={theme.primary} size={18} strokeWidth={2.2} />
               <Text style={styles.perfLabel}>Practice</Text>
-              <Text style={styles.perfValue}>{stats.totalCardsStudied} cards studied</Text>
+              <Text style={styles.perfValue}>{totalSessions.practice} sessions · {stats.totalCardsStudied} cards studied</Text>
             </View>
             {arenaStats ? (
               <View style={[styles.perfRow, styles.perfRowLast]}>
                 <Zap color={theme.primary} size={18} strokeWidth={2.2} />
                 <Text style={styles.perfLabel}>Arena</Text>
                 <Text style={styles.perfValue}>
-                  {arenaStats.wins}/{arenaStats.total} wins · {arenaStats.winRate}% rate
+                  {totalSessions.arena} battles · {arenaStats.wins} wins · {arenaStats.winRate}% rate
                 </Text>
               </View>
             ) : null}
           </View>
+
+          {accuracyTrend.length >= 2 ? (
+            <View style={styles.trendCard}>
+              <Text style={styles.sectionLabel}>ACCURACY TREND</Text>
+              <View style={styles.trendRow}>
+                {accuracyTrend.map((entry) => {
+                  const label = entry.week.replace(/^\d{4}-W/, 'W');
+                  const pct = entry.accuracy;
+                  return (
+                    <View key={entry.week} style={styles.trendColumn}>
+                      <View style={styles.trendBarContainer}>
+                        {pct !== null ? (
+                          <View
+                            style={[
+                              styles.trendBar,
+                              {
+                                height: `${pct}%`,
+                                backgroundColor: pct >= 70 ? theme.success : theme.warning,
+                              },
+                            ]}
+                          />
+                        ) : null}
+                      </View>
+                      <Text style={styles.trendPct}>{pct !== null ? `${pct}%` : '–'}</Text>
+                      <Text style={styles.trendWeek}>{label}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
 
           <View style={styles.deckProgressSection}>
             <Text style={styles.sectionLabel}>DECK PROGRESS</Text>
@@ -935,6 +1056,50 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       fontWeight: '500' as const,
       color: theme.textSecondary,
       flex: 1,
+    },
+
+    trendCard: {
+      marginHorizontal: 24,
+      marginBottom: 20,
+      borderRadius: 20,
+      padding: 20,
+      backgroundColor: statSurface,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: surfaceBorderColor,
+    },
+    trendRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      alignItems: 'flex-end',
+      height: 100,
+      gap: 8,
+    },
+    trendColumn: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    trendBarContainer: {
+      width: '100%',
+      height: 60,
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+    },
+    trendBar: {
+      width: '60%',
+      borderRadius: 4,
+      minHeight: 4,
+    },
+    trendPct: {
+      fontSize: 12,
+      fontWeight: '700' as const,
+      color: theme.text,
+      marginTop: 6,
+    },
+    trendWeek: {
+      fontSize: 10,
+      fontWeight: '500' as const,
+      color: theme.textTertiary,
+      marginTop: 2,
     },
 
     deckProgressSection: {

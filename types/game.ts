@@ -14,4 +14,5 @@ export interface GameResultParams {
   cardsAttempted: number;
   correctCount?: number;
   timestampISO: string;
+  durationMs?: number;
 }

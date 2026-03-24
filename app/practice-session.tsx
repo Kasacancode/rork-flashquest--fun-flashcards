@@ -130,6 +130,7 @@ export default function PracticeSessionPage() {
   const [distractors, setDistractors] = useState<string[]>([]);
   const [aiState, setAiState] = useState<AdaptiveOpponentState>({ streak: 0, confidence: 0.5 });
 
+  const sessionStartRef = useRef<number>(Date.now());
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -144,6 +145,7 @@ export default function PracticeSessionPage() {
       return;
     }
 
+    sessionStartRef.current = Date.now();
     setCurrentBattle(createPracticeSession(deckId, practiceMode));
     setAiState({ streak: 0, confidence: 0.5 });
   }, [deckId, practiceMode]);
@@ -594,6 +596,7 @@ export default function PracticeSessionPage() {
                 cardsAttempted: currentBattle.totalRounds,
                 correctCount: currentBattle.playerScore,
                 timestampISO: new Date().toISOString(),
+                durationMs: Date.now() - sessionStartRef.current,
               });
               trackEvent({
                 event: 'practice_completed',

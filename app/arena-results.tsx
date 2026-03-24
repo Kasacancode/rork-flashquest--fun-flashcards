@@ -288,6 +288,9 @@ export default function ArenaResultsScreen() {
         cardsAttempted: data.totalQuestions,
         correctCount: myScore?.correct ?? 0,
         timestampISO: new Date().toISOString(),
+        durationMs: data.settings
+          ? (data.settings.rounds * Math.max(data.settings.timerSeconds, 8)) * 1000
+          : 0,
       });
       logger.log('[Results] Recorded XP:', xp, 'winner:', isWinner);
     }

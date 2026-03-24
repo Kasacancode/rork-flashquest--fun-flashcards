@@ -26,6 +26,12 @@ const DEFAULT_STATS: UserStats = {
   totalCorrectAnswers: 0,
   totalQuestionsAttempted: 0,
   studyDates: [],
+  totalStudySessions: 0,
+  totalQuestSessions: 0,
+  totalPracticeSessions: 0,
+  totalArenaSessions: 0,
+  totalStudyTimeMs: 0,
+  weeklyAccuracy: [],
 };
 
 const SAMPLE_DECKS_BY_ID = new Map<string, Deck>(SAMPLE_DECKS.map((deck) => [deck.id, deck]));
@@ -107,6 +113,18 @@ function computeStreak(
     currentStreak: 1,
     longestStreak: Math.max(longestStreak, 1),
   };
+}
+
+function getIsoWeekString(date: Date): string {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  normalized.setDate(normalized.getDate() + 3 - ((normalized.getDay() + 6) % 7));
+  const week1 = new Date(normalized.getFullYear(), 0, 4);
+  const weekNum = 1 + Math.round(
+    ((normalized.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7,
+  );
+
+  return `${normalized.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
 }
 
 export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
@@ -207,6 +225,37 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     const questionsAttemptedToAdd = params.correctCount != null ? params.cardsAttempted : 0;
     const existingStudyDates = currentStats.studyDates ?? [];
     const studyDatesUpdated = existingStudyDates.includes(today) ? existingStudyDates : [...existingStudyDates, today];
+    const weekNumber = getIsoWeekString(new Date());
+    const existingWeekly = currentStats.weeklyAccuracy ?? [];
+    const currentWeekEntry = existingWeekly.find((entry) => entry.week === weekNumber);
+    const weeklyCorrectToAdd = params.correctCount ?? 0;
+    const weeklyAttemptedToAdd = params.correctCount != null ? params.cardsAttempted : 0;
+    let updatedWeekly: { week: string; correct: number; attempted: number }[];
+
+    if (currentWeekEntry) {
+      updatedWeekly = existingWeekly.map((entry) => (
+        entry.week === weekNumber
+          ? {
+              ...entry,
+              correct: entry.correct + weeklyCorrectToAdd,
+              attempted: entry.attempted + weeklyAttemptedToAdd,
+            }
+          : entry
+      ));
+    } else {
+      updatedWeekly = [
+        ...existingWeekly,
+        {
+          week: weekNumber,
+          correct: weeklyCorrectToAdd,
+          attempted: weeklyAttemptedToAdd,
+        },
+      ];
+    }
+
+    updatedWeekly = updatedWeekly
+      .sort((a, b) => a.week.localeCompare(b.week))
+      .slice(-12);
 
     const updatedStats: UserStats = {
       ...currentStats,
@@ -218,6 +267,12 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       totalCorrectAnswers: (currentStats.totalCorrectAnswers ?? 0) + correctAnswersToAdd,
       totalQuestionsAttempted: (currentStats.totalQuestionsAttempted ?? 0) + questionsAttemptedToAdd,
       studyDates: studyDatesUpdated,
+      totalStudySessions: (currentStats.totalStudySessions ?? 0) + (params.mode === 'study' ? 1 : 0),
+      totalQuestSessions: (currentStats.totalQuestSessions ?? 0) + (params.mode === 'quest' ? 1 : 0),
+      totalPracticeSessions: (currentStats.totalPracticeSessions ?? 0) + (params.mode === 'practice' ? 1 : 0),
+      totalArenaSessions: (currentStats.totalArenaSessions ?? 0) + (params.mode === 'arena' ? 1 : 0),
+      totalStudyTimeMs: (currentStats.totalStudyTimeMs ?? 0) + (params.durationMs ?? 0),
+      weeklyAccuracy: updatedWeekly,
     };
 
     logger.log(

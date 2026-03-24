@@ -32,6 +32,7 @@ export default function StudyPage() {
   const [showResults, setShowResults] = useState<boolean>(false);
   const [sessionXp, setSessionXp] = useState<number>(0);
   const trackedStudyDeckIdRef = useRef<string | null>(null);
+  const sessionStartRef = useRef<number>(Date.now());
 
   const selectedDeck = useMemo(
     () => decks.find((d) => d.id === selectedDeckId),
@@ -40,6 +41,7 @@ export default function StudyPage() {
 
   const handleDeckSelect = useCallback((deckId: string) => {
     trackedStudyDeckIdRef.current = null;
+    sessionStartRef.current = Date.now();
     setSelectedDeckId(deckId);
     setShowDeckSelector(false);
     setSessionResolved(0);
@@ -83,6 +85,7 @@ export default function StudyPage() {
         xpEarned,
         cardsAttempted: sessionResolved,
         timestampISO: new Date().toISOString(),
+        durationMs: Date.now() - sessionStartRef.current,
       });
       trackEvent({
         event: 'study_completed',
@@ -99,6 +102,7 @@ export default function StudyPage() {
 
   const handleRestart = useCallback(() => {
     trackedStudyDeckIdRef.current = null;
+    sessionStartRef.current = Date.now();
     setSessionResolved(0);
     setSessionXp(0);
     setShowResults(false);
