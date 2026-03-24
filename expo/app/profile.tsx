@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Award,
   User,
+  UserRound,
   Zap,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -380,7 +381,10 @@ export default function ProfilePage() {
 
           <View style={styles.headerTextBlock}>
             <Text style={styles.headerEyebrow}>FlashQuest</Text>
-            <Text style={styles.headerTitle}>Profile</Text>
+            <View style={styles.headerTitleWrap}>
+              <UserRound color="#fff" size={20} strokeWidth={2.35} />
+              <Text style={styles.headerTitle}>Profile</Text>
+            </View>
           </View>
 
           <View style={styles.headerSpacer} />
@@ -560,6 +564,24 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       alignItems: 'center',
       justifyContent: 'center',
       flex: 1,
+      gap: 4,
+    },
+    headerTitleWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      borderRadius: 18,
+      backgroundColor: 'rgba(255, 255, 255, 0.14)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.2)',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: isDark ? 0.22 : 0.12,
+      shadowRadius: 16,
+      elevation: isDark ? 6 : 3,
     },
     headerSpacer: {
       width: 42,
@@ -571,13 +593,12 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       color: 'rgba(255, 255, 255, 0.78)',
       letterSpacing: 1,
       textTransform: 'uppercase' as const,
-      marginBottom: 2,
     },
     headerTitle: {
-      fontSize: 24,
+      fontSize: 22,
       fontWeight: '800' as const,
       color: '#fff',
-      letterSpacing: -0.6,
+      letterSpacing: -0.5,
     },
     scrollView: {
       flex: 1,

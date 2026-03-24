@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Flame, Target, Zap, Swords, Calendar, Star, BookOpen } from 'lucide-react-native';
+import { ArrowLeft, ChartBar, Flame, Target, Zap, Swords, Calendar, Star, BookOpen } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -427,7 +427,8 @@ export default function StatsPage() {
               },
             ]}
           >
-            <Text style={[styles.headerTitle, { color: headerContentColor }]}>Your Stats</Text>
+            <ChartBar color={headerContentColor} size={22} strokeWidth={2.35} />
+            <Text style={[styles.headerTitle, { color: headerContentColor }]}>Stats</Text>
           </View>
           <View style={styles.placeholder} />
         </View>
@@ -953,6 +954,10 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       shadowOffset: { width: 0, height: 8 },
     },
     headerTitleWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
       paddingHorizontal: 18,
       paddingVertical: 12,
       borderRadius: 18,

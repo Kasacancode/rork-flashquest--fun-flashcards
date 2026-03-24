@@ -313,7 +313,8 @@ export default function DecksPage() {
           </TouchableOpacity>
 
           <View style={[styles.headerTitleWrap, { backgroundColor: isDark ? 'rgba(10, 17, 34, 0.42)' : 'rgba(255, 255, 255, 0.62)', borderColor: headerControlBorder }]}> 
-            <Text style={[styles.headerTitle, { color: headerContentColor }]}>My Decks</Text>
+            <BookOpen color={headerContentColor} size={21} strokeWidth={2.35} />
+            <Text style={[styles.headerTitle, { color: headerContentColor }]}>Decks</Text>
           </View>
 
           <TouchableOpacity
@@ -736,6 +737,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
   },
   headerTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 18,
