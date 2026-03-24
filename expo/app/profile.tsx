@@ -1149,7 +1149,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     achievementCategorySummaryText: {
       fontSize: 13,
       fontWeight: '700' as const,
-      color: theme.textSecondary,
+      color: isDark ? 'rgba(226, 232, 240, 0.84)' : 'rgba(245, 241, 255, 0.92)',
     },
     achievementCategoryCards: {
       marginTop: 12,
