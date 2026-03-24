@@ -204,9 +204,15 @@ export default function DeckHubScreen() {
   }
 
   const pctMastered = mastery.total > 0 ? Math.round((mastery.mastered / mastery.total) * 100) : 0;
-  const deckActionStart = blendColors(theme.primary, deck.color, isDark ? 0.16 : 0.2);
-  const deckActionEnd = blendColors(theme.primaryDark, deck.color, isDark ? 0.12 : 0.18);
-  const deckActionShadow = blendColors(theme.primary, deck.color, isDark ? 0.26 : 0.34);
+  const deckActionStart = isDark ? blendColors(theme.primary, deck.color, 0.24) : blendColors('#A7B8FF', deck.color, 0.34);
+  const deckActionMid = isDark ? blendColors(theme.primaryDark, deck.color, 0.22) : blendColors(theme.primary, deck.color, 0.28);
+  const deckActionEnd = isDark ? blendColors('#463AAE', deck.color, 0.28) : blendColors('#8B5CF6', deck.color, 0.32);
+  const deckActionShadow = blendColors(theme.primaryDark, deck.color, isDark ? 0.34 : 0.44);
+  const deckActionBorder = isDark ? withAlpha(deck.color, 0.26) : blendColors('#C7D2FE', deck.color, 0.34, 0.96);
+  const deckActionHighlight = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.34)';
+  const deckActionGlow = withAlpha(deck.color, isDark ? 0.24 : 0.2);
+  const actionIconSurface = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.18)';
+  const actionIconBorder = isDark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.28)';
   const secondaryActionAccent = blendColors(theme.primary, deck.color, isDark ? 0.14 : 0.18);
   const screenGradient = isDark
     ? ['#0a1427', '#12203a', '#091222'] as const
@@ -365,28 +371,38 @@ export default function DeckHubScreen() {
           <TouchableOpacity
             style={[
               styles.actionBtn,
+              styles.primaryActionBtn,
               {
                 backgroundColor: 'transparent',
-                borderWidth: 1,
-                borderColor: actionBorder,
+                borderColor: deckActionBorder,
                 shadowColor: deckActionShadow,
-                shadowOpacity: isDark ? 0.26 : 0.18,
-                shadowRadius: isDark ? 18 : 12,
-                elevation: isDark ? 9 : 4,
+                shadowOpacity: isDark ? 0.32 : 0.24,
+                shadowRadius: isDark ? 22 : 16,
+                elevation: isDark ? 10 : 7,
               },
             ]}
             onPress={() => router.push({ pathname: '/practice', params: { deckId: deck.id } } as Href)}
             activeOpacity={0.85}
             testID="deckHubPracticeButton"
           >
-            <LinearGradient
-              colors={[deckActionStart, deckActionEnd]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.actionGradientFill}
-              pointerEvents="none"
-            />
-            <Swords color="#fff" size={22} strokeWidth={2.2} />
+            <View pointerEvents="none" style={styles.primaryActionSurface}>
+              <LinearGradient
+                colors={[deckActionStart, deckActionMid, deckActionEnd]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.actionGradientFill}
+              />
+              <LinearGradient
+                colors={[deckActionHighlight, 'rgba(255,255,255,0.02)']}
+                start={{ x: 0.15, y: 0 }}
+                end={{ x: 0.85, y: 1 }}
+                style={styles.actionHighlightOverlay}
+              />
+              <View style={[styles.actionAccentGlow, { backgroundColor: deckActionGlow }]} />
+            </View>
+            <View style={[styles.actionIconWrap, { backgroundColor: actionIconSurface, borderColor: actionIconBorder }]}>
+              <Swords color="#fff" size={20} strokeWidth={2.35} />
+            </View>
             <View style={styles.actionText}>
               <Text style={styles.actionTitle}>Practice vs AI</Text>
               <Text style={styles.actionDesc}>Battle an AI opponent</Text>
@@ -583,6 +599,16 @@ const styles = StyleSheet.create({
     padding: 17,
     gap: 14,
   },
+  primaryActionBtn: {
+    position: 'relative',
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 10 },
+  },
+  primaryActionSurface: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
   secondaryActionBtn: {
     borderWidth: 1,
     shadowColor: '#000',
@@ -595,8 +621,28 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: 20,
   },
+  actionHighlightOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 20,
+  },
+  actionAccentGlow: {
+    position: 'absolute',
+    top: -40,
+    right: -18,
+    width: 138,
+    height: 138,
+    borderRadius: 69,
+  },
+  actionIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
   actionText: { flex: 1 },
   actionTitle: { fontSize: 16, fontWeight: '700' as const, color: '#fff' },
-  actionDesc: { fontSize: 12, fontWeight: '500' as const, color: 'rgba(255,255,255,0.74)', marginTop: 2 },
+  actionDesc: { fontSize: 12, fontWeight: '600' as const, color: 'rgba(255,255,255,0.82)', marginTop: 2 },
   secondaryActionDesc: { fontSize: 12, fontWeight: '500' as const, marginTop: 2 },
 });
