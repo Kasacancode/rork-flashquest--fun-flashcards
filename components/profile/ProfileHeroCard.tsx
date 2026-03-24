@@ -119,7 +119,9 @@ export default function ProfileHeroCard({
         <View style={styles.heroProgressBlock}>
           <View style={styles.heroProgressLabelRow}>
             <Text style={styles.heroProgressLabel}>Level progress</Text>
-            <Text style={styles.heroProgressValue}>{progress.current} / {progress.required} XP</Text>
+            <Text style={styles.heroProgressValue}>
+              {level >= 20 ? 'Max Level!' : `${progress.current} / ${progress.required} XP`}
+            </Text>
           </View>
           <View style={styles.heroProgressTrack}>
             <View style={[styles.heroProgressFill, { width: progressWidth, backgroundColor: selectedColorValue }]} />

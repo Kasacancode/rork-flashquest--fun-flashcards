@@ -138,6 +138,7 @@ export default function PracticeSessionPage() {
   const feedbackScale = useRef(new Animated.Value(0.8)).current;
   const scorePopAnim = useRef(new Animated.Value(1)).current;
   const handleTimeUpRef = useRef<() => void>(() => {});
+  const resultRecordedRef = useRef(false);
 
   useEffect(() => {
     if (!deckId) {
@@ -146,6 +147,7 @@ export default function PracticeSessionPage() {
     }
 
     sessionStartRef.current = Date.now();
+    resultRecordedRef.current = false;
     setCurrentBattle(createPracticeSession(deckId, practiceMode));
     setAiState({ streak: 0, confidence: 0.5 });
   }, [deckId, practiceMode]);
@@ -610,6 +612,12 @@ export default function PracticeSessionPage() {
             </View>
 
             <TouchableOpacity style={styles.doneButton} onPress={() => {
+              if (resultRecordedRef.current) {
+                endBattle();
+                router.back();
+                return;
+              }
+              resultRecordedRef.current = true;
               recordSessionResult({
                 mode: GAME_MODE.PRACTICE,
                 deckId: deckId,
@@ -651,6 +659,12 @@ export default function PracticeSessionPage() {
                 width: '100%',
               }}
               onPress={() => {
+                if (resultRecordedRef.current) {
+                  endBattle();
+                  router.push({ pathname: '/quest', params: { deckId } } as any);
+                  return;
+                }
+                resultRecordedRef.current = true;
                 recordSessionResult({
                   mode: GAME_MODE.PRACTICE,
                   deckId: deckId,
@@ -690,6 +704,12 @@ export default function PracticeSessionPage() {
                 marginTop: 6,
               }}
               onPress={() => {
+                if (resultRecordedRef.current) {
+                  endBattle();
+                  router.push({ pathname: '/study', params: { deckId } } as any);
+                  return;
+                }
+                resultRecordedRef.current = true;
                 recordSessionResult({
                   mode: GAME_MODE.PRACTICE,
                   deckId: deckId,
