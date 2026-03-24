@@ -94,7 +94,7 @@ export default function HomePage() {
   );
   const titleColor = isDark ? '#f8fbff' : '#ffffff';
   const subtitleColor = isDark ? 'rgba(229, 236, 248, 0.84)' : 'rgba(241, 236, 252, 0.88)';
-  const sectionTitleColor = isDark ? '#f8fafc' : 'rgba(245, 241, 255, 0.94)';
+  const sectionTitleColor = isDark ? '#f8fafc' : 'rgba(255, 255, 255, 0.985)';
   const topGlowColor = isDark ? 'rgba(88, 97, 215, 0.075)' : 'rgba(97, 131, 255, 0.24)';
   const midGlowColor = isDark ? 'rgba(44, 166, 154, 0.038)' : 'rgba(133, 114, 237, 0.08)';
   const bottomGlowColor = isDark ? 'rgba(96, 72, 191, 0.035)' : 'rgba(220, 160, 228, 0.22)';
