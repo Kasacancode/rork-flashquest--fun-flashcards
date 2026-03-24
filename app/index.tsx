@@ -61,64 +61,66 @@ export default function HomePage() {
   const backgroundGradient = useMemo(
     () => (
       isDark
-        ? ['#07101f', '#10192f', '#09111f'] as const
-        : ['#f7f9ff', '#eef3ff', '#f9f5ff'] as const
+        ? ['#07111f', '#0c1628', '#091220'] as const
+        : ['#f5f7fb', '#eef3f9', '#f8fafc'] as const
     ),
     [isDark],
   );
   const shellOverlayGradient = useMemo(
     () => (
       isDark
-        ? ['rgba(6, 10, 22, 0.06)', 'rgba(6, 10, 22, 0.34)', 'rgba(4, 8, 18, 0.8)'] as const
-        : ['rgba(255, 255, 255, 0.28)', 'rgba(238, 242, 255, 0.16)', 'rgba(247, 249, 255, 0.62)'] as const
+        ? ['rgba(5, 10, 20, 0.08)', 'rgba(6, 10, 20, 0.22)', 'rgba(4, 8, 18, 0.62)'] as const
+        : ['rgba(255, 255, 255, 0.18)', 'rgba(243, 246, 252, 0.12)', 'rgba(236, 241, 248, 0.5)'] as const
     ),
     [isDark],
   );
   const titleColor = isDark ? '#f8fafc' : '#1d2743';
-  const subtitleColor = isDark ? 'rgba(226, 232, 240, 0.74)' : 'rgba(59, 72, 104, 0.74)';
+  const subtitleColor = isDark ? 'rgba(226, 232, 240, 0.72)' : 'rgba(59, 72, 104, 0.72)';
   const sectionTitleColor = isDark ? '#f8fafc' : '#24314d';
-  const labelColor = isDark ? 'rgba(226, 232, 240, 0.5)' : 'rgba(71, 85, 105, 0.72)';
-  const topGlowColor = isDark ? 'rgba(56, 189, 248, 0.1)' : 'rgba(129, 140, 248, 0.16)';
-  const midGlowColor = isDark ? 'rgba(139, 92, 246, 0.12)' : 'rgba(59, 130, 246, 0.12)';
-  const bottomGlowColor = isDark ? 'rgba(249, 115, 22, 0.08)' : 'rgba(251, 146, 60, 0.1)';
-  const profileSurface = isDark ? 'rgba(10, 17, 34, 0.44)' : 'rgba(255, 255, 255, 0.62)';
-  const profileBorderColor = isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.2)';
+  const labelColor = isDark ? 'rgba(226, 232, 240, 0.44)' : 'rgba(71, 85, 105, 0.68)';
+  const topGlowColor = isDark ? 'rgba(56, 189, 248, 0.045)' : 'rgba(99, 102, 241, 0.08)';
+  const midGlowColor = isDark ? 'rgba(99, 102, 241, 0.05)' : 'rgba(59, 130, 246, 0.06)';
+  const bottomGlowColor = isDark ? 'rgba(249, 115, 22, 0.035)' : 'rgba(251, 146, 60, 0.055)';
+  const profileSurface = isDark ? 'rgba(10, 17, 34, 0.34)' : 'rgba(255, 255, 255, 0.78)';
+  const profileBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.16)';
   const profileGradient = isDark
-    ? ['rgba(255, 255, 255, 0.22)', 'rgba(255, 255, 255, 0.1)'] as const
-    : ['rgba(99, 102, 241, 0.92)', 'rgba(79, 70, 229, 0.82)'] as const;
+    ? ['rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.06)'] as const
+    : ['rgba(129, 140, 248, 0.9)', 'rgba(99, 102, 241, 0.78)'] as const;
   const statsCardGradient = isDark
-    ? ['rgba(11, 18, 34, 0.98)', 'rgba(16, 25, 45, 0.94)'] as const
-    : ['rgba(255, 255, 255, 0.97)', 'rgba(241, 245, 255, 0.94)'] as const;
+    ? ['rgba(10, 17, 31, 0.98)', 'rgba(14, 22, 38, 0.96)'] as const
+    : ['rgba(255, 255, 255, 0.98)', 'rgba(244, 247, 252, 0.94)'] as const;
   const statsCardOverlay = isDark
-    ? ['rgba(139, 92, 246, 0.18)', 'rgba(56, 189, 248, 0.08)', 'rgba(255, 255, 255, 0)'] as const
-    : ['rgba(129, 140, 248, 0.16)', 'rgba(56, 189, 248, 0.08)', 'rgba(255, 255, 255, 0)'] as const;
-  const statsBorderColor = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(148, 163, 184, 0.2)';
-  const statsDividerColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(148, 163, 184, 0.2)';
-  const statsShadowColor = isDark ? '#020617' : '#c7d2fe';
-  const actionShadowColor = isDark ? '#020617' : '#c7d2fe';
-  const actionBorderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.24)';
-  const actionSheenGradient = isDark
-    ? ['rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.02)'] as const
-    : ['rgba(255, 255, 255, 0.28)', 'rgba(255, 255, 255, 0.06)'] as const;
+    ? ['rgba(255, 255, 255, 0.035)', 'rgba(255, 255, 255, 0.015)', 'rgba(255, 255, 255, 0)'] as const
+    : ['rgba(255, 255, 255, 0.38)', 'rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0)'] as const;
+  const statsBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.14)';
+  const statsDividerColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.14)';
+  const statsShadowColor = isDark ? '#020617' : '#cbd5e1';
+  const actionShadowColor = isDark ? '#020617' : '#cbd5e1';
+  const actionBorderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(148, 163, 184, 0.14)';
   const actionDepthGradient = isDark
-    ? ['rgba(15, 23, 42, 0)', 'rgba(15, 23, 42, 0.18)', 'rgba(2, 6, 23, 0.34)'] as const
-    : ['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.08)', 'rgba(17, 24, 39, 0.12)'] as const;
-  const actionOrbColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.16)';
-  const actionInnerBorderColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.28)';
-  const actionIconSurface = isDark ? 'rgba(8, 15, 28, 0.18)' : 'rgba(255, 255, 255, 0.18)';
-  const actionIconBorderColor = isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.26)';
-  const deckCardSurface = isDark ? 'rgba(9, 17, 34, 0.88)' : 'rgba(255, 255, 255, 0.88)';
+    ? ['rgba(2, 6, 23, 0.08)', 'rgba(2, 6, 23, 0.24)', 'rgba(2, 6, 23, 0.42)'] as const
+    : ['rgba(255, 255, 255, 0.02)', 'rgba(148, 163, 184, 0.05)', 'rgba(15, 23, 42, 0.18)'] as const;
+  const actionInnerBorderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.18)';
+  const actionIconSurface = isDark ? 'rgba(7, 13, 24, 0.14)' : 'rgba(255, 255, 255, 0.16)';
+  const actionIconBorderColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.18)';
+  const deckCardSurface = isDark ? 'rgba(9, 16, 31, 0.9)' : 'rgba(255, 255, 255, 0.94)';
   const deckCardGradient = isDark
-    ? ['rgba(11, 18, 34, 0.98)', 'rgba(16, 24, 41, 0.92)'] as const
-    : ['rgba(255, 255, 255, 0.96)', 'rgba(243, 247, 255, 0.94)'] as const;
-  const deckCardSheenGradient = isDark
-    ? ['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.02)'] as const
-    : ['rgba(255, 255, 255, 0.22)', 'rgba(255, 255, 255, 0.06)'] as const;
-  const deckCardBorderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(148, 163, 184, 0.18)';
+    ? ['rgba(10, 17, 31, 0.98)', 'rgba(14, 22, 38, 0.96)'] as const
+    : ['rgba(255, 255, 255, 0.98)', 'rgba(244, 247, 252, 0.96)'] as const;
+  const deckCardBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.14)';
   const deckCardShadowColor = isDark ? '#020617' : '#cbd5e1';
   const deckTrackColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(148, 163, 184, 0.18)';
-  const emptyStateSurface = isDark ? 'rgba(9, 17, 34, 0.72)' : 'rgba(255, 255, 255, 0.82)';
-  const emptyStateBorderColor = isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.18)';
+  const emptyStateSurface = isDark ? 'rgba(10, 17, 31, 0.78)' : 'rgba(255, 255, 255, 0.9)';
+  const emptyStateBorderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(148, 163, 184, 0.16)';
+  const homeActionGradients = useMemo(
+    () => ({
+      arena: isDark ? ['#e2793c', '#a8481f'] as const : ['#ee8346', '#c8602b'] as const,
+      quest: isDark ? ['#8769e1', '#5a3cc2'] as const : ['#9174ec', '#6b54d7'] as const,
+      stats: isDark ? ['#2aac82', '#15795a'] as const : ['#34b48a', '#1e8d69'] as const,
+      decks: isDark ? ['#6871e2', '#434cc2'] as const : ['#7580ec', '#5965da'] as const,
+    }),
+    [isDark],
+  );
 
   useEffect(() => {
     streakAnim.setValue(0);
@@ -235,18 +237,11 @@ export default function HomePage() {
           style={styles.actionGradient}
         >
           <LinearGradient
-            colors={actionSheenGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0.9 }}
-            style={styles.actionSheen}
-          />
-          <LinearGradient
             colors={actionDepthGradient}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 0.9, y: 1 }}
             style={styles.actionDepth}
           />
-          <View style={[styles.actionOrb, { backgroundColor: actionOrbColor }]} />
           <View style={[styles.actionInnerBorder, { borderColor: actionInnerBorderColor }]} />
           <View style={styles.actionContent}>
             <View
@@ -348,7 +343,6 @@ export default function HomePage() {
               end={{ x: 1, y: 1 }}
               style={styles.statsCardOverlay}
             />
-            <View style={[styles.statsCardGlow, { backgroundColor: isDark ? 'rgba(56, 189, 248, 0.08)' : 'rgba(129, 140, 248, 0.12)' }]} />
             <View style={[styles.statsCardFrame, { borderColor: statsBorderColor }]} />
 
             <View style={styles.statItem}>
@@ -372,28 +366,28 @@ export default function HomePage() {
           <View style={styles.actionsGrid}>
             {renderActionCard({
               route: '/arena' as Href,
-              colors: theme.arenaGradient,
+              colors: homeActionGradients.arena,
               title: 'Battle',
               icon: <Swords color="#fff" size={34} strokeWidth={2.1} />,
               testID: 'home-action-battle',
             })}
             {renderActionCard({
               route: '/quest' as Href,
-              colors: theme.questGradient,
+              colors: homeActionGradients.quest,
               title: 'Quest',
               icon: <Target color="#fff" size={34} strokeWidth={2.1} />,
               testID: 'home-action-quest',
             })}
             {renderActionCard({
               route: '/stats' as Href,
-              colors: theme.scoreGradient,
+              colors: homeActionGradients.stats,
               title: 'Your Stats',
               icon: <Trophy color="#fff" size={34} strokeWidth={2.1} />,
               testID: 'home-action-stats',
             })}
             {renderActionCard({
               route: '/decks' as Href,
-              colors: theme.deckGradient,
+              colors: homeActionGradients.decks,
               title: 'Decks',
               icon: <BookOpen color="#fff" size={34} strokeWidth={2.1} />,
               testID: 'home-action-decks',
@@ -460,12 +454,6 @@ export default function HomePage() {
                         end={{ x: 1, y: 1 }}
                         style={StyleSheet.absoluteFill}
                       />
-                      <LinearGradient
-                        colors={deckCardSheenGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0.9 }}
-                        style={styles.deckCardSheen}
-                      />
                       <View style={[styles.deckCardFrame, { borderColor: deckCardBorderColor }]} />
                       <View style={[styles.deckColorStrip, { backgroundColor: rec.color }]} />
                       <View style={styles.deckContent}>
@@ -514,12 +502,6 @@ export default function HomePage() {
                         end={{ x: 1, y: 1 }}
                         style={StyleSheet.absoluteFill}
                       />
-                      <LinearGradient
-                        colors={deckCardSheenGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0.9 }}
-                        style={styles.deckCardSheen}
-                      />
                       <View style={[styles.deckCardFrame, { borderColor: deckCardBorderColor }]} />
                       <View style={[styles.deckColorStrip, { backgroundColor: deck.color }]} />
                       <View style={styles.deckContent}>
@@ -561,27 +543,27 @@ const styles = StyleSheet.create({
   },
   topGlow: {
     position: 'absolute',
-    top: -88,
-    right: -36,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
+    top: -76,
+    right: -72,
+    width: 176,
+    height: 176,
+    borderRadius: 88,
   },
   midGlow: {
     position: 'absolute',
-    top: 238,
-    left: -88,
-    width: 240,
-    height: 240,
-    borderRadius: 120,
+    top: 332,
+    left: -112,
+    width: 188,
+    height: 188,
+    borderRadius: 94,
   },
   bottomGlow: {
     position: 'absolute',
-    bottom: 112,
-    right: -78,
-    width: 230,
-    height: 230,
-    borderRadius: 115,
+    bottom: 144,
+    right: -96,
+    width: 196,
+    height: 196,
+    borderRadius: 98,
   },
   header: {
     paddingHorizontal: 24,
@@ -597,10 +579,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
+    elevation: 8,
   },
   profileGradient: {
     flex: 1,
@@ -628,22 +610,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    elevation: 8,
     overflow: 'hidden',
   },
   statsCardOverlay: {
     ...StyleSheet.absoluteFillObject,
-  },
-  statsCardGlow: {
-    position: 'absolute',
-    top: -68,
-    right: -24,
-    width: 164,
-    height: 164,
-    borderRadius: 82,
   },
   statsCardFrame: {
     ...StyleSheet.absoluteFillObject,
@@ -698,10 +672,10 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.22,
-    shadowRadius: 18,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 8,
   },
   actionCardMedium: {
     width: (width - 64) / 2,
@@ -713,27 +687,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  actionSheen: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 76,
-  },
   actionDepth: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 100,
-  },
-  actionOrb: {
-    position: 'absolute',
-    top: -42,
-    right: -28,
-    width: 132,
-    height: 132,
-    borderRadius: 66,
+    ...StyleSheet.absoluteFillObject,
   },
   actionInnerBorder: {
     position: 'absolute',
@@ -751,8 +706,8 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   actionIconWrap: {
-    width: 58,
-    height: 58,
+    width: 56,
+    height: 56,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
@@ -791,10 +746,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.14)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 6,
   },
   quickStartEmptyTitle: {
     fontSize: 18,
@@ -827,17 +782,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-    elevation: 8,
-  },
-  deckCardSheen: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 72,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 6,
   },
   deckCardFrame: {
     ...StyleSheet.absoluteFillObject,
@@ -852,7 +800,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   deckName: {
     fontSize: 15,
@@ -870,7 +818,7 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 3,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginTop: 10,
+    marginTop: 8,
     overflow: 'hidden',
   },
   deckMiniBarFill: {
