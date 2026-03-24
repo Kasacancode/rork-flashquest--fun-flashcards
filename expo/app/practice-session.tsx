@@ -1,13 +1,26 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Trophy, X, User, Bot, Zap, Swords, Target, BookOpen } from 'lucide-react-native';
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, TextInput, Keyboard } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Bot, Swords, User, X, Zap } from 'lucide-react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Keyboard, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ConfidenceChips from '@/components/ConfidenceChips';
 import { TimerProgressBar, StreakIndicator } from '@/components/GameUI';
+import PracticeSessionCompletionScreen from '@/components/practice-session/PracticeSessionCompletionScreen';
+import PracticeSessionEmptyState from '@/components/practice-session/PracticeSessionEmptyState';
+import {
+  QUESTION_TIME,
+  createPracticeSession,
+  getAdaptiveOpponentBehavior,
+  pickDistractor,
+  type AdaptiveOpponentState,
+  type GamePhase,
+  type PendingCardReview,
+  type PlayerInfo,
+  type TurnResult,
+} from '@/components/practice-session/practiceSession.utils';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -18,104 +31,6 @@ import type { PracticeMode, PracticeSessionState } from '@/types/practice';
 import { clearAIDistractorCache as clearDistractorCache, generateOptionsWithAI } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
 import { questHref, studyHref } from '@/utils/routes';
-
-const QUESTION_TIME = 15;
-
-type GamePhase = 'player-turn' | 'opponent-turn' | 'reveal-results';
-
-type PlayerInfo = {
-  name: string;
-  answer: string;
-  isCorrect: boolean;
-  timeUsed: number;
-};
-
-interface TurnResult {
-  answer: string;
-  isCorrect: boolean;
-  timeUsed: number;
-}
-
-interface PendingCardReview {
-  deckId: string;
-  cardId: string;
-  isCorrect: boolean;
-  selectedOption: string;
-  correctAnswer: string;
-  timeToAnswerMs: number;
-  quality: RecallQuality;
-}
-
-interface OpponentBehavior {
-  correctChance: number;
-  minTime: number;
-  maxTime: number;
-}
-
-interface AdaptiveOpponentState {
-  streak: number;
-  confidence: number;
-}
-
-function pickDistractor(distractors: string[]): string {
-  if (distractors.length === 0) {
-    return 'Incorrect answer';
-  }
-
-  return distractors[Math.floor(Math.random() * distractors.length)] ?? 'Incorrect answer';
-}
-
-function getAdaptiveOpponentBehavior(
-  difficulty: string,
-  playerScore: number,
-  opponentScore: number,
-  round: number,
-  aiState: AdaptiveOpponentState,
-): OpponentBehavior {
-  let baseChance: number;
-  switch (difficulty) {
-    case 'easy':
-      baseChance = 0.8;
-      break;
-    case 'hard':
-      baseChance = 0.35;
-      break;
-    default:
-      baseChance = 0.6;
-      break;
-  }
-
-  const scoreDiff = opponentScore - playerScore;
-  const rubberBand = scoreDiff > 0 ? -0.08 : scoreDiff < 0 ? 0.08 : 0;
-  const streakBonus = aiState.streak > 0
-    ? Math.min(aiState.streak * 0.04, 0.12)
-    : Math.max(aiState.streak * 0.04, -0.12);
-  const roundStability = Math.min(round / 5, 1) * 0.05;
-  const finalChance = Math.max(0.15, Math.min(0.9, baseChance + rubberBand + streakBonus + roundStability));
-  const isConfident = aiState.streak >= 2;
-  const minTime = isConfident ? 1 : 3;
-  const maxTime = isConfident ? 4 : 8;
-
-  return { correctChance: finalChance, minTime, maxTime };
-}
-
-const AI_NAMES = ['Quizzy', 'Ace', 'Sage', 'Brainiac', 'Nova'];
-
-function createPracticeSession(deckId: string, mode: PracticeMode): PracticeSessionState {
-  const aiName = AI_NAMES[Math.floor(Math.random() * AI_NAMES.length)] ?? 'AI Bot';
-  return {
-    id: `practice_${Date.now()}`,
-    mode,
-    deckId,
-    playerScore: 0,
-    opponentScore: 0,
-    currentRound: 0,
-    totalRounds: 5,
-    status: 'active',
-    opponentName: mode === 'ai' ? aiName : 'Opponent',
-    shuffled: false,
-  };
-}
 
 export default function PracticeSessionPage() {
   const router = useRouter();
@@ -477,31 +392,17 @@ export default function PracticeSessionPage() {
 
   if (!deckId || !currentBattle || !deck) {
     return (
-      <View style={styles.container}>
-        <LinearGradient
-          colors={isDark ? ['#0f172a', '#1e293b'] : ['#4338ca', '#6366f1']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 16 }}>Session not available</Text>
-            <TouchableOpacity onPress={() => router.back()} style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 24 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Go Back</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </View>
+      <PracticeSessionEmptyState
+        isDark={isDark}
+        title="Session not available"
+        ctaLabel="Go Back"
+        onPress={() => router.back()}
+      />
     );
   }
 
   if (!currentCard) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Practice session not found</Text>
-      </View>
-    );
+    return <PracticeSessionEmptyState isDark={isDark} title="Practice session not found" />;
   }
 
   const handleSubmitAnswer = () => {
@@ -647,174 +548,72 @@ export default function PracticeSessionPage() {
     router.back();
   };
 
-  if (currentBattle.status === 'completed') {
+  const finalizeCompletedSession = useCallback((destination: 'back' | 'quest' | 'study') => {
+    if (!currentBattle || !deckId) {
+      endBattle();
+      router.back();
+      return;
+    }
+
     const won = currentBattle.playerScore > currentBattle.opponentScore;
     const accuracy = currentBattle.totalRounds > 0 ? currentBattle.playerScore / currentBattle.totalRounds : 0;
     const practiceXp = won ? Math.round(30 + accuracy * 40) : Math.round(10 + accuracy * 20);
 
+    if (!resultRecordedRef.current) {
+      resultRecordedRef.current = true;
+      recordSessionResult({
+        mode: GAME_MODE.PRACTICE,
+        deckId,
+        xpEarned: practiceXp,
+        cardsAttempted: currentBattle.totalRounds,
+        correctCount: currentBattle.playerScore,
+        timestampISO: new Date().toISOString(),
+        durationMs: Date.now() - sessionStartRef.current,
+      });
+      trackEvent({
+        event: 'practice_completed',
+        deckId,
+        properties: {
+          won,
+          player_score: currentBattle.playerScore,
+          opponent_score: currentBattle.opponentScore,
+          total_rounds: currentBattle.totalRounds,
+          accuracy: currentBattle.totalRounds > 0 ? Math.round((currentBattle.playerScore / currentBattle.totalRounds) * 100) : 0,
+        },
+      });
+      logger.log('[Practice] Recorded session result, xp:', practiceXp);
+    }
+
+    endBattle();
+
+    if (destination === 'quest') {
+      router.push(questHref({ deckId }));
+      return;
+    }
+
+    if (destination === 'study') {
+      router.push(studyHref(deckId));
+      return;
+    }
+
+    router.back();
+  }, [currentBattle, deckId, endBattle, recordSessionResult, router]);
+
+  if (currentBattle.status === 'completed') {
+    const won = currentBattle.playerScore > currentBattle.opponentScore;
+
     return (
-      <View style={styles.container}>
-        <LinearGradient
-          colors={won ? ['#f59e0b', '#d97706'] : isDark ? ['#1e293b', '#0f172a'] : ['#6366f1', '#4f46e5']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-
-        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-          <View style={styles.resultContainer}>
-            <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-              <Trophy color="#fff" size={80} strokeWidth={2} />
-            </Animated.View>
-            <Text style={styles.resultTitle}>
-              {won ? '🎉 Victory!' : '💪 Good Try!'}
-            </Text>
-            <Text style={styles.resultSubtitle}>
-              {won ? 'You defeated your opponent!' : 'Keep practicing to improve!'}
-            </Text>
-
-            <View style={styles.finalScoreCard}>
-              <View style={styles.scoreRow}>
-                <Text style={styles.scoreLabel}>You</Text>
-                <Text style={[styles.scoreValue, won && { color: '#10b981' }]}>{currentBattle.playerScore}</Text>
-              </View>
-              <View style={styles.scoreDivider} />
-              <View style={styles.scoreRow}>
-                <Text style={styles.scoreLabel}>{currentBattle.opponentName}</Text>
-                <Text style={[styles.scoreValue, !won && { color: '#10b981' }]}>{currentBattle.opponentScore}</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity style={styles.doneButton} onPress={() => {
-              if (resultRecordedRef.current) {
-                endBattle();
-                router.back();
-                return;
-              }
-              resultRecordedRef.current = true;
-              recordSessionResult({
-                mode: GAME_MODE.PRACTICE,
-                deckId: deckId,
-                xpEarned: practiceXp,
-                cardsAttempted: currentBattle.totalRounds,
-                correctCount: currentBattle.playerScore,
-                timestampISO: new Date().toISOString(),
-                durationMs: Date.now() - sessionStartRef.current,
-              });
-              trackEvent({
-                event: 'practice_completed',
-                deckId: deckId,
-                properties: {
-                  won,
-                  player_score: currentBattle.playerScore,
-                  opponent_score: currentBattle.opponentScore,
-                  total_rounds: currentBattle.totalRounds,
-                  accuracy: currentBattle.totalRounds > 0 ? Math.round((currentBattle.playerScore / currentBattle.totalRounds) * 100) : 0,
-                },
-              });
-              logger.log('[Practice] Recorded session result, xp:', practiceXp);
-              endBattle();
-              router.back();
-            }}>
-              <Text style={styles.doneButtonText}>Done</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 10,
-                backgroundColor: 'rgba(255,255,255,0.15)',
-                borderRadius: 16,
-                paddingVertical: 14,
-                paddingHorizontal: 24,
-                marginTop: 10,
-                width: '100%',
-              }}
-              onPress={() => {
-                if (resultRecordedRef.current) {
-                  endBattle();
-                  router.push(questHref({ deckId }));
-                  return;
-                }
-                resultRecordedRef.current = true;
-                recordSessionResult({
-                  mode: GAME_MODE.PRACTICE,
-                  deckId: deckId,
-                  xpEarned: practiceXp,
-                  cardsAttempted: currentBattle.totalRounds,
-                  correctCount: currentBattle.playerScore,
-                  timestampISO: new Date().toISOString(),
-                });
-                trackEvent({
-                  event: 'practice_completed',
-                  deckId: deckId,
-                  properties: {
-                    won,
-                    player_score: currentBattle.playerScore,
-                    opponent_score: currentBattle.opponentScore,
-                    total_rounds: currentBattle.totalRounds,
-                    accuracy: currentBattle.totalRounds > 0 ? Math.round((currentBattle.playerScore / currentBattle.totalRounds) * 100) : 0,
-                  },
-                });
-                logger.log('[Practice] Recorded session result, xp:', practiceXp);
-                endBattle();
-                router.push(questHref({ deckId }));
-              }}
-              activeOpacity={0.8}
-            >
-              <Target color="#fff" size={20} strokeWidth={2} />
-              <Text style={{ fontSize: 15, fontWeight: '700' as const, color: '#fff' }}>Quest This Deck</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                paddingVertical: 12,
-                marginTop: 6,
-              }}
-              onPress={() => {
-                if (resultRecordedRef.current) {
-                  endBattle();
-                  router.push(studyHref(deckId));
-                  return;
-                }
-                resultRecordedRef.current = true;
-                recordSessionResult({
-                  mode: GAME_MODE.PRACTICE,
-                  deckId: deckId,
-                  xpEarned: practiceXp,
-                  cardsAttempted: currentBattle.totalRounds,
-                  correctCount: currentBattle.playerScore,
-                  timestampISO: new Date().toISOString(),
-                });
-                trackEvent({
-                  event: 'practice_completed',
-                  deckId: deckId,
-                  properties: {
-                    won,
-                    player_score: currentBattle.playerScore,
-                    opponent_score: currentBattle.opponentScore,
-                    total_rounds: currentBattle.totalRounds,
-                    accuracy: currentBattle.totalRounds > 0 ? Math.round((currentBattle.playerScore / currentBattle.totalRounds) * 100) : 0,
-                  },
-                });
-                logger.log('[Practice] Recorded session result, xp:', practiceXp);
-                endBattle();
-                router.push(studyHref(deckId));
-              }}
-              activeOpacity={0.7}
-            >
-              <BookOpen color="rgba(255,255,255,0.7)" size={18} strokeWidth={2} />
-              <Text style={{ fontSize: 14, fontWeight: '600' as const, color: 'rgba(255,255,255,0.7)' }}>Study Flashcards</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </View>
+      <PracticeSessionCompletionScreen
+        isDark={isDark}
+        won={won}
+        pulseAnim={pulseAnim}
+        opponentName={currentBattle.opponentName}
+        playerScore={currentBattle.playerScore}
+        opponentScore={currentBattle.opponentScore}
+        onDone={() => finalizeCompletedSession('back')}
+        onQuest={() => finalizeCompletedSession('quest')}
+        onStudy={() => finalizeCompletedSession('study')}
+      />
     );
   }
 

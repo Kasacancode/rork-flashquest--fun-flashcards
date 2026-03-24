@@ -1,26 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import {
-  ArrowLeft,
-  Award,
-  User,
-  UserRound,
-  Zap,
-} from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  Animated,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  useWindowDimensions,
-  type StyleProp,
-  type TextStyle,
-  type ViewStyle,
-} from 'react-native';
+import { ArrowLeft, UserRound } from 'lucide-react-native';
+import React, { useMemo } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AvatarTab from '@/components/profile/AvatarTab';
@@ -29,144 +10,71 @@ import LevelsModal from '@/components/profile/LevelsModal';
 import OverviewTab from '@/components/profile/OverviewTab';
 import PlayerNameModal from '@/components/profile/PlayerNameModal';
 import ProfileHeroCard from '@/components/profile/ProfileHeroCard';
-import {
-  AVATAR_COLORS,
-  AVATAR_SUITS,
-} from '@/constants/avatar';
-import type { AvatarColorId, AvatarSuitId } from '@/types/avatar';
+import ProfileTabBar from '@/components/profile/ProfileTabBar';
+import type { AvatarOptionVisual } from '@/components/profile/profileScreen.types';
+import { useProfileScreenState } from '@/components/profile/useProfileScreenState';
+import { AVATAR_COLORS, AVATAR_SUITS } from '@/constants/avatar';
 import { type Theme } from '@/constants/colors';
-import { useArena } from '@/context/ArenaContext';
-import { useAvatar } from '@/context/AvatarContext';
-import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
-import { useFlashQuest } from '@/context/FlashQuestContext';
-import { usePerformance } from '@/context/PerformanceContext';
-import { useTheme } from '@/context/ThemeContext';
-import { ANALYTICS_DEBUG_ROUTE, FAQ_ROUTE } from '@/utils/routes';
-import {
-  ACHIEVEMENT_CATEGORIES,
-  computeAchievements,
-  type AchievementCategoryId,
-  type AchievementItem,
-} from '@/utils/achievements';
-import { LEVELS, computeLevel, computeLevelProgress, getLevelEntry } from '@/utils/levels';
-import { getPlayerNameValidationError } from '@/utils/playerName';
-
-type TabType = 'overview' | 'avatar' | 'awards';
-
-type GradientTriplet = readonly [string, string, string];
-
-type IconComponent = React.ComponentType<{
-  color?: string;
-  size?: number;
-  strokeWidth?: number;
-}>;
-
-interface AvatarOptionVisual {
-  cardStyle: StyleProp<ViewStyle>;
-  symbolStyle?: StyleProp<TextStyle>;
-  titleStyle: StyleProp<TextStyle>;
-  checkStyle: StyleProp<ViewStyle>;
-  swatchStyle?: StyleProp<ViewStyle>;
-}
-
-const PROFILE_TABS: readonly { id: TabType; label: string; icon: IconComponent }[] = [
-  { id: 'overview', label: 'Overview', icon: User },
-  { id: 'avatar', label: 'Avatar', icon: Zap },
-  { id: 'awards', label: 'Awards', icon: Award },
-] as const;
-
-const HERO_GRADIENTS: Record<AvatarColorId, { light: GradientTriplet; dark: GradientTriplet }> = {
-  red: {
-    light: ['#4F46E5', '#E53E3E', '#F97316'],
-    dark: ['#312E81', '#991B1B', '#C2410C'],
-  },
-  blue: {
-    light: ['#4338CA', '#3B82F6', '#38BDF8'],
-    dark: ['#1E3A8A', '#1D4ED8', '#0F766E'],
-  },
-  orange: {
-    light: ['#7C3AED', '#F97316', '#F59E0B'],
-    dark: ['#4C1D95', '#C2410C', '#92400E'],
-  },
-  green: {
-    light: ['#0F766E', '#22C55E', '#14B8A6'],
-    dark: ['#064E3B', '#15803D', '#0F766E'],
-  },
-};
+import type { AvatarColorId, AvatarSuitId } from '@/types/avatar';
+import { ACHIEVEMENT_CATEGORIES } from '@/utils/achievements';
+import { LEVELS } from '@/utils/levels';
 
 export default function ProfilePage() {
-  const navigation = useRouter();
-  const { canAccessDeveloperTools } = useDeveloperAccess();
   const { width } = useWindowDimensions();
-  const { stats, decks } = useFlashQuest();
-  const { performance } = usePerformance();
-  const { playerName, updatePlayerName, isPlayerNameReady, leaderboard } = useArena();
-  const { theme, isDark, toggleTheme } = useTheme();
-  const { selectedSuit, selectedColor, setSelectedSuit, setSelectedColor } = useAvatar();
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
-  const [activeAchievementCategory, setActiveAchievementCategory] = useState<AchievementCategoryId>(ACHIEVEMENT_CATEGORIES[0].id);
-  const [showLevels, setShowLevels] = useState<boolean>(false);
-  const [isEditingPlayerName, setIsEditingPlayerName] = useState<boolean>(false);
-  const [playerNameInput, setPlayerNameInput] = useState<string>('');
-  const [playerNameError, setPlayerNameError] = useState<string | null>(null);
-
-  const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
-  const levelProgress = useMemo(() => computeLevelProgress(stats.totalScore), [stats.totalScore]);
-  const levelEntry = useMemo(() => getLevelEntry(level), [level]);
-  const selectedSuitData = AVATAR_SUITS.find((suit) => suit.id === selectedSuit) ?? AVATAR_SUITS[0]!;
-  const selectedColorData = AVATAR_COLORS.find((color) => color.id === selectedColor) ?? AVATAR_COLORS[0]!;
-  const currentPlayerName = playerName.trim();
-  const profileDisplayName = currentPlayerName || 'FlashQuest Player';
-  const totalCardsOwned = decks.flatMap((deck) => deck.flashcards).length;
-  const customDeckCount = decks.filter((deck) => deck.isCustom).length;
-  const achievements: AchievementItem[] = useMemo(() => computeAchievements({
-    stats,
-    leaderboardCount: leaderboard.length,
-    totalArenaBattles: stats.totalArenaBattles ?? leaderboard.length,
-    bestQuestStreak: performance.bestQuestStreak,
-    customDeckCount,
-    totalCardsOwned,
-  }), [stats, leaderboard.length, performance.bestQuestStreak, customDeckCount, totalCardsOwned]);
+  const {
+    theme,
+    isDark,
+    toggleTheme,
+    canAccessDeveloperTools,
+    activeTab,
+    activeAchievementCategory,
+    showLevels,
+    isEditingPlayerName,
+    playerNameInput,
+    playerNameError,
+    level,
+    levelProgress,
+    levelEntry,
+    selectedSuit,
+    selectedColor,
+    selectedSuitData,
+    selectedColorData,
+    profileDisplayName,
+    achievements,
+    completedAchievements,
+    nextAchievement,
+    activeAchievementCategoryEntry,
+    activeCategoryAchievements,
+    activeCategoryCompletedAchievements,
+    achievementCategoryFade,
+    isPlayerNameReady,
+    screenGradient,
+    heroGradient,
+    surfaceGradient,
+    tabActiveGradient,
+    overlayGradient,
+    selectedColorValue,
+    avatarShowcaseGradient,
+    unselectedAvatarOptionColor,
+    selectedSuitCardBackground,
+    handleBack,
+    handleSelectTab,
+    handleOpenLevels,
+    handleSelectAchievementCategory,
+    handleCloseLevels,
+    handleOpenAnalyticsDebug,
+    handleComingSoon,
+    handleOpenFAQ,
+    handleSelectSuit,
+    handleSelectColor,
+    handleEditPlayerName,
+    handleCancelPlayerNameEdit,
+    handleChangePlayerNameInput,
+    handleSavePlayerName,
+  } = useProfileScreenState();
 
   const styles = useMemo(() => createStyles(theme, isDark, width), [theme, isDark, width]);
 
-  const screenGradient = useMemo(
-    () => [theme.gradientStart, theme.gradientMid, theme.gradientEnd] as GradientTriplet,
-    [theme.gradientStart, theme.gradientMid, theme.gradientEnd]
-  );
-
-  const heroGradient = useMemo(() => {
-    const palette = HERO_GRADIENTS[selectedColor] ?? HERO_GRADIENTS.blue;
-    return isDark ? palette.dark : palette.light;
-  }, [isDark, selectedColor]);
-
-  const surfaceGradient = useMemo(
-    () =>
-      (
-        isDark
-          ? ['rgba(15, 23, 42, 0.96)', 'rgba(15, 23, 42, 0.84)']
-          : ['rgba(255, 255, 255, 0.96)', 'rgba(255, 255, 255, 0.88)']
-      ) as [string, string],
-    [isDark]
-  );
-
-  const tabActiveGradient = useMemo(() => theme.profileTabActiveGradient as [string, string], [theme.profileTabActiveGradient]);
-  const overlayGradient = useMemo(
-    () =>
-      (
-        isDark
-          ? ['rgba(2, 6, 23, 0.18)', 'rgba(2, 6, 23, 0.5)', 'rgba(2, 6, 23, 0.72)']
-          : ['rgba(255, 255, 255, 0.04)', 'rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.16)']
-      ) as GradientTriplet,
-    [isDark]
-  );
-  const selectedColorValue = selectedColorData.value || AVATAR_COLORS[0]!.value;
-  const avatarShowcaseGradient = useMemo(
-    () => [selectedColorValue, theme.primaryDark, theme.gradientEnd] as [string, string, string],
-    [selectedColorValue, theme.primaryDark, theme.gradientEnd]
-  );
-  const unselectedAvatarOptionColor = isDark ? '#CBD5E1' : '#64748B';
-  const selectedSuitCardBackground = isDark ? 'rgba(15, 23, 42, 0.9)' : selectedColorData.light;
   const suitOptionVisuals = useMemo<Record<AvatarSuitId, AvatarOptionVisual>>(() => {
     return AVATAR_SUITS.reduce<Record<AvatarSuitId, AvatarOptionVisual>>((visuals, suit) => {
       const isSelected = selectedSuit === suit.id;
@@ -176,10 +84,7 @@ export default function ProfilePage() {
           isSelected ? styles.optionCardSelected : null,
           isSelected ? { borderColor: selectedColorValue, backgroundColor: selectedSuitCardBackground } : null,
         ],
-        symbolStyle: [
-          styles.optionSymbol,
-          { color: isSelected ? selectedColorValue : unselectedAvatarOptionColor },
-        ],
+        symbolStyle: [styles.optionSymbol, { color: isSelected ? selectedColorValue : unselectedAvatarOptionColor }],
         titleStyle: [
           styles.optionTitle,
           isSelected ? styles.optionTitleSelected : null,
@@ -191,6 +96,7 @@ export default function ProfilePage() {
       return visuals;
     }, {} as Record<AvatarSuitId, AvatarOptionVisual>);
   }, [selectedColorValue, selectedSuit, selectedSuitCardBackground, styles, unselectedAvatarOptionColor]);
+
   const colorOptionVisuals = useMemo<Record<AvatarColorId, AvatarOptionVisual>>(() => {
     return AVATAR_COLORS.reduce<Record<AvatarColorId, AvatarOptionVisual>>((visuals, color) => {
       const isSelected = selectedColor === color.id;
@@ -212,132 +118,6 @@ export default function ProfilePage() {
       return visuals;
     }, {} as Record<AvatarColorId, AvatarOptionVisual>);
   }, [isDark, selectedColor, styles]);
-
-  const completedAchievements = useMemo(
-    () => achievements.filter((achievement) => achievement.progress >= achievement.total).length,
-    [achievements]
-  );
-
-  const nextAchievement = useMemo(
-    () => achievements.find((achievement) => achievement.progress < achievement.total) ?? null,
-    [achievements]
-  );
-  const activeAchievementCategoryEntry = useMemo(
-    () => ACHIEVEMENT_CATEGORIES.find((category) => category.id === activeAchievementCategory) ?? ACHIEVEMENT_CATEGORIES[0],
-    [activeAchievementCategory]
-  );
-  const activeCategoryAchievements = useMemo(
-    () => achievements.filter((achievement) => achievement.category === activeAchievementCategory),
-    [achievements, activeAchievementCategory]
-  );
-  const activeCategoryCompletedAchievements = useMemo(
-    () => activeCategoryAchievements.filter((achievement) => achievement.progress >= achievement.total).length,
-    [activeCategoryAchievements]
-  );
-  const achievementCategoryFade = useRef<Animated.Value>(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    achievementCategoryFade.setValue(0);
-    Animated.timing(achievementCategoryFade, {
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  }, [achievementCategoryFade, activeAchievementCategory]);
-
-  useEffect(() => {
-    if (!isEditingPlayerName) {
-      setPlayerNameInput(playerName);
-    }
-  }, [isEditingPlayerName, playerName]);
-
-  const handleBack = useCallback(() => {
-    navigation.back();
-  }, [navigation]);
-
-  const handleSelectTab = useCallback((tab: TabType) => {
-    setActiveTab(tab);
-  }, []);
-
-  const handleOpenLevels = useCallback(() => {
-    setShowLevels(true);
-  }, []);
-
-  const handleSelectAchievementCategory = useCallback((categoryId: AchievementCategoryId) => {
-    setActiveAchievementCategory(categoryId);
-  }, []);
-
-  const handleCloseLevels = useCallback(() => {
-    setShowLevels(false);
-  }, []);
-
-  const handleOpenAnalyticsDebug = useCallback(() => {
-    if (!canAccessDeveloperTools) {
-      return;
-    }
-
-    navigation.push(ANALYTICS_DEBUG_ROUTE);
-  }, [canAccessDeveloperTools, navigation]);
-
-  const handleComingSoon = useCallback((label: string) => {
-    Alert.alert(label, `${label} is coming soon.`);
-  }, []);
-
-  const handleOpenFAQ = useCallback(() => {
-    navigation.push(FAQ_ROUTE);
-  }, [navigation]);
-
-  const handleSelectSuit = useCallback(
-    (suitId: AvatarSuitId) => {
-      setSelectedSuit(suitId);
-    },
-    [setSelectedSuit]
-  );
-
-  const handleSelectColor = useCallback(
-    (colorId: AvatarColorId) => {
-      setSelectedColor(colorId);
-    },
-    [setSelectedColor]
-  );
-
-  const handleEditPlayerName = useCallback(() => {
-    setPlayerNameInput(playerName);
-    setPlayerNameError(null);
-    setIsEditingPlayerName(true);
-  }, [playerName]);
-
-  const handleCancelPlayerNameEdit = useCallback(() => {
-    setPlayerNameInput(playerName);
-    setPlayerNameError(null);
-    setIsEditingPlayerName(false);
-  }, [playerName]);
-
-  const handleChangePlayerNameInput = useCallback((value: string) => {
-    if (playerNameError) {
-      setPlayerNameError(null);
-    }
-
-    setPlayerNameInput(value);
-  }, [playerNameError]);
-
-  const handleSavePlayerName = useCallback(() => {
-    const validationError = getPlayerNameValidationError(playerNameInput);
-    if (validationError) {
-      setPlayerNameError(validationError);
-      return;
-    }
-
-    const nextPlayerName = updatePlayerName(playerNameInput);
-    if (!nextPlayerName) {
-      setPlayerNameError('Enter a player name.');
-      return;
-    }
-
-    setPlayerNameInput(nextPlayerName);
-    setPlayerNameError(null);
-    setIsEditingPlayerName(false);
-  }, [playerNameInput, updatePlayerName]);
 
   return (
     <View style={styles.container}>
@@ -396,41 +176,13 @@ export default function ProfilePage() {
             theme={theme}
           />
 
-          <View style={styles.tabs}>
-            {PROFILE_TABS.map((tab) => {
-              const isActive = activeTab === tab.id;
-              const Icon = tab.icon;
-
-              return (
-                <TouchableOpacity
-                  key={tab.id}
-                  style={styles.tab}
-                  onPress={() => handleSelectTab(tab.id)}
-                  activeOpacity={0.84}
-                  testID={`profile-tab-${tab.id}`}
-                >
-                  {isActive && (
-                    <LinearGradient
-                      colors={tabActiveGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.tabActiveBackground}
-                    />
-                  )}
-                  <View style={styles.tabContentWrap}>
-                    <Icon
-                      color={isActive ? theme.profileTabActiveText : theme.profileTabIconInactive}
-                      size={15}
-                      strokeWidth={2.3}
-                    />
-                    <Text style={[styles.tabText, isActive && styles.tabTextActive]} numberOfLines={1}>
-                      {tab.label}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <ProfileTabBar
+            activeTab={activeTab}
+            onSelectTab={handleSelectTab}
+            tabActiveGradient={tabActiveGradient}
+            styles={styles}
+            theme={theme}
+          />
 
           {activeTab === 'overview' && (
             <OverviewTab
