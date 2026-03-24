@@ -1,8 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy } from 'lucide-react-native';
-import React, { useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, MoreHorizontal } from 'lucide-react-native';
+import React, { useCallback, useMemo, useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFlashQuest } from '@/context/FlashQuestContext';
@@ -17,6 +17,9 @@ export default function DeckHubScreen() {
   const { decks, addDeck } = useFlashQuest();
   const { performance, getDeckAccuracy, getWeakCards, getCardsDueForReview } = usePerformance();
   const { theme, isDark } = useTheme();
+  const [menuVisible, setMenuVisible] = useState(false);
+  const menuBtnRef = useRef<View>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
 
   const deck = useMemo(() => decks.find(d => d.id === deckId), [decks, deckId]);
 
@@ -51,6 +54,13 @@ export default function DeckHubScreen() {
     return `${days} days ago`;
   }, [deckId, performance.deckStatsById]);
 
+  const openMenu = useCallback(() => {
+    menuBtnRef.current?.measure((_x, _y, _w, _h, _px, py) => {
+      setMenuPos({ top: py + _h + 4, right: 16 });
+    });
+    setMenuVisible(true);
+  }, []);
+
   const handleDuplicateDeck = useCallback(() => {
     if (!deck) {
       return;
@@ -83,6 +93,7 @@ export default function DeckHubScreen() {
       createdAt: now,
     });
 
+    setMenuVisible(false);
     Alert.alert('Deck Duplicated', `"${deck.name} (Copy)" has been created with ${flashcards.length} cards.`);
   }, [addDeck, deck]);
 
@@ -136,7 +147,11 @@ export default function DeckHubScreen() {
             </View>
             <Text style={styles.headerSub}>{deck.flashcards.length} cards · {deck.category}</Text>
           </View>
-          <View style={{ width: 40 }} />
+          <View ref={menuBtnRef} collapsable={false}>
+            <TouchableOpacity onPress={openMenu} style={styles.menuBtn} activeOpacity={0.7} testID="deckHubMenuButton">
+              <MoreHorizontal color="rgba(255,255,255,0.85)" size={22} strokeWidth={2.2} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={[styles.accentBar, { backgroundColor: deck.color }]} />
@@ -209,20 +224,23 @@ export default function DeckHubScreen() {
               </View>
             </TouchableOpacity>
           )}
-
-          <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: cardBg, borderWidth: 1, borderColor: isDark ? 'rgba(148,163,184,0.16)' : theme.border }]}
-            onPress={handleDuplicateDeck}
-            activeOpacity={0.85}
-            testID="duplicateDeckButton"
-          >
-            <Copy color={theme.textSecondary} size={22} strokeWidth={2.2} />
-            <View style={styles.actionText}>
-              <Text style={[styles.actionTitle, { color: theme.text }]}>Duplicate Deck</Text>
-              <Text style={[styles.actionDesc, { color: theme.textSecondary }]}>Create a copy to customize</Text>
-            </View>
-          </TouchableOpacity>
         </ScrollView>
+
+        <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
+          <Pressable style={styles.menuOverlay} onPress={() => setMenuVisible(false)}>
+            <View style={[styles.menuDropdown, { top: menuPos.top, right: menuPos.right, backgroundColor: isDark ? '#1e2a3a' : '#fff' }]}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={handleDuplicateDeck}
+                activeOpacity={0.75}
+                testID="duplicateDeckButton"
+              >
+                <Copy color={theme.primary} size={18} strokeWidth={2.2} />
+                <Text style={[styles.menuItemText, { color: theme.text }]}>Duplicate Deck</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Modal>
       </SafeAreaView>
     </View>
   );
@@ -233,6 +251,11 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  menuBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  menuOverlay: { flex: 1 },
+  menuDropdown: { position: 'absolute', borderRadius: 14, paddingVertical: 6, minWidth: 190, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 16, elevation: 12 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  menuItemText: { fontSize: 15, fontWeight: '600' },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
   headerSub: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.6)', marginTop: 2 },
