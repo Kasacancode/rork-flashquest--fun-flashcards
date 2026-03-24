@@ -384,7 +384,7 @@ export default function StatsPage() {
               },
             ]}
           >
-            <Text style={[styles.headerTitle, { color: headerContentColor }]}>Your Stats</Text>
+            <Text style={[styles.headerTitle, { color: headerContentColor }]}>Stats</Text>
           </View>
           <View style={styles.placeholder} />
         </View>
