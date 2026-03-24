@@ -15,8 +15,12 @@ import { Lightbulb, BookOpen, Lock, CheckCircle, Sparkles } from 'lucide-react-n
 import * as Haptics from 'expo-haptics';
 
 import { generateText } from '@rork-ai/toolkit-sdk';
-import { Flashcard } from '@/types/flashcard';
+
+import ConfidenceChips from '@/components/ConfidenceChips';
 import { Theme } from '@/constants/colors';
+import { usePerformance } from '@/context/PerformanceContext';
+import type { Flashcard } from '@/types/flashcard';
+import type { RecallQuality } from '@/types/performance';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 60;
@@ -39,6 +43,7 @@ export default function StudyFeed({
   onCardResolved,
   onUpdateCard,
 }: StudyFeedProps) {
+  const { logQuestAttempt } = usePerformance();
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [isRevealed, setIsRevealed] = useState<boolean>(false);
   const [hintShown, setHintShown] = useState<boolean>(false);
@@ -47,6 +52,8 @@ export default function StudyFeed({
   const [showFeedbackOverlay, setShowFeedbackOverlay] = useState<boolean>(false);
   const [isGeneratingHint, setIsGeneratingHint] = useState<boolean>(false);
   const [isGeneratingExplanation, setIsGeneratingExplanation] = useState<boolean>(false);
+  const [selectedQuality, setSelectedQuality] = useState<RecallQuality | null>(null);
+  const [reviewSaved, setReviewSaved] = useState<boolean>(false);
 
   const flipAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -55,6 +62,7 @@ export default function StudyFeed({
   const cardScale = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
   const hintDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cardStartedAtRef = useRef<number>(Date.now());
 
   const gestureStartRef = useRef<{ x: number; y: number } | null>(null);
   const isProcessingRef = useRef(false);
@@ -92,6 +100,9 @@ export default function StudyFeed({
     setShowFeedbackOverlay(false);
     setIsGeneratingHint(false);
     setIsGeneratingExplanation(false);
+    setSelectedQuality(null);
+    setReviewSaved(false);
+    cardStartedAtRef.current = Date.now();
     flipAnim.setValue(0);
     hintOpacity.setValue(0);
     feedbackOpacity.setValue(0);
@@ -123,6 +134,8 @@ export default function StudyFeed({
 
       if (nextIsRevealed && !resolved && currentCard) {
         setResolved(true);
+        setSelectedQuality(3);
+        setReviewSaved(false);
         onCardResolved?.(currentCard.id);
       }
 
@@ -201,13 +214,38 @@ export default function StudyFeed({
     });
   }, [isRevealed, showFeedbackOverlay, feedbackOpacity, triggerHaptic, triggerShakeWithCooldown]);
 
+  const commitCurrentCardReview = useCallback(() => {
+    if (!currentCard || !resolved || reviewSaved) {
+      return;
+    }
+
+    const quality = selectedQuality ?? 3;
+    logQuestAttempt({
+      deckId: currentCard.deckId,
+      cardId: currentCard.id,
+      isCorrect: quality !== 1,
+      selectedOption: quality === 1 ? 'study-forgot' : 'study-self-rated',
+      correctAnswer: currentCard.answer,
+      timeToAnswerMs: Math.max(0, Date.now() - cardStartedAtRef.current),
+      quality,
+      mode: 'study',
+      hintsUsed: hintShown ? 1 : 0,
+      explanationOpened: showFeedbackOverlay,
+    });
+    setReviewSaved(true);
+  }, [currentCard, resolved, reviewSaved, selectedQuality, logQuestAttempt, hintShown, showFeedbackOverlay]);
+
   const handleNextCard = useCallback(() => {
     if (!resolved) {
       triggerShakeWithCooldown();
       return;
     }
 
-    if (isProcessingRef.current) return;
+    if (isProcessingRef.current) {
+      return;
+    }
+
+    commitCurrentCardReview();
     isProcessingRef.current = true;
     triggerHaptic();
 
@@ -224,7 +262,7 @@ export default function StudyFeed({
       }
       isProcessingRef.current = false;
     });
-  }, [resolved, currentIndex, flashcards.length, cardTranslateY, resetForNextCard, onComplete, triggerShakeWithCooldown, triggerHaptic]);
+  }, [resolved, commitCurrentCardReview, cardTranslateY, currentIndex, flashcards.length, onComplete, resetForNextCard, triggerHaptic, triggerShakeWithCooldown]);
 
   const dismissFeedbackOverlay = useCallback(() => {
     if (isProcessingRef.current) return;
@@ -446,6 +484,18 @@ export default function StudyFeed({
           </Animated.View>
         </Animated.View>
       </Pressable>
+
+      {isRevealed ? (
+        <View style={styles.confidenceWrap}>
+          <ConfidenceChips
+            selectedQuality={selectedQuality ?? 3}
+            onSelect={setSelectedQuality}
+            allowForgot
+            prompt="How did that feel?"
+            testIDPrefix="study-review"
+          />
+        </View>
+      ) : null}
 
       <View style={styles.gestureGuide}>
         <TouchableOpacity style={styles.gestureItem} onPress={handleShowHint} activeOpacity={0.6}>
@@ -680,6 +730,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500' as const,
     textAlign: 'center',
+  },
+  confidenceWrap: {
+    paddingHorizontal: 24,
+    marginTop: 8,
+    marginBottom: 6,
   },
   gestureGuide: {
     flexDirection: 'row',

@@ -4,6 +4,7 @@ import { generateObject } from '@rork-ai/toolkit-sdk';
 import type { Flashcard } from '@/types/flashcard';
 import type { CardStats, QuestPerformance } from '@/types/performance';
 import { buildGameplayDistractorPrompt, formatGameplayOption } from '@/utils/gameplayCopy';
+import { getCardMastery, getWeaknessScore, isCardDue } from '@/utils/mastery';
 import { logger } from '@/utils/logger';
 
 const aiDistractorSchema = z.object({
@@ -450,9 +451,12 @@ export function selectNextCard(params: {
 }): Flashcard | null {
   const { cards, usedCardIds, performance, focusWeakOnly } = params;
 
-  if (cards.length === 0) return null;
+  if (cards.length === 0) {
+    return null;
+  }
 
-  let candidates = cards.filter(c => !usedCardIds.has(c.id));
+  const now = Date.now();
+  let candidates = cards.filter((card) => !usedCardIds.has(card.id));
 
   if (candidates.length === 0) {
     const sortedByLastAttempt = [...cards].sort((a, b) => {
@@ -466,48 +470,70 @@ export function selectNextCard(params: {
   }
 
   if (focusWeakOnly) {
-    const weakCandidates = candidates.filter(card => {
-      const stats = performance.cardStatsById[card.id];
-      if (!stats || stats.attempts < 3) return true;
-      const accuracy = stats.correct / stats.attempts;
-      if (accuracy < 0.7) return true;
-      if (stats.incorrect > stats.correct) return true;
-      return false;
-    });
+    const weakCandidates = candidates
+      .map((card) => {
+        const stats = performance.cardStatsById[card.id];
+        return {
+          card,
+          score: getWeaknessScore(stats, now),
+          due: isCardDue(stats, now),
+          status: getCardMastery(stats, now),
+        };
+      })
+      .filter((entry) => entry.status === 'lapsed' || entry.due || entry.score >= 6);
 
-    if (weakCandidates.length >= 1) {
-      candidates = weakCandidates;
+    if (weakCandidates.length > 0) {
+      candidates = weakCandidates
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.card);
     }
   }
 
-  const weighted: { card: Flashcard; weight: number }[] = candidates.map(card => {
+  const weighted: { card: Flashcard; weight: number }[] = candidates.map((card) => {
     const stats: CardStats | undefined = performance.cardStatsById[card.id];
-    let weight = 1;
+    const weaknessScore = getWeaknessScore(stats, now);
+    const status = getCardMastery(stats, now);
+    const due = isCardDue(stats, now);
+    let weight = 1 + weaknessScore;
 
-    if (!stats || stats.attempts === 0) {
-      weight += 4;
-    } else {
-      if (stats.attempts < 3) weight += 2;
-      if (stats.incorrect > stats.correct) weight += 3;
-
-      const accuracy = stats.correct / stats.attempts;
-      if (accuracy < 0.6) weight += 3;
-      if (stats.streakCorrect >= 3) weight -= 3;
-
-      const daysSinceAttempt = (Date.now() - stats.lastAttemptAt) / (1000 * 60 * 60 * 24);
-      if (daysSinceAttempt > 7) weight += 1;
+    if (due) {
+      weight += 2.8;
     }
 
-    weight = Math.max(0.5, weight);
-    return { card, weight };
+    if (status === 'lapsed') {
+      weight += 4;
+    } else if (status === 'learning') {
+      weight += 1.8;
+    } else if (status === 'mastered') {
+      weight -= 1.6;
+    }
+
+    if (!stats || stats.attempts === 0) {
+      weight += 0.8;
+    }
+
+    const daysSinceAttempt = stats?.lastAttemptAt
+      ? (now - stats.lastAttemptAt) / (1000 * 60 * 60 * 24)
+      : 0;
+
+    if (daysSinceAttempt > 10) {
+      weight += 0.8;
+    }
+
+    return {
+      card,
+      weight: Math.max(0.35, weight),
+    };
   });
 
-  const totalWeight = weighted.reduce((sum, w) => sum + w.weight, 0);
+  const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
   let random = Math.random() * totalWeight;
 
   for (const { card, weight } of weighted) {
     random -= weight;
-    if (random <= 0) return card;
+    if (random <= 0) {
+      return card;
+    }
   }
 
   return weighted[weighted.length - 1]?.card || cards[0];

@@ -83,7 +83,7 @@ export default function DeckHubScreen() {
 
   const mastery = useMemo(() => {
     if (!deck) {
-      return { mastered: 0, reviewing: 0, learning: 0, newCards: 0, total: 0 };
+      return { mastered: 0, reviewing: 0, learning: 0, lapsed: 0, newCards: 0, total: 0 };
     }
 
     return computeDeckMastery(deck.flashcards, performance.cardStatsById);
@@ -336,11 +336,13 @@ export default function DeckHubScreen() {
               {mastery.mastered > 0 ? <View style={{ width: `${(mastery.mastered / mastery.total) * 100}%`, height: '100%', backgroundColor: '#10B981' }} /> : null}
               {mastery.reviewing > 0 ? <View style={{ width: `${(mastery.reviewing / mastery.total) * 100}%`, height: '100%', backgroundColor: '#3B82F6' }} /> : null}
               {mastery.learning > 0 ? <View style={{ width: `${(mastery.learning / mastery.total) * 100}%`, height: '100%', backgroundColor: '#F59E0B' }} /> : null}
+              {mastery.lapsed > 0 ? <View style={{ width: `${(mastery.lapsed / mastery.total) * 100}%`, height: '100%', backgroundColor: '#F43F5E' }} /> : null}
             </View>
             <View style={styles.legend}>
               <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#10B981' }]} /><Text style={[styles.legendText, { color: theme.textSecondary }]}>Mastered ({mastery.mastered})</Text></View>
               <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#3B82F6' }]} /><Text style={[styles.legendText, { color: theme.textSecondary }]}>Reviewing ({mastery.reviewing})</Text></View>
               <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#F59E0B' }]} /><Text style={[styles.legendText, { color: theme.textSecondary }]}>Learning ({mastery.learning})</Text></View>
+              <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#F43F5E' }]} /><Text style={[styles.legendText, { color: theme.textSecondary }]}>Lapsed ({mastery.lapsed})</Text></View>
               <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)' }]} /><Text style={[styles.legendText, { color: theme.textSecondary }]}>New ({mastery.newCards})</Text></View>
             </View>
           </View>

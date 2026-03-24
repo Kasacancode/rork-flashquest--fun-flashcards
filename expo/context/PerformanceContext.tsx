@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { Flashcard } from '@/types/flashcard';
 import type {
@@ -9,10 +9,19 @@ import type {
   DeckStats,
   QuestPerformance,
   QuestSettings,
+  RecallQuality,
 } from '@/types/performance';
+import {
+  createDefaultCardStats,
+  getLiveCardStats,
+  getWeaknessScore,
+  inferRecallQuality,
+  isCardDue,
+  migrateQuestPerformance,
+  updateCardMemory,
+} from '@/utils/mastery';
 import { logger } from '@/utils/logger';
 
-// Persists per-card accuracy data so Quest mode can prioritize weak cards
 const STORAGE_KEY = 'flashquest_performance';
 
 const DEFAULT_PERFORMANCE: QuestPerformance = {
@@ -21,25 +30,6 @@ const DEFAULT_PERFORMANCE: QuestPerformance = {
   bestQuestStreak: 0,
   lastQuestSettings: undefined,
 };
-
-const DEFAULT_CARD_STATS: CardStats = {
-  attempts: 0,
-  correct: 0,
-  incorrect: 0,
-  streakCorrect: 0,
-  lastAttemptAt: 0,
-  nextReviewAt: 0,
-};
-
-function computeNextReviewAt(streakCorrect: number, now: number): number {
-  const ONE_DAY = 86400000;
-  if (streakCorrect <= 0) return now;
-  if (streakCorrect === 1) return now + ONE_DAY;
-  if (streakCorrect === 2) return now + 3 * ONE_DAY;
-  if (streakCorrect === 3) return now + 7 * ONE_DAY;
-  if (streakCorrect === 4) return now + 14 * ONE_DAY;
-  return now + 30 * ONE_DAY;
-}
 
 const DEFAULT_DECK_STATS: DeckStats = {
   attempts: 0,
@@ -57,22 +47,31 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     queryFn: async () => {
       logger.log('[Performance] Loading performance data from storage');
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        let parsed: QuestPerformance;
-        try {
-          parsed = JSON.parse(stored) as QuestPerformance;
-        } catch {
-          return DEFAULT_PERFORMANCE;
-        }
-        logger.log('[Performance] Loaded performance:', Object.keys(parsed.cardStatsById).length, 'cards tracked');
-        return parsed;
+
+      if (!stored) {
+        logger.log('[Performance] No stored performance, using defaults');
+        return DEFAULT_PERFORMANCE;
       }
-      logger.log('[Performance] No stored performance, using defaults');
-      return DEFAULT_PERFORMANCE;
+
+      try {
+        const parsed = JSON.parse(stored) as QuestPerformance;
+        const migrated = migrateQuestPerformance(parsed);
+
+        if (migrated.didChange) {
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(migrated.performance));
+          logger.log('[Performance] Migrated performance model for', Object.keys(migrated.performance.cardStatsById).length, 'cards');
+        } else {
+          logger.log('[Performance] Loaded performance:', Object.keys(migrated.performance.cardStatsById).length, 'cards tracked');
+        }
+
+        return migrated.performance;
+      } catch (error) {
+        logger.log('[Performance] Failed to parse stored performance, resetting:', error);
+        return DEFAULT_PERFORMANCE;
+      }
     },
   });
 
-  // Sync query data into local state to allow synchronous reads and optimistic updates
   useEffect(() => {
     if (performanceQuery.data) {
       setPerformance(performanceQuery.data);
@@ -98,30 +97,48 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     selectedOption: string;
     correctAnswer: string;
     timeToAnswerMs: number;
+    quality?: RecallQuality | null;
+    mode?: 'quest' | 'practice' | 'study';
+    hintsUsed?: number;
+    usedSecondChance?: boolean;
+    explanationOpened?: boolean;
   }) => {
-    logger.log('[Performance] Logging attempt:', params.cardId, 'correct:', params.isCorrect);
-    
-    setPerformance(prev => {
-      const now = Date.now();
-      const cardStats = prev.cardStatsById[params.cardId] || { ...DEFAULT_CARD_STATS };
+    const now = Date.now();
+    const resolvedQuality = inferRecallQuality({
+      isCorrect: params.isCorrect,
+      manualQuality: params.quality,
+      timeToAnswerMs: params.timeToAnswerMs,
+      hintsUsed: params.hintsUsed,
+      usedSecondChance: params.usedSecondChance,
+      explanationOpened: params.explanationOpened,
+    });
+
+    logger.log('[Performance] Logging attempt:', {
+      cardId: params.cardId,
+      mode: params.mode ?? 'quest',
+      isCorrect: params.isCorrect,
+      quality: resolvedQuality,
+    });
+
+    setPerformance((prev) => {
+      const cardStats = prev.cardStatsById[params.cardId] || createDefaultCardStats();
       const deckStats = prev.deckStatsById[params.deckId] || { ...DEFAULT_DECK_STATS };
-
-      const newStreak = params.isCorrect ? cardStats.streakCorrect + 1 : 0;
-      const updatedCardStats: CardStats = {
-        attempts: cardStats.attempts + 1,
-        correct: cardStats.correct + (params.isCorrect ? 1 : 0),
-        incorrect: cardStats.incorrect + (params.isCorrect ? 0 : 1),
-        streakCorrect: newStreak,
-        lastAttemptAt: now,
-        nextReviewAt: computeNextReviewAt(newStreak, now),
-      };
-
+      const updatedCardStats = updateCardMemory(cardStats, { quality: resolvedQuality, now });
       const updatedDeckStats: DeckStats = {
         attempts: deckStats.attempts + 1,
         correct: deckStats.correct + (params.isCorrect ? 1 : 0),
         incorrect: deckStats.incorrect + (params.isCorrect ? 0 : 1),
         lastAttemptAt: now,
       };
+
+      logger.log('[Performance] Updated card memory:', {
+        cardId: params.cardId,
+        status: updatedCardStats.status,
+        stability: Number(updatedCardStats.stability.toFixed(2)),
+        difficulty: Number(updatedCardStats.difficulty.toFixed(2)),
+        lapses: updatedCardStats.lapses,
+        nextReviewAt: updatedCardStats.nextReviewAt,
+      });
 
       const newPerformance: QuestPerformance = {
         ...prev,
@@ -141,9 +158,11 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
   }, [savePerformance]);
 
   const updateBestStreak = useCallback((runStreak: number) => {
-    setPerformance(prev => {
-      if (runStreak <= prev.bestQuestStreak) return prev;
-      
+    setPerformance((prev) => {
+      if (runStreak <= prev.bestQuestStreak) {
+        return prev;
+      }
+
       logger.log('[Performance] New best streak:', runStreak);
       const newPerformance: QuestPerformance = {
         ...prev,
@@ -156,74 +175,46 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
 
   const getCardAccuracy = useCallback((cardId: string): number | null => {
     const stats = performance.cardStatsById[cardId];
-    if (!stats || stats.attempts === 0) return null;
+    if (!stats || stats.attempts === 0) {
+      return null;
+    }
+
     return stats.correct / stats.attempts;
   }, [performance.cardStatsById]);
 
   const getDeckAccuracy = useCallback((deckId: string): number | null => {
     const stats = performance.deckStatsById[deckId];
-    if (!stats || stats.attempts === 0) return null;
+    if (!stats || stats.attempts === 0) {
+      return null;
+    }
+
     return stats.correct / stats.attempts;
   }, [performance.deckStatsById]);
 
-  /**
-   * Scores each card by weakness (low accuracy, few attempts, more wrong than right)
-   * and returns the top N weakest card IDs for focused drilling.
-   */
   const getWeakCards = useCallback((deckId: string, cards: Flashcard[], limit: number = 10): string[] => {
-    const weakCards: { cardId: string; score: number }[] = [];
-
-    for (const card of cards) {
-      if (card.deckId !== deckId) continue;
-      
-      const stats = performance.cardStatsById[card.id];
-      let score = 0;
-
-      if (!stats || stats.attempts === 0) {
-        // Never attempted cards are highest priority
-        score = 10;
-      } else {
-        const accuracy = stats.correct / stats.attempts;
-        if (accuracy < 0.7) score += 5;
-        if (stats.incorrect > stats.correct) score += 4;
-        if (stats.attempts < 3) score += 3;
-      }
-
-      if (score > 0) {
-        weakCards.push({ cardId: card.id, score });
-      }
-    }
-
-    return weakCards
+    return cards
+      .filter((card) => card.deckId === deckId)
+      .map((card) => ({
+        cardId: card.id,
+        score: getWeaknessScore(performance.cardStatsById[card.id]),
+      }))
+      .filter((entry) => entry.score > 0.85)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
-      .map(w => w.cardId);
+      .map((entry) => entry.cardId);
   }, [performance.cardStatsById]);
 
   const getCardsDueForReview = useCallback((deckId: string, cards: Flashcard[]): string[] => {
     const now = Date.now();
-    const dueIds: string[] = [];
-
-    for (const card of cards) {
-      if (card.deckId !== deckId) continue;
-      const stats = performance.cardStatsById[card.id];
-
-      if (!stats || stats.attempts === 0) {
-        dueIds.push(card.id);
-        continue;
-      }
-
-      if (!stats.nextReviewAt || now >= stats.nextReviewAt) {
-        dueIds.push(card.id);
-      }
-    }
-
-    return dueIds;
+    return cards
+      .filter((card) => card.deckId === deckId)
+      .filter((card) => isCardDue(performance.cardStatsById[card.id], now))
+      .map((card) => card.id);
   }, [performance.cardStatsById]);
 
   const saveLastQuestSettings = useCallback((settings: QuestSettings) => {
     logger.log('[Performance] Saving last quest settings');
-    setPerformance(prev => {
+    setPerformance((prev) => {
       const newPerformance: QuestPerformance = {
         ...prev,
         lastQuestSettings: settings,
@@ -241,18 +232,21 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     let totalCorrect = 0;
     let totalAttempts = 0;
 
-    Object.values(performance.deckStatsById).forEach(stats => {
+    Object.values(performance.deckStatsById).forEach((stats) => {
       totalCorrect += stats.correct;
       totalAttempts += stats.attempts;
     });
 
-    if (totalAttempts === 0) return null;
+    if (totalAttempts === 0) {
+      return null;
+    }
+
     return totalCorrect / totalAttempts;
   }, [performance.deckStatsById]);
 
   const cleanupDeck = useCallback((deckId: string, cardIds: string[]) => {
     logger.log('[Performance] Cleaning up data for deleted deck:', deckId, 'cards:', cardIds.length);
-    setPerformance(prev => {
+    setPerformance((prev) => {
       const updatedCardStats = { ...prev.cardStatsById };
       for (const cardId of cardIds) {
         delete updatedCardStats[cardId];
@@ -272,8 +266,18 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     });
   }, [savePerformance]);
 
+  const liveCardStatsById = useMemo<Record<string, CardStats>>(() => {
+    const now = Date.now();
+    return Object.fromEntries(
+      Object.entries(performance.cardStatsById).map(([cardId, stats]) => [cardId, getLiveCardStats(stats, now)]),
+    );
+  }, [performance.cardStatsById]);
+
   return useMemo(() => ({
-    performance,
+    performance: {
+      ...performance,
+      cardStatsById: liveCardStatsById,
+    },
     isLoading: performanceQuery.isLoading,
     logQuestAttempt,
     updateBestStreak,
@@ -287,6 +291,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     cleanupDeck,
   }), [
     performance,
+    liveCardStatsById,
     performanceQuery.isLoading,
     logQuestAttempt,
     updateBestStreak,

@@ -77,6 +77,7 @@ export default function StatsPage() {
       accumulator.mastered += mastery.mastered;
       accumulator.reviewing += mastery.reviewing;
       accumulator.learning += mastery.learning;
+      accumulator.lapsed += mastery.lapsed;
       accumulator.newCards += mastery.newCards;
       return accumulator;
     }, {
@@ -84,6 +85,7 @@ export default function StatsPage() {
       mastered: 0,
       reviewing: 0,
       learning: 0,
+      lapsed: 0,
       newCards: 0,
     });
   }, [decks, performance.cardStatsById]);
@@ -706,6 +708,15 @@ export default function StatsPage() {
                   }}
                 />
               ) : null}
+              {masteryOverview.lapsed > 0 ? (
+                <View
+                  style={{
+                    width: `${(masteryOverview.lapsed / Math.max(masteryOverview.totalCards, 1)) * 100}%`,
+                    height: '100%',
+                    backgroundColor: '#F43F5E',
+                  }}
+                />
+              ) : null}
             </View>
             <View style={styles.masteryLegend}>
               <Text style={styles.masteryLegendItem}>
@@ -716,6 +727,9 @@ export default function StatsPage() {
               </Text>
               <Text style={styles.masteryLegendItem}>
                 <Text style={{ color: '#F59E0B' }}>●</Text> {masteryOverview.learning} learning
+              </Text>
+              <Text style={styles.masteryLegendItem}>
+                <Text style={{ color: '#F43F5E' }}>●</Text> {masteryOverview.lapsed} lapsed
               </Text>
               <Text style={styles.masteryLegendItem}>
                 <Text style={{ color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }}>●</Text>{' '}

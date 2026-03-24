@@ -342,6 +342,10 @@ export default function QuestSessionScreen() {
       selectedOption: '',
       correctAnswer: currentCard.answer,
       timeToAnswerMs: timeToAnswer,
+      mode: 'quest',
+      hintsUsed: showHint ? 1 : 0,
+      usedSecondChance,
+      explanationOpened: showExplanation,
     });
 
     if (Platform.OS !== 'web') {
@@ -349,7 +353,7 @@ export default function QuestSessionScreen() {
     }
 
     scheduleAdvance(1500);
-  }, [inputLocked, currentCard, missStreak, roundStartTime, settings.deckId, logQuestAttempt, scheduleAdvance, clearAdvanceTimeout, showQuestDialogue]);
+  }, [inputLocked, currentCard, missStreak, roundStartTime, settings.deckId, logQuestAttempt, scheduleAdvance, clearAdvanceTimeout, showQuestDialogue, showHint, usedSecondChance, showExplanation]);
 
   useEffect(() => {
     if (timeRemaining === 0 && !inputLocked && currentCard) {
@@ -401,6 +405,10 @@ export default function QuestSessionScreen() {
         selectedOption: option,
         correctAnswer: currentCard.answer,
         timeToAnswerMs: timeToAnswer,
+        mode: 'quest',
+        hintsUsed: showHint ? 1 : 0,
+        usedSecondChance,
+        explanationOpened: showExplanation,
       });
 
       if (Platform.OS !== 'web') {
@@ -447,6 +455,10 @@ export default function QuestSessionScreen() {
         selectedOption: option,
         correctAnswer: currentCard.answer,
         timeToAnswerMs: timeToAnswer,
+        mode: 'quest',
+        hintsUsed: showHint ? 1 : 0,
+        usedSecondChance,
+        explanationOpened: showExplanation,
       });
 
       if (Platform.OS !== 'web') {
@@ -459,7 +471,7 @@ export default function QuestSessionScreen() {
         scheduleAdvance(1200);
       }
     }
-  }, [inputLocked, currentCard, streak, missStreak, bestStreak, roundStartTime, settings, usedSecondChance, logQuestAttempt, scheduleAdvance, clearAdvanceTimeout, showQuestDialogue]);
+  }, [inputLocked, currentCard, streak, missStreak, bestStreak, roundStartTime, settings, usedSecondChance, logQuestAttempt, scheduleAdvance, clearAdvanceTimeout, showQuestDialogue, showHint, showExplanation]);
 
   const advanceRound = useCallback(() => {
     const nextRound = currentRound + 1;

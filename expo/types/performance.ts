@@ -1,5 +1,9 @@
 export type QuestMode = 'learn' | 'test';
 
+export type RecallQuality = 1 | 2 | 3 | 4;
+
+export type CardMemoryStatus = 'new' | 'learning' | 'reviewing' | 'mastered' | 'lapsed';
+
 export interface QuestSettings {
   deckId: string;
   mode: QuestMode;
@@ -15,9 +19,17 @@ export interface CardStats {
   attempts: number;
   correct: number;
   incorrect: number;
+  consecutiveCorrect: number;
+  consecutiveIncorrect: number;
   streakCorrect: number;
+  stability: number;
+  difficulty: number;
+  retrievability: number;
+  lastReviewedAt: number | null;
   lastAttemptAt: number;
-  nextReviewAt: number;
+  nextReviewAt: number | null;
+  lapses: number;
+  status: CardMemoryStatus;
 }
 
 export interface DeckStats {

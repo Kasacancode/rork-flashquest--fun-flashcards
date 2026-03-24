@@ -438,6 +438,7 @@ export default function DecksPage() {
                 const pMastered = mastery.total > 0 ? (mastery.mastered / mastery.total) * 100 : 0;
                 const pReviewing = mastery.total > 0 ? (mastery.reviewing / mastery.total) * 100 : 0;
                 const pLearning = mastery.total > 0 ? (mastery.learning / mastery.total) * 100 : 0;
+                const pLapsed = mastery.total > 0 ? (mastery.lapsed / mastery.total) * 100 : 0;
 
                 return (
                   <View
@@ -529,11 +530,12 @@ export default function DecksPage() {
                             {pMastered > 0 ? <View style={[styles.masterySegment, { width: `${pMastered}%`, backgroundColor: '#10B981' }]} /> : null}
                             {pReviewing > 0 ? <View style={[styles.masterySegment, { width: `${pReviewing}%`, backgroundColor: '#3B82F6' }]} /> : null}
                             {pLearning > 0 ? <View style={[styles.masterySegment, { width: `${pLearning}%`, backgroundColor: '#F59E0B' }]} /> : null}
+                            {pLapsed > 0 ? <View style={[styles.masterySegment, { width: `${pLapsed}%`, backgroundColor: '#F43F5E' }]} /> : null}
                           </View>
                         </View>
                       ) : null}
 
-                      {dueCount > 0 || isFullyMastered ? (
+                      {dueCount > 0 || mastery.lapsed > 0 || isFullyMastered ? (
                         <View style={styles.deckStatusRow}>
                           {dueCount > 0 ? (
                             <View style={[styles.statusPill, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
@@ -541,6 +543,13 @@ export default function DecksPage() {
                               <Text style={[styles.statusText, { color: '#3B82F6' }]}>
                                 {dueCount} due for review
                               </Text>
+                            </View>
+                          ) : null}
+
+                          {mastery.lapsed > 0 ? (
+                            <View style={[styles.statusPill, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
+                              <View style={[styles.statusDot, { backgroundColor: '#F43F5E' }]} />
+                              <Text style={[styles.statusText, { color: '#F43F5E' }]}>{mastery.lapsed} lapsed</Text>
                             </View>
                           ) : null}
 

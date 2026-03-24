@@ -6,11 +6,14 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, TextInput, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ConfidenceChips from '@/components/ConfidenceChips';
 import { TimerProgressBar, StreakIndicator } from '@/components/GameUI';
 import { useFlashQuest } from '@/context/FlashQuestContext';
+import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import { GAME_MODE } from '@/types/game';
+import type { RecallQuality } from '@/types/performance';
 import type { PracticeMode, PracticeSessionState } from '@/types/practice';
 import { clearAIDistractorCache as clearDistractorCache, generateOptionsWithAI } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
@@ -30,6 +33,16 @@ interface TurnResult {
   answer: string;
   isCorrect: boolean;
   timeUsed: number;
+}
+
+interface PendingCardReview {
+  deckId: string;
+  cardId: string;
+  isCorrect: boolean;
+  selectedOption: string;
+  correctAnswer: string;
+  timeToAnswerMs: number;
+  quality: RecallQuality;
 }
 
 interface OpponentBehavior {
@@ -107,6 +120,7 @@ export default function PracticeSessionPage() {
   const router = useRouter();
   const params = useLocalSearchParams<{ deckId?: string | string[]; mode?: PracticeMode | PracticeMode[] }>();
   const { decks, recordSessionResult } = useFlashQuest();
+  const { logQuestAttempt } = usePerformance();
   const { theme, isDark } = useTheme();
   const deckId = useMemo(() => (Array.isArray(params.deckId) ? params.deckId[0] : params.deckId), [params.deckId]);
   const practiceMode = useMemo<PracticeMode>(() => {
@@ -129,6 +143,8 @@ export default function PracticeSessionPage() {
   const [playerStreak, setPlayerStreak] = useState(0);
   const [distractors, setDistractors] = useState<string[]>([]);
   const [aiState, setAiState] = useState<AdaptiveOpponentState>({ streak: 0, confidence: 0.5 });
+  const [reviewQuality, setReviewQuality] = useState<RecallQuality | null>(null);
+  const [pendingReview, setPendingReview] = useState<PendingCardReview | null>(null);
 
   const sessionStartRef = useRef<number>(Date.now());
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -257,6 +273,8 @@ export default function PracticeSessionPage() {
     setCurrentPlayer(1);
     setPlayer1Result(null);
     setPlayer2Result(null);
+    setReviewQuality(null);
+    setPendingReview(null);
     feedbackOpacity.setValue(0);
     feedbackScale.setValue(0.8);
 
@@ -327,6 +345,36 @@ export default function PracticeSessionPage() {
     ]).start();
   }, [shakeAnim]);
 
+  const handleReviewQualitySelect = useCallback((quality: RecallQuality) => {
+    setReviewQuality(quality);
+    setPendingReview((previousReview) => (
+      previousReview
+        ? {
+            ...previousReview,
+            quality,
+          }
+        : previousReview
+    ));
+  }, []);
+
+  const commitPendingReview = useCallback(() => {
+    if (!pendingReview || currentBattle?.mode === 'multiplayer') {
+      return;
+    }
+
+    logQuestAttempt({
+      deckId: pendingReview.deckId,
+      cardId: pendingReview.cardId,
+      isCorrect: pendingReview.isCorrect,
+      selectedOption: pendingReview.selectedOption,
+      correctAnswer: pendingReview.correctAnswer,
+      timeToAnswerMs: pendingReview.timeToAnswerMs,
+      quality: reviewQuality ?? pendingReview.quality,
+      mode: 'practice',
+    });
+    setPendingReview(null);
+  }, [pendingReview, currentBattle?.mode, logQuestAttempt, reviewQuality]);
+
   const handleTimeUp = useCallback(() => {
     if (gamePhase === 'player-turn') {
       const correct = false;
@@ -378,6 +426,16 @@ export default function PracticeSessionPage() {
           isCorrect: correct,
           timeUsed: QUESTION_TIME,
         });
+        setReviewQuality(1);
+        setPendingReview({
+          deckId: deckId ?? currentBattle?.deckId ?? '',
+          cardId: currentCard?.id ?? '',
+          isCorrect: false,
+          selectedOption: userAnswer.trim() || '(No answer)',
+          correctAnswer: currentCard?.answer ?? '',
+          timeToAnswerMs: QUESTION_TIME * 1000,
+          quality: 1,
+        });
         setButtonState('incorrect');
         setPlayerStreak(0);
         triggerShake();
@@ -393,7 +451,7 @@ export default function PracticeSessionPage() {
     } else if (gamePhase === 'opponent-turn') {
       simulateOpponentAnswer();
     }
-  }, [gamePhase, userAnswer, simulateOpponentAnswer, currentBattle, currentPlayer, triggerShake, feedbackOpacity, feedbackScale]);
+  }, [gamePhase, userAnswer, simulateOpponentAnswer, currentBattle, currentPlayer, triggerShake, feedbackOpacity, feedbackScale, deckId, currentCard]);
 
   handleTimeUpRef.current = handleTimeUp;
 
@@ -513,6 +571,16 @@ export default function PracticeSessionPage() {
         isCorrect: correct,
         timeUsed,
       });
+      setReviewQuality(correct ? 3 : 1);
+      setPendingReview({
+        deckId: deckId ?? currentBattle?.deckId ?? currentCard.deckId,
+        cardId: currentCard.id,
+        isCorrect: correct,
+        selectedOption: userAnswer.trim(),
+        correctAnswer: currentCard.answer,
+        timeToAnswerMs: timeUsed * 1000,
+        quality: correct ? 3 : 1,
+      });
       setButtonState(correct ? 'correct' : 'incorrect');
       setPlayerStreak(correct ? playerStreak + 1 : 0);
 
@@ -546,6 +614,8 @@ export default function PracticeSessionPage() {
   };
 
   const handleNext = () => {
+    commitPendingReview();
+
     if (currentBattle?.mode === 'multiplayer') {
       updateBattle(player1Result?.isCorrect || false, player2Result?.isCorrect || false);
     } else {
@@ -556,6 +626,8 @@ export default function PracticeSessionPage() {
     setOpponentResult(null);
     setPlayer1Result(null);
     setPlayer2Result(null);
+    setReviewQuality(null);
+    setPendingReview(null);
     setGamePhase('player-turn');
     setButtonState('idle');
     setCurrentPlayer(1);
@@ -568,6 +640,7 @@ export default function PracticeSessionPage() {
   };
 
   const handleQuit = () => {
+    commitPendingReview();
     clearDistractorCache();
     endBattle();
     router.back();
@@ -932,6 +1005,22 @@ export default function PracticeSessionPage() {
                 </Text>
               </View>
 
+              {currentBattle?.mode !== 'multiplayer' ? (
+                <View style={styles.reviewSection}>
+                  {playerResult?.isCorrect ? (
+                    <ConfidenceChips
+                      compact
+                      selectedQuality={reviewQuality ?? 3}
+                      onSelect={handleReviewQualitySelect}
+                      prompt="How did that feel?"
+                      testIDPrefix="practice-review"
+                    />
+                  ) : (
+                    <Text style={styles.reviewStatusText}>Marked as forgot</Text>
+                  )}
+                </View>
+              ) : null}
+
               <TouchableOpacity style={styles.nextButton} onPress={handleNext} activeOpacity={0.85}>
                 <Zap color="#4338ca" size={20} />
                 <Text style={styles.nextButtonText}>Next Question</Text>
@@ -1187,6 +1276,16 @@ const styles = StyleSheet.create({
   correctAnswerText: {
     fontSize: 20,
     fontWeight: '700' as const,
+  },
+  reviewSection: {
+    marginTop: 10,
+    marginBottom: 4,
+    alignItems: 'center',
+  },
+  reviewStatusText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: 'rgba(255,255,255,0.82)',
   },
   nextButton: {
     backgroundColor: '#fff',
