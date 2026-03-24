@@ -1,10 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { SAMPLE_DECKS } from '@/data/sampleDecks';
-import type { Deck, Flashcard, UserProgress, UserStats } from '@/types/flashcard';
+import type { Achievement, Deck, Flashcard, UserProgress, UserStats } from '@/types/flashcard';
 import type { GameResultParams } from '@/types/game';
 import { logger } from '@/utils/logger';
 import { scheduleStreakReminder } from '@/utils/notifications';
@@ -13,6 +13,12 @@ const STORAGE_KEYS = {
   DECKS: 'flashquest_decks',
   PROGRESS: 'flashquest_progress',
   STATS: 'flashquest_stats',
+} as const;
+
+const STORAGE_BACKUP_KEYS = {
+  DECKS: 'flashquest_decks_backup',
+  PROGRESS: 'flashquest_progress_backup',
+  STATS: 'flashquest_stats_backup',
 } as const;
 
 const DEFAULT_STATS: UserStats = {
@@ -36,6 +42,209 @@ const DEFAULT_STATS: UserStats = {
 };
 
 const SAMPLE_DECKS_BY_ID = new Map<string, Deck>(SAMPLE_DECKS.map((deck) => [deck.id, deck]));
+
+function cloneDefaultStats(): UserStats {
+  return {
+    ...DEFAULT_STATS,
+    achievements: [...DEFAULT_STATS.achievements],
+    studyDates: [...DEFAULT_STATS.studyDates],
+    weeklyAccuracy: [...DEFAULT_STATS.weeklyAccuracy],
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseStoredJson(raw: string): unknown {
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch (error) {
+    logger.warn('[FlashQuest] Failed to parse persisted JSON:', error);
+    return null;
+  }
+}
+
+function normalizeAchievement(value: unknown): Achievement | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (
+    typeof value.id !== 'string'
+    || typeof value.name !== 'string'
+    || typeof value.description !== 'string'
+    || typeof value.icon !== 'string'
+    || typeof value.progress !== 'number'
+    || typeof value.maxProgress !== 'number'
+  ) {
+    return null;
+  }
+
+  return {
+    id: value.id,
+    name: value.name,
+    description: value.description,
+    icon: value.icon,
+    unlockedAt: typeof value.unlockedAt === 'number' ? value.unlockedAt : undefined,
+    progress: value.progress,
+    maxProgress: value.maxProgress,
+  };
+}
+
+function normalizeWeeklyAccuracyEntry(value: unknown): { week: string; correct: number; attempted: number } | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (
+    typeof value.week !== 'string'
+    || typeof value.correct !== 'number'
+    || typeof value.attempted !== 'number'
+  ) {
+    return null;
+  }
+
+  return {
+    week: value.week,
+    correct: value.correct,
+    attempted: value.attempted,
+  };
+}
+
+function normalizeUserStats(value: unknown): UserStats | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const defaultStats = cloneDefaultStats();
+
+  return {
+    totalScore: typeof value.totalScore === 'number' ? value.totalScore : defaultStats.totalScore,
+    currentStreak: typeof value.currentStreak === 'number' ? value.currentStreak : defaultStats.currentStreak,
+    longestStreak: typeof value.longestStreak === 'number' ? value.longestStreak : defaultStats.longestStreak,
+    totalCardsStudied: typeof value.totalCardsStudied === 'number' ? value.totalCardsStudied : defaultStats.totalCardsStudied,
+    totalDecksCompleted: typeof value.totalDecksCompleted === 'number' ? value.totalDecksCompleted : defaultStats.totalDecksCompleted,
+    achievements: Array.isArray(value.achievements)
+      ? value.achievements
+        .map((item) => normalizeAchievement(item))
+        .filter((item): item is Achievement => item !== null)
+      : defaultStats.achievements,
+    lastActiveDate: typeof value.lastActiveDate === 'string' && value.lastActiveDate.length > 0
+      ? value.lastActiveDate
+      : defaultStats.lastActiveDate,
+    totalCorrectAnswers: typeof value.totalCorrectAnswers === 'number' ? value.totalCorrectAnswers : defaultStats.totalCorrectAnswers,
+    totalQuestionsAttempted: typeof value.totalQuestionsAttempted === 'number' ? value.totalQuestionsAttempted : defaultStats.totalQuestionsAttempted,
+    studyDates: Array.isArray(value.studyDates)
+      ? value.studyDates.filter((item): item is string => typeof item === 'string')
+      : defaultStats.studyDates,
+    totalStudySessions: typeof value.totalStudySessions === 'number' ? value.totalStudySessions : defaultStats.totalStudySessions,
+    totalQuestSessions: typeof value.totalQuestSessions === 'number' ? value.totalQuestSessions : defaultStats.totalQuestSessions,
+    totalPracticeSessions: typeof value.totalPracticeSessions === 'number' ? value.totalPracticeSessions : defaultStats.totalPracticeSessions,
+    totalArenaSessions: typeof value.totalArenaSessions === 'number' ? value.totalArenaSessions : defaultStats.totalArenaSessions,
+    totalArenaBattles: typeof value.totalArenaBattles === 'number' ? value.totalArenaBattles : defaultStats.totalArenaBattles,
+    totalStudyTimeMs: typeof value.totalStudyTimeMs === 'number' ? value.totalStudyTimeMs : defaultStats.totalStudyTimeMs,
+    weeklyAccuracy: Array.isArray(value.weeklyAccuracy)
+      ? value.weeklyAccuracy
+        .map((item) => normalizeWeeklyAccuracyEntry(item))
+        .filter((item): item is { week: string; correct: number; attempted: number } => item !== null)
+      : defaultStats.weeklyAccuracy,
+  };
+}
+
+function normalizeUserProgressEntry(value: unknown): UserProgress | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (
+    typeof value.deckId !== 'string'
+    || typeof value.cardsReviewed !== 'number'
+    || typeof value.lastStudied !== 'number'
+  ) {
+    return null;
+  }
+
+  return {
+    deckId: value.deckId,
+    cardsReviewed: value.cardsReviewed,
+    lastStudied: value.lastStudied,
+    masteredCards: Array.isArray(value.masteredCards)
+      ? value.masteredCards.filter((item): item is string => typeof item === 'string')
+      : [],
+  };
+}
+
+function normalizeStoredProgress(value: unknown): UserProgress[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  return value
+    .map((item) => normalizeUserProgressEntry(item))
+    .filter((item): item is UserProgress => item !== null);
+}
+
+function normalizeStoredDeckPayload(value: unknown): Deck[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Deck[];
+}
+
+async function persistMirroredStorage<T>(primaryKey: string, backupKey: string, value: T, label: string): Promise<T> {
+  const serialized = JSON.stringify(value);
+  await Promise.all([
+    AsyncStorage.setItem(primaryKey, serialized),
+    AsyncStorage.setItem(backupKey, serialized),
+  ]);
+  logger.log('[FlashQuest] Persisted mirrored storage for', label);
+  return value;
+}
+
+async function readMirroredStorage<T>(options: {
+  primaryKey: string;
+  backupKey: string;
+  label: string;
+  fallback: T;
+  parse: (value: unknown) => T | null;
+}): Promise<T> {
+  const { primaryKey, backupKey, label, fallback, parse } = options;
+  const primaryRaw = await AsyncStorage.getItem(primaryKey);
+
+  if (primaryRaw != null) {
+    const parsedPrimary = parseStoredJson(primaryRaw);
+    const normalizedPrimary = parsedPrimary == null ? null : parse(parsedPrimary);
+
+    if (normalizedPrimary != null) {
+      const backupRaw = await AsyncStorage.getItem(backupKey);
+      if (backupRaw !== primaryRaw) {
+        await persistMirroredStorage(primaryKey, backupKey, normalizedPrimary, `${label} mirror sync`);
+      }
+      return normalizedPrimary;
+    }
+
+    logger.warn('[FlashQuest] Primary persisted payload was invalid, trying backup for', label);
+  }
+
+  const backupRaw = await AsyncStorage.getItem(backupKey);
+  if (backupRaw != null) {
+    const parsedBackup = parseStoredJson(backupRaw);
+    const normalizedBackup = parsedBackup == null ? null : parse(parsedBackup);
+
+    if (normalizedBackup != null) {
+      logger.log('[FlashQuest] Recovered', label, 'from backup storage');
+      await persistMirroredStorage(primaryKey, backupKey, normalizedBackup, `${label} recovery`);
+      return normalizedBackup;
+    }
+
+    logger.warn('[FlashQuest] Backup persisted payload was invalid for', label);
+  }
+
+  logger.log('[FlashQuest] Falling back to default payload for', label);
+  return fallback;
+}
 
 function syncSampleDeck(existingDeck: Deck | undefined, sampleDeck: Deck): Deck {
   const existingCardsById = new Map<string, Flashcard>((existingDeck?.flashcards ?? []).map((card) => [card.id, card]));
@@ -128,187 +337,396 @@ function getIsoWeekString(date: Date): string {
   return `${normalized.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
 }
 
+function normalizeLoadedStats(stats: UserStats): { stats: UserStats; didChange: boolean } {
+  const today = new Date().toISOString().split('T')[0];
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+  if (stats.lastActiveDate === today || stats.lastActiveDate === yesterday) {
+    return { stats, didChange: false };
+  }
+
+  return {
+    stats: { ...stats, currentStreak: 0 },
+    didChange: true,
+  };
+}
+
+async function loadDecksSnapshot(): Promise<Deck[]> {
+  const storedDecks = await readMirroredStorage<Deck[]>({
+    primaryKey: STORAGE_KEYS.DECKS,
+    backupKey: STORAGE_BACKUP_KEYS.DECKS,
+    label: 'decks',
+    fallback: SAMPLE_DECKS,
+    parse: normalizeStoredDeckPayload,
+  });
+  const normalizedDecks = normalizeStoredDecks(storedDecks);
+
+  if (normalizedDecks.didChange) {
+    logger.log('[FlashQuest] Synced built-in decks with latest default content');
+    await persistMirroredStorage(STORAGE_KEYS.DECKS, STORAGE_BACKUP_KEYS.DECKS, normalizedDecks.decks, 'decks normalization');
+  }
+
+  return normalizedDecks.decks;
+}
+
+async function loadProgressSnapshot(): Promise<UserProgress[]> {
+  return readMirroredStorage<UserProgress[]>({
+    primaryKey: STORAGE_KEYS.PROGRESS,
+    backupKey: STORAGE_BACKUP_KEYS.PROGRESS,
+    label: 'progress',
+    fallback: [],
+    parse: normalizeStoredProgress,
+  });
+}
+
+async function loadStatsSnapshot(): Promise<UserStats> {
+  const storedStats = await readMirroredStorage<UserStats>({
+    primaryKey: STORAGE_KEYS.STATS,
+    backupKey: STORAGE_BACKUP_KEYS.STATS,
+    label: 'stats',
+    fallback: cloneDefaultStats(),
+    parse: normalizeUserStats,
+  });
+  const normalizedStats = normalizeLoadedStats(storedStats);
+
+  if (normalizedStats.didChange) {
+    await persistMirroredStorage(STORAGE_KEYS.STATS, STORAGE_BACKUP_KEYS.STATS, normalizedStats.stats, 'stats streak correction');
+  }
+
+  return normalizedStats.stats;
+}
+
 export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
   const queryClient = useQueryClient();
+  const persistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const decksQuery = useQuery({
     queryKey: ['decks'],
-    queryFn: async () => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.DECKS);
-      if (stored) {
-        let parsedDecks: Deck[];
-        try {
-          parsedDecks = JSON.parse(stored) as Deck[];
-        } catch {
-          parsedDecks = [];
-        }
-        const normalizedDecks = normalizeStoredDecks(parsedDecks);
-
-        if (normalizedDecks.didChange) {
-          logger.log('[FlashQuest] Synced built-in decks with latest default content');
-          await AsyncStorage.setItem(STORAGE_KEYS.DECKS, JSON.stringify(normalizedDecks.decks));
-        }
-
-        return normalizedDecks.decks;
-      }
-      return SAMPLE_DECKS;
-    },
+    queryFn: loadDecksSnapshot,
   });
 
   const progressQuery = useQuery({
     queryKey: ['progress'],
-    queryFn: async () => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.PROGRESS);
-      if (!stored) return [];
-      try {
-        return JSON.parse(stored) as UserProgress[];
-      } catch {
-        return [];
-      }
-    },
+    queryFn: loadProgressSnapshot,
   });
 
   const statsQuery = useQuery({
     queryKey: ['stats'],
-    queryFn: async () => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.STATS);
-      if (stored) {
-        let stats: UserStats;
-        try {
-          stats = JSON.parse(stored) as UserStats;
-        } catch {
-          return DEFAULT_STATS;
-        }
-        const today = new Date().toISOString().split('T')[0];
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-
-        if (stats.lastActiveDate === today || stats.lastActiveDate === yesterday) {
-          return stats;
-        }
-
-        const corrected: UserStats = { ...stats, currentStreak: 0 };
-        await AsyncStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(corrected));
-        return corrected;
-      }
-      return DEFAULT_STATS;
-    },
+    queryFn: loadStatsSnapshot,
   });
 
   const saveDecksMutation = useMutation({
-    mutationFn: async (decks: Deck[]) => {
-      await AsyncStorage.setItem(STORAGE_KEYS.DECKS, JSON.stringify(decks));
-      return decks;
-    },
+    mutationFn: async (decks: Deck[]) => persistMirroredStorage(STORAGE_KEYS.DECKS, STORAGE_BACKUP_KEYS.DECKS, decks, 'decks'),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['decks'] });
     },
   });
-  const { mutate: saveDecksMutate, mutateAsync: saveDecksMutateAsync } = saveDecksMutation;
+  const { mutateAsync: saveDecksMutateAsync } = saveDecksMutation;
 
   const saveProgressMutation = useMutation({
-    mutationFn: async (progress: UserProgress[]) => {
-      await AsyncStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify(progress));
-      return progress;
-    },
+    mutationFn: async (progress: UserProgress[]) => persistMirroredStorage(STORAGE_KEYS.PROGRESS, STORAGE_BACKUP_KEYS.PROGRESS, progress, 'progress'),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['progress'] });
     },
   });
-  const { mutate: saveProgressMutate } = saveProgressMutation;
+  const { mutateAsync: saveProgressMutateAsync } = saveProgressMutation;
 
   const saveStatsMutation = useMutation({
-    mutationFn: async (stats: UserStats) => {
-      await AsyncStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(stats));
-      return stats;
-    },
+    mutationFn: async (stats: UserStats) => persistMirroredStorage(STORAGE_KEYS.STATS, STORAGE_BACKUP_KEYS.STATS, stats, 'stats'),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
-  const { mutate: saveStatsMutate } = saveStatsMutation;
+  const { mutateAsync: saveStatsMutateAsync } = saveStatsMutation;
 
-  const recordSessionResult = useCallback((params: GameResultParams) => {
-    const currentStats = queryClient.getQueryData<UserStats>(['stats']) ?? DEFAULT_STATS;
-    const today = new Date().toISOString().split('T')[0];
+  const enqueuePersistenceTask = useCallback(async function runPersistenceTask<T>(
+    label: string,
+    task: () => Promise<T>,
+  ): Promise<T> {
+    let result: T | undefined;
 
-    const { currentStreak: newStreak, longestStreak: newLongest } = computeStreak(
-      currentStats.lastActiveDate,
-      currentStats.currentStreak,
-      currentStats.longestStreak,
-    );
+    persistenceQueueRef.current = persistenceQueueRef.current
+      .catch((error) => {
+        logger.error('[FlashQuest] Previous persistence task failed before', label, error);
+      })
+      .then(async () => {
+        logger.log('[FlashQuest] Running persistence task:', label);
+        result = await task();
+      });
 
-    const correctAnswersToAdd = params.correctCount != null ? params.correctCount : 0;
-    const questionsAttemptedToAdd = params.correctCount != null ? params.cardsAttempted : 0;
-    const existingStudyDates = currentStats.studyDates ?? [];
-    const studyDatesUpdated = existingStudyDates.includes(today) ? existingStudyDates : [...existingStudyDates, today].slice(-365);
-    const weekNumber = getIsoWeekString(new Date());
-    const existingWeekly = currentStats.weeklyAccuracy ?? [];
-    const currentWeekEntry = existingWeekly.find((entry) => entry.week === weekNumber);
-    const weeklyCorrectToAdd = params.correctCount ?? 0;
-    const weeklyAttemptedToAdd = params.correctCount != null ? params.cardsAttempted : 0;
-    let updatedWeekly: { week: string; correct: number; attempted: number }[];
+    await persistenceQueueRef.current;
+    return result as T;
+  }, []);
 
-    if (currentWeekEntry) {
-      updatedWeekly = existingWeekly.map((entry) => (
-        entry.week === weekNumber
-          ? {
-              ...entry,
-              correct: entry.correct + weeklyCorrectToAdd,
-              attempted: entry.attempted + weeklyAttemptedToAdd,
-            }
-          : entry
-      ));
-    } else {
-      updatedWeekly = [
-        ...existingWeekly,
-        {
-          week: weekNumber,
-          correct: weeklyCorrectToAdd,
-          attempted: weeklyAttemptedToAdd,
-        },
-      ];
+  const getHydratedDecks = useCallback(async (): Promise<Deck[]> => {
+    const cachedDecks = queryClient.getQueryData<Deck[]>(['decks']);
+    if (cachedDecks != null) {
+      return cachedDecks;
     }
 
-    updatedWeekly = updatedWeekly
-      .sort((a, b) => a.week.localeCompare(b.week))
-      .slice(-12);
+    const hydratedDecks = await loadDecksSnapshot();
+    queryClient.setQueryData(['decks'], hydratedDecks);
+    return hydratedDecks;
+  }, [queryClient]);
 
-    const updatedStats: UserStats = {
-      ...currentStats,
-      totalScore: currentStats.totalScore + params.xpEarned,
-      totalCardsStudied: currentStats.totalCardsStudied + params.cardsAttempted,
-      currentStreak: newStreak,
-      longestStreak: newLongest,
-      lastActiveDate: today,
-      totalCorrectAnswers: (currentStats.totalCorrectAnswers ?? 0) + correctAnswersToAdd,
-      totalQuestionsAttempted: (currentStats.totalQuestionsAttempted ?? 0) + questionsAttemptedToAdd,
-      studyDates: studyDatesUpdated,
-      totalStudySessions: (currentStats.totalStudySessions ?? 0) + (params.mode === 'study' ? 1 : 0),
-      totalQuestSessions: (currentStats.totalQuestSessions ?? 0) + (params.mode === 'quest' ? 1 : 0),
-      totalPracticeSessions: (currentStats.totalPracticeSessions ?? 0) + (params.mode === 'practice' ? 1 : 0),
-      totalArenaSessions: (currentStats.totalArenaSessions ?? 0) + (params.mode === 'arena' ? 1 : 0),
-      totalArenaBattles: (currentStats.totalArenaBattles ?? 0) + (params.mode === 'arena' ? 1 : 0),
-      totalStudyTimeMs: (currentStats.totalStudyTimeMs ?? 0) + (params.durationMs ?? 0),
-      weeklyAccuracy: updatedWeekly,
-    };
+  const getHydratedProgress = useCallback(async (): Promise<UserProgress[]> => {
+    const cachedProgress = queryClient.getQueryData<UserProgress[]>(['progress']);
+    if (cachedProgress != null) {
+      return cachedProgress;
+    }
 
-    logger.log(
-      '[FlashQuest] recordSessionResult',
-      params.mode,
-      'xp:',
-      params.xpEarned,
-      'cards:',
-      params.cardsAttempted,
-      'streak:',
-      newStreak,
-    );
+    const hydratedProgress = await loadProgressSnapshot();
+    queryClient.setQueryData(['progress'], hydratedProgress);
+    return hydratedProgress;
+  }, [queryClient]);
 
-    queryClient.setQueryData(['stats'], updatedStats);
-    saveStatsMutate(updatedStats);
+  const getHydratedStats = useCallback(async (): Promise<UserStats> => {
+    const cachedStats = queryClient.getQueryData<UserStats>(['stats']);
+    if (cachedStats != null) {
+      return cachedStats;
+    }
 
-    if (params.deckId) {
-      const currentProgress = queryClient.getQueryData<UserProgress[]>(['progress']) ?? [];
-      const existingIndex = currentProgress.findIndex((entry) => entry.deckId === params.deckId);
+    const hydratedStats = await loadStatsSnapshot();
+    queryClient.setQueryData(['stats'], hydratedStats);
+    return hydratedStats;
+  }, [queryClient]);
+
+  const recordSessionResult = useCallback((params: GameResultParams) => {
+    void enqueuePersistenceTask('recordSessionResult', async () => {
+      const currentStats = await getHydratedStats();
+      const today = new Date().toISOString().split('T')[0];
+
+      const { currentStreak: newStreak, longestStreak: newLongest } = computeStreak(
+        currentStats.lastActiveDate,
+        currentStats.currentStreak,
+        currentStats.longestStreak,
+      );
+
+      const correctAnswersToAdd = params.correctCount != null ? params.correctCount : 0;
+      const questionsAttemptedToAdd = params.correctCount != null ? params.cardsAttempted : 0;
+      const existingStudyDates = currentStats.studyDates ?? [];
+      const studyDatesUpdated = existingStudyDates.includes(today) ? existingStudyDates : [...existingStudyDates, today].slice(-365);
+      const weekNumber = getIsoWeekString(new Date());
+      const existingWeekly = currentStats.weeklyAccuracy ?? [];
+      const currentWeekEntry = existingWeekly.find((entry) => entry.week === weekNumber);
+      const weeklyCorrectToAdd = params.correctCount ?? 0;
+      const weeklyAttemptedToAdd = params.correctCount != null ? params.cardsAttempted : 0;
+      let updatedWeekly: { week: string; correct: number; attempted: number }[];
+
+      if (currentWeekEntry) {
+        updatedWeekly = existingWeekly.map((entry) => (
+          entry.week === weekNumber
+            ? {
+                ...entry,
+                correct: entry.correct + weeklyCorrectToAdd,
+                attempted: entry.attempted + weeklyAttemptedToAdd,
+              }
+            : entry
+        ));
+      } else {
+        updatedWeekly = [
+          ...existingWeekly,
+          {
+            week: weekNumber,
+            correct: weeklyCorrectToAdd,
+            attempted: weeklyAttemptedToAdd,
+          },
+        ];
+      }
+
+      updatedWeekly = updatedWeekly
+        .sort((a, b) => a.week.localeCompare(b.week))
+        .slice(-12);
+
+      const updatedStats: UserStats = {
+        ...currentStats,
+        totalScore: currentStats.totalScore + params.xpEarned,
+        totalCardsStudied: currentStats.totalCardsStudied + params.cardsAttempted,
+        currentStreak: newStreak,
+        longestStreak: newLongest,
+        lastActiveDate: today,
+        totalCorrectAnswers: (currentStats.totalCorrectAnswers ?? 0) + correctAnswersToAdd,
+        totalQuestionsAttempted: (currentStats.totalQuestionsAttempted ?? 0) + questionsAttemptedToAdd,
+        studyDates: studyDatesUpdated,
+        totalStudySessions: (currentStats.totalStudySessions ?? 0) + (params.mode === 'study' ? 1 : 0),
+        totalQuestSessions: (currentStats.totalQuestSessions ?? 0) + (params.mode === 'quest' ? 1 : 0),
+        totalPracticeSessions: (currentStats.totalPracticeSessions ?? 0) + (params.mode === 'practice' ? 1 : 0),
+        totalArenaSessions: (currentStats.totalArenaSessions ?? 0) + (params.mode === 'arena' ? 1 : 0),
+        totalArenaBattles: (currentStats.totalArenaBattles ?? 0) + (params.mode === 'arena' ? 1 : 0),
+        totalStudyTimeMs: (currentStats.totalStudyTimeMs ?? 0) + (params.durationMs ?? 0),
+        weeklyAccuracy: updatedWeekly,
+      };
+
+      logger.log(
+        '[FlashQuest] recordSessionResult',
+        params.mode,
+        'xp:',
+        params.xpEarned,
+        'cards:',
+        params.cardsAttempted,
+        'streak:',
+        newStreak,
+      );
+
+      const previousProgress = params.deckId ? await getHydratedProgress() : null;
+      const updatedProgress = params.deckId
+        ? (() => {
+            const currentProgress = previousProgress ?? [];
+            const existingIndex = currentProgress.findIndex((entry) => entry.deckId === params.deckId);
+
+            if (existingIndex >= 0) {
+              const existing = currentProgress[existingIndex];
+              const nextProgress = [...currentProgress];
+              nextProgress[existingIndex] = {
+                ...existing,
+                cardsReviewed: existing.cardsReviewed + params.cardsAttempted,
+                lastStudied: Date.now(),
+              };
+              return nextProgress;
+            }
+
+            return [
+              ...currentProgress,
+              {
+                deckId: params.deckId,
+                cardsReviewed: params.cardsAttempted,
+                lastStudied: Date.now(),
+                masteredCards: [],
+              },
+            ];
+          })()
+        : null;
+
+      queryClient.setQueryData(['stats'], updatedStats);
+      if (updatedProgress != null) {
+        queryClient.setQueryData(['progress'], updatedProgress);
+      }
+
+      try {
+        await Promise.all([
+          saveStatsMutateAsync(updatedStats),
+          updatedProgress != null ? saveProgressMutateAsync(updatedProgress) : Promise.resolve([]),
+        ]);
+      } catch (error) {
+        queryClient.setQueryData(['stats'], currentStats);
+        if (previousProgress != null) {
+          queryClient.setQueryData(['progress'], previousProgress);
+        }
+        logger.error('[FlashQuest] Failed to persist session result, rolled back cache', error);
+        throw error;
+      }
+
+      scheduleStreakReminder().catch(() => {});
+    }).catch((error) => {
+      logger.error('[FlashQuest] recordSessionResult task failed', error);
+    });
+  }, [enqueuePersistenceTask, getHydratedProgress, getHydratedStats, queryClient, saveProgressMutateAsync, saveStatsMutateAsync]);
+
+  const addDeck = useCallback((deck: Deck) => {
+    void enqueuePersistenceTask('addDeck', async () => {
+      const currentDecks = await getHydratedDecks();
+      const updatedDecks = [...currentDecks, deck];
+      queryClient.setQueryData(['decks'], updatedDecks);
+
+      try {
+        await saveDecksMutateAsync(updatedDecks);
+      } catch (error) {
+        queryClient.setQueryData(['decks'], currentDecks);
+        logger.error('[FlashQuest] Failed to persist added deck, rolled back cache', error);
+        throw error;
+      }
+    }).catch((error) => {
+      logger.error('[FlashQuest] addDeck task failed', error);
+    });
+  }, [enqueuePersistenceTask, getHydratedDecks, queryClient, saveDecksMutateAsync]);
+
+  const updateDeck = useCallback((deckId: string, updates: Partial<Deck>) => {
+    void enqueuePersistenceTask('updateDeck', async () => {
+      const currentDecks = await getHydratedDecks();
+      const updatedDecks = currentDecks.map((deck) => (
+        deck.id === deckId ? { ...deck, ...updates } : deck
+      ));
+      queryClient.setQueryData(['decks'], updatedDecks);
+
+      try {
+        await saveDecksMutateAsync(updatedDecks);
+      } catch (error) {
+        queryClient.setQueryData(['decks'], currentDecks);
+        logger.error('[FlashQuest] Failed to persist updated deck, rolled back cache', error);
+        throw error;
+      }
+    }).catch((error) => {
+      logger.error('[FlashQuest] updateDeck task failed', error);
+    });
+  }, [enqueuePersistenceTask, getHydratedDecks, queryClient, saveDecksMutateAsync]);
+
+  const updateFlashcard = useCallback((deckId: string, cardId: string, updates: Partial<Flashcard>) => {
+    void enqueuePersistenceTask('updateFlashcard', async () => {
+      const currentDecks = await getHydratedDecks();
+      const updatedDecks = currentDecks.map((deck) => {
+        if (deck.id !== deckId) {
+          return deck;
+        }
+
+        return {
+          ...deck,
+          flashcards: deck.flashcards.map((card) => (
+            card.id === cardId ? { ...card, ...updates } : card
+          )),
+        };
+      });
+
+      queryClient.setQueryData(['decks'], updatedDecks);
+
+      try {
+        await saveDecksMutateAsync(updatedDecks);
+      } catch (error) {
+        queryClient.setQueryData(['decks'], currentDecks);
+        logger.error('[FlashQuest] Failed to persist flashcard update, rolled back cache', error);
+        throw error;
+      }
+    }).catch((error) => {
+      logger.error('[FlashQuest] updateFlashcard task failed', error);
+    });
+  }, [enqueuePersistenceTask, getHydratedDecks, queryClient, saveDecksMutateAsync]);
+
+  const deleteDeck = useCallback(async (deckId: string) => {
+    return enqueuePersistenceTask('deleteDeck', async () => {
+      logger.log('[FlashQuest] Starting delete for deck:', deckId);
+      const currentDecks = await getHydratedDecks();
+      const currentProgress = await getHydratedProgress();
+      const filteredDecks = currentDecks.filter((deck) => deck.id !== deckId);
+
+      if (filteredDecks.length === currentDecks.length) {
+        logger.log('[FlashQuest] Deck not found, aborting delete');
+        return currentDecks;
+      }
+
+      const filteredProgress = currentProgress.filter((entry) => entry.deckId !== deckId);
+      queryClient.setQueryData(['decks'], filteredDecks);
+      queryClient.setQueryData(['progress'], filteredProgress);
+
+      try {
+        await Promise.all([
+          saveDecksMutateAsync(filteredDecks),
+          filteredProgress.length !== currentProgress.length ? saveProgressMutateAsync(filteredProgress) : Promise.resolve([]),
+        ]);
+        logger.log('[FlashQuest] Persisted deck delete via queued mutation');
+      } catch (error) {
+        queryClient.setQueryData(['decks'], currentDecks);
+        queryClient.setQueryData(['progress'], currentProgress);
+        logger.error('[FlashQuest] Failed to persist deck delete, rolled back cache', error);
+        throw error;
+      }
+
+      return filteredDecks;
+    });
+  }, [enqueuePersistenceTask, getHydratedDecks, getHydratedProgress, queryClient, saveDecksMutateAsync, saveProgressMutateAsync]);
+
+  const updateProgress = useCallback((deckId: string) => {
+    void enqueuePersistenceTask('updateProgress', async () => {
+      const currentProgress = await getHydratedProgress();
+      const existingIndex = currentProgress.findIndex((entry) => entry.deckId === deckId);
       let updatedProgress: UserProgress[];
 
       if (existingIndex >= 0) {
@@ -316,15 +734,15 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
         updatedProgress = [...currentProgress];
         updatedProgress[existingIndex] = {
           ...existing,
-          cardsReviewed: existing.cardsReviewed + params.cardsAttempted,
+          cardsReviewed: existing.cardsReviewed + 1,
           lastStudied: Date.now(),
         };
       } else {
         updatedProgress = [
           ...currentProgress,
           {
-            deckId: params.deckId,
-            cardsReviewed: params.cardsAttempted,
+            deckId,
+            cardsReviewed: 1,
             lastStudied: Date.now(),
             masteredCards: [],
           },
@@ -332,102 +750,18 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       }
 
       queryClient.setQueryData(['progress'], updatedProgress);
-      saveProgressMutate(updatedProgress);
-    }
 
-    scheduleStreakReminder().catch(() => {});
-  }, [queryClient, saveProgressMutate, saveStatsMutate]);
-
-  const addDeck = useCallback((deck: Deck) => {
-    const currentDecks = decksQuery.data ?? [];
-    saveDecksMutate([...currentDecks, deck]);
-  }, [decksQuery.data, saveDecksMutate]);
-
-  const updateDeck = useCallback((deckId: string, updates: Partial<Deck>) => {
-    const currentDecks = decksQuery.data ?? [];
-    const updatedDecks = currentDecks.map((deck) => (
-      deck.id === deckId ? { ...deck, ...updates } : deck
-    ));
-    saveDecksMutate(updatedDecks);
-  }, [decksQuery.data, saveDecksMutate]);
-
-  const updateFlashcard = useCallback((deckId: string, cardId: string, updates: Partial<Flashcard>) => {
-    const currentDecks = decksQuery.data ?? [];
-    const updatedDecks = currentDecks.map((deck) => {
-      if (deck.id !== deckId) {
-        return deck;
+      try {
+        await saveProgressMutateAsync(updatedProgress);
+      } catch (error) {
+        queryClient.setQueryData(['progress'], currentProgress);
+        logger.error('[FlashQuest] Failed to persist progress update, rolled back cache', error);
+        throw error;
       }
-
-      return {
-        ...deck,
-        flashcards: deck.flashcards.map((card) => (
-          card.id === cardId ? { ...card, ...updates } : card
-        )),
-      };
+    }).catch((error) => {
+      logger.error('[FlashQuest] updateProgress task failed', error);
     });
-
-    queryClient.setQueryData(['decks'], updatedDecks);
-    saveDecksMutate(updatedDecks);
-  }, [decksQuery.data, queryClient, saveDecksMutate]);
-
-  const deleteDeck = useCallback(async (deckId: string) => {
-    logger.log('[FlashQuest] Starting delete for deck:', deckId);
-    const currentDecks = decksQuery.data ?? [];
-    const filteredDecks = currentDecks.filter((deck) => deck.id !== deckId);
-
-    if (filteredDecks.length === currentDecks.length) {
-      logger.log('[FlashQuest] Deck not found, aborting delete');
-      return currentDecks;
-    }
-
-    queryClient.setQueryData(['decks'], filteredDecks);
-
-    try {
-      await saveDecksMutateAsync(filteredDecks);
-      logger.log('[FlashQuest] Persisted decks via mutation');
-    } catch (error) {
-      logger.error('[FlashQuest] Failed to persist decks, rolling back', error);
-      queryClient.setQueryData(['decks'], currentDecks);
-      throw error;
-    }
-
-    const currentProgress = progressQuery.data ?? [];
-    const filteredProgress = currentProgress.filter((entry) => entry.deckId !== deckId);
-    if (filteredProgress.length !== currentProgress.length) {
-      queryClient.setQueryData(['progress'], filteredProgress);
-      saveProgressMutate(filteredProgress);
-    }
-
-    return filteredDecks;
-  }, [decksQuery.data, progressQuery.data, queryClient, saveDecksMutateAsync, saveProgressMutate]);
-
-  const updateProgress = useCallback((deckId: string) => {
-    const currentProgress = progressQuery.data ?? [];
-    const existingIndex = currentProgress.findIndex((entry) => entry.deckId === deckId);
-    let updatedProgress: UserProgress[];
-
-    if (existingIndex >= 0) {
-      const existing = currentProgress[existingIndex];
-      updatedProgress = [...currentProgress];
-      updatedProgress[existingIndex] = {
-        ...existing,
-        cardsReviewed: existing.cardsReviewed + 1,
-        lastStudied: Date.now(),
-      };
-    } else {
-      updatedProgress = [
-        ...currentProgress,
-        {
-          deckId,
-          cardsReviewed: 1,
-          lastStudied: Date.now(),
-          masteredCards: [],
-        },
-      ];
-    }
-
-    saveProgressMutate(updatedProgress);
-  }, [progressQuery.data, saveProgressMutate]);
+  }, [enqueuePersistenceTask, getHydratedProgress, queryClient, saveProgressMutateAsync]);
 
   return useMemo(() => ({
     decks: decksQuery.data ?? [],
