@@ -1,181 +1,251 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, ChevronDown, ChevronUp, BookOpen, Target, Swords, Zap, Trophy, Star, Flame, Sparkles } from 'lucide-react-native';
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, Sparkles, Target, Trophy } from 'lucide-react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { LayoutAnimation, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/context/ThemeContext';
+import { logger } from '@/utils/logger';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-interface FAQSection {
+type FAQGroupId = 'getting-started' | 'study-modes' | 'progress-review';
+
+interface FAQItem {
   id: string;
-  icon: React.ReactNode;
   title: string;
+  summary: string;
   content: string[];
 }
+
+interface FAQGroup {
+  id: FAQGroupId;
+  title: string;
+  subtitle: string;
+  items: FAQItem[];
+}
+
+interface FAQGroupVisuals {
+  accent: string;
+  softAccent: string;
+  folderTint: string;
+  gradient: readonly [string, string];
+  icon: React.ReactNode;
+}
+
+const FAQ_GROUPS: readonly FAQGroup[] = [
+  {
+    id: 'getting-started',
+    title: 'Getting Started',
+    subtitle: 'Deck setup, your hub, and sharing basics.',
+    items: [
+      {
+        id: 'creating-decks',
+        title: 'Creating your first deck',
+        summary: 'Start from scratch, paste notes, scan content, or import a shared deck.',
+        content: [
+          'Open Decks from the home screen, then tap the + button in the top right to create a deck.',
+          'You can build cards four ways: Manual entry, Scan Notes, Text to Deck, or Import from Clipboard.',
+          'Paste supports bulk import from lists using one card per line, separated by |, ;, or a tab.',
+          'If you want a quick example, start with one of the built-in decks to see how FlashQuest is structured.',
+          'Inside the editor you can reorder cards, clean up wording, and duplicate a deck later from its hub.',
+        ],
+      },
+      {
+        id: 'deck-hub',
+        title: 'Understanding the deck hub',
+        summary: 'Your deck hub is the control center for progress, review, and quick actions.',
+        content: [
+          'Tap a deck name from your deck list to open its hub. This is the main home base for that deck.',
+          'The hub shows card status counts, accuracy, cards due for review, recent study activity, and your deck-level progress at a glance.',
+          'From here you can jump into Study, Quest, Practice, Drill Weak Cards, or review cards that are actually due.',
+          'The deck list still keeps a faster direct-study shortcut when you just want to start immediately.',
+        ],
+      },
+      {
+        id: 'sharing',
+        title: 'Sharing and importing decks',
+        summary: 'Move decks between friends without rebuilding them by hand.',
+        content: [
+          'To share a deck, open it in the editor and tap the share icon in the header. FlashQuest copies a shareable deck code to your clipboard.',
+          'To import, tap the + button from the deck list and choose Import from Clipboard.',
+          'Shared decks can include the full card set, including hints and explanations when those exist.',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'study-modes',
+    title: 'Study Modes',
+    subtitle: 'How each mode works and when to use it.',
+    items: [
+      {
+        id: 'study-mode',
+        title: 'Study mode',
+        summary: 'Best for calm review, familiarization, and confidence-based refreshers.',
+        content: [
+          'Study mode lets you flip through cards at your own pace. Tap to reveal the answer, swipe up for the next card, swipe left for a hint, and swipe right for an explanation.',
+          'If a card is missing a hint or explanation, you can generate one with AI from the overlay action.',
+          'After review, you can optionally rate how the card felt with Easy, Okay, Hard, or Forgot. If you ignore it, FlashQuest still keeps the session moving.',
+          'Study mode is designed to feel lightweight, so it improves your review data without turning each card into a quiz ritual.',
+        ],
+      },
+      {
+        id: 'quest-mode',
+        title: 'Quest mode',
+        summary: 'Fast multiple-choice runs for speed, accuracy, and XP.',
+        content: [
+          'Quest is FlashQuest’s multiple-choice mode. Each question shows four answer cards and you tap the correct one as quickly as you can.',
+          'Learn mode is more forgiving, while Test mode is tighter and more score-focused.',
+          'You can choose round length, timer pressure, and whether to focus on weak cards.',
+          'Quest stays fast on purpose, so confidence grading is mostly inferred behind the scenes instead of interrupting every answer.',
+          'Your quest score converts into XP, and missed cards can be drilled afterward for recovery.',
+        ],
+      },
+      {
+        id: 'practice-ai',
+        title: 'Practice vs AI',
+        summary: 'Head-to-head pressure with a smarter review layer after each round.',
+        content: [
+          'Practice mode matches you against an AI opponent answering the same questions.',
+          'The AI adapts to your performance to keep the match competitive rather than flat or predictable.',
+          'After a correct answer, you can quickly mark Easy, Okay, or Hard to sharpen future review timing. Incorrect answers are treated as forgot automatically.',
+          'Wins award more XP, but even losses still contribute progress and review data.',
+        ],
+      },
+      {
+        id: 'battle-arena',
+        title: 'Battle Arena multiplayer',
+        summary: 'Real-time deck battles with shared questions and room codes.',
+        content: [
+          'One player creates a room and shares the room code. The other joins using that code.',
+          'The host controls the lobby setup, including deck choice, round count, and timer settings.',
+          'Both players see the same question at the same time, so speed and accuracy both matter.',
+          'Battle results can feed into leaderboard-style competition and award XP based on performance.',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'progress-review',
+    title: 'Progress & Review',
+    subtitle: 'Mastery, due cards, XP, streaks, and long-term growth.',
+    items: [
+      {
+        id: 'mastery',
+        title: 'Card mastery and smart review',
+        summary: 'FlashQuest tracks learning, forgetting, and review strength more intelligently now.',
+        content: [
+          'FlashQuest uses a lightweight memory model for each card instead of relying on a single simple streak.',
+          'Cards can fall into five statuses: New, Learning, Reviewing, Mastered, and Lapsed.',
+          'New means you have barely engaged with the card. Learning means the memory is still unstable. Reviewing means the card is in active spaced review. Mastered means it has held up across longer intervals. Lapsed means you used to know it, but it slipped and needs recovery.',
+          'Review timing is based on memory strength and timing, not just raw streak count, so due cards and weak cards are more meaningful.',
+          'Drill Weak Cards prioritizes genuinely vulnerable cards, especially lapsed cards, hard cards, low-recall cards, and repeated misses.',
+        ],
+      },
+      {
+        id: 'xp-levels',
+        title: 'XP and levels',
+        summary: 'Progression ties together all your study activity without getting in the way.',
+        content: [
+          'Every main mode earns XP, including Study, Quest, Practice, and Battle.',
+          'XP builds toward your level, and the app uses level progression to make your stats and profile feel more rewarding over time.',
+          'You can track level progress from the profile and stats areas without needing to manage anything manually.',
+        ],
+      },
+      {
+        id: 'achievements',
+        title: 'Achievements',
+        summary: 'Extra milestones for consistency, wins, deck building, and collection growth.',
+        content: [
+          'Achievements unlock automatically when you hit built-in milestones across study, streaks, XP, questing, battles, accuracy, deck creation, and collection growth.',
+          'Each achievement awards bonus XP and appears in the Awards area on your profile.',
+          'They are designed as passive rewards, so you do not need to opt in or micromanage them.',
+        ],
+      },
+      {
+        id: 'streaks',
+        title: 'Streaks and daily activity',
+        summary: 'Consistency matters, but FlashQuest keeps it lightweight.',
+        content: [
+          'Your streak counts how many days in a row you have used FlashQuest with any real activity, including Study, Quest, Practice, or Battle.',
+          'Current and longest streaks appear in your profile and stats views.',
+          'Daily reminders can help protect your streak without turning the app into a nagging system.',
+        ],
+      },
+      {
+        id: 'stats',
+        title: 'Stats and progress tracking',
+        summary: 'A cleaner big-picture view of how you are improving across decks and modes.',
+        content: [
+          'The Stats screen brings together your level progress, study history, activity calendar, mode performance, and deck-level progress in one place.',
+          'Mastery counts and due-for-review sections are powered by the smarter card memory system, so they are meant to reflect real learning state rather than shallow streak math.',
+          'Your data is stored locally on your device, and FlashQuest uses it to keep your progress feeling coherent across the app.',
+        ],
+      },
+    ],
+  },
+] as const;
 
 export default function FAQScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedGroupId, setExpandedGroupId] = useState<FAQGroupId | null>('getting-started');
+  const [expandedItemId, setExpandedItemId] = useState<string | null>('creating-decks');
 
-  const toggleSection = useCallback((id: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpandedId(prev => prev === id ? null : id);
+  const animateLayout = useCallback(() => {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
   }, []);
 
-  const cardBg = isDark ? 'rgba(15,23,42,0.78)' : theme.cardBackground;
-  const cardBorder = isDark ? 'rgba(148,163,184,0.14)' : 'transparent';
-  const accentBg = isDark ? 'rgba(139,92,246,0.1)' : 'rgba(102,126,234,0.08)';
+  const groupVisuals = useMemo<Record<FAQGroupId, FAQGroupVisuals>>(() => ({
+    'getting-started': {
+      accent: '#60A5FA',
+      softAccent: 'rgba(96,165,250,0.14)',
+      folderTint: 'rgba(96,165,250,0.18)',
+      gradient: ['rgba(96,165,250,0.18)', 'rgba(59,130,246,0.04)'],
+      icon: <BookOpen color="#60A5FA" size={20} strokeWidth={2.2} />,
+    },
+    'study-modes': {
+      accent: '#818CF8',
+      softAccent: 'rgba(129,140,248,0.14)',
+      folderTint: 'rgba(129,140,248,0.18)',
+      gradient: ['rgba(129,140,248,0.18)', 'rgba(99,102,241,0.04)'],
+      icon: <Target color="#818CF8" size={20} strokeWidth={2.2} />,
+    },
+    'progress-review': {
+      accent: '#A78BFA',
+      softAccent: 'rgba(167,139,250,0.14)',
+      folderTint: 'rgba(167,139,250,0.18)',
+      gradient: ['rgba(167,139,250,0.18)', 'rgba(139,92,246,0.04)'],
+      icon: <Trophy color="#A78BFA" size={20} strokeWidth={2.2} />,
+    },
+  }), []);
 
-  const sections: FAQSection[] = [
-    {
-      id: 'creating-decks',
-      icon: <Sparkles color={theme.primary} size={20} strokeWidth={2.2} />,
-      title: 'Creating Your First Deck',
-      content: [
-        'Tap the Decks button on the home screen, then tap the + button in the top right to create a new deck.',
-        'There are four ways to add cards:',
-        '• Manual: Type questions and answers one by one. Use the "Paste" button to bulk-import from a list (one card per line, separated by | or ; or tab).',
-        '• Scan Notes: Take a photo of handwritten or printed notes and AI will generate flashcards from the image.',
-        '• Text to Deck: Paste any text (notes, articles, study guides) and AI will extract key concepts into flashcards.',
-        '• Import: Copy a deck shared by a friend to your clipboard and use "Import from Clipboard."',
-        'You can also start with one of the 5 built-in decks (World Capitals, Programming 101, Spanish Essentials, Space Facts, History Milestones) to see how things work.',
-        'Cards can be reordered with the up/down arrows in the editor, and you can duplicate any deck from its hub screen.',
-      ],
-    },
-    {
-      id: 'deck-hub',
-      icon: <BookOpen color={theme.primary} size={20} strokeWidth={2.2} />,
-      title: 'Your Deck Hub',
-      content: [
-        'Tap a deck\'s name in your deck list to open its hub. This is your home base for each deck.',
-        'The hub shows your mastery breakdown (how many cards are mastered, reviewing, learning, or new), your accuracy, cards due for review, and when you last studied.',
-        'From here you can launch any study mode, drill weak cards, review due cards, or duplicate the deck.',
-        'The Study button on the deck list still goes directly to study mode for quick access — the hub is for when you want the full picture.',
-      ],
-    },
-    {
-      id: 'study-mode',
-      icon: <BookOpen color="#4ECDC4" size={20} strokeWidth={2.2} />,
-      title: 'Study Mode',
-      content: [
-        'Study mode lets you flip through flashcards at your own pace. Tap the card to reveal the answer, then swipe up to move to the next card.',
-        'Swipe left for a hint (if available). Swipe right after revealing to see an explanation.',
-        'If a card doesn\'t have a hint or explanation, you can generate one with AI by tapping the button in the overlay.',
-        'You earn 2 XP per card studied. Study mode doesn\'t quiz you — it\'s for reviewing and getting familiar with the material.',
-      ],
-    },
-    {
-      id: 'quest-mode',
-      icon: <Target color={theme.primary} size={20} strokeWidth={2.2} />,
-      title: 'Quest Mode',
-      content: [
-        'Quest is a multiple-choice quiz. You\'re shown a question with 4 answer cards — tap the correct one to earn points.',
-        'There are two modes: Learn (hints on, no timer, lower points) and Test (no hints, timer on, higher points).',
-        'You can set the number of cards per round (5, 10, or 20) and choose to focus on weak cards you\'ve gotten wrong before.',
-        'Points are based on speed and accuracy. Your quest score is converted to XP at a 0.4x rate.',
-        'After finishing, you can drill any cards you missed to reinforce what you got wrong.',
-      ],
-    },
-    {
-      id: 'practice-ai',
-      icon: <Swords color={theme.primary} size={20} strokeWidth={2.2} />,
-      title: 'Practice vs AI',
-      content: [
-        'Practice mode is a head-to-head match against an AI opponent. You both answer the same questions and the higher score wins.',
-        'The AI adapts to your performance — if you\'re winning, it gets slightly harder. If you\'re losing, it eases up to keep matches competitive.',
-        'You earn 30–70 XP for a win (based on accuracy) and 10–30 XP for a loss.',
-        'Each match is 5 rounds. The AI has a random name each time you play.',
-      ],
-    },
-    {
-      id: 'battle-arena',
-      icon: <Zap color="#F59E0B" size={20} strokeWidth={2.2} />,
-      title: 'Battle Arena (Multiplayer)',
-      content: [
-        'Battle is a real-time multiplayer mode. One player creates a room and shares the room code; the other joins with that code.',
-        'The host picks the deck, number of rounds, and timer settings in the lobby before starting.',
-        'Both players see the same question simultaneously. Answer fast and accurately to score more points.',
-        'Battle results can be saved to your leaderboard and shared with friends.',
-        'XP is awarded based on your accuracy, the number of questions, and whether you won.',
-      ],
-    },
-    {
-      id: 'mastery',
-      icon: <Star color="#10B981" size={20} strokeWidth={2.2} />,
-      title: 'Card Mastery & Spaced Repetition',
-      content: [
-        'Every card has a mastery status based on your correct answer streak in Quest mode:',
-        '• New: Never attempted',
-        '• Learning: 1–2 correct answers in a row',
-        '• Reviewing: 3–4 correct in a row',
-        '• Mastered: 5+ correct in a row',
-        'Getting a card wrong resets its streak to zero.',
-        'FlashQuest uses spaced repetition to schedule reviews. After answering correctly, the next review is scheduled at increasing intervals: 1 day → 3 days → 7 days → 14 days → 30 days.',
-        'Your deck hub shows how many cards are due for review. Studying due cards at the right time is the most effective way to retain information long-term.',
-        'When you master every card in a deck, you\'ll get a special celebration and the deck gets a gold border.',
-      ],
-    },
-    {
-      id: 'xp-levels',
-      icon: <Trophy color={theme.primary} size={20} strokeWidth={2.2} />,
-      title: 'XP & Levels',
-      content: [
-        'Every mode earns XP: Study (2 per card), Quest (score × 0.4), Practice (30–70 for win, 10–30 for loss), Battle (varies by accuracy and rounds).',
-        'XP goes toward your level. There are 20 levels from Rookie Explorer (Level 1) to Legend of the Deck (Level 20).',
-        'Each level requires about 35% more XP than the last. You\'ll see a progress bar on your profile and the stats page.',
-        'Leveling up triggers a gold celebration toast.',
-      ],
-    },
-    {
-      id: 'achievements',
-      icon: <Trophy color="#F59E0B" size={20} strokeWidth={2.2} />,
-      title: 'Achievements',
-      content: [
-        'There are 35 achievements across 8 categories: Study, Streaks, XP, Battle, Quest, Accuracy, Building, and Collection.',
-        'Achievements unlock automatically as you hit milestones — study a certain number of cards, maintain a streak, create decks, win battles, and more.',
-        'Each achievement awards bonus XP. Check your progress in the Awards tab on your profile.',
-        'You\'ll see a toast notification the moment you unlock one.',
-      ],
-    },
-    {
-      id: 'streaks',
-      icon: <Flame color="#FF6B6B" size={20} strokeWidth={2.2} />,
-      title: 'Streaks & Daily Activity',
-      content: [
-        'Your streak counts how many days in a row you\'ve used FlashQuest. Any activity counts — Study, Quest, Practice, or Battle.',
-        'Your current and longest streak are shown on the stats page and your profile.',
-        'FlashQuest sends a daily reminder notification to help you keep your streak alive.',
-        'Streak achievements unlock at 3, 7, 14, 30, and 60 days.',
-      ],
-    },
-    {
-      id: 'sharing',
-      icon: <Sparkles color={theme.primary} size={20} strokeWidth={2.2} />,
-      title: 'Sharing & Importing Decks',
-      content: [
-        'To share a deck: Open it in the editor (tap Edit on the deck card), then tap the share icon in the header. The deck is copied to your clipboard as a special code.',
-        'To import: On the deck list, tap the + button and choose "Import from Clipboard." Paste the code a friend shared with you.',
-        'Shared decks include all questions, answers, hints, and explanations.',
-      ],
-    },
-    {
-      id: 'stats',
-      icon: <Target color={theme.primary} size={20} strokeWidth={2.2} />,
-      title: 'Stats & Progress Tracking',
-      content: [
-        'The Stats screen (accessible from the home screen) shows your complete learning overview.',
-        'It includes your level and XP progress, weekly activity summary, a 7-week study calendar, mastery overview across all decks, performance breakdown by mode, accuracy trends, and per-deck progress.',
-        'The study calendar uses color intensity to show how active you were each day — darker squares mean more activity.',
-        'All your data is stored locally on your device.',
-      ],
-    },
-  ];
+  const cardBg = isDark ? 'rgba(15,23,42,0.76)' : 'rgba(255,255,255,0.94)';
+  const cardBorder = isDark ? 'rgba(148,163,184,0.18)' : 'rgba(99,102,241,0.08)';
+  const nestedCardBg = isDark ? 'rgba(8,15,30,0.62)' : 'rgba(248,250,252,0.94)';
+  const nestedCardBorder = isDark ? 'rgba(148,163,184,0.14)' : 'rgba(148,163,184,0.16)';
+  const heroBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.18)';
+
+  const toggleGroup = useCallback((group: FAQGroup) => {
+    const isClosing = expandedGroupId === group.id;
+    animateLayout();
+    logger.log('[FAQ] Toggling group:', group.id, 'expanded:', !isClosing);
+    setExpandedGroupId(isClosing ? null : group.id);
+    setExpandedItemId(isClosing ? null : (group.items[0]?.id ?? null));
+  }, [animateLayout, expandedGroupId]);
+
+  const toggleItem = useCallback((itemId: string) => {
+    const nextItemId = expandedItemId === itemId ? null : itemId;
+    animateLayout();
+    logger.log('[FAQ] Toggling item:', itemId, 'expanded:', nextItemId === itemId);
+    setExpandedItemId(nextItemId);
+  }, [animateLayout, expandedItemId]);
 
   return (
     <View style={styles.container}>
@@ -185,82 +255,188 @@ export default function FAQScreen() {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      {isDark && (
+      {isDark ? (
         <LinearGradient
-          colors={['rgba(6,10,22,0.06)', 'rgba(6,10,22,0.34)', 'rgba(5,8,20,0.76)']}
+          colors={['rgba(6,10,22,0.08)', 'rgba(6,10,22,0.36)', 'rgba(5,8,20,0.78)']}
           start={{ x: 0.1, y: 0 }}
           end={{ x: 0.95, y: 1 }}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+      ) : (
+        <LinearGradient
+          colors={['rgba(255,255,255,0.04)', 'rgba(255,255,255,0)', 'rgba(255,255,255,0.08)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
       )}
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8} testID="faq-back-button">
             <ArrowLeft color="#fff" size={24} strokeWidth={2.5} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Help & FAQ</Text>
-          <View style={{ width: 40 }} />
+          <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <Text style={[styles.intro, { color: theme.textSecondary }]}>
-            Everything you need to know about FlashQuest.
-          </Text>
+          <LinearGradient
+            colors={isDark ? ['rgba(15,23,42,0.56)', 'rgba(15,23,42,0.82)'] : ['rgba(67,56,202,0.34)', 'rgba(79,70,229,0.44)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.heroCard, { borderColor: heroBorder }]}
+          >
+            <View style={styles.heroBadge}>
+              <Sparkles color="#FFFFFF" size={15} strokeWidth={2.4} />
+              <Text style={styles.heroBadgeText}>FlashQuest Guide</Text>
+            </View>
+            <Text style={styles.heroTitle}>Everything you need to know about FlashQuest</Text>
+            <Text style={styles.heroSubtitle}>
+              Browse the app by folders so decks, modes, mastery, and progress are easier to understand at a glance.
+            </Text>
 
-          {sections.map((section) => {
-            const isExpanded = expandedId === section.id;
-            return (
-              <View
-                key={section.id}
-                style={[
-                  styles.section,
-                  {
-                    backgroundColor: cardBg,
-                    borderColor: isExpanded ? theme.primary : cardBorder,
-                    borderWidth: isExpanded ? 1.5 : (isDark ? 1 : 0),
-                  },
-                ]}
-              >
-                <TouchableOpacity
-                  style={styles.sectionHeader}
-                  onPress={() => toggleSection(section.id)}
-                  activeOpacity={0.7}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.folderRail}
+              testID="faq-folder-rail"
+            >
+              {FAQ_GROUPS.map((group) => {
+                const visuals = groupVisuals[group.id];
+                const isSelected = expandedGroupId === group.id;
+                return (
+                  <TouchableOpacity
+                    key={group.id}
+                    style={[
+                      styles.folderChip,
+                      {
+                        backgroundColor: isSelected ? visuals.folderTint : 'rgba(255,255,255,0.08)',
+                        borderColor: isSelected ? 'rgba(255,255,255,0.32)' : 'rgba(255,255,255,0.12)',
+                      },
+                    ]}
+                    onPress={() => toggleGroup(group)}
+                    activeOpacity={0.82}
+                    testID={`faq-folder-chip-${group.id}`}
+                  >
+                    <View style={[styles.folderDot, { backgroundColor: visuals.accent }]} />
+                    <Text style={styles.folderChipText}>{group.title}</Text>
+                    <Text style={styles.folderChipCount}>{group.items.length}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </LinearGradient>
+
+          <View style={styles.groupList}>
+            {FAQ_GROUPS.map((group) => {
+              const visuals = groupVisuals[group.id];
+              const isGroupExpanded = expandedGroupId === group.id;
+              return (
+                <View
+                  key={group.id}
+                  style={[
+                    styles.groupCard,
+                    {
+                      backgroundColor: cardBg,
+                      borderColor: isGroupExpanded ? visuals.accent : cardBorder,
+                    },
+                  ]}
                 >
-                  <View style={[styles.sectionIconWrap, { backgroundColor: accentBg }]}>
-                    {section.icon}
-                  </View>
-                  <Text style={[styles.sectionTitle, { color: theme.text }]}>{section.title}</Text>
-                  {isExpanded
-                    ? <ChevronUp color={theme.primary} size={20} strokeWidth={2.2} />
-                    : <ChevronDown color={theme.textSecondary} size={20} strokeWidth={2.2} />
-                  }
-                </TouchableOpacity>
+                  <LinearGradient
+                    colors={visuals.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.groupAccentBar}
+                  />
+                  <TouchableOpacity
+                    style={styles.groupHeader}
+                    onPress={() => toggleGroup(group)}
+                    activeOpacity={0.82}
+                    testID={`faq-group-${group.id}`}
+                  >
+                    <View style={[styles.groupIconWrap, { backgroundColor: visuals.softAccent }]}>
+                      {visuals.icon}
+                    </View>
+                    <View style={styles.groupTextWrap}>
+                      <Text style={[styles.groupEyebrow, { color: visuals.accent }]}>Folder</Text>
+                      <Text style={[styles.groupTitle, { color: theme.text }]}>{group.title}</Text>
+                      <Text style={[styles.groupSubtitle, { color: theme.textSecondary }]}>{group.subtitle}</Text>
+                    </View>
+                    <View style={styles.groupMeta}>
+                      <View style={[styles.countPill, { backgroundColor: visuals.softAccent }]}>
+                        <Text style={[styles.countPillText, { color: visuals.accent }]}>{group.items.length} topics</Text>
+                      </View>
+                      {isGroupExpanded ? (
+                        <ChevronUp color={visuals.accent} size={18} strokeWidth={2.4} />
+                      ) : (
+                        <ChevronDown color={theme.textSecondary} size={18} strokeWidth={2.4} />
+                      )}
+                    </View>
+                  </TouchableOpacity>
 
-                {isExpanded && (
-                  <View style={styles.sectionBody}>
-                    {section.content.map((paragraph, i) => (
-                      <Text
-                        key={`${section.id}-${i}`}
-                        style={[
-                          styles.sectionText,
-                          { color: theme.textSecondary },
-                          paragraph.startsWith('•') && styles.bulletText,
-                        ]}
-                      >
-                        {paragraph}
-                      </Text>
-                    ))}
-                  </View>
-                )}
-              </View>
-            );
-          })}
+                  {isGroupExpanded ? (
+                    <View style={styles.itemList}>
+                      {group.items.map((item, index) => {
+                        const isItemExpanded = expandedItemId === item.id;
+                        return (
+                          <View
+                            key={item.id}
+                            style={[
+                              styles.itemCard,
+                              {
+                                backgroundColor: nestedCardBg,
+                                borderColor: isItemExpanded ? visuals.accent : nestedCardBorder,
+                              },
+                            ]}
+                          >
+                            <TouchableOpacity
+                              style={styles.itemHeader}
+                              onPress={() => toggleItem(item.id)}
+                              activeOpacity={0.82}
+                              testID={`faq-item-${item.id}`}
+                            >
+                              <View style={[styles.itemIndexWrap, { backgroundColor: visuals.softAccent }]}> 
+                                <Text style={[styles.itemIndexText, { color: visuals.accent }]}>{String(index + 1).padStart(2, '0')}</Text>
+                              </View>
+                              <View style={styles.itemTextWrap}>
+                                <Text style={[styles.itemTitle, { color: theme.text }]}>{item.title}</Text>
+                                <Text style={[styles.itemSummary, { color: theme.textSecondary }]}>{item.summary}</Text>
+                              </View>
+                              {isItemExpanded ? (
+                                <ChevronUp color={visuals.accent} size={18} strokeWidth={2.4} />
+                              ) : (
+                                <ChevronDown color={theme.textSecondary} size={18} strokeWidth={2.4} />
+                              )}
+                            </TouchableOpacity>
+
+                            {isItemExpanded ? (
+                              <View style={styles.itemBody}>
+                                {item.content.map((line, lineIndex) => {
+                                  const isBullet = line.startsWith('• ');
+                                  const contentText = isBullet ? line.slice(2) : line;
+                                  return (
+                                    <View key={`${item.id}-${lineIndex}`} style={styles.bodyRow}>
+                                      {isBullet ? <View style={[styles.bodyBullet, { backgroundColor: visuals.accent }]} /> : null}
+                                      <Text style={[styles.bodyText, { color: theme.textSecondary }]}>{contentText}</Text>
+                                    </View>
+                                  );
+                                })}
+                              </View>
+                            ) : null}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
 
           <View style={styles.footer}>
-            <Text style={[styles.footerText, { color: theme.textTertiary }]}>
-              FlashQuest v1.0
-            </Text>
+            <Text style={[styles.footerText, { color: isDark ? 'rgba(226,232,240,0.72)' : 'rgba(255,255,255,0.86)' }]}>FlashQuest guide</Text>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -269,20 +445,230 @@ export default function FAQScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  safeArea: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
-  backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 20, fontWeight: '700', color: '#fff' },
-  content: { padding: 20, paddingBottom: 40, gap: 10 },
-  intro: { fontSize: 14, fontWeight: '500', textAlign: 'center', marginBottom: 10 },
-  section: { borderRadius: 16, overflow: 'hidden' },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
-  sectionIconWrap: { width: 36, height: 36, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  sectionTitle: { flex: 1, fontSize: 16, fontWeight: '700' },
-  sectionBody: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
-  sectionText: { fontSize: 14, fontWeight: '500', lineHeight: 21 },
-  bulletText: { paddingLeft: 8 },
-  footer: { alignItems: 'center', marginTop: 20 },
-  footerText: { fontSize: 12, fontWeight: '500' },
+  container: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: '#FFFFFF',
+  },
+  headerSpacer: {
+    width: 40,
+    height: 40,
+  },
+  content: {
+    paddingHorizontal: 18,
+    paddingBottom: 40,
+    gap: 14,
+  },
+  heroCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    overflow: 'hidden',
+    gap: 12,
+  },
+  heroBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  heroBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700' as const,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    lineHeight: 31,
+    fontWeight: '800' as const,
+  },
+  heroSubtitle: {
+    color: 'rgba(241,245,249,0.92)',
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '500' as const,
+  },
+  folderRail: {
+    gap: 10,
+    paddingTop: 4,
+    paddingRight: 4,
+  },
+  folderChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  folderDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+  },
+  folderChipText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700' as const,
+  },
+  folderChipCount: {
+    color: 'rgba(255,255,255,0.76)',
+    fontSize: 12,
+    fontWeight: '700' as const,
+  },
+  groupList: {
+    gap: 12,
+  },
+  groupCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  groupAccentBar: {
+    height: 6,
+  },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  groupIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  groupTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  groupEyebrow: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  groupTitle: {
+    fontSize: 18,
+    fontWeight: '800' as const,
+  },
+  groupSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500' as const,
+  },
+  groupMeta: {
+    alignItems: 'flex-end',
+    gap: 10,
+  },
+  countPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  countPillText: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+  },
+  itemList: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    gap: 10,
+  },
+  itemCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  itemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  itemIndexWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  itemIndexText: {
+    fontSize: 12,
+    fontWeight: '800' as const,
+  },
+  itemTextWrap: {
+    flex: 1,
+    gap: 3,
+  },
+  itemTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  itemSummary: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500' as const,
+  },
+  itemBody: {
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+  },
+  bodyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  bodyBullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+    marginTop: 8,
+  },
+  bodyText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '500' as const,
+  },
+  footer: {
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  footerText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+  },
 });
