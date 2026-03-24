@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pencil, Zap } from 'lucide-react-native';
+import { Pencil } from 'lucide-react-native';
 import React from 'react';
 import { Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
@@ -29,7 +29,6 @@ interface ProfileHeroCardProps {
     | 'heroTopRow'
     | 'heroIdentityRow'
     | 'heroAvatar'
-    | 'heroAvatarBadge'
     | 'heroIdentityText'
     | 'heroNameRow'
     | 'heroNameEditButton'
@@ -83,9 +82,6 @@ export default function ProfileHeroCard({
           <View style={styles.heroIdentityRow}>
             <View style={[styles.heroAvatar, { backgroundColor: selectedColorData.value || theme.primary }]}> 
               <Text style={styles.heroAvatarSymbol}>{selectedSuitData.symbol}</Text>
-              <View style={styles.heroAvatarBadge}>
-                <Zap color="#fff" size={12} strokeWidth={2.8} />
-              </View>
             </View>
 
             <View style={styles.heroIdentityText}>
