@@ -148,35 +148,79 @@ function computeRetrievabilityFromValues(lastReviewedAt: number | null, stabilit
   return clamp(retrievability, 0, 1);
 }
 
-export function getLiveCardStats(stats: CardStats | undefined, now: number = Date.now()): CardStats {
-  const migrated = migrateCardStats(stats, now);
-  const retrievability = migrated.attempts === 0
-    ? 0
-    : computeRetrievabilityFromValues(migrated.lastReviewedAt, migrated.stability, now);
+function normalizeCardStats(raw: Partial<CardStats> | undefined, now: number): CardStats {
+  if (!raw) {
+    return createDefaultCardStats();
+  }
 
-  const liveStats: CardStats = {
-    ...migrated,
-    retrievability,
-  };
+  const rawCorrect = Math.max(0, Math.round(toFiniteNumber(raw.correct, 0)));
+  const rawIncorrect = Math.max(0, Math.round(toFiniteNumber(raw.incorrect, 0)));
+  const streakCorrect = Math.max(0, Math.round(toFiniteNumber(raw.streakCorrect, 0)));
+  const rawConsecutiveCorrect = Math.max(0, Math.round(toFiniteNumber(raw.consecutiveCorrect, streakCorrect)));
+  const rawConsecutiveIncorrect = Math.max(0, Math.round(toFiniteNumber(
+    raw.consecutiveIncorrect,
+    rawIncorrect > 0 && rawConsecutiveCorrect === 0 ? 1 : 0,
+  )));
+  const lastAttemptAt = Math.max(0, Math.round(toFiniteNumber(raw.lastAttemptAt, 0)));
+  const lastReviewedAt = toNullableTimestamp(raw.lastReviewedAt) ?? (lastAttemptAt > 0 ? lastAttemptAt : null);
+  const stability = clamp(toFiniteNumber(raw.stability, deriveLegacyStability(raw)), MIN_STABILITY_DAYS, MAX_STABILITY_DAYS);
+
+  const attempts = Math.max(
+    0,
+    Math.round(toFiniteNumber(raw.attempts, 0)),
+    rawCorrect + rawIncorrect,
+    rawConsecutiveCorrect + rawConsecutiveIncorrect,
+    streakCorrect,
+    lastAttemptAt > 0 ? 1 : 0,
+    lastReviewedAt ? 1 : 0,
+  );
+  const correct = Math.min(attempts, Math.max(rawCorrect, rawConsecutiveCorrect));
+  const incorrect = Math.min(Math.max(0, attempts - correct), Math.max(rawIncorrect, rawConsecutiveIncorrect));
+  const consecutiveCorrect = attempts === 0 ? 0 : Math.min(Math.max(rawConsecutiveCorrect, streakCorrect), correct);
+  const consecutiveIncorrect = attempts === 0 ? 0 : Math.min(rawConsecutiveIncorrect, incorrect);
+  const nextReviewAt = toNullableTimestamp(raw.nextReviewAt) ?? (
+    lastReviewedAt
+      ? Math.round(lastReviewedAt + (stability * DAY_IN_MS))
+      : null
+  );
+  const difficulty = deriveDifficulty(raw, attempts, correct, incorrect);
+  const retrievability = attempts === 0
+    ? 0
+    : clamp(
+        toFiniteNumber(raw.retrievability, computeRetrievabilityFromValues(lastReviewedAt, stability, now)),
+        0,
+        1,
+      );
+  const lapses = Math.max(0, Math.round(toFiniteNumber(raw.lapses, 0)));
 
   return {
-    ...liveStats,
-    status: deriveCardStatus(liveStats, now),
+    attempts,
+    correct,
+    incorrect,
+    consecutiveCorrect,
+    consecutiveIncorrect,
+    streakCorrect: consecutiveCorrect,
+    stability,
+    difficulty,
+    retrievability,
+    lastReviewedAt,
+    lastAttemptAt,
+    nextReviewAt,
+    lapses,
+    status: 'new',
   };
 }
 
-export function computeRetrievability(stats: CardStats | undefined, now: number = Date.now()): number {
-  return getLiveCardStats(stats, now).retrievability;
-}
-
-export function deriveCardStatus(stats: CardStats | undefined, now: number = Date.now()): CardMemoryStatus {
-  const card = stats ? migrateCardStats(stats, now) : createDefaultCardStats();
-
+function deriveCardStatusFromNormalized(card: CardStats, now: number): CardMemoryStatus {
   if (card.attempts === 0) {
     return 'new';
   }
 
-  const retrievability = card.attempts === 0 ? 0 : computeRetrievabilityFromValues(card.lastReviewedAt, card.stability, now);
+  const retrievability = clamp(
+    toFiniteNumber(card.retrievability, computeRetrievabilityFromValues(card.lastReviewedAt, card.stability, now)),
+    0,
+    1,
+  );
   const recoveredFromLapse = card.lapses > 0 && card.consecutiveCorrect >= 2 && card.stability >= LEARNING_STABILITY_THRESHOLD;
   const unresolvedLapse = card.lapses > 0 && !recoveredFromLapse && (
     card.consecutiveIncorrect > 0 ||
@@ -197,6 +241,32 @@ export function deriveCardStatus(stats: CardStats | undefined, now: number = Dat
   }
 
   return 'learning';
+}
+
+export function getLiveCardStats(stats: CardStats | undefined, now: number = Date.now()): CardStats {
+  const migrated = migrateCardStats(stats, now);
+  const retrievability = migrated.attempts === 0
+    ? 0
+    : computeRetrievabilityFromValues(migrated.lastReviewedAt, migrated.stability, now);
+
+  const liveStats: CardStats = {
+    ...migrated,
+    retrievability,
+  };
+
+  return {
+    ...liveStats,
+    status: deriveCardStatusFromNormalized(liveStats, now),
+  };
+}
+
+export function computeRetrievability(stats: CardStats | undefined, now: number = Date.now()): number {
+  return getLiveCardStats(stats, now).retrievability;
+}
+
+export function deriveCardStatus(stats: CardStats | undefined, now: number = Date.now()): CardMemoryStatus {
+  const normalized = normalizeCardStats(stats, now);
+  return deriveCardStatusFromNormalized(normalized, now);
 }
 
 export function getCardMastery(stats: CardStats | undefined, now: number = Date.now()): MasteryStatus {
@@ -383,55 +453,22 @@ export function updateCardMemory(
 
   return {
     ...updated,
-    status: deriveCardStatus(updated, now),
+    status: deriveCardStatusFromNormalized(updated, now),
   };
 }
 
 export function migrateCardStats(raw: Partial<CardStats> | undefined, now: number = Date.now()): CardStats {
-  if (!raw) {
-    return createDefaultCardStats();
-  }
-
-  const attempts = Math.max(0, Math.round(toFiniteNumber(raw.attempts, 0)));
-  const correct = Math.max(0, Math.round(toFiniteNumber(raw.correct, 0)));
-  const incorrect = Math.max(0, Math.round(toFiniteNumber(raw.incorrect, 0)));
-  const streakCorrect = Math.max(0, Math.round(toFiniteNumber(raw.streakCorrect, 0)));
-  const consecutiveCorrect = Math.max(0, Math.round(toFiniteNumber(raw.consecutiveCorrect, streakCorrect)));
-  const consecutiveIncorrect = Math.max(0, Math.round(toFiniteNumber(raw.consecutiveIncorrect, attempts > 0 && consecutiveCorrect === 0 && incorrect > 0 ? 1 : 0)));
-  const lastAttemptAt = Math.max(0, Math.round(toFiniteNumber(raw.lastAttemptAt, 0)));
-  const lastReviewedAt = toNullableTimestamp(raw.lastReviewedAt) ?? (lastAttemptAt > 0 ? lastAttemptAt : null);
-  const nextReviewAt = toNullableTimestamp(raw.nextReviewAt);
-  const stability = clamp(toFiniteNumber(raw.stability, deriveLegacyStability(raw)), MIN_STABILITY_DAYS, MAX_STABILITY_DAYS);
-  const difficulty = deriveDifficulty(raw, attempts, correct, incorrect);
-  const retrievability = attempts === 0
-    ? 0
-    : clamp(
-        toFiniteNumber(raw.retrievability, computeRetrievabilityFromValues(lastReviewedAt, stability, now)),
-        0,
-        1,
-      );
-  const lapses = Math.max(0, Math.round(toFiniteNumber(raw.lapses, 0)));
-
+  const normalized = normalizeCardStats(raw, now);
   const migrated: CardStats = {
-    attempts,
-    correct,
-    incorrect,
-    consecutiveCorrect,
-    consecutiveIncorrect,
-    streakCorrect: consecutiveCorrect,
-    stability,
-    difficulty,
-    retrievability,
-    lastReviewedAt,
-    lastAttemptAt,
-    nextReviewAt,
-    lapses,
-    status: 'new',
+    ...normalized,
+    retrievability: normalized.attempts === 0
+      ? 0
+      : computeRetrievabilityFromValues(normalized.lastReviewedAt, normalized.stability, now),
   };
 
   return {
     ...migrated,
-    status: deriveCardStatus(migrated, now),
+    status: deriveCardStatusFromNormalized(migrated, now),
   };
 }
 
