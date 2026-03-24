@@ -89,12 +89,26 @@ export default function DeckHubScreen() {
   if (!deck) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <LinearGradient
+          colors={[theme.gradientStart, theme.gradientMid, theme.gradientEnd]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
         <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <ArrowLeft color="#fff" size={24} strokeWidth={2.5} />
           </TouchableOpacity>
           <View style={styles.errorWrap}>
-            <Text style={[styles.errorText, { color: theme.text }]}>Deck not found</Text>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 8 }}>Deck not found</Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', marginBottom: 24, textAlign: 'center' }}>This deck may have been deleted.</Text>
+            <TouchableOpacity
+              onPress={() => router.replace('/decks' as any)}
+              style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 24 }}
+              testID="deck-hub-go-to-decks-button"
+            >
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Go to Decks</Text>
+            </TouchableOpacity>
           </View>
         </SafeAreaView>
       </View>

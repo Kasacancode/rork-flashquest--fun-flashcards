@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 const NOTIFICATION_PERMISSION_KEY = 'flashquest_notification_permission_asked';
 const STREAK_NOTIFICATION_ID = 'flashquest_streak_reminder';
 const STREAK_NOTIFICATION_CHANNEL_ID = 'flashquest-streak-reminders';
+const STREAK_NOTIFICATION_IDS_KEY = 'flashquest_streak_reminder_ids';
 
 type ReminderMessage = {
   title: string;
@@ -49,11 +50,24 @@ async function ensureAndroidChannel(): Promise<void> {
   });
 }
 
-function getTomorrowReminderDate(): Date {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(18, 0, 0, 0);
-  return tomorrow;
+async function clearScheduledStreakReminders(): Promise<void> {
+  const storedIdentifiers = await AsyncStorage.getItem(STREAK_NOTIFICATION_IDS_KEY);
+  if (!storedIdentifiers) {
+    return;
+  }
+
+  try {
+    const identifiers = JSON.parse(storedIdentifiers) as string[];
+    await Promise.all(
+      identifiers.map((identifier) =>
+        Notifications.cancelScheduledNotificationAsync(identifier).catch(() => {})
+      )
+    );
+  } catch (error) {
+    console.warn('[Notifications] Failed to clear stored streak reminders:', error);
+  }
+
+  await AsyncStorage.removeItem(STREAK_NOTIFICATION_IDS_KEY).catch(() => {});
 }
 
 function getRandomReminderMessage(): ReminderMessage {
@@ -102,24 +116,41 @@ export async function scheduleStreakReminder(): Promise<void> {
     }
 
     await ensureAndroidChannel();
+    await clearScheduledStreakReminders();
     await Notifications.cancelScheduledNotificationAsync(STREAK_NOTIFICATION_ID).catch(() => {});
+    await Notifications.cancelScheduledNotificationAsync(`${STREAK_NOTIFICATION_ID}_day2`).catch(() => {});
+    await Notifications.cancelScheduledNotificationAsync(`${STREAK_NOTIFICATION_ID}_day3`).catch(() => {});
 
-    const message = getRandomReminderMessage();
+    const messages = [
+      getRandomReminderMessage(),
+      getRandomReminderMessage(),
+      getRandomReminderMessage(),
+    ];
+    const scheduledIdentifiers: string[] = [];
 
-    await Notifications.scheduleNotificationAsync({
-      identifier: STREAK_NOTIFICATION_ID,
-      content: {
-        title: message.title,
-        body: message.body,
-        sound: 'default',
-        ...(Platform.OS === 'android' ? { channelId: STREAK_NOTIFICATION_CHANNEL_ID } : {}),
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: getTomorrowReminderDate(),
-      },
-    });
+    for (let dayOffset = 1; dayOffset <= 3; dayOffset++) {
+      const date = new Date();
+      date.setDate(date.getDate() + dayOffset);
+      date.setHours(18, 0, 0, 0);
+
+      const identifier = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: messages[dayOffset - 1]?.title ?? REMINDER_MESSAGES[0]?.title ?? 'Study reminder',
+          body: messages[dayOffset - 1]?.body ?? REMINDER_MESSAGES[0]?.body ?? 'Open FlashQuest to keep your streak going.',
+          sound: 'default',
+          ...(Platform.OS === 'android' ? { channelId: STREAK_NOTIFICATION_CHANNEL_ID } : {}),
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date,
+        },
+      });
+
+      scheduledIdentifiers.push(identifier);
+    }
+
+    await AsyncStorage.setItem(STREAK_NOTIFICATION_IDS_KEY, JSON.stringify(scheduledIdentifiers));
   } catch (error) {
-    console.warn('[Notifications] Failed to schedule streak reminder:', error);
+    console.warn('[Notifications] Failed to schedule streak reminders:', error);
   }
 }

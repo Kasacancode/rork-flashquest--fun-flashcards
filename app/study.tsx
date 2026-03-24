@@ -244,20 +244,37 @@ export default function StudyPage() {
               </View>
 
               <ScrollView style={styles.deckList} showsVerticalScrollIndicator={false}>
-                {decks.map((deck) => (
-                  <TouchableOpacity
-                    key={deck.id}
-                    style={[styles.deckOption, { backgroundColor: theme.deckOption }]}
-                    onPress={() => handleDeckSelect(deck.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
-                    <View style={styles.deckOptionInfo}>
-                      <Text style={[styles.deckOptionName, { color: isDark ? '#f1f5f9' : '#333' }]}>{deck.name}</Text>
-                      <Text style={[styles.deckOptionCards, { color: isDark ? '#cbd5e1' : '#666' }]}>{deck.flashcards.length} cards</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                {decks.length === 0 ? (
+                  <View style={{ alignItems: 'center', padding: 32 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: isDark ? '#fff' : '#333', marginBottom: 8, textAlign: 'center' }}>No Decks Yet</Text>
+                    <Text style={{ fontSize: 14, color: isDark ? 'rgba(255,255,255,0.6)' : '#666', textAlign: 'center', marginBottom: 20 }}>Create your first deck to start studying.</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowDeckSelector(false);
+                        router.push('/decks' as any);
+                      }}
+                      style={{ backgroundColor: theme.primary, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 24 }}
+                      testID="study-empty-go-to-decks-button"
+                    >
+                      <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Go to Decks</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  decks.map((deck) => (
+                    <TouchableOpacity
+                      key={deck.id}
+                      style={[styles.deckOption, { backgroundColor: theme.deckOption }]}
+                      onPress={() => handleDeckSelect(deck.id)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
+                      <View style={styles.deckOptionInfo}>
+                        <Text style={[styles.deckOptionName, { color: isDark ? '#f1f5f9' : '#333' }]}>{deck.name}</Text>
+                        <Text style={[styles.deckOptionCards, { color: isDark ? '#cbd5e1' : '#666' }]}>{deck.flashcards.length} cards</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                )}
               </ScrollView>
             </View>
           </View>
@@ -310,20 +327,37 @@ export default function StudyPage() {
             </View>
 
             <ScrollView style={styles.deckList} showsVerticalScrollIndicator={false}>
-              {decks.map((deck) => (
-                <TouchableOpacity
-                  key={deck.id}
-                  style={[styles.deckOption, { backgroundColor: theme.deckOption }]}
-                  onPress={() => handleDeckSelect(deck.id)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
-                  <View style={styles.deckOptionInfo}>
-                    <Text style={[styles.deckOptionName, { color: isDark ? '#f1f5f9' : '#333' }]}>{deck.name}</Text>
-                    <Text style={[styles.deckOptionCards, { color: isDark ? '#cbd5e1' : '#666' }]}>{deck.flashcards.length} cards</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+              {decks.length === 0 ? (
+                <View style={{ alignItems: 'center', padding: 32 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: isDark ? '#fff' : '#333', marginBottom: 8, textAlign: 'center' }}>No Decks Yet</Text>
+                  <Text style={{ fontSize: 14, color: isDark ? 'rgba(255,255,255,0.6)' : '#666', textAlign: 'center', marginBottom: 20 }}>Create your first deck to start studying.</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowDeckSelector(false);
+                      router.push('/decks' as any);
+                    }}
+                    style={{ backgroundColor: theme.primary, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 24 }}
+                    testID="study-empty-go-to-decks-button"
+                  >
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Go to Decks</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                decks.map((deck) => (
+                  <TouchableOpacity
+                    key={deck.id}
+                    style={[styles.deckOption, { backgroundColor: theme.deckOption }]}
+                    onPress={() => handleDeckSelect(deck.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
+                    <View style={styles.deckOptionInfo}>
+                      <Text style={[styles.deckOptionName, { color: isDark ? '#f1f5f9' : '#333' }]}>{deck.name}</Text>
+                      <Text style={[styles.deckOptionCards, { color: isDark ? '#cbd5e1' : '#666' }]}>{deck.flashcards.length} cards</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
             </ScrollView>
           </View>
         </View>
