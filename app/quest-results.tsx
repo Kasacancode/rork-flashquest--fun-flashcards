@@ -154,7 +154,7 @@ export default function QuestResultsScreen() {
           <View style={[styles.scoreCard, { backgroundColor: theme.cardBackground }]}>
             <View style={styles.mainScore}>
               <Text style={[styles.scoreValue, { color: theme.primary }]}>{result.totalScore}</Text>
-              <Text style={[styles.scoreLabel, { color: theme.textSecondary }]}>Total Score</Text>
+              <Text style={[styles.scoreLabel, { color: theme.textSecondary }]}>XP</Text>
             </View>
 
             <View style={styles.statsGrid}>

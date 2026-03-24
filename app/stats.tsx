@@ -1,52 +1,181 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Trophy, Flame, Target, Award, TrendingUp, Calendar } from 'lucide-react-native';
+import { ArrowLeft, Flame, Target, Zap, Swords, Calendar, Star } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useFlashQuest } from '../context/FlashQuestContext';
-import { useTheme } from '../context/ThemeContext';
-import { logger } from '@/utils/logger';
+import { useArena } from '@/context/ArenaContext';
+import { useFlashQuest } from '@/context/FlashQuestContext';
+import { usePerformance } from '@/context/PerformanceContext';
+import { useTheme } from '@/context/ThemeContext';
+import type { Flashcard } from '@/types/flashcard';
+import type { CardStats } from '@/types/performance';
+import { computeLevel, computeLevelProgress, getLevelEntry } from '@/utils/levels';
 
 type ThemeValues = ReturnType<typeof useTheme>['theme'];
-type StatCardConfig = {
-  icon: React.ReactNode;
-  value: string;
-  title: string;
-  subtitle: string;
-  testId: string;
+type MasteryStage = 'new' | 'learning' | 'reviewing' | 'mastered';
+
+type CalendarDayData = {
+  date: string;
+  count: number;
+  dayOfWeek: number;
+  monthLabel?: string;
 };
+
+type DeckMasterySummary = {
+  id: string;
+  name: string;
+  color: string;
+  mastered: number;
+  total: number;
+  pct: number;
+};
+
+function getCardMasteryStage(
+  card: Flashcard,
+  cardStatsById: Record<string, CardStats | undefined>,
+): MasteryStage {
+  const stats = cardStatsById[card.id];
+
+  if (!stats || stats.attempts === 0) {
+    return 'new';
+  }
+
+  if (stats.streakCorrect >= 5) {
+    return 'mastered';
+  }
+
+  if (stats.streakCorrect >= 3) {
+    return 'reviewing';
+  }
+
+  return 'learning';
+}
+
+function buildDeckMasterySummary(
+  deck: { id: string; name: string; color: string; flashcards: Flashcard[] },
+  cardStatsById: Record<string, CardStats | undefined>,
+): DeckMasterySummary {
+  const total = deck.flashcards.length;
+  const mastered = deck.flashcards.reduce((count, card) => {
+    return count + (getCardMasteryStage(card, cardStatsById) === 'mastered' ? 1 : 0);
+  }, 0);
+
+  return {
+    id: deck.id,
+    name: deck.name,
+    color: deck.color,
+    mastered,
+    total,
+    pct: total > 0 ? Math.round((mastered / total) * 100) : 0,
+  };
+}
 
 export default function StatsPage() {
   const router = useRouter();
-  const { stats, decks, progress } = useFlashQuest();
+  const { stats, decks } = useFlashQuest();
+  const { performance } = usePerformance();
+  const { leaderboard, playerName: savedPlayerName } = useArena();
   const { theme, isDark } = useTheme();
 
-  const totalCardsReviewed = useMemo(() => {
-    return progress.reduce((sum, entry) => sum + entry.cardsReviewed, 0);
-  }, [progress]);
+  const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
+  const levelEntry = useMemo(() => getLevelEntry(level), [level]);
+  const levelProgress = useMemo(() => computeLevelProgress(stats.totalScore), [stats.totalScore]);
 
-  const calendarData = useMemo(() => {
+  const masteryOverview = useMemo(() => {
+    const cardStatsById = performance.cardStatsById as Record<string, CardStats | undefined>;
+    let totalCards = 0;
+    let mastered = 0;
+    let reviewing = 0;
+    let learning = 0;
+    let newCards = 0;
+
+    for (const deck of decks) {
+      for (const card of deck.flashcards) {
+        totalCards += 1;
+        const stage = getCardMasteryStage(card, cardStatsById);
+
+        if (stage === 'mastered') {
+          mastered += 1;
+          continue;
+        }
+
+        if (stage === 'reviewing') {
+          reviewing += 1;
+          continue;
+        }
+
+        if (stage === 'learning') {
+          learning += 1;
+          continue;
+        }
+
+        newCards += 1;
+      }
+    }
+
+    return { totalCards, mastered, reviewing, learning, newCards };
+  }, [decks, performance.cardStatsById]);
+
+  const arenaStats = useMemo(() => {
+    if (!savedPlayerName || leaderboard.length === 0) {
+      return null;
+    }
+
+    const normalizedName = savedPlayerName.trim().toLowerCase();
+    if (!normalizedName) {
+      return null;
+    }
+
+    const wins = leaderboard.filter(
+      (entry) => entry.winnerName.trim().toLowerCase() === normalizedName,
+    ).length;
+    const total = leaderboard.length;
+    const winRate = total > 0 ? Math.round((wins / total) * 100) : 0;
+
+    return { wins, total, winRate };
+  }, [leaderboard, savedPlayerName]);
+
+  const calendarWithIntensity = useMemo(() => {
     const today = new Date();
-    const studySet = new Set(stats.studyDates ?? []);
-    const days: { date: string; active: boolean }[] = [];
+    const studyDates = stats.studyDates ?? [];
+    const dateCount: Record<string, number> = {};
 
+    for (const date of studyDates) {
+      dateCount[date] = (dateCount[date] ?? 0) + 1;
+    }
+
+    const days: CalendarDayData[] = [];
     for (let i = 48; i >= 0; i -= 1) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       const dateKey = date.toISOString().slice(0, 10);
-      days.push({ date: dateKey, active: studySet.has(dateKey) });
+      const dayOfWeek = date.getDay() === 0 ? 6 : date.getDay() - 1;
+      const isFirstOfMonth = date.getDate() <= 7 && dayOfWeek === 0;
+
+      days.push({
+        date: dateKey,
+        count: dateCount[dateKey] ?? 0,
+        dayOfWeek,
+        monthLabel: isFirstOfMonth
+          ? date.toLocaleDateString('en-US', { month: 'short' })
+          : undefined,
+      });
     }
 
     return days;
   }, [stats.studyDates]);
 
-  const activeDaysCount = useMemo(() => calendarData.filter((day) => day.active).length, [calendarData]);
-
   const weeklySummary = useMemo(() => {
     const studySet = new Set(stats.studyDates ?? []);
     const today = new Date();
+    const todayKey = today.toISOString().slice(0, 10);
+
+    if (stats.lastActiveDate === todayKey) {
+      studySet.add(todayKey);
+    }
+
     const dayOfWeek = today.getDay();
     const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
 
@@ -68,7 +197,6 @@ export default function StatsPage() {
       }
     }
 
-    const totalDaysThisWeek = mondayOffset + 1;
     let comparison: string;
     if (thisWeekDays > lastWeekDays) {
       comparison = `${thisWeekDays - lastWeekDays} more than last week`;
@@ -78,17 +206,32 @@ export default function StatsPage() {
       comparison = lastWeekDays === 0 ? 'Start your week strong!' : 'Same as last week';
     }
 
-    return { thisWeekDays, lastWeekDays, totalDaysThisWeek, comparison };
-  }, [stats.studyDates]);
-
-  const accuracySummary = useMemo(() => {
     const attempted = stats.totalQuestionsAttempted ?? 0;
     const correct = stats.totalCorrectAnswers ?? 0;
-    if (attempted === 0) {
-      return null;
-    }
-    return Math.round((correct / attempted) * 100);
-  }, [stats.totalQuestionsAttempted, stats.totalCorrectAnswers]);
+    const accuracy = attempted > 0 ? Math.round((correct / attempted) * 100) : null;
+
+    return { thisWeekDays, comparison, accuracy };
+  }, [
+    stats.studyDates,
+    stats.lastActiveDate,
+    stats.totalQuestionsAttempted,
+    stats.totalCorrectAnswers,
+  ]);
+
+  const calendarColumns = useMemo(() => {
+    return Array.from({ length: 7 }, (_, weekIndex) => {
+      return calendarWithIntensity.slice(weekIndex * 7, weekIndex * 7 + 7);
+    });
+  }, [calendarWithIntensity]);
+
+  const calendarActiveDays = useMemo(() => {
+    return calendarWithIntensity.filter((day) => day.count > 0).length;
+  }, [calendarWithIntensity]);
+
+  const deckProgressSummaries = useMemo(() => {
+    const cardStatsById = performance.cardStatsById as Record<string, CardStats | undefined>;
+    return decks.map((deck) => buildDeckMasterySummary(deck, cardStatsById));
+  }, [decks, performance.cardStatsById]);
 
   const backgroundGradient = useMemo(
     () => (
@@ -99,45 +242,27 @@ export default function StatsPage() {
     [isDark, theme.gradientEnd, theme.gradientMid, theme.gradientStart],
   );
 
-  const scoreGradientColors = useMemo(
-    () => (isDark ? ['#0EA5E9', '#2563EB'] as const : ['#FFD93D', '#F6C23E'] as const),
+  const calendarIntensityColors = useMemo(
+    () => (
+      isDark
+        ? [
+            'rgba(255,255,255,0.04)',
+            'rgba(139,92,246,0.3)',
+            'rgba(139,92,246,0.55)',
+            'rgba(139,92,246,0.85)',
+          ] as const
+        : [
+            'rgba(0,0,0,0.05)',
+            'rgba(102,126,234,0.3)',
+            'rgba(102,126,234,0.55)',
+            'rgba(102,126,234,0.85)',
+          ] as const
+    ),
     [isDark],
   );
 
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
-
   const headerContentColor = isDark ? theme.text : theme.white;
-
-  const statCards: StatCardConfig[] = [
-    {
-      icon: <Flame color="#FF6B6B" size={32} strokeWidth={2} />,
-      value: `${stats.currentStreak}`,
-      title: 'Day Streak',
-      subtitle: `Longest: ${stats.longestStreak}`,
-      testId: 'stats-card-streak',
-    },
-    {
-      icon: <Target color="#4ECDC4" size={32} strokeWidth={2} />,
-      value: `${totalCardsReviewed}`,
-      title: 'Reviewed',
-      subtitle: 'Cards completed',
-      testId: 'stats-card-reviewed',
-    },
-    {
-      icon: <Award color="#667eea" size={32} strokeWidth={2} />,
-      value: `${stats.totalCardsStudied}`,
-      title: 'Cards Studied',
-      subtitle: 'Keep learning!',
-      testId: 'stats-card-studied',
-    },
-    {
-      icon: <TrendingUp color="#F093FB" size={32} strokeWidth={2} />,
-      value: `${decks.length}`,
-      title: 'Total Decks',
-      subtitle: `${progress.length} active`,
-      testId: 'stats-card-total-decks',
-    },
-  ];
 
   return (
     <View style={styles.container} testID="stats-screen">
@@ -176,17 +301,25 @@ export default function StatsPage() {
           showsVerticalScrollIndicator={false}
           testID="stats-scroll-view"
         >
-          <View style={styles.scoreCard} testID="stats-score-card">
-            <LinearGradient
-              colors={scoreGradientColors}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.scoreGradient}
-            >
-              <Trophy color={theme.white} size={48} strokeWidth={2} />
-              <Text style={styles.scoreValue}>{stats.totalScore}</Text>
-              <Text style={styles.scoreLabel}>Total Points</Text>
-            </LinearGradient>
+          <View style={styles.levelCard} testID="stats-score-card">
+            <View style={styles.levelBadge}>
+              <Text style={styles.levelBadgeText}>{level}</Text>
+            </View>
+            <Text style={styles.levelTitle}>{levelEntry.title}</Text>
+            <Text style={styles.levelXpText}>{stats.totalScore.toLocaleString()} XP</Text>
+            <View style={styles.levelBarContainer}>
+              <View style={styles.levelBarTrack}>
+                <View
+                  style={[
+                    styles.levelBarFill,
+                    { width: `${Math.round(levelProgress.percent * 100)}%` },
+                  ]}
+                />
+              </View>
+              <Text style={styles.levelBarLabel}>
+                {levelProgress.current} / {levelProgress.required} to Level {level + 1}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.weeklyCard}>
@@ -196,19 +329,45 @@ export default function StatsPage() {
             </View>
             <View style={styles.weeklyStatsRow}>
               <View style={styles.weeklyStat}>
-                <Text style={[styles.weeklyStatValue, { color: theme.primary }]}>{weeklySummary.thisWeekDays}</Text>
+                <Text style={[styles.weeklyStatValue, { color: theme.primary }]}>
+                  {weeklySummary.thisWeekDays}
+                </Text>
                 <Text style={styles.weeklyStatLabel}>Days Active</Text>
               </View>
-              <View style={[styles.weeklyDivider, { backgroundColor: isDark ? 'rgba(148,163,184,0.14)' : '#e0e0e0' }]} />
+              <View
+                style={[
+                  styles.weeklyDivider,
+                  { backgroundColor: isDark ? 'rgba(148,163,184,0.14)' : '#e0e0e0' },
+                ]}
+              />
               <View style={styles.weeklyStat}>
-                <Text style={[styles.weeklyStatValue, { color: theme.primary }]}>{stats.currentStreak}</Text>
-                <Text style={styles.weeklyStatLabel}>Current Streak</Text>
+                <Text style={[styles.weeklyStatValue, { color: theme.primary }]}>
+                  {stats.currentStreak}
+                </Text>
+                <Text style={styles.weeklyStatLabel}>Day Streak</Text>
               </View>
-              {accuracySummary !== null ? (
+              {weeklySummary.accuracy !== null ? (
                 <>
-                  <View style={[styles.weeklyDivider, { backgroundColor: isDark ? 'rgba(148,163,184,0.14)' : '#e0e0e0' }]} />
+                  <View
+                    style={[
+                      styles.weeklyDivider,
+                      { backgroundColor: isDark ? 'rgba(148,163,184,0.14)' : '#e0e0e0' },
+                    ]}
+                  />
                   <View style={styles.weeklyStat}>
-                    <Text style={[styles.weeklyStatValue, { color: accuracySummary >= 70 ? theme.success : theme.warning }]}>{accuracySummary}%</Text>
+                    <Text
+                      style={[
+                        styles.weeklyStatValue,
+                        {
+                          color:
+                            weeklySummary.accuracy >= 70
+                              ? theme.success
+                              : theme.warning,
+                        },
+                      ]}
+                    >
+                      {weeklySummary.accuracy}%
+                    </Text>
                     <Text style={styles.weeklyStatLabel}>Accuracy</Text>
                   </View>
                 </>
@@ -217,85 +376,215 @@ export default function StatsPage() {
             <Text style={styles.weeklyComparison}>{weeklySummary.comparison}</Text>
           </View>
 
-          <View style={styles.statsGrid}>
-            {statCards.map((card) => (
-              <View key={card.testId} style={styles.statCard} testID={card.testId}>
-                <View style={styles.statIconContainer}>{card.icon}</View>
-                <Text style={styles.statNumber}>{card.value}</Text>
-                <Text style={styles.statTitle}>{card.title}</Text>
-                <Text style={styles.statSubtitle}>{card.subtitle}</Text>
-              </View>
-            ))}
-          </View>
+          <View style={styles.calendarCard} testID="stats-study-activity">
+            <Text style={styles.calendarTitle}>Study Activity</Text>
+            <Text style={styles.calendarSubtitle}>
+              {calendarActiveDays} days active in the last 7 weeks
+            </Text>
 
-          <View style={styles.activitySection} testID="stats-study-activity">
-            <View style={styles.activityCard}>
-              <Text style={styles.activityTitle}>Study Activity</Text>
-              <Text style={styles.activitySubtitle}>{activeDaysCount} days active in the last 7 weeks</Text>
-              <View style={styles.activityGrid}>
-                {calendarData.map((day) => (
+            <View style={styles.calendarBody}>
+              <View style={styles.calendarDayLabels}>
+                <View style={styles.calendarMonthSpacer} />
+                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => (
+                  <Text key={`label-${index}`} style={styles.calendarDayLabel}>
+                    {label}
+                  </Text>
+                ))}
+              </View>
+
+              <View style={styles.calendarGrid}>
+                {calendarColumns.map((week, weekIndex) => {
+                  const monthLabel = week.find((day) => day?.monthLabel)?.monthLabel ?? '';
+
+                  return (
+                    <View key={`week-${weekIndex}`} style={styles.calendarWeekColumn}>
+                      <Text style={styles.calendarMonthLabel}>{monthLabel}</Text>
+                      {week.map((day) => {
+                        const intensity = day.count === 0 ? 0 : day.count === 1 ? 1 : day.count <= 3 ? 2 : 3;
+
+                        return (
+                          <View
+                            key={day.date}
+                            style={[
+                              styles.calendarSquare,
+                              { backgroundColor: calendarIntensityColors[intensity] },
+                            ]}
+                          />
+                        );
+                      })}
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.calendarFooter}>
+              <View style={styles.calendarLegend}>
+                <Text style={styles.calendarLegendText}>Less</Text>
+                {[0, 1, 2, 3].map((intensity) => (
                   <View
-                    key={day.date}
+                    key={`legend-${intensity}`}
                     style={[
-                      styles.activitySquare,
-                      {
-                        backgroundColor: day.active
-                          ? theme.primary
-                          : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'),
-                      },
+                      styles.calendarLegendSquare,
+                      { backgroundColor: calendarIntensityColors[intensity] },
                     ]}
                   />
                 ))}
+                <Text style={styles.calendarLegendText}>More</Text>
               </View>
-              <View style={styles.activityLabels}>
-                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => (
-                  <Text key={`${label}-${index}`} style={styles.activityLabel}>{label}</Text>
-                ))}
+            </View>
+
+            <View style={styles.streakRow}>
+              <View style={styles.streakItem}>
+                <Flame color="#FF6B6B" size={16} strokeWidth={2.2} />
+                <Text style={styles.streakLabel}>Current: {stats.currentStreak} days</Text>
+              </View>
+              <View style={styles.streakItem}>
+                <Star color="#F59E0B" size={16} strokeWidth={2.2} />
+                <Text style={styles.streakLabel}>Longest: {stats.longestStreak} days</Text>
               </View>
             </View>
           </View>
 
-          <View style={styles.progressSection}>
-            <Text style={styles.sectionTitle}>Deck Progress</Text>
-            {progress.length === 0 ? (
+          <View style={styles.masteryCard}>
+            <Text style={styles.sectionLabel}>MASTERY OVERVIEW</Text>
+            <Text style={[styles.masteryBigText, { color: theme.primary }]}>
+              {masteryOverview.mastered}/{masteryOverview.totalCards}
+            </Text>
+            <Text style={styles.masterySubtext}>
+              cards mastered across {decks.length} decks
+            </Text>
+            <View
+              style={[
+                styles.masteryBar,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(255,255,255,0.06)'
+                    : 'rgba(0,0,0,0.06)',
+                },
+              ]}
+            >
+              {masteryOverview.mastered > 0 ? (
+                <View
+                  style={{
+                    width: `${(masteryOverview.mastered / Math.max(masteryOverview.totalCards, 1)) * 100}%`,
+                    height: '100%',
+                    backgroundColor: '#10B981',
+                    borderRadius: 4,
+                  }}
+                />
+              ) : null}
+              {masteryOverview.reviewing > 0 ? (
+                <View
+                  style={{
+                    width: `${(masteryOverview.reviewing / Math.max(masteryOverview.totalCards, 1)) * 100}%`,
+                    height: '100%',
+                    backgroundColor: '#3B82F6',
+                  }}
+                />
+              ) : null}
+              {masteryOverview.learning > 0 ? (
+                <View
+                  style={{
+                    width: `${(masteryOverview.learning / Math.max(masteryOverview.totalCards, 1)) * 100}%`,
+                    height: '100%',
+                    backgroundColor: '#F59E0B',
+                  }}
+                />
+              ) : null}
+            </View>
+            <View style={styles.masteryLegend}>
+              <Text style={styles.masteryLegendItem}>
+                <Text style={{ color: '#10B981' }}>●</Text> {masteryOverview.mastered} mastered
+              </Text>
+              <Text style={styles.masteryLegendItem}>
+                <Text style={{ color: '#3B82F6' }}>●</Text> {masteryOverview.reviewing} reviewing
+              </Text>
+              <Text style={styles.masteryLegendItem}>
+                <Text style={{ color: '#F59E0B' }}>●</Text> {masteryOverview.learning} learning
+              </Text>
+              <Text style={styles.masteryLegendItem}>
+                <Text style={{ color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }}>●</Text>{' '}
+                {masteryOverview.newCards} new
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.performanceCard}>
+            <Text style={styles.sectionLabel}>PERFORMANCE</Text>
+            <View style={styles.perfRow}>
+              <Target color={theme.primary} size={18} strokeWidth={2.2} />
+              <Text style={styles.perfLabel}>Quest</Text>
+              <Text style={styles.perfValue}>
+                {stats.totalQuestionsAttempted ?? 0} questions ·{' '}
+                {weeklySummary.accuracy !== null ? `${weeklySummary.accuracy}% accuracy` : 'No data'}
+              </Text>
+            </View>
+            <View style={[styles.perfRow, !arenaStats ? styles.perfRowLast : null]}>
+              <Swords color={theme.primary} size={18} strokeWidth={2.2} />
+              <Text style={styles.perfLabel}>Practice</Text>
+              <Text style={styles.perfValue}>{stats.totalCardsStudied} cards studied</Text>
+            </View>
+            {arenaStats ? (
+              <View style={[styles.perfRow, styles.perfRowLast]}>
+                <Zap color={theme.primary} size={18} strokeWidth={2.2} />
+                <Text style={styles.perfLabel}>Arena</Text>
+                <Text style={styles.perfValue}>
+                  {arenaStats.wins}/{arenaStats.total} wins · {arenaStats.winRate}% rate
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={styles.deckProgressSection}>
+            <Text style={styles.sectionLabel}>DECK PROGRESS</Text>
+            {deckProgressSummaries.length === 0 ? (
               <View style={styles.emptyState} testID="stats-empty-progress">
-                <Text style={styles.emptyText}>Start studying to see your progress!</Text>
+                <Text style={styles.emptyText}>Create a deck to start tracking progress!</Text>
               </View>
             ) : (
-              progress.map((item) => {
-                const deck = decks.find((deckItem) => deckItem.id === item.deckId);
-                if (!deck) {
-                  logger.warn('StatsPage missing deck for progress entry', item.deckId);
-                  return null;
-                }
-
-                const totalCards = deck.flashcards.length;
-                const progressPercent = totalCards > 0 ? Math.min(100, Math.round((item.cardsReviewed / totalCards) * 100)) : 0;
-
-                return (
-                  <View
-                    key={item.deckId}
-                    style={styles.progressCard}
-                    testID={`progress-card-${item.deckId}`}
-                  >
-                    <View style={[styles.deckIndicator, { backgroundColor: deck.color }]} />
-                    <View style={styles.progressInfo}>
-                      <Text style={styles.progressDeckName}>{deck.name}</Text>
-                      <View style={styles.progressStats}>
-                        <Text style={styles.progressText}>
-                          {item.cardsReviewed} reviewed
-                        </Text>
-                        <Text style={styles.progressReviewed}>{progressPercent}%</Text>
-                      </View>
-                      <View style={styles.progressBar}>
-                        <View
-                          style={[styles.progressBarFill, { width: `${progressPercent}%`, backgroundColor: deck.color }]}
-                        />
-                      </View>
+              deckProgressSummaries.map((deckSummary) => (
+                <View
+                  key={deckSummary.id}
+                  style={styles.deckProgressCard}
+                  testID={`progress-card-${deckSummary.id}`}
+                >
+                  <View style={[styles.deckIndicator, { backgroundColor: deckSummary.color }]} />
+                  <View style={styles.deckProgressInfo}>
+                    <View style={styles.deckProgressHeader}>
+                      <Text style={styles.deckProgressName} numberOfLines={1}>
+                        {deckSummary.name}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.deckProgressPct,
+                          {
+                            color:
+                              deckSummary.pct === 100
+                                ? '#10B981'
+                                : theme.textSecondary,
+                          },
+                        ]}
+                      >
+                        {deckSummary.pct === 100
+                          ? '100%'
+                          : `${deckSummary.mastered}/${deckSummary.total}`}
+                      </Text>
+                    </View>
+                    <View style={styles.deckProgressBarTrack}>
+                      <View
+                        style={[
+                          styles.deckProgressBarFill,
+                          {
+                            width: `${deckSummary.pct}%`,
+                            backgroundColor: deckSummary.color,
+                          },
+                        ]}
+                      />
                     </View>
                   </View>
-                );
-              })
+                </View>
+              ))
             )}
           </View>
         </ScrollView>
@@ -306,10 +595,7 @@ export default function StatsPage() {
 
 const createStyles = (theme: ThemeValues, isDark: boolean) => {
   const statSurface = isDark ? 'rgba(15, 23, 42, 0.78)' : theme.statsCard;
-  const progressSurface = isDark ? 'rgba(10, 17, 34, 0.88)' : theme.cardBackground;
-  const emptySurface = isDark ? 'rgba(15, 23, 42, 0.72)' : theme.card;
   const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'transparent';
-  const progressTrack = isDark ? 'rgba(148, 163, 184, 0.14)' : theme.border;
 
   return StyleSheet.create({
     container: {
@@ -346,38 +632,69 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     scrollContent: {
       paddingBottom: 40,
     },
-    scoreCard: {
+
+    levelCard: {
       marginHorizontal: 24,
-      marginBottom: 24,
-      borderRadius: 24,
-      overflow: 'hidden',
-      borderWidth: isDark ? 1 : 0,
-      borderColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'transparent',
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: isDark ? 0.3 : 0.25,
-      shadowRadius: 18,
-      elevation: 12,
-    },
-    scoreGradient: {
-      padding: 32,
+      marginBottom: 20,
+      borderRadius: 20,
+      padding: 24,
       alignItems: 'center',
+      backgroundColor: statSurface,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: surfaceBorderColor,
     },
-    scoreValue: {
-      fontSize: 56,
+    levelBadge: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: theme.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    levelBadgeText: {
+      fontSize: 24,
       fontWeight: '800' as const,
-      color: theme.white,
-      marginTop: 12,
-      marginBottom: 4,
+      color: '#fff',
     },
-    scoreLabel: {
+    levelTitle: {
       fontSize: 18,
-      color: 'rgba(255, 255, 255, 0.95)',
-      fontWeight: '600' as const,
+      fontWeight: '700' as const,
+      color: theme.text,
+      marginBottom: 4,
+      textAlign: 'center',
     },
+    levelXpText: {
+      fontSize: 14,
+      fontWeight: '600' as const,
+      color: theme.textSecondary,
+      marginBottom: 16,
+    },
+    levelBarContainer: {
+      width: '100%',
+    },
+    levelBarTrack: {
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+      overflow: 'hidden',
+    },
+    levelBarFill: {
+      height: '100%',
+      borderRadius: 4,
+      backgroundColor: theme.primary,
+    },
+    levelBarLabel: {
+      fontSize: 12,
+      fontWeight: '600' as const,
+      color: theme.textTertiary,
+      textAlign: 'center',
+      marginTop: 8,
+    },
+
     weeklyCard: {
       marginHorizontal: 24,
-      marginBottom: 24,
+      marginBottom: 20,
       borderRadius: 20,
       padding: 20,
       backgroundColor: statSurface,
@@ -425,174 +742,263 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       textAlign: 'center',
       marginTop: 14,
     },
-    statsGrid: {
-      paddingHorizontal: 24,
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 16,
-    },
-    statCard: {
-      width: '47%',
-      backgroundColor: statSurface,
+
+    calendarCard: {
+      marginHorizontal: 24,
+      marginBottom: 20,
       borderRadius: 20,
       padding: 20,
-      alignItems: 'center',
+      backgroundColor: statSurface,
       borderWidth: isDark ? 1 : 0,
       borderColor: surfaceBorderColor,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: isDark ? 0.22 : 0.15,
-      shadowRadius: isDark ? 12 : 8,
-      elevation: isDark ? 7 : 6,
     },
-    statIconContainer: {
-      marginBottom: 12,
-    },
-    statNumber: {
-      fontSize: 32,
-      fontWeight: '800' as const,
+    calendarTitle: {
+      fontSize: 16,
+      fontWeight: '700' as const,
       color: theme.text,
       marginBottom: 4,
     },
-    statTitle: {
-      fontSize: 15,
-      fontWeight: '700' as const,
-      color: theme.text,
-      marginBottom: 2,
-    },
-    statSubtitle: {
-      fontSize: 12,
-      color: theme.textSecondary,
-      fontWeight: '500' as const,
-    },
-    activitySection: {
-      marginTop: 28,
-      paddingHorizontal: 24,
-    },
-    activityCard: {
-      backgroundColor: statSurface,
-      borderRadius: 20,
-      padding: 20,
-      borderWidth: isDark ? 1 : 0,
-      borderColor: surfaceBorderColor,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: isDark ? 0.22 : 0.15,
-      shadowRadius: isDark ? 12 : 8,
-      elevation: isDark ? 7 : 6,
-    },
-    activityTitle: {
-      fontSize: 18,
-      fontWeight: '700' as const,
-      color: theme.text,
-    },
-    activitySubtitle: {
-      marginTop: 6,
+    calendarSubtitle: {
       fontSize: 13,
       fontWeight: '500' as const,
       color: theme.textSecondary,
-    },
-    activityGrid: {
-      marginTop: 18,
-      height: 91,
-      flexDirection: 'column',
-      flexWrap: 'wrap',
-      gap: 3,
-      alignSelf: 'flex-start',
-    },
-    activitySquare: {
-      width: 10,
-      height: 10,
-      borderRadius: 4,
-    },
-    activityLabels: {
-      marginTop: 12,
-      flexDirection: 'row',
-      alignSelf: 'flex-start',
-      gap: 11,
-    },
-    activityLabel: {
-      fontSize: 9,
-      fontWeight: '600' as const,
-      color: theme.textTertiary,
-    },
-    progressSection: {
-      marginTop: 32,
-      paddingHorizontal: 24,
-    },
-    sectionTitle: {
-      fontSize: 24,
-      fontWeight: '700' as const,
-      color: isDark ? theme.text : theme.white,
       marginBottom: 16,
     },
-    emptyState: {
-      backgroundColor: emptySurface,
-      borderRadius: 16,
-      padding: 32,
+    calendarBody: {
+      flexDirection: 'row',
+      gap: 10,
+      alignItems: 'flex-start',
+    },
+    calendarGrid: {
+      flex: 1,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 4,
+    },
+    calendarWeekColumn: {
+      flex: 1,
+      gap: 4,
       alignItems: 'center',
+    },
+    calendarMonthSpacer: {
+      height: 12,
+      marginBottom: 4,
+    },
+    calendarMonthLabel: {
+      fontSize: 10,
+      fontWeight: '600' as const,
+      color: theme.textTertiary,
+      height: 12,
+      lineHeight: 12,
+      marginBottom: 4,
+      textAlign: 'center',
+      minWidth: 20,
+    },
+    calendarSquare: {
+      width: 14,
+      height: 14,
+      borderRadius: 3,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)',
+    },
+    calendarFooter: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      marginTop: 12,
+    },
+    calendarDayLabels: {
+      gap: 4,
+    },
+    calendarDayLabel: {
+      fontSize: 10,
+      fontWeight: '600' as const,
+      color: theme.textTertiary,
+      height: 14,
+      lineHeight: 14,
+    },
+    calendarLegend: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    calendarLegendSquare: {
+      width: 10,
+      height: 10,
+      borderRadius: 2,
+    },
+    calendarLegendText: {
+      fontSize: 10,
+      fontWeight: '500' as const,
+      color: theme.textTertiary,
+    },
+    streakRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 24,
+      marginTop: 16,
+      paddingTop: 14,
+      borderTopWidth: 1,
+      borderTopColor: isDark ? 'rgba(148,163,184,0.1)' : 'rgba(0,0,0,0.06)',
+      flexWrap: 'wrap',
+    },
+    streakItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    streakLabel: {
+      fontSize: 13,
+      fontWeight: '600' as const,
+      color: theme.textSecondary,
+    },
+
+    masteryCard: {
+      marginHorizontal: 24,
+      marginBottom: 20,
+      borderRadius: 20,
+      padding: 20,
+      backgroundColor: statSurface,
       borderWidth: isDark ? 1 : 0,
       borderColor: surfaceBorderColor,
+      alignItems: 'center',
     },
-    emptyText: {
-      fontSize: 16,
+    sectionLabel: {
+      fontSize: 12,
+      fontWeight: '700' as const,
       color: theme.textSecondary,
-      fontWeight: '500' as const,
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+      marginBottom: 12,
+      alignSelf: 'flex-start',
+    },
+    masteryBigText: {
+      fontSize: 36,
+      fontWeight: '800' as const,
+    },
+    masterySubtext: {
+      fontSize: 13,
+      fontWeight: '600' as const,
+      color: theme.textSecondary,
+      marginTop: 4,
+      marginBottom: 16,
       textAlign: 'center',
     },
-    progressCard: {
-      backgroundColor: progressSurface,
-      borderRadius: 16,
-      padding: 16,
-      marginBottom: 12,
+    masteryBar: {
+      height: 8,
+      borderRadius: 4,
       flexDirection: 'row',
+      overflow: 'hidden',
+      width: '100%',
+      marginBottom: 12,
+    },
+    masteryLegend: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+      justifyContent: 'center',
+    },
+    masteryLegendItem: {
+      fontSize: 12,
+      fontWeight: '600' as const,
+      color: theme.textSecondary,
+    },
+
+    performanceCard: {
+      marginHorizontal: 24,
+      marginBottom: 20,
+      borderRadius: 20,
+      padding: 20,
+      backgroundColor: statSurface,
       borderWidth: isDark ? 1 : 0,
       borderColor: surfaceBorderColor,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: isDark ? 0.18 : 0.1,
-      shadowRadius: isDark ? 10 : 4,
-      elevation: isDark ? 5 : 3,
+    },
+    perfRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      gap: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: isDark ? 'rgba(148,163,184,0.08)' : 'rgba(0,0,0,0.04)',
+    },
+    perfRowLast: {
+      borderBottomWidth: 0,
+      paddingBottom: 0,
+    },
+    perfLabel: {
+      fontSize: 14,
+      fontWeight: '700' as const,
+      color: theme.text,
+      width: 65,
+    },
+    perfValue: {
+      fontSize: 13,
+      fontWeight: '500' as const,
+      color: theme.textSecondary,
+      flex: 1,
+    },
+
+    deckProgressSection: {
+      marginHorizontal: 24,
+      marginBottom: 20,
+    },
+    deckProgressCard: {
+      flexDirection: 'row',
+      backgroundColor: statSurface,
+      borderRadius: 16,
+      marginBottom: 10,
+      overflow: 'hidden',
+      borderWidth: isDark ? 1 : 0,
+      borderColor: surfaceBorderColor,
     },
     deckIndicator: {
       width: 4,
-      borderRadius: 2,
-      marginRight: 16,
     },
-    progressInfo: {
+    deckProgressInfo: {
       flex: 1,
+      padding: 14,
+      paddingLeft: 12,
     },
-    progressDeckName: {
-      fontSize: 17,
-      fontWeight: '700' as const,
-      color: theme.text,
-      marginBottom: 8,
-    },
-    progressStats: {
+    deckProgressHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: 8,
     },
-    progressText: {
-      fontSize: 14,
-      color: theme.textSecondary,
-      fontWeight: '500' as const,
-    },
-    progressReviewed: {
-      fontSize: 16,
+    deckProgressName: {
+      fontSize: 15,
       fontWeight: '700' as const,
       color: theme.text,
+      flex: 1,
+      marginRight: 8,
     },
-    progressBar: {
-      height: 8,
-      backgroundColor: progressTrack,
-      borderRadius: 4,
+    deckProgressPct: {
+      fontSize: 14,
+      fontWeight: '700' as const,
+    },
+    deckProgressBarTrack: {
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: isDark ? 'rgba(148,163,184,0.14)' : theme.border,
       overflow: 'hidden',
     },
-    progressBarFill: {
+    deckProgressBarFill: {
       height: '100%',
-      borderRadius: 4,
+      borderRadius: 3,
+    },
+
+    emptyState: {
+      borderRadius: 16,
+      padding: 24,
+      backgroundColor: statSurface,
+      alignItems: 'center',
+      borderWidth: isDark ? 1 : 0,
+      borderColor: surfaceBorderColor,
+    },
+    emptyText: {
+      fontSize: 14,
+      fontWeight: '600' as const,
+      color: theme.textSecondary,
+      textAlign: 'center',
     },
   });
 };

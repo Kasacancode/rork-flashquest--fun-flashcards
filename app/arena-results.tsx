@@ -437,7 +437,7 @@ export default function ArenaResultsScreen() {
               </View>
               <View style={[styles.resultHeroStat, { backgroundColor: theme.background }]}> 
                 <Text style={[styles.resultHeroStatValue, { color: theme.success }]}>{currentPlayerStats?.points ?? 0}</Text>
-                <Text style={[styles.resultHeroStatLabel, { color: theme.textSecondary }]}>Points</Text>
+                <Text style={[styles.resultHeroStatLabel, { color: theme.textSecondary }]}>XP</Text>
               </View>
               <View style={[styles.resultHeroStat, { backgroundColor: theme.background }]}> 
                 <Text style={[styles.resultHeroStatValue, { color: '#fbbf24' }]}>{Math.round((currentPlayerStats?.accuracy ?? 0) * 100)}%</Text>
