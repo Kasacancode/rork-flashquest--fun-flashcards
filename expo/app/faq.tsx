@@ -31,7 +31,6 @@ interface FAQGroup {
 interface FAQGroupVisuals {
   accent: string;
   softAccent: string;
-  folderTint: string;
   gradient: readonly [string, string];
   icon: React.ReactNode;
 }
@@ -206,21 +205,18 @@ export default function FAQScreen() {
     'getting-started': {
       accent: '#60A5FA',
       softAccent: 'rgba(96,165,250,0.14)',
-      folderTint: 'rgba(96,165,250,0.18)',
       gradient: ['rgba(96,165,250,0.18)', 'rgba(59,130,246,0.04)'],
       icon: <BookOpen color="#60A5FA" size={20} strokeWidth={2.2} />,
     },
     'study-modes': {
       accent: '#818CF8',
       softAccent: 'rgba(129,140,248,0.14)',
-      folderTint: 'rgba(129,140,248,0.18)',
       gradient: ['rgba(129,140,248,0.18)', 'rgba(99,102,241,0.04)'],
       icon: <Target color="#818CF8" size={20} strokeWidth={2.2} />,
     },
     'progress-review': {
       accent: '#A78BFA',
       softAccent: 'rgba(167,139,250,0.14)',
-      folderTint: 'rgba(167,139,250,0.18)',
       gradient: ['rgba(167,139,250,0.18)', 'rgba(139,92,246,0.04)'],
       icon: <Trophy color="#A78BFA" size={20} strokeWidth={2.2} />,
     },
@@ -294,39 +290,8 @@ export default function FAQScreen() {
             </View>
             <Text style={styles.heroTitle}>Everything you need to know about FlashQuest</Text>
             <Text style={styles.heroSubtitle}>
-              Browse the app by folders so decks, modes, mastery, and progress are easier to understand at a glance.
+              Browse the main sections to understand decks, study modes, mastery, and progress at a glance.
             </Text>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.folderRail}
-              testID="faq-folder-rail"
-            >
-              {FAQ_GROUPS.map((group) => {
-                const visuals = groupVisuals[group.id];
-                const isSelected = expandedGroupId === group.id;
-                return (
-                  <TouchableOpacity
-                    key={group.id}
-                    style={[
-                      styles.folderChip,
-                      {
-                        backgroundColor: isSelected ? visuals.folderTint : 'rgba(255,255,255,0.08)',
-                        borderColor: isSelected ? 'rgba(255,255,255,0.32)' : 'rgba(255,255,255,0.12)',
-                      },
-                    ]}
-                    onPress={() => toggleGroup(group)}
-                    activeOpacity={0.82}
-                    testID={`faq-folder-chip-${group.id}`}
-                  >
-                    <View style={[styles.folderDot, { backgroundColor: visuals.accent }]} />
-                    <Text style={styles.folderChipText}>{group.title}</Text>
-                    <Text style={styles.folderChipCount}>{group.items.length}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
           </LinearGradient>
 
           <View style={styles.groupList}>
@@ -360,7 +325,6 @@ export default function FAQScreen() {
                       {visuals.icon}
                     </View>
                     <View style={styles.groupTextWrap}>
-                      <Text style={[styles.groupEyebrow, { color: visuals.accent }]}>Folder</Text>
                       <Text style={[styles.groupTitle, { color: theme.text }]}>{group.title}</Text>
                       <Text style={[styles.groupSubtitle, { color: theme.textSecondary }]}>{group.subtitle}</Text>
                     </View>
@@ -514,35 +478,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontWeight: '500' as const,
   },
-  folderRail: {
-    gap: 10,
-    paddingTop: 4,
-    paddingRight: 4,
-  },
-  folderChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  folderDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-  },
-  folderChipText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700' as const,
-  },
-  folderChipCount: {
-    color: 'rgba(255,255,255,0.76)',
-    fontSize: 12,
-    fontWeight: '700' as const,
-  },
   groupList: {
     gap: 12,
   },
@@ -571,12 +506,6 @@ const styles = StyleSheet.create({
   groupTextWrap: {
     flex: 1,
     gap: 2,
-  },
-  groupEyebrow: {
-    fontSize: 11,
-    fontWeight: '800' as const,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
   },
   groupTitle: {
     fontSize: 18,
