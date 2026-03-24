@@ -5,12 +5,20 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import StatsRankEmblem from '@/components/StatsRankEmblem';
 import LevelsModal from '@/components/profile/LevelsModal';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
-import { LEVELS, computeLevel, computeLevelProgress, getLevelBandPalette, getLevelEntry } from '@/utils/levels';
+import {
+  LEVELS,
+  computeLevel,
+  computeLevelProgress,
+  getLevelBandPalette,
+  getLevelEntry,
+  getLevelRankBandInfo,
+} from '@/utils/levels';
 import { computeDeckMastery } from '@/utils/mastery';
 
 type ThemeValues = ReturnType<typeof useTheme>['theme'];
@@ -69,6 +77,7 @@ export default function StatsPage() {
   const levelEntry = useMemo(() => getLevelEntry(level), [level]);
   const levelProgress = useMemo(() => computeLevelProgress(stats.totalScore), [stats.totalScore]);
   const levelPalette = useMemo(() => getLevelBandPalette(level, isDark), [level, isDark]);
+  const levelRankInfo = useMemo(() => getLevelRankBandInfo(level), [level]);
 
   const masteryOverview = useMemo(() => {
     return decks.reduce((accumulator, deck) => {
@@ -466,24 +475,15 @@ export default function StatsPage() {
               style={StyleSheet.absoluteFill}
             />
             <View style={[styles.levelOrb, { backgroundColor: levelPalette.haloColor }]} />
-            <Text style={styles.levelEyebrow}>Progression</Text>
-            <View
-              style={[
-                styles.levelBadge,
-                {
-                  borderColor: levelPalette.badgeBorder,
-                  shadowColor: levelPalette.badgeShadow,
-                },
-              ]}
-            >
-              <LinearGradient
-                colors={levelPalette.badgeGradient}
-                start={{ x: 0.12, y: 0 }}
-                end={{ x: 0.88, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
-              <Text style={[styles.levelBadgeText, { color: levelPalette.badgeText }]}>{level}</Text>
-            </View>
+            <Text style={styles.levelEyebrow}>Progression · {levelRankInfo.label}</Text>
+            <StatsRankEmblem
+              level={level}
+              palette={levelPalette}
+              isDark={isDark}
+              size="hero"
+              style={styles.levelBadge}
+              testID="stats-rank-emblem"
+            />
             <Text
               style={styles.levelTitle}
               numberOfLines={2}
@@ -514,7 +514,9 @@ export default function StatsPage() {
                   : `${levelProgress.current} / ${levelProgress.required} to Level ${level + 1}`}
               </Text>
             </View>
-            <Text style={[styles.levelHint, { color: levelPalette.band === 'elite' ? '#6D28D9' : undefined }]}>Tap to view all levels</Text>
+            <Text style={[styles.levelHint, { color: levelPalette.band === 'elite' ? '#6D28D9' : undefined }]}>
+              Tap to view the rank ladder
+            </Text>
           </TouchableOpacity>
 
           <View style={styles.weeklyCard}>
@@ -890,6 +892,7 @@ export default function StatsPage() {
         theme={theme}
         isDark={isDark}
         levelPalette={levelPalette}
+        showRankIdentity
       />
     </View>
   );
@@ -1016,18 +1019,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       marginBottom: 12,
     },
     levelBadge: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      justifyContent: 'center',
-      alignItems: 'center',
       marginBottom: 12,
-      overflow: 'hidden',
-      borderWidth: 1,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.34,
-      shadowRadius: 10,
-      elevation: 6,
     },
     levelBadgeText: {
       fontSize: 24,
