@@ -94,7 +94,14 @@ export default function LevelsModal({
             <View style={styles.levelModalTitleWrap}>
               <Text style={styles.levelModalEyebrow}>Rank progression</Text>
               <Text style={styles.levelModalTitle}>Levels & titles</Text>
-              <Text style={[styles.levelModalSubtitle, { color: activePalette.modalBadgeText }]}>Current rank: Lv {level} · {levelEntry.title}</Text>
+              <Text
+                style={[styles.levelModalSubtitle, { color: activePalette.modalBadgeText }]}
+                numberOfLines={2}
+                adjustsFontSizeToFit
+                minimumFontScale={0.88}
+              >
+                Current rank: Lv {level} · {levelEntry.title}
+              </Text>
             </View>
             <TouchableOpacity
               style={styles.settingsCloseButton}
@@ -160,7 +167,14 @@ export default function LevelsModal({
                   </View>
 
                   <View style={styles.levelRowTextWrap}>
-                    <Text style={styles.levelRowTitle}>{item.title}</Text>
+                    <Text
+                      style={styles.levelRowTitle}
+                      numberOfLines={2}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.9}
+                    >
+                      {item.title}
+                    </Text>
                     <Text style={styles.levelRowSubtitle}>{item.subtitle}</Text>
                     <Text style={[styles.levelRowMeta, metaTone]}>{item.xpRequired.toLocaleString()} XP unlock</Text>
                   </View>

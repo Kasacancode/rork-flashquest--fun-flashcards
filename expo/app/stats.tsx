@@ -479,7 +479,14 @@ export default function StatsPage() {
               />
               <Text style={[styles.levelBadgeText, { color: levelPalette.badgeText }]}>{level}</Text>
             </View>
-            <Text style={styles.levelTitle}>{levelEntry.title}</Text>
+            <Text
+              style={styles.levelTitle}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.86}
+            >
+              {levelEntry.title}
+            </Text>
             <Text style={styles.levelXpText}>{stats.totalScore.toLocaleString()} XP</Text>
             <View style={styles.levelBarContainer}>
               <View style={[styles.levelBarTrack, { backgroundColor: levelPalette.progressTrack }] }>

@@ -21,7 +21,7 @@ import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
-import { computeLevel, getLevelEntry } from '@/utils/levels';
+import { computeLevel, getLevelBandPalette, getLevelEntry } from '@/utils/levels';
 import { computeDeckMastery } from '@/utils/mastery';
 
 const { width } = Dimensions.get('window');
@@ -58,6 +58,7 @@ export default function HomePage() {
   const cardsAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
   const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
   const levelEntry = useMemo(() => getLevelEntry(level), [level]);
+  const levelPalette = useMemo(() => getLevelBandPalette(level, isDark), [level, isDark]);
 
   const backgroundGradient = useMemo(
     () => (
@@ -111,7 +112,9 @@ export default function HomePage() {
   const statsShadowColor = isDark ? '#020617' : '#94a3b8';
   const statsValueColor = isDark ? '#f8fafc' : '#13233f';
   const statsLabelColor = isDark ? 'rgba(203, 213, 225, 0.86)' : 'rgba(71, 85, 105, 0.86)';
-  const statsLevelColor = isDark ? '#8f67f5' : '#6446d9';
+  const statsLevelColor = isDark && levelPalette.band === 'early'
+    ? levelPalette.badgeGradient[0]
+    : levelPalette.badgeGradient[1];
   const actionShadowColor = isDark ? '#020617' : '#94a3b8';
   const actionBorderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.1)';
   const deckCardSurface = isDark ? 'rgba(9, 17, 31, 0.98)' : 'rgba(255, 255, 255, 0.99)';
@@ -355,8 +358,22 @@ export default function HomePage() {
             <View style={[styles.statsCardFrame, { borderColor: statsBorderColor }]} />
 
             <View style={styles.statItem}>
-              <Text style={[styles.levelText, { color: statsLevelColor }]}>LV {level}</Text>
-              <Text style={[styles.statLabel, { color: statsLabelColor }]}>{levelEntry.title}</Text>
+              <Text
+                style={[styles.levelText, { color: statsLevelColor }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.84}
+              >
+                LV {level}
+              </Text>
+              <Text
+                style={[styles.statLabel, styles.rankLabel, { color: statsLabelColor }]}
+                numberOfLines={2}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >
+                {levelEntry.title}
+              </Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: statsDividerColor }]} />
             <View style={styles.statItem}>
@@ -700,6 +717,11 @@ const styles = StyleSheet.create<{
     fontWeight: '700' as const,
     textAlign: 'center',
     letterSpacing: 0.08,
+  },
+  rankLabel: {
+    minHeight: 30,
+    paddingHorizontal: 4,
+    lineHeight: 15,
   },
   statDivider: {
     width: 1,

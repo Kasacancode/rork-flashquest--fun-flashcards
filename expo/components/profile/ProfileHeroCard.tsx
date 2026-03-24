@@ -102,7 +102,14 @@ export default function ProfileHeroCard({
                   <Pencil color="rgba(255, 255, 255, 0.96)" size={14} strokeWidth={2.4} />
                 </TouchableOpacity>
               </View>
-              <Text style={styles.heroSubtitle}>{levelEntry.title}</Text>
+              <Text
+                style={styles.heroSubtitle}
+                numberOfLines={2}
+                adjustsFontSizeToFit
+                minimumFontScale={0.88}
+              >
+                {levelEntry.title}
+              </Text>
             </View>
           </View>
 
