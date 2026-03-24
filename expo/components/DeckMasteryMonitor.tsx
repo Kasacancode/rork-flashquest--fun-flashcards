@@ -5,6 +5,7 @@ import DeckMasteryToast from '@/components/DeckMasteryToast';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { computeDeckMastery } from '@/utils/mastery';
+import { normalizeStringArray, safeParseJsonOrNull } from '@/utils/safeJson';
 import { enqueueToastRunner, releaseToastRunner } from '@/utils/toastQueue';
 
 const MASTERED_DECKS_KEY = 'flashquest_mastered_decks';
@@ -37,9 +38,14 @@ export default function DeckMasteryMonitor() {
     AsyncStorage.getItem(MASTERED_DECKS_KEY)
       .then((stored) => {
         if (stored) {
-          try {
-            previouslyMasteredRef.current = new Set(JSON.parse(stored) as string[]);
-          } catch {
+          const storedIds = safeParseJsonOrNull<string[]>({
+            raw: stored,
+            label: 'mastered deck ids',
+            normalize: normalizeStringArray,
+          });
+
+          if (storedIds) {
+            previouslyMasteredRef.current = new Set(storedIds);
           }
         }
         hasLoadedRef.current = true;

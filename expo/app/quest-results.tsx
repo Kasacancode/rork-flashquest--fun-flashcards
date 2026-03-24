@@ -8,34 +8,30 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import DealerPlaceholder from '@/components/DealerPlaceholder';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
-import type { QuestRunResult, QuestSettings } from '@/types/performance';
+import type { QuestSettings } from '@/types/performance';
 import { getQuestCompletionDialogueEvent, selectAssistantDialogue } from '@/utils/dialogue';
 import { logger } from '@/utils/logger';
+import { parseQuestResultParam, serializeQuestSettings } from '@/utils/questParams';
+import { HOME_ROUTE, QUEST_ROUTE, questSessionHref, studyHref } from '@/utils/routes';
 
 export default function QuestResultsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ result: string }>();
+  const params = useLocalSearchParams<{ result?: string | string[] }>();
   const { theme } = useTheme();
   const { decks } = useFlashQuest();
 
   const [showMissedCards, setShowMissedCards] = useState(false);
 
-  const result: QuestRunResult = useMemo(() => {
-    try {
-      return JSON.parse(params.result || '{}');
-    } catch {
-      return {} as QuestRunResult;
-    }
-  }, [params.result]);
+  const result = useMemo(() => parseQuestResultParam(params.result), [params.result]);
 
-  const deck = useMemo(() => decks.find(d => d.id === result.deckId), [decks, result.deckId]);
-  
+  const deck = useMemo(() => decks.find((item) => item.id === result?.deckId), [decks, result?.deckId]);
+
   const missedCards = useMemo(() => {
-    if (!deck) return [];
+    if (!deck || !result) return [];
     return result.missedCardIds
       .map(id => deck.flashcards.find(c => c.id === id))
       .filter(Boolean);
-  }, [deck, result.missedCardIds]);
+  }, [deck, result]);
 
   const formatTime = (ms: number): string => {
     const seconds = Math.floor(ms / 1000);
@@ -48,7 +44,7 @@ export default function QuestResultsScreen() {
   };
 
   const getPerformanceMessage = (): string => {
-    const accuracy = result.accuracy || 0;
+    const accuracy = result?.accuracy ?? 0;
     if (accuracy >= 0.9) return "Outstanding!";
     if (accuracy >= 0.8) return "Great job!";
     if (accuracy >= 0.7) return "Well done!";
@@ -57,17 +53,17 @@ export default function QuestResultsScreen() {
   };
 
   const getPerformanceColor = (): string => {
-    const accuracy = result.accuracy || 0;
+    const accuracy = result?.accuracy ?? 0;
     if (accuracy >= 0.7) return theme.success;
     if (accuracy >= 0.5) return theme.warning;
     return theme.error;
   };
 
   const resultDialogueEvent = useMemo(() => getQuestCompletionDialogueEvent({
-    accuracy: result.accuracy,
-    correctCount: result.correctCount,
-    incorrectCount: result.incorrectCount,
-  }), [result.accuracy, result.correctCount, result.incorrectCount]);
+    accuracy: result?.accuracy ?? 0,
+    correctCount: result?.correctCount ?? 0,
+    incorrectCount: result?.incorrectCount ?? 0,
+  }), [result?.accuracy, result?.correctCount, result?.incorrectCount]);
 
   const assistantLine = useMemo(() => selectAssistantDialogue({
     mode: 'quest',
@@ -75,10 +71,12 @@ export default function QuestResultsScreen() {
   }), [resultDialogueEvent]);
 
   const handlePlayAgain = () => {
-    router.replace({
-      pathname: '/quest-session' as any,
-      params: { settings: JSON.stringify(result.settings) },
-    });
+    if (!result) {
+      router.replace(QUEST_ROUTE);
+      return;
+    }
+
+    router.replace(questSessionHref({ settings: serializeQuestSettings(result.settings) }));
   };
 
   /**
@@ -87,7 +85,7 @@ export default function QuestResultsScreen() {
    * focusWeakOnly is disabled because the card pool is already filtered.
    */
   const handleDrillMissed = () => {
-    if (missedCards.length === 0) return;
+    if (!result || missedCards.length === 0) return;
 
     const len = missedCards.length;
     let drillRunLength: 5 | 10 | 20 = 5;
@@ -103,22 +101,35 @@ export default function QuestResultsScreen() {
 
     logger.log('[Quest] Drilling missed cards:', result.missedCardIds.length, 'runLength:', drillRunLength);
 
-    router.replace({
-      pathname: '/quest-session' as any,
-      params: { 
-        settings: JSON.stringify(drillSettings),
-        drillCardIds: JSON.stringify(result.missedCardIds),
-      },
-    });
+    router.replace(questSessionHref({
+      settings: serializeQuestSettings(drillSettings),
+      drillCardIds: JSON.stringify(result.missedCardIds),
+    }));
   };
 
   const handleBackToMenu = () => {
-    router.replace('/quest' as any);
+    router.replace(QUEST_ROUTE);
   };
 
   const handleGoHome = () => {
-    router.replace('/');
+    router.replace(HOME_ROUTE);
   };
+
+  if (!result) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}> 
+        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+          <View style={styles.errorState}>
+            <Text style={[styles.errorTitle, { color: theme.text }]}>Couldn’t load quest results</Text>
+            <Text style={[styles.errorSubtitle, { color: theme.textSecondary }]}>This run summary is missing or invalid.</Text>
+            <TouchableOpacity style={[styles.secondaryButton, { borderColor: theme.primary }]} onPress={handleBackToMenu} activeOpacity={0.8}>
+              <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>Back to Quest</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -280,7 +291,7 @@ export default function QuestResultsScreen() {
             {(result.accuracy || 0) < 0.7 && deck && (
               <TouchableOpacity
                 style={[styles.secondaryButton, { borderColor: theme.primary }]}
-                onPress={() => router.replace({ pathname: '/study', params: { deckId: result.deckId } } as any)}
+                onPress={() => router.replace(studyHref(result.deckId))}
                 activeOpacity={0.7}
               >
                 <BookOpen color={theme.primary} size={20} />
@@ -322,6 +333,23 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+  },
+  errorState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  errorTitle: {
+    fontSize: 22,
+    fontWeight: '800' as const,
+    textAlign: 'center' as const,
+  },
+  errorSubtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center' as const,
   },
   scrollView: {
     flex: 1,

@@ -16,6 +16,7 @@ import { GAME_MODE } from '@/types/game';
 import { selectAssistantDialogue } from '@/utils/dialogue';
 import { logger } from '@/utils/logger';
 import { shareTextWithFallback } from '@/utils/share';
+import { ARENA_LOBBY_ROUTE, HOME_ROUTE, questHref } from '@/utils/routes';
 
 interface ResultPlayer {
   id: string;
@@ -110,7 +111,7 @@ export default function ArenaResultsScreen() {
   useEffect(() => {
     if (room?.status === 'lobby') {
       logger.log('[Results] Room reset to lobby, navigating');
-      router.replace('/arena-lobby' as any);
+      router.replace(ARENA_LOBBY_ROUTE);
     }
   }, [room?.status, router]);
 
@@ -365,13 +366,13 @@ export default function ArenaResultsScreen() {
     if (isHost) {
       resetRoom();
     } else {
-      router.replace('/arena-lobby' as any);
+      router.replace(ARENA_LOBBY_ROUTE);
     }
   };
 
   const handleGoHome = () => {
     disconnect();
-    router.replace('/');
+    router.replace(HOME_ROUTE);
   };
 
   const getMedalEmoji = (index: number): string => {
@@ -726,7 +727,13 @@ export default function ArenaResultsScreen() {
             {data?.deckId && (
               <TouchableOpacity
                 style={[styles.secondaryButton, { borderColor: theme.border }]}
-                onPress={() => router.replace({ pathname: '/quest', params: { deckId: data.deckId } } as any)}
+                onPress={() => {
+                  if (!data?.deckId) {
+                    return;
+                  }
+
+                  router.replace(questHref({ deckId: data.deckId }));
+                }}
                 activeOpacity={0.7}
               >
                 <Target color={theme.primary} size={20} />

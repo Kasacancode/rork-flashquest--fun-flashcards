@@ -42,6 +42,7 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { logger } from '@/utils/logger';
+import { ANALYTICS_DEBUG_ROUTE, FAQ_ROUTE } from '@/utils/routes';
 import {
   ACHIEVEMENT_CATEGORIES,
   computeAchievements,
@@ -283,7 +284,7 @@ export default function ProfilePage() {
     }
 
     logger.log('[Profile] Opening analytics debug screen');
-    navigation.push('/analytics-debug');
+    navigation.push(ANALYTICS_DEBUG_ROUTE);
   }, [canAccessDeveloperTools, navigation]);
 
   const handleComingSoon = useCallback((label: string) => {
@@ -293,7 +294,7 @@ export default function ProfilePage() {
 
   const handleOpenFAQ = useCallback(() => {
     logger.log('[Profile] Opening FAQ screen');
-    navigation.push('/faq' as any);
+    navigation.push(FAQ_ROUTE);
   }, [navigation]);
 
   const handleSelectSuit = useCallback(

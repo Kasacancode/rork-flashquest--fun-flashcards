@@ -16,6 +16,7 @@ import type { AnalyticsSummary } from '@/backend/analytics/types';
 import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trpcClient } from '@/lib/trpc';
+import { logger } from '@/utils/logger';
 
 const ANALYTICS_QUERY_TIMEOUT_MS = 10000;
 
@@ -80,13 +81,13 @@ export default function AnalyticsDebugScreen() {
 
   useEffect(() => {
     if (summaryQuery.data) {
-      console.log('[AnalyticsDebug] summary loaded:', summaryQuery.data.day, summaryQuery.data);
+      logger.debug('[AnalyticsDebug] summary loaded:', summaryQuery.data.day, summaryQuery.data);
     }
   }, [summaryQuery.data]);
 
   useEffect(() => {
     if (summaryQuery.error) {
-      console.warn('[AnalyticsDebug] summary failed:', summaryQuery.error);
+      logger.warn('[AnalyticsDebug] summary failed:', summaryQuery.error);
     }
   }, [summaryQuery.error]);
 
@@ -104,7 +105,7 @@ export default function AnalyticsDebugScreen() {
     const trimmedDay = dayInput.trim();
     const nextRequestedDay = trimmedDay.length > 0 ? trimmedDay : undefined;
 
-    console.log('[AnalyticsDebug] loading summary for day:', nextRequestedDay ?? '[today]');
+    logger.debug('[AnalyticsDebug] loading summary for day:', nextRequestedDay ?? '[today]');
 
     if (nextRequestedDay === requestedDay) {
       void summaryQuery.refetch();
@@ -115,7 +116,7 @@ export default function AnalyticsDebugScreen() {
   }, [dayInput, requestedDay, summaryQuery]);
 
   const handleClear = useCallback(() => {
-    console.log('[AnalyticsDebug] clearing day filter');
+    logger.debug('[AnalyticsDebug] clearing day filter');
     setDayInput('');
 
     if (requestedDay === undefined) {
@@ -213,7 +214,7 @@ export default function AnalyticsDebugScreen() {
             </Pressable>
             <Pressable
               onPress={() => {
-                console.log('[AnalyticsDebug] manual refetch');
+                logger.debug('[AnalyticsDebug] manual refetch');
                 void summaryQuery.refetch();
               }}
               style={({ pressed }) => [secondaryButtonStyle, { opacity: pressed ? 0.75 : 1 }]}

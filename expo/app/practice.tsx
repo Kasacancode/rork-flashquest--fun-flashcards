@@ -10,6 +10,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import { GAME_MODE } from '@/types/game';
 import type { PracticeMode } from '@/types/practice';
+import { DECKS_ROUTE, practiceSessionHref } from '@/utils/routes';
+import { getFirstRouteParam } from '@/utils/safeJson';
 
 export default function PracticePage() {
   const router = useRouter();
@@ -19,7 +21,7 @@ export default function PracticePage() {
   const [selectedMode, setSelectedMode] = useState<PracticeMode | null>(null);
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(false);
 
-  const requestedDeckId = Array.isArray(params.deckId) ? params.deckId[0] : params.deckId;
+  const requestedDeckId = getFirstRouteParam(params.deckId);
   const preselectedDeck = decks.find((deck) => deck.id === requestedDeckId);
 
   const startPracticeSession = useCallback((deckId: string, mode: PracticeMode) => {
@@ -33,7 +35,7 @@ export default function PracticePage() {
         player_count: mode === 'multiplayer' ? 2 : 1,
       },
     });
-    router.push({ pathname: '/practice-session' as any, params: { deckId, mode } });
+    router.push(practiceSessionHref(deckId, mode));
   }, [decks, router]);
 
   const handleModeSelect = useCallback((mode: PracticeMode) => {
@@ -156,7 +158,7 @@ export default function PracticePage() {
               <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>Create a deck to start practicing.</Text>
               <TouchableOpacity
                 style={[styles.emptyStateButton, { backgroundColor: theme.primary }]}
-                onPress={() => router.push('/decks' as any)}
+                onPress={() => router.push(DECKS_ROUTE)}
                 activeOpacity={0.85}
                 testID="practice-empty-go-to-decks"
               >
@@ -358,7 +360,7 @@ export default function PracticePage() {
                   <TouchableOpacity
                     onPress={() => {
                       setShowDeckSelector(false);
-                      router.push('/decks' as any);
+                      router.push(DECKS_ROUTE);
                     }}
                     style={[styles.modalEmptyButton, { backgroundColor: theme.primary }]}
                   >

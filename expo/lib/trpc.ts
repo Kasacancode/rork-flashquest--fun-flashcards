@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import superjson from 'superjson';
 
 import type { AppRouter } from '@/backend/trpc/app-router';
+import { logger } from '@/utils/logger';
 
 export const trpc = createTRPCReact<AppRouter>();
 
@@ -56,7 +57,7 @@ function getBaseUrlCandidates(): string[] {
   }
 
   if (__DEV__) {
-    console.log('[trpc] Base URL candidates:', uniqueCandidates);
+    logger.debug('[trpc] Base URL candidates:', uniqueCandidates);
   }
 
   return uniqueCandidates.length > 0 ? uniqueCandidates : [''];
@@ -110,7 +111,7 @@ function isJsonResponse(response: Response): boolean {
 }
 
 if (__DEV__) {
-  console.log('[trpc] Primary URL:', primaryTrpcUrl);
+  logger.debug('[trpc] Primary URL:', primaryTrpcUrl);
 }
 
 export const trpcClient = trpc.createClient({
@@ -131,19 +132,19 @@ export const trpcClient = trpc.createClient({
 
           try {
             if (__DEV__) {
-              console.log('[trpc] Request attempt', index + 1, '->', targetUrl);
+              logger.debug('[trpc] Request attempt', index + 1, '->', targetUrl);
             }
 
             const response = await globalThis.fetch(targetUrl, init);
             const shouldRetryUnexpectedResponse = canRetry && !isJsonResponse(response) && index < targetUrls.length - 1;
 
             if (__DEV__) {
-              console.log('[trpc] Response:', response.status, response.url, response.headers.get('content-type'));
+              logger.debug('[trpc] Response:', response.status, response.url, response.headers.get('content-type'));
             }
 
             if (shouldRetryUnexpectedResponse) {
               if (__DEV__) {
-                console.warn('[trpc] Non-JSON response received, retrying next candidate:', {
+                logger.warn('[trpc] Non-JSON response received, retrying next candidate:', {
                   attempt: index + 1,
                   targetUrl,
                   status: response.status,
@@ -157,7 +158,7 @@ export const trpcClient = trpc.createClient({
             lastError = error;
 
             if (__DEV__) {
-              console.warn('[trpc] Request failed:', {
+              logger.warn('[trpc] Request failed:', {
                 attempt: index + 1,
                 targetUrl,
                 error,

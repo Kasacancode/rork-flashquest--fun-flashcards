@@ -11,57 +11,20 @@ import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
+import { LEVELS, computeLevel, computeLevelProgress, getLevelBandPalette, getLevelEntry } from '@/utils/levels';
 import {
-  LEVELS,
-  computeLevel,
-  computeLevelProgress,
-  getLevelBandPalette,
-  getLevelEntry,
-} from '@/utils/levels';
-import { computeDeckMastery } from '@/utils/mastery';
+  formatStudyTime,
+  getAccuracyTrend,
+  getArenaStatsSummary,
+  getDeckProgressStats,
+  getDisplaySessions,
+  getLifetimeAccuracy,
+  getStatsCalendarColumns,
+  getStatsCalendarDays,
+  getWeeklySummary,
+} from '@/utils/statsSelectors';
 
 type ThemeValues = ReturnType<typeof useTheme>['theme'];
-
-type CalendarDayData = {
-  date: string;
-  count: number;
-  dayOfWeek: number;
-  monthLabel?: string;
-};
-
-type DeckMasterySummary = {
-  id: string;
-  name: string;
-  color: string;
-  mastered: number;
-  total: number;
-  pct: number;
-};
-
-function getIsoWeekString(date: Date): string {
-  const normalized = new Date(date);
-  normalized.setHours(0, 0, 0, 0);
-  normalized.setDate(normalized.getDate() + 3 - ((normalized.getDay() + 6) % 7));
-  const week1 = new Date(normalized.getFullYear(), 0, 4);
-  const weekNum = 1 + Math.round(
-    ((normalized.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7,
-  );
-
-  return `${normalized.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
-}
-
-function getRecentWeekKeys(count: number): string[] {
-  const keys: string[] = [];
-  const today = new Date();
-
-  for (let index = count - 1; index >= 0; index -= 1) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - index * 7);
-    keys.push(getIsoWeekString(date));
-  }
-
-  return keys;
-}
 
 export default function StatsPage() {
   const router = useRouter();
@@ -77,231 +40,29 @@ export default function StatsPage() {
   const levelProgress = useMemo(() => computeLevelProgress(stats.totalScore), [stats.totalScore]);
   const levelPalette = useMemo(() => getLevelBandPalette(level, isDark), [level, isDark]);
 
-  const masteryOverview = useMemo(() => {
-    return decks.reduce((accumulator, deck) => {
-      const mastery = computeDeckMastery(deck.flashcards, performance.cardStatsById);
-      accumulator.totalCards += mastery.total;
-      accumulator.mastered += mastery.mastered;
-      accumulator.reviewing += mastery.reviewing;
-      accumulator.learning += mastery.learning;
-      accumulator.lapsed += mastery.lapsed;
-      accumulator.newCards += mastery.newCards;
-      return accumulator;
-    }, {
-      totalCards: 0,
-      mastered: 0,
-      reviewing: 0,
-      learning: 0,
-      lapsed: 0,
-      newCards: 0,
-    });
+  const { masteryOverview, deckProgressSummaries } = useMemo(() => {
+    return getDeckProgressStats(decks, performance.cardStatsById);
   }, [decks, performance.cardStatsById]);
 
-  const arenaStats = useMemo(() => {
-    if (!savedPlayerName || leaderboard.length === 0) {
-      return null;
-    }
-
-    const normalizedName = savedPlayerName.trim().toLowerCase();
-    if (!normalizedName) {
-      return null;
-    }
-
-    const wins = leaderboard.filter(
-      (entry) => entry.winnerName.trim().toLowerCase() === normalizedName,
-    ).length;
-    const total = leaderboard.length;
-    const winRate = total > 0 ? Math.round((wins / total) * 100) : 0;
-
-    return { wins, total, winRate };
-  }, [leaderboard, savedPlayerName]);
-
-  const calendarWithIntensity = useMemo(() => {
-    const today = new Date();
-    const studyDates = stats.studyDates ?? [];
-    const dateCount: Record<string, number> = {};
-
-    for (const date of studyDates) {
-      dateCount[date] = (dateCount[date] ?? 0) + 1;
-    }
-
-    const days: CalendarDayData[] = [];
-    for (let i = 48; i >= 0; i -= 1) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateKey = date.toISOString().slice(0, 10);
-      const dayOfWeek = date.getDay() === 0 ? 6 : date.getDay() - 1;
-      const isFirstOfMonth = date.getDate() <= 7 && dayOfWeek === 0;
-
-      days.push({
-        date: dateKey,
-        count: dateCount[dateKey] ?? 0,
-        dayOfWeek,
-        monthLabel: isFirstOfMonth
-          ? date.toLocaleDateString('en-US', { month: 'short' })
-          : undefined,
-      });
-    }
-
-    return days;
-  }, [stats.studyDates]);
-
-  const weeklySummary = useMemo(() => {
-    const studySet = new Set(stats.studyDates ?? []);
-    const today = new Date();
-    const todayKey = today.toISOString().slice(0, 10);
-
-    if (stats.lastActiveDate === todayKey) {
-      studySet.add(todayKey);
-    }
-
-    const dayOfWeek = today.getDay();
-    const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-
-    let thisWeekDays = 0;
-    for (let i = 0; i <= mondayOffset; i += 1) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      if (studySet.has(date.toISOString().slice(0, 10))) {
-        thisWeekDays += 1;
-      }
-    }
-
-    if (stats.currentStreak > 0 && thisWeekDays === 0) {
-      thisWeekDays = 1;
-    }
-
-    let lastWeekDays = 0;
-    for (let i = mondayOffset + 1; i <= mondayOffset + 7; i += 1) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      if (studySet.has(date.toISOString().slice(0, 10))) {
-        lastWeekDays += 1;
-      }
-    }
-
-    let comparison: string;
-    if (thisWeekDays > lastWeekDays) {
-      comparison = `${thisWeekDays - lastWeekDays} more than last week`;
-    } else if (thisWeekDays < lastWeekDays) {
-      comparison = `${lastWeekDays - thisWeekDays} fewer than last week`;
-    } else {
-      comparison = lastWeekDays === 0 ? 'Start your week strong!' : 'Same as last week';
-    }
-
-    const currentWeekAccuracy = (() => {
-      const weekly = stats.weeklyAccuracy ?? [];
-      if (weekly.length === 0) {
-        return null;
-      }
-
-      const weekKey = getIsoWeekString(today);
-      const entry = weekly.find((item) => item.week === weekKey);
-      if (!entry || entry.attempted === 0) {
-        return null;
-      }
-
-      return Math.round((entry.correct / entry.attempted) * 100);
-    })();
-
-    return { thisWeekDays, comparison, currentWeekAccuracy };
-  }, [
-    stats.studyDates,
-    stats.lastActiveDate,
-    stats.weeklyAccuracy,
-    stats.currentStreak,
-  ]);
-
-  const lifetimeAccuracy = useMemo(() => {
-    const attempted = stats.totalQuestionsAttempted ?? 0;
-    const correct = stats.totalCorrectAnswers ?? 0;
-    return attempted > 0 ? Math.round((correct / attempted) * 100) : null;
-  }, [stats.totalQuestionsAttempted, stats.totalCorrectAnswers]);
-
-  const displaySessions = useMemo(() => {
-    const study = stats.totalStudySessions ?? 0;
-    const quest = stats.totalQuestSessions ?? 0;
-    const practice = stats.totalPracticeSessions ?? 0;
-    const arena = stats.totalArenaSessions ?? 0;
-
-    const hasPreTrackingData = (study + quest + practice + arena) === 0 && stats.totalCardsStudied > 0;
-
-    if (hasPreTrackingData) {
-      const estimatedStudy = stats.studyDates?.length ?? 0;
-      const estimatedQuest = (stats.totalQuestionsAttempted ?? 0) > 0
-        ? Math.max(1, Math.round((stats.totalQuestionsAttempted ?? 0) / 10))
-        : 0;
-
-      return {
-        study: estimatedStudy,
-        quest: estimatedQuest,
-        practice: 0,
-        arena: 0,
-        estimated: true,
-      };
-    }
-
-    return { study, quest, practice, arena, estimated: false };
-  }, [stats]);
-
-  const formattedStudyTime = useMemo(() => {
-    const ms = stats.totalStudyTimeMs ?? 0;
-    if (ms < 30000) {
-      return '—';
-    }
-
-    const minutes = Math.floor(ms / 60000);
-
-    if (minutes < 60) {
-      return `${minutes}m`;
-    }
-
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
-  }, [stats.totalStudyTimeMs]);
-
-  const accuracyTrend = useMemo(() => {
-    const weekly = stats.weeklyAccuracy ?? [];
-    const weeklyMap = new Map(weekly.map((entry) => [entry.week, entry]));
-
-    return getRecentWeekKeys(4).map((week) => {
-      const entry = weeklyMap.get(week);
-      return {
-        week,
-        accuracy: entry && entry.attempted > 0 ? Math.round((entry.correct / entry.attempted) * 100) : null,
-      };
-    });
-  }, [stats.weeklyAccuracy]);
+  const arenaStats = useMemo(() => getArenaStatsSummary(leaderboard, savedPlayerName), [leaderboard, savedPlayerName]);
+  const calendarWithIntensity = useMemo(() => getStatsCalendarDays(stats.studyDates ?? []), [stats.studyDates]);
+  const weeklySummary = useMemo(() => getWeeklySummary(stats), [stats]);
+  const lifetimeAccuracy = useMemo(() => getLifetimeAccuracy(stats), [stats]);
+  const displaySessions = useMemo(() => getDisplaySessions(stats), [stats]);
+  const formattedStudyTime = useMemo(() => formatStudyTime(stats.totalStudyTimeMs), [stats.totalStudyTimeMs]);
+  const accuracyTrend = useMemo(() => getAccuracyTrend(stats), [stats]);
 
   const hasRealAccuracyData = useMemo(
     () => accuracyTrend.some((entry) => entry.accuracy !== null),
     [accuracyTrend],
   );
 
-  const calendarColumns = useMemo(() => {
-    return Array.from({ length: 7 }, (_, weekIndex) => {
-      return calendarWithIntensity.slice(weekIndex * 7, weekIndex * 7 + 7);
-    });
-  }, [calendarWithIntensity]);
+  const calendarColumns = useMemo(() => getStatsCalendarColumns(calendarWithIntensity), [calendarWithIntensity]);
 
   const calendarActiveDays = useMemo(() => {
     return calendarWithIntensity.filter((day) => day.count > 0).length;
   }, [calendarWithIntensity]);
 
-  const deckProgressSummaries = useMemo(() => {
-    return decks.map((deck) => {
-      const mastery = computeDeckMastery(deck.flashcards, performance.cardStatsById);
-      return {
-        id: deck.id,
-        name: deck.name,
-        color: deck.color,
-        mastered: mastery.mastered,
-        total: mastery.total,
-        pct: mastery.total > 0 ? Math.round((mastery.mastered / mastery.total) * 100) : 0,
-      } satisfies DeckMasterySummary;
-    });
-  }, [decks, performance.cardStatsById]);
 
   const backgroundGradient = useMemo(
     () => (

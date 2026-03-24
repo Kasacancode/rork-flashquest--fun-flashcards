@@ -27,6 +27,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import { Flashcard } from '@/types/flashcard';
 import { logger } from '@/utils/logger';
+import { DECKS_ROUTE } from '@/utils/routes';
 import { generateUUID } from '@/utils/uuid';
 
 interface CardInput {
@@ -291,7 +292,7 @@ export default function CreateFlashcardPage() {
         cleanupPerformance(editingDeckId, cardIds);
         cleanupArena(editingDeckId);
         logger.log('Deck deleted successfully, cleaned up performance & arena data');
-        router.replace('/decks' as any);
+        router.replace(DECKS_ROUTE);
       } catch (error) {
         logger.error('Error deleting deck:', error);
         Alert.alert('Error', 'Failed to delete deck. Please try again.');

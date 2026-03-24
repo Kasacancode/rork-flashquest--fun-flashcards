@@ -9,6 +9,7 @@ import { useArena } from '@/context/ArenaContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { ArenaLeaderboardEntry } from '@/types/arena';
 import { PLAYER_NAME_MAX_LENGTH, sanitizePlayerName } from '@/utils/playerName';
+import { ARENA_LOBBY_ROUTE, PROFILE_ROUTE } from '@/utils/routes';
 
 const ARENA_ACCENT_LIGHT = '#eb6a1a';
 const ARENA_ACCENT_DARK = '#fb923c';
@@ -106,7 +107,7 @@ export default function ArenaMenuScreen() {
       setPendingAction(null);
       setShowCreateModal(false);
       setShowJoinModal(false);
-      router.push('/arena-lobby' as any);
+      router.push(ARENA_LOBBY_ROUTE);
     }
   }, [pendingAction, roomCode, router]);
 
@@ -264,7 +265,7 @@ export default function ArenaMenuScreen() {
   };
 
   const handleRejoin = () => {
-    router.push('/arena-lobby' as any);
+    router.push(ARENA_LOBBY_ROUTE);
   };
 
   const handleDisconnect = () => {
@@ -272,7 +273,7 @@ export default function ArenaMenuScreen() {
   };
 
   const handleOpenSettings = () => {
-    router.push('/profile' as any);
+    router.push(PROFILE_ROUTE);
   };
 
   return (

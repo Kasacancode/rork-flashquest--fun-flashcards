@@ -14,6 +14,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { isMeaningfulArenaStreak, selectAssistantDialogue, type ArenaDialogueEvent } from '@/utils/dialogue';
 import { buildGameplayOptionLabels, formatGameplayQuestion } from '@/utils/gameplayCopy';
 import { logger } from '@/utils/logger';
+import { ARENA_RESULTS_ROUTE, ARENA_ROUTE } from '@/utils/routes';
 
 type ArenaRevealBeat = 'question' | 'lock' | 'answer' | 'leaderboard' | 'next';
 
@@ -308,7 +309,7 @@ export default function ArenaSessionScreen() {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       setTimeout(() => {
-        router.replace('/arena-results' as any);
+        router.replace(ARENA_RESULTS_ROUTE);
       }, 500);
       return;
     }
@@ -316,7 +317,7 @@ export default function ArenaSessionScreen() {
     if (!room || (!game && room.status !== 'finished')) {
       if (!hasNavigatedToResults.current) {
         logger.log('[Session] No active game, redirecting');
-        router.replace('/arena' as any);
+        router.replace(ARENA_ROUTE);
       }
     }
   }, [connectionError, room, game, phase, router]);
@@ -328,7 +329,7 @@ export default function ArenaSessionScreen() {
           text: 'OK',
           onPress: () => {
             clearError();
-            router.replace('/arena' as any);
+            router.replace(ARENA_ROUTE);
           },
         },
       ]);
@@ -482,7 +483,7 @@ export default function ArenaSessionScreen() {
         style: 'destructive',
         onPress: () => {
           disconnect();
-          router.replace('/arena' as any);
+          router.replace(ARENA_ROUTE);
         },
       },
     ]);

@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -21,8 +20,10 @@ import {
   updateCardMemory,
 } from '@/utils/mastery';
 import { logger } from '@/utils/logger';
+import { persistStorageSnapshot, readStorageSnapshot } from '@/utils/storage';
 
 const STORAGE_KEY = 'flashquest_performance';
+const STORAGE_BACKUP_KEY = 'flashquest_performance_backup';
 
 const DEFAULT_PERFORMANCE: QuestPerformance = {
   cardStatsById: {},
@@ -46,29 +47,27 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     queryKey: ['performance'],
     queryFn: async () => {
       logger.log('[Performance] Loading performance data from storage');
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const storedPerformance = await readStorageSnapshot<QuestPerformance>({
+        primaryKey: STORAGE_KEY,
+        backupKey: STORAGE_BACKUP_KEY,
+        label: 'performance',
+        fallback: DEFAULT_PERFORMANCE,
+      });
+      const migrated = migrateQuestPerformance(storedPerformance);
 
-      if (!stored) {
-        logger.log('[Performance] No stored performance, using defaults');
-        return DEFAULT_PERFORMANCE;
+      if (migrated.didChange) {
+        await persistStorageSnapshot({
+          primaryKey: STORAGE_KEY,
+          backupKey: STORAGE_BACKUP_KEY,
+          value: migrated.performance,
+          label: 'performance migration',
+        });
+        logger.log('[Performance] Migrated performance model for', Object.keys(migrated.performance.cardStatsById).length, 'cards');
+      } else {
+        logger.log('[Performance] Loaded performance:', Object.keys(migrated.performance.cardStatsById).length, 'cards tracked');
       }
 
-      try {
-        const parsed = JSON.parse(stored) as QuestPerformance;
-        const migrated = migrateQuestPerformance(parsed);
-
-        if (migrated.didChange) {
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(migrated.performance));
-          logger.log('[Performance] Migrated performance model for', Object.keys(migrated.performance.cardStatsById).length, 'cards');
-        } else {
-          logger.log('[Performance] Loaded performance:', Object.keys(migrated.performance.cardStatsById).length, 'cards tracked');
-        }
-
-        return migrated.performance;
-      } catch (error) {
-        logger.log('[Performance] Failed to parse stored performance, resetting:', error);
-        return DEFAULT_PERFORMANCE;
-      }
+      return migrated.performance;
     },
   });
 
@@ -81,14 +80,31 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
   const savePerformanceMutation = useMutation({
     mutationFn: async (newPerformance: QuestPerformance) => {
       logger.log('[Performance] Saving performance data');
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newPerformance));
+      await persistStorageSnapshot({
+        primaryKey: STORAGE_KEY,
+        backupKey: STORAGE_BACKUP_KEY,
+        value: newPerformance,
+        label: 'performance',
+      });
       return newPerformance;
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['performance'] });
+    onSuccess: (newPerformance: QuestPerformance) => {
+      queryClient.setQueryData(['performance'], newPerformance);
     },
   });
   const { mutate: savePerformance } = savePerformanceMutation;
+
+  const applyPerformanceUpdate = useCallback((updater: (previous: QuestPerformance) => QuestPerformance) => {
+    setPerformance((previous) => {
+      const nextPerformance = updater(previous);
+      if (nextPerformance === previous) {
+        return previous;
+      }
+
+      savePerformance(nextPerformance);
+      return nextPerformance;
+    });
+  }, [savePerformance]);
 
   const logQuestAttempt = useCallback((params: {
     deckId: string;
@@ -120,7 +136,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
       quality: resolvedQuality,
     });
 
-    setPerformance((prev) => {
+    applyPerformanceUpdate((prev) => {
       const cardStats = prev.cardStatsById[params.cardId] || createDefaultCardStats();
       const deckStats = prev.deckStatsById[params.deckId] || { ...DEFAULT_DECK_STATS };
       const updatedCardStats = updateCardMemory(cardStats, { quality: resolvedQuality, now });
@@ -140,7 +156,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
         nextReviewAt: updatedCardStats.nextReviewAt,
       });
 
-      const newPerformance: QuestPerformance = {
+      return {
         ...prev,
         cardStatsById: {
           ...prev.cardStatsById,
@@ -151,27 +167,22 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
           [params.deckId]: updatedDeckStats,
         },
       };
-
-      savePerformance(newPerformance);
-      return newPerformance;
     });
-  }, [savePerformance]);
+  }, [applyPerformanceUpdate]);
 
   const updateBestStreak = useCallback((runStreak: number) => {
-    setPerformance((prev) => {
+    applyPerformanceUpdate((prev) => {
       if (runStreak <= prev.bestQuestStreak) {
         return prev;
       }
 
       logger.log('[Performance] New best streak:', runStreak);
-      const newPerformance: QuestPerformance = {
+      return {
         ...prev,
         bestQuestStreak: runStreak,
       };
-      savePerformance(newPerformance);
-      return newPerformance;
     });
-  }, [savePerformance]);
+  }, [applyPerformanceUpdate]);
 
   const getCardAccuracy = useCallback((cardId: string): number | null => {
     const stats = performance.cardStatsById[cardId];
@@ -214,15 +225,11 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
 
   const saveLastQuestSettings = useCallback((settings: QuestSettings) => {
     logger.log('[Performance] Saving last quest settings');
-    setPerformance((prev) => {
-      const newPerformance: QuestPerformance = {
-        ...prev,
-        lastQuestSettings: settings,
-      };
-      savePerformance(newPerformance);
-      return newPerformance;
-    });
-  }, [savePerformance]);
+    applyPerformanceUpdate((prev) => ({
+      ...prev,
+      lastQuestSettings: settings,
+    }));
+  }, [applyPerformanceUpdate]);
 
   const getLastQuestSettings = useCallback((): QuestSettings | undefined => {
     return performance.lastQuestSettings;
@@ -246,7 +253,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
 
   const cleanupDeck = useCallback((deckId: string, cardIds: string[]) => {
     logger.log('[Performance] Cleaning up data for deleted deck:', deckId, 'cards:', cardIds.length);
-    setPerformance((prev) => {
+    applyPerformanceUpdate((prev) => {
       const updatedCardStats = { ...prev.cardStatsById };
       for (const cardId of cardIds) {
         delete updatedCardStats[cardId];
@@ -255,16 +262,13 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
       const updatedDeckStats = { ...prev.deckStatsById };
       delete updatedDeckStats[deckId];
 
-      const newPerformance: QuestPerformance = {
+      return {
         ...prev,
         cardStatsById: updatedCardStats,
         deckStatsById: updatedDeckStats,
       };
-
-      savePerformance(newPerformance);
-      return newPerformance;
     });
-  }, [savePerformance]);
+  }, [applyPerformanceUpdate]);
 
   const liveCardStatsById = useMemo<Record<string, CardStats>>(() => {
     const now = Date.now();

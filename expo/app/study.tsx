@@ -19,6 +19,7 @@ import { trackEvent } from '@/lib/analytics';
 import type { Flashcard } from '@/types/flashcard';
 import { GAME_MODE } from '@/types/game';
 import { logger } from '@/utils/logger';
+import { DECKS_ROUTE, deckHubHref, questHref } from '@/utils/routes';
 
 export default function StudyPage() {
   const router = useRouter();
@@ -161,7 +162,7 @@ export default function StudyPage() {
 
             <TouchableOpacity
               style={styles.suggestButton}
-              onPress={() => router.push({ pathname: '/quest', params: { deckId: selectedDeck.id } } as any)}
+              onPress={() => router.push(questHref({ deckId: selectedDeck.id }))}
             >
               <Target color="#fff" size={20} strokeWidth={2} />
               <Text style={styles.suggestButtonText}>Test Yourself in Quest Mode</Text>
@@ -169,7 +170,7 @@ export default function StudyPage() {
 
             <TouchableOpacity
               style={styles.hubButton}
-              onPress={() => router.push({ pathname: '/deck-hub', params: { deckId: selectedDeck.id } } as any)}
+              onPress={() => router.push(deckHubHref(selectedDeck.id))}
             >
               <Zap color="rgba(255,255,255,0.7)" size={18} strokeWidth={2} />
               <Text style={styles.hubButtonText}>View Deck Progress</Text>
@@ -251,7 +252,7 @@ export default function StudyPage() {
                     <TouchableOpacity
                       onPress={() => {
                         setShowDeckSelector(false);
-                        router.push('/decks' as any);
+                        router.push(DECKS_ROUTE);
                       }}
                       style={{ backgroundColor: theme.primary, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 24 }}
                       testID="study-empty-go-to-decks-button"
@@ -334,7 +335,7 @@ export default function StudyPage() {
                   <TouchableOpacity
                     onPress={() => {
                       setShowDeckSelector(false);
-                      router.push('/decks' as any);
+                      router.push(DECKS_ROUTE);
                     }}
                     style={{ backgroundColor: theme.primary, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 24 }}
                     testID="study-empty-go-to-decks-button"

@@ -9,6 +9,9 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { QuestMode, QuestSettings } from '@/types/performance';
+import { serializeQuestSettings } from '@/utils/questParams';
+import { DECKS_ROUTE, questSessionHref } from '@/utils/routes';
+import { getFirstRouteParam } from '@/utils/safeJson';
 
 type RunLength = 5 | 10 | 20;
 type TimerOption = 0 | 5 | 10;
@@ -18,18 +21,21 @@ const SHEET_HEIGHT = SCREEN_HEIGHT * 0.65;
 
 export default function QuestMenuScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ deckId?: string; focusWeak?: string }>();
+  const params = useLocalSearchParams<{ deckId?: string | string[]; focusWeak?: string | string[] }>();
   const { theme, isDark } = useTheme();
   const { decks } = useFlashQuest();
   const { performance, getLastQuestSettings, getDeckAccuracy, getOverallQuestAccuracy, saveLastQuestSettings } = usePerformance();
 
   const lastSettings = getLastQuestSettings();
 
-  const [selectedDeckId, setSelectedDeckId] = useState<string>(params.deckId || lastSettings?.deckId || decks[0]?.id || '');
+  const requestedDeckId = getFirstRouteParam(params.deckId);
+  const focusWeakParam = getFirstRouteParam(params.focusWeak);
+
+  const [selectedDeckId, setSelectedDeckId] = useState<string>(requestedDeckId || lastSettings?.deckId || decks[0]?.id || '');
   const [mode, setMode] = useState<QuestMode>(lastSettings?.mode || 'learn');
   const [runLength, setRunLength] = useState<RunLength>(lastSettings?.runLength || 10);
   const [timerSeconds, setTimerSeconds] = useState<TimerOption>(lastSettings?.timerSeconds || 0);
-  const [focusWeakOnly, setFocusWeakOnly] = useState<boolean>(params.focusWeak === 'true' || lastSettings?.focusWeakOnly || false);
+  const [focusWeakOnly, setFocusWeakOnly] = useState<boolean>(focusWeakParam === 'true' || lastSettings?.focusWeakOnly || false);
   const [hintsEnabled, setHintsEnabled] = useState<boolean>(lastSettings?.hintsEnabled ?? (mode === 'learn'));
   const [explanationsEnabled, setExplanationsEnabled] = useState<boolean>(lastSettings?.explanationsEnabled ?? (mode === 'learn'));
   const [secondChanceEnabled, setSecondChanceEnabled] = useState<boolean>(lastSettings?.secondChanceEnabled || false);
@@ -42,13 +48,13 @@ export default function QuestMenuScreen() {
   const hasDecks = decks.length > 0;
 
   useEffect(() => {
-    if (params.deckId && decks.some((deck) => deck.id === params.deckId)) {
-      setSelectedDeckId(params.deckId);
+    if (requestedDeckId && decks.some((deck) => deck.id === requestedDeckId)) {
+      setSelectedDeckId(requestedDeckId);
     }
-    if (params.focusWeak === 'true') {
+    if (focusWeakParam === 'true') {
       setFocusWeakOnly(true);
     }
-  }, [decks, params.deckId, params.focusWeak]);
+  }, [decks, focusWeakParam, requestedDeckId]);
 
   const overallAccuracy = getOverallQuestAccuracy();
   const deckAccuracy = selectedDeckId ? getDeckAccuracy(selectedDeckId) : null;
@@ -115,19 +121,13 @@ export default function QuestMenuScreen() {
 
     saveLastQuestSettings(settings);
 
-    router.push({
-      pathname: '/quest-session' as any,
-      params: { settings: JSON.stringify(settings) },
-    });
+    router.push(questSessionHref({ settings: serializeQuestSettings(settings) }));
   };
 
   const handleQuickResume = () => {
     if (!lastSettings) return;
 
-    router.push({
-      pathname: '/quest-session' as any,
-      params: { settings: JSON.stringify(lastSettings) },
-    });
+    router.push(questSessionHref({ settings: serializeQuestSettings(lastSettings) }));
   };
 
   const smallDeckWarning = selectedDeck && selectedDeck.flashcards.length < 8;
@@ -256,7 +256,7 @@ export default function QuestMenuScreen() {
               <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>Create a deck first, then come back to start a quest.</Text>
               <TouchableOpacity
                 style={[styles.emptyStateButton, { backgroundColor: theme.primary }]}
-                onPress={() => router.push('/decks' as any)}
+                onPress={() => router.push(DECKS_ROUTE)}
                 activeOpacity={0.85}
                 testID="quest-empty-go-to-decks"
               >

@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useArena } from '@/context/ArenaContext';
 import { useTheme } from '@/context/ThemeContext';
 import { logger } from '@/utils/logger';
+import { ARENA_LOBBY_ROUTE, ARENA_ROUTE } from '@/utils/routes';
 
 const ARENA_ACCENT_LIGHT = '#f97316';
 const ARENA_ACCENT_DARK = '#f59e0b';
@@ -63,7 +64,7 @@ export default function JoinBattleFromLinkScreen() {
     }
 
     if (roomCode === inviteCode) {
-      router.replace('/arena-lobby' as any);
+      router.replace(ARENA_LOBBY_ROUTE);
       return;
     }
 
@@ -112,7 +113,7 @@ export default function JoinBattleFromLinkScreen() {
   }, [clearError, connectionError]);
 
   const handleBackToArena = useCallback(() => {
-    router.replace('/arena' as any);
+    router.replace(ARENA_ROUTE);
   }, [router]);
 
   const handleSubmitNickname = useCallback(() => {

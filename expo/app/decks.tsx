@@ -3,19 +3,17 @@ import { useRouter } from 'expo-router';
 import {
   ArrowLeft,
   BookOpen,
-  ChevronRight,
   Download,
-  Edit,
   FileText,
   PenLine,
   Plus,
   Sparkles,
-  Trash2,
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import {
   Alert,
+  FlatList,
   Modal,
   Pressable,
   ScrollView,
@@ -27,13 +25,21 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import DeckCard from '@/components/decks/DeckCard';
 import { ALL_DECK_CATEGORIES_LABEL } from '@/constants/deckCategories';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
-import type { Deck, Flashcard } from '@/types/flashcard';
-import { computeDeckMastery } from '@/utils/mastery';
+import { importDeckFromClipboardText } from '@/utils/deckImport';
+import { getDeckListSummaries } from '@/utils/deckSelectors';
+import {
+  createFlashcardHref,
+  deckHubHref,
+  SCAN_NOTES_ROUTE,
+  studyHref,
+  TEXT_TO_DECK_ROUTE,
+} from '@/utils/routes';
 
 export default function DecksPage() {
   const router = useRouter();
@@ -45,7 +51,6 @@ export default function DecksPage() {
   const [showMenu, setShowMenu] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string>(ALL_DECK_CATEGORIES_LABEL);
-  const deckListScrollRef = useRef<ScrollView | null>(null);
 
   const categories = useMemo(() => {
     const uniqueCategories = Array.from(new Set(decks.map((deck) => deck.category).filter(Boolean)));
@@ -76,8 +81,12 @@ export default function DecksPage() {
     return result;
   }, [decks, activeCategory, searchQuery]);
 
+  const filteredDeckSummaries = useMemo(() => {
+    return getDeckListSummaries(filteredDecks, performance.cardStatsById, getCardsDueForReview);
+  }, [filteredDecks, getCardsDueForReview, performance.cardStatsById]);
+
   const hasNoDecks = decks.length === 0;
-  const hasNoSearchResults = decks.length > 0 && filteredDecks.length === 0;
+  const hasNoSearchResults = decks.length > 0 && filteredDeckSummaries.length === 0;
 
   useEffect(() => {
     if (!categories.includes(activeCategory)) {
@@ -87,25 +96,25 @@ export default function DecksPage() {
 
   const handleCreateManual = useCallback(() => {
     setShowMenu(false);
-    router.push('/create-flashcard' as any);
+    router.push(createFlashcardHref());
   }, [router]);
 
   const handleScanNotes = useCallback(() => {
     setShowMenu(false);
-    router.push('/scan-notes' as any);
+    router.push(SCAN_NOTES_ROUTE);
   }, [router]);
 
   const handleTextToDeck = useCallback(() => {
     setShowMenu(false);
-    router.push('/text-to-deck' as any);
+    router.push(TEXT_TO_DECK_ROUTE);
   }, [router]);
 
   const handleStudyDeck = useCallback((deckId: string) => {
-    router.push({ pathname: '/study' as any, params: { deckId } });
+    router.push(studyHref(deckId));
   }, [router]);
 
   const handleOpenDeckHub = useCallback((deckId: string) => {
-    router.push({ pathname: '/deck-hub' as any, params: { deckId } });
+    router.push(deckHubHref(deckId));
   }, [router]);
 
   const handleImportDeck = useCallback(async () => {
@@ -116,82 +125,21 @@ export default function DecksPage() {
         return;
       }
 
-      type ImportedFlashcard = {
-        question?: unknown;
-        answer?: unknown;
-      };
-
-      type ImportedDeckPayload = {
-        _type?: unknown;
-        name?: unknown;
-        description?: unknown;
-        color?: unknown;
-        category?: unknown;
-        flashcards?: ImportedFlashcard[];
-      };
-
-      if (text.length > 500000) {
-        Alert.alert('Import Too Large', 'The clipboard content is too large to import. Try a smaller deck.');
-        return;
-      }
-
-      let data: ImportedDeckPayload;
-      try {
-        data = JSON.parse(text) as ImportedDeckPayload;
-      } catch {
-        Alert.alert('Invalid Data', 'The clipboard does not contain a valid FlashQuest deck.');
-        return;
-      }
-
-      if (data._type !== 'flashquest_deck' || typeof data.name !== 'string' || !Array.isArray(data.flashcards) || data.flashcards.length === 0) {
+      const imported = importDeckFromClipboardText(text);
+      if (!imported) {
         Alert.alert('Invalid Deck', 'The clipboard does not contain a valid FlashQuest deck.');
         return;
       }
 
-      const getStringValue = (value: unknown, fallback: string): string => {
-        return typeof value === 'string' ? value : fallback;
-      };
-
-      const newDeckId = `deck_${Date.now()}`;
-      const createdAt = Date.now();
-      const flashcards: Flashcard[] = data.flashcards.map((card, index) => ({
-        id: `import_${newDeckId}_${index}`,
-        question: getStringValue(card.question, '').slice(0, 500),
-        answer: getStringValue(card.answer, '').slice(0, 200),
-        deckId: newDeckId,
-        difficulty: 'medium' as const,
-        createdAt,
-      })).filter((card) => card.question.trim().length > 0 && card.answer.trim().length > 0);
-
-      if (flashcards.length === 0) {
-        Alert.alert('Invalid Deck', 'The clipboard deck has no valid cards to import.');
-        return;
-      }
-
-      const importedName = data.name.slice(0, 100);
-      const importedDescription = getStringValue(data.description, 'Imported deck').slice(0, 200);
-      const importedCategory = getStringValue(data.category, 'Imported').slice(0, 30);
-
-      addDeck({
-        id: newDeckId,
-        name: importedName,
-        description: importedDescription,
-        color: typeof data.color === 'string' ? data.color : '#667EEA',
-        icon: 'download',
-        category: importedCategory,
-        flashcards,
-        isCustom: true,
-        createdAt,
-      });
-
-      Alert.alert('Deck Imported!', `"${importedName}" with ${flashcards.length} cards has been added to your decks.`);
+      addDeck(imported.deck);
+      Alert.alert('Deck Imported!', `"${imported.deck.name}" with ${imported.cardCount} cards has been added to your decks.`);
     } catch {
       Alert.alert('Import Failed', 'Could not import the deck. Make sure you copied a valid FlashQuest deck.');
     }
   }, [addDeck]);
 
   const handleEditDeck = useCallback((deckId: string) => {
-    router.push({ pathname: '/create-flashcard' as any, params: { deckId } });
+    router.push(createFlashcardHref(deckId));
   }, [router]);
 
   const handleDeleteDeck = useCallback(async (deckId: string) => {
@@ -206,16 +154,7 @@ export default function DecksPage() {
   const handleSelectCategory = useCallback((category: string) => {
     setActiveCategory(category);
     setSearchQuery('');
-    requestAnimationFrame(() => {
-      deckListScrollRef.current?.scrollTo({ y: 0, animated: false });
-    });
   }, []);
-
-  useEffect(() => {
-    requestAnimationFrame(() => {
-      deckListScrollRef.current?.scrollTo({ y: 0, animated: false });
-    });
-  }, [activeCategory, searchQuery]);
 
   const backgroundGradient = useMemo(
     () => (
@@ -399,7 +338,7 @@ export default function DecksPage() {
 
         <View style={styles.listSection}>
           <Text style={[styles.deckCount, { color: theme.textSecondary }]}> 
-            {filteredDecks.length} {filteredDecks.length === 1 ? 'deck' : 'decks'} {activeCategory === ALL_DECK_CATEGORIES_LABEL ? 'total' : `in ${activeCategory}`}
+            {filteredDeckSummaries.length} {filteredDeckSummaries.length === 1 ? 'deck' : 'decks'} {activeCategory === ALL_DECK_CATEGORIES_LABEL ? 'total' : `in ${activeCategory}`}
           </Text>
 
           {hasNoDecks ? (
@@ -426,175 +365,34 @@ export default function DecksPage() {
               </View>
             </View>
           ) : (
-            <ScrollView
-              ref={deckListScrollRef}
+            <FlatList
+              data={filteredDeckSummaries}
+              keyExtractor={(item) => item.deck.id}
+              renderItem={({ item }) => (
+                <DeckCard
+                  summary={item}
+                  theme={theme}
+                  isDark={isDark}
+                  deckSurface={deckSurface}
+                  quietSurface={quietSurface}
+                  subtleBorderColor={subtleBorderColor}
+                  surfaceBorderColor={surfaceBorderColor}
+                  onOpenDeckHub={handleOpenDeckHub}
+                  onStudyDeck={handleStudyDeck}
+                  onEditDeck={handleEditDeck}
+                  onDeleteDeck={handleDeleteDeck}
+                />
+              )}
               style={styles.scrollView}
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
-            >
-              {filteredDecks.map((deck: Deck) => {
-                const mastery = computeDeckMastery(deck.flashcards, performance.cardStatsById);
-                const isFullyMastered = mastery.total > 0 && mastery.mastered === mastery.total;
-                const dueCount = getCardsDueForReview(deck.id, deck.flashcards).length;
-                const pMastered = mastery.total > 0 ? (mastery.mastered / mastery.total) * 100 : 0;
-                const pReviewing = mastery.total > 0 ? (mastery.reviewing / mastery.total) * 100 : 0;
-                const pLearning = mastery.total > 0 ? (mastery.learning / mastery.total) * 100 : 0;
-                const pLapsed = mastery.total > 0 ? (mastery.lapsed / mastery.total) * 100 : 0;
-
-                return (
-                  <View
-                    key={deck.id}
-                    style={[
-                      styles.deckCard,
-                      {
-                        backgroundColor: deckSurface,
-                        borderWidth: 1,
-                        borderColor: surfaceBorderColor,
-                        shadowColor: isDark ? '#000' : '#8f7ae8',
-                        shadowOpacity: isDark ? 0.24 : 0.12,
-                        shadowRadius: isDark ? 18 : 14,
-                        elevation: isDark ? 8 : 6,
-                      },
-                      isFullyMastered ? { borderColor: '#10B981', borderWidth: 2 } : null,
-                    ]}
-                  >
-                    <View style={[styles.deckColorBar, { backgroundColor: deck.color }]} />
-                    <View style={[styles.deckAura, { backgroundColor: deck.color }]} />
-
-                    <View style={styles.deckContent}>
-                      <View style={styles.deckHeader}>
-                        <TouchableOpacity
-                          style={styles.deckInfo}
-                          onPress={() => handleOpenDeckHub(deck.id)}
-                          activeOpacity={0.72}
-                          testID={`deck-hub-open-${deck.id}`}
-                        >
-                          <View style={styles.deckNameRow}>
-                            <Text style={[styles.deckName, styles.deckNameInline, { color: theme.text }]} numberOfLines={1}>
-                              {deck.name}
-                            </Text>
-                            <ChevronRight color={theme.textTertiary} size={14} strokeWidth={2.4} />
-                          </View>
-                          <Text style={[styles.deckDescription, { color: theme.textSecondary }]} numberOfLines={2}>
-                            {deck.description}
-                          </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[
-                            styles.deleteButton,
-                            {
-                              backgroundColor: quietSurface,
-                              borderColor: subtleBorderColor,
-                            },
-                          ]}
-                          onPress={() => {
-                            Alert.alert(
-                              'Delete Deck',
-                              `Are you sure you want to delete "${deck.name}"? This cannot be undone.`,
-                              [
-                                { text: 'Cancel', style: 'cancel' },
-                                { text: 'Delete', style: 'destructive', onPress: () => void handleDeleteDeck(deck.id) },
-                              ]
-                            );
-                          }}
-                          activeOpacity={0.8}
-                          testID={`deck-delete-button-${deck.id}`}
-                        >
-                          <Trash2 color={theme.textSecondary} size={16} strokeWidth={2.3} />
-                        </TouchableOpacity>
-                      </View>
-
-                      <View style={styles.deckStats}>
-                        <View style={[styles.statBadge, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
-                          <BookOpen color={theme.textSecondary} size={16} strokeWidth={2} />
-                          <Text style={[styles.statText, { color: theme.textSecondary }]}> 
-                            {deck.flashcards.length} cards
-                          </Text>
-                        </View>
-                        <View style={[styles.categoryBadge, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
-                          <Text style={[styles.categoryText, { color: theme.text }]}>{deck.category}</Text>
-                        </View>
-                      </View>
-
-                      {mastery.total > 0 ? (
-                        <View style={styles.masterySection}>
-                          <View style={styles.masteryHeaderRow}>
-                            <Text style={[styles.masteryLabel, { color: theme.textSecondary }]}> 
-                              {mastery.mastered}/{mastery.total} mastered
-                            </Text>
-                            <Text style={[styles.masteryPercent, { color: theme.textTertiary }]}>
-                              {Math.round(pMastered)}%
-                            </Text>
-                          </View>
-                          <View style={[styles.masteryTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
-                            {pMastered > 0 ? <View style={[styles.masterySegment, { width: `${pMastered}%`, backgroundColor: '#10B981' }]} /> : null}
-                            {pReviewing > 0 ? <View style={[styles.masterySegment, { width: `${pReviewing}%`, backgroundColor: '#3B82F6' }]} /> : null}
-                            {pLearning > 0 ? <View style={[styles.masterySegment, { width: `${pLearning}%`, backgroundColor: '#F59E0B' }]} /> : null}
-                            {pLapsed > 0 ? <View style={[styles.masterySegment, { width: `${pLapsed}%`, backgroundColor: '#F43F5E' }]} /> : null}
-                          </View>
-                        </View>
-                      ) : null}
-
-                      {dueCount > 0 || mastery.lapsed > 0 || isFullyMastered ? (
-                        <View style={styles.deckStatusRow}>
-                          {dueCount > 0 ? (
-                            <View style={[styles.statusPill, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
-                              <View style={[styles.statusDot, { backgroundColor: '#3B82F6' }]} />
-                              <Text style={[styles.statusText, { color: '#3B82F6' }]}>
-                                {dueCount} due for review
-                              </Text>
-                            </View>
-                          ) : null}
-
-                          {mastery.lapsed > 0 ? (
-                            <View style={[styles.statusPill, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
-                              <View style={[styles.statusDot, { backgroundColor: '#F43F5E' }]} />
-                              <Text style={[styles.statusText, { color: '#F43F5E' }]}>{mastery.lapsed} lapsed</Text>
-                            </View>
-                          ) : null}
-
-                          {isFullyMastered ? (
-                            <View style={[styles.statusPill, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
-                              <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
-                              <Text style={[styles.statusText, { color: '#10B981' }]}>Fully Mastered</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      ) : null}
-
-                      <View style={styles.deckActions}>
-                        <TouchableOpacity
-                          style={[
-                            styles.studyButton,
-                            {
-                              backgroundColor: theme.primary,
-                              shadowColor: theme.primary,
-                              shadowOpacity: isDark ? 0.24 : 0.14,
-                              shadowRadius: isDark ? 16 : 10,
-                              elevation: isDark ? 7 : 4,
-                            },
-                          ]}
-                          onPress={() => handleStudyDeck(deck.id)}
-                          activeOpacity={0.8}
-                        >
-                          <BookOpen color="#fff" size={20} strokeWidth={2.5} />
-                          <Text style={styles.studyButtonText}>Study</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[styles.actionButton, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}
-                          onPress={() => handleEditDeck(deck.id)}
-                          activeOpacity={0.8}
-                        >
-                          <Edit color={theme.text} size={20} strokeWidth={2.5} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
-            </ScrollView>
+              testID="decks-flat-list"
+              removeClippedSubviews
+              initialNumToRender={6}
+              maxToRenderPerBatch={8}
+              windowSize={7}
+              ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+            />
           )}
         </View>
       </SafeAreaView>
@@ -806,6 +604,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
+  },
+  listSeparator: {
+    height: 16,
   },
   deckCount: {
     fontSize: 13,

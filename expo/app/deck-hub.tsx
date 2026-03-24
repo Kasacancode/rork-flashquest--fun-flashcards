@@ -10,6 +10,7 @@ import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { computeDeckMastery } from '@/utils/mastery';
 import { generateUUID } from '@/utils/uuid';
+import { DECKS_ROUTE } from '@/utils/routes';
 
 function withAlpha(color: string, alpha: number): string {
   const normalized = color.replace('#', '');
@@ -191,7 +192,7 @@ export default function DeckHubScreen() {
             <Text style={styles.errorTitle}>Deck not found</Text>
             <Text style={styles.errorSubtitle}>This deck may have been deleted.</Text>
             <TouchableOpacity
-              onPress={() => router.replace('/decks' as any)}
+              onPress={() => router.replace(DECKS_ROUTE)}
               style={styles.errorAction}
               testID="deck-hub-go-to-decks-button"
             >

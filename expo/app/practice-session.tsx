@@ -17,6 +17,7 @@ import type { RecallQuality } from '@/types/performance';
 import type { PracticeMode, PracticeSessionState } from '@/types/practice';
 import { clearAIDistractorCache as clearDistractorCache, generateOptionsWithAI } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
+import { questHref, studyHref } from '@/utils/routes';
 
 const QUESTION_TIME = 15;
 
@@ -734,7 +735,7 @@ export default function PracticeSessionPage() {
               onPress={() => {
                 if (resultRecordedRef.current) {
                   endBattle();
-                  router.push({ pathname: '/quest', params: { deckId } } as any);
+                  router.push(questHref({ deckId }));
                   return;
                 }
                 resultRecordedRef.current = true;
@@ -759,7 +760,7 @@ export default function PracticeSessionPage() {
                 });
                 logger.log('[Practice] Recorded session result, xp:', practiceXp);
                 endBattle();
-                router.push({ pathname: '/quest', params: { deckId } } as any);
+                router.push(questHref({ deckId }));
               }}
               activeOpacity={0.8}
             >
@@ -779,7 +780,7 @@ export default function PracticeSessionPage() {
               onPress={() => {
                 if (resultRecordedRef.current) {
                   endBattle();
-                  router.push({ pathname: '/study', params: { deckId } } as any);
+                  router.push(studyHref(deckId));
                   return;
                 }
                 resultRecordedRef.current = true;
@@ -804,7 +805,7 @@ export default function PracticeSessionPage() {
                 });
                 logger.log('[Practice] Recorded session result, xp:', practiceXp);
                 endBattle();
-                router.push({ pathname: '/study', params: { deckId } } as any);
+                router.push(studyHref(deckId));
               }}
               activeOpacity={0.7}
             >
@@ -927,7 +928,7 @@ export default function PracticeSessionPage() {
             <View style={styles.answerSection}>
               <View style={styles.turnIndicator}>
                 <View style={[styles.turnDot, { backgroundColor: '#ef4444' }]} />
-                <Text style={styles.turnText}>{currentBattle.opponentName}'s Turn</Text>
+                <Text style={styles.turnText}>{`${currentBattle.opponentName}'s Turn`}</Text>
               </View>
               <View style={styles.waitingCard}>
                 <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>

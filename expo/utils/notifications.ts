@@ -2,6 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { logger } from '@/utils/logger';
+import { normalizeStringArray, safeParseJsonOrNull } from '@/utils/safeJson';
+
 const NOTIFICATION_PERMISSION_KEY = 'flashquest_notification_permission_asked';
 const STREAK_NOTIFICATION_ID = 'flashquest_streak_reminder';
 const STREAK_NOTIFICATION_CHANNEL_ID = 'flashquest-streak-reminders';
@@ -56,15 +59,20 @@ async function clearScheduledStreakReminders(): Promise<void> {
     return;
   }
 
-  try {
-    const identifiers = JSON.parse(storedIdentifiers) as string[];
+  const identifiers = safeParseJsonOrNull<string[]>({
+    raw: storedIdentifiers,
+    label: 'stored streak reminder identifiers',
+    normalize: normalizeStringArray,
+  });
+
+  if (identifiers) {
     await Promise.all(
       identifiers.map((identifier) =>
         Notifications.cancelScheduledNotificationAsync(identifier).catch(() => {})
-      )
+      ),
     );
-  } catch (error) {
-    console.warn('[Notifications] Failed to clear stored streak reminders:', error);
+  } else {
+    logger.warn('[Notifications] Failed to parse stored streak reminders.');
   }
 
   await AsyncStorage.removeItem(STREAK_NOTIFICATION_IDS_KEY).catch(() => {});
@@ -151,6 +159,6 @@ export async function scheduleStreakReminder(): Promise<void> {
 
     await AsyncStorage.setItem(STREAK_NOTIFICATION_IDS_KEY, JSON.stringify(scheduledIdentifiers));
   } catch (error) {
-    console.warn('[Notifications] Failed to schedule streak reminders:', error);
+    logger.warn('[Notifications] Failed to schedule streak reminders:', error);
   }
 }

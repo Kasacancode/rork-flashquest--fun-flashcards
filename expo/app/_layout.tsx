@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Redirect, Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -18,14 +17,16 @@ import { PerformanceProvider } from '@/context/PerformanceContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import { trpc, trpcClient } from '@/lib/trpc';
+import { logger } from '@/utils/logger';
 import { requestNotificationPermission, scheduleStreakReminder } from '@/utils/notifications';
+import { readStringFlag } from '@/utils/storage';
 
 const ONBOARDING_STORAGE_KEY = 'flashquest_onboarding_complete';
 
 try {
   void SplashScreen.preventAutoHideAsync();
 } catch (e) {
-  console.warn('[Layout] SplashScreen.preventAutoHideAsync failed:', e);
+  logger.warn('[Layout] SplashScreen.preventAutoHideAsync failed:', e);
 }
 
 if (Platform.OS !== 'web') {
@@ -64,7 +65,7 @@ function RootLayoutNav() {
       <Stack.Screen name="scan-notes" options={{ headerShown: false }} />
       <Stack.Screen name="text-to-deck" options={{ headerShown: false }} />
       <Stack.Screen name="deck-hub" options={{ headerShown: false }} />
-      <Stack.Screen name="analytics-debug" options={{ headerShown: false }} />
+      {__DEV__ ? <Stack.Screen name="analytics-debug" options={{ headerShown: false }} /> : null}
       <Stack.Screen name="faq" options={{ headerShown: false }} />
     </Stack>
   );
@@ -103,14 +104,14 @@ export default function RootLayout() {
   useEffect(() => {
     let isMounted = true;
 
-    AsyncStorage.getItem(ONBOARDING_STORAGE_KEY)
+    readStringFlag(ONBOARDING_STORAGE_KEY)
       .then((value) => {
         if (isMounted) {
-          setIsOnboardingComplete(value === 'true');
+          setIsOnboardingComplete(value);
         }
       })
       .catch((error) => {
-        console.warn('[Layout] Failed to read onboarding state:', error);
+        logger.warn('[Layout] Failed to read onboarding state:', error);
         if (isMounted) {
           setIsOnboardingComplete(false);
         }
@@ -119,7 +120,7 @@ export default function RootLayout() {
     return () => {
       isMounted = false;
     };
-  }, [pathname]);
+  }, []);
 
   useEffect(() => {
     if (isOnboardingComplete === null) {
@@ -160,7 +161,7 @@ export default function RootLayout() {
         return Promise.resolve();
       })
       .catch((error) => {
-        console.warn('[Layout] Notification setup skipped:', error);
+        logger.warn('[Layout] Notification setup skipped:', error);
       });
   }, [isOnboardingComplete]);
 

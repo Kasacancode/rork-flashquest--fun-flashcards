@@ -15,35 +15,35 @@ import { trackEvent } from '@/lib/analytics';
 import type { Flashcard } from '@/types/flashcard';
 import { GAME_MODE } from '@/types/game';
 import type { QuestRunResult, QuestSettings } from '@/types/performance';
-import { buildGameplayOptionLabels, formatGameplayHint, formatGameplayQuestion } from '@/utils/gameplayCopy';
-import { selectNextCard, generateAIDistractors, generateOptions, checkAnswer, calculateScore } from '@/utils/questUtils';
 import { isMeaningfulQuestSlump, isMeaningfulQuestStreak, selectAssistantDialogue, type QuestDialogueEvent } from '@/utils/dialogue';
+import { buildGameplayOptionLabels, formatGameplayHint, formatGameplayQuestion } from '@/utils/gameplayCopy';
 import { logger } from '@/utils/logger';
+import { parseDrillCardIdsParam, parseQuestSettingsParam, serializeQuestResult } from '@/utils/questParams';
+import { QUEST_ROUTE, questResultsHref } from '@/utils/routes';
+import { selectNextCard, generateAIDistractors, generateOptions, checkAnswer, calculateScore } from '@/utils/questUtils';
+
+const FALLBACK_QUEST_SETTINGS: QuestSettings = {
+  deckId: '',
+  mode: 'learn',
+  runLength: 5,
+  timerSeconds: 0,
+  focusWeakOnly: false,
+  hintsEnabled: true,
+  explanationsEnabled: true,
+  secondChanceEnabled: false,
+};
 
 export default function QuestSessionScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ settings: string; drillCardIds?: string }>();
+  const params = useLocalSearchParams<{ settings?: string | string[]; drillCardIds?: string | string[] }>();
   const { theme } = useTheme();
   const { decks, recordSessionResult } = useFlashQuest();
   const { performance, logQuestAttempt, updateBestStreak } = usePerformance();
 
-  const settings: QuestSettings = useMemo(() => {
-    try {
-      return JSON.parse(params.settings || '{}');
-    } catch {
-      return {} as QuestSettings;
-    }
-  }, [params.settings]);
+  const parsedSettings = useMemo(() => parseQuestSettingsParam(params.settings), [params.settings]);
+  const settings = parsedSettings ?? FALLBACK_QUEST_SETTINGS;
 
-  // When navigating from "Drill Missed Cards", only these card IDs are used
-  const drillCardIds: string[] | null = useMemo(() => {
-    try {
-      if (params.drillCardIds) {
-        return JSON.parse(params.drillCardIds) as string[];
-      }
-    } catch {}
-    return null;
-  }, [params.drillCardIds]);
+  const drillCardIds = useMemo(() => parseDrillCardIdsParam(params.drillCardIds), [params.drillCardIds]);
 
   const deck = useMemo(() => decks.find(d => d.id === settings.deckId), [decks, settings.deckId]);
 
@@ -244,10 +244,7 @@ export default function QuestSessionScreen() {
       askedCardIds,
     };
 
-    router.replace({
-      pathname: '/quest-results' as any,
-      params: { result: JSON.stringify(result) },
-    });
+    router.replace(questResultsHref(serializeQuestResult(result)));
   }, [currentRound, settings, score, correctCount, incorrectCount, bestStreak, totalTimeMs, missedCardIds, askedCardIds, router, updateBestStreak, recordSessionResult, effectiveRunLength]);
 
   finishSessionEarlyRef.current = finishSessionEarly;
@@ -517,10 +514,7 @@ export default function QuestSessionScreen() {
         askedCardIds,
       };
 
-      router.replace({
-        pathname: '/quest-results' as any,
-        params: { result: JSON.stringify(result) },
-      });
+      router.replace(questResultsHref(serializeQuestResult(result)));
       return;
     }
 
@@ -553,8 +547,8 @@ export default function QuestSessionScreen() {
       label: labels[index] ?? option,
     }));
   }, [displayedOptions]);
-  const displayOptionRows = useMemo<Array<{ value: string; label: string }[]>>(() => {
-    const rows: Array<{ value: string; label: string }[]> = [];
+  const displayOptionRows = useMemo<{ value: string; label: string }[][]>(() => {
+    const rows: { value: string; label: string }[][] = [];
 
     for (let index = 0; index < displayOptions.length; index += 2) {
       rows.push(displayOptions.slice(index, index + 2));
@@ -620,7 +614,7 @@ export default function QuestSessionScreen() {
         <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }} edges={['top', 'bottom']}>
           <Text style={{ fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 8 }}>Unable to start Quest</Text>
           <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', marginBottom: 24, textAlign: 'center' }}>The deck or settings could not be loaded.</Text>
-          <TouchableOpacity onPress={() => router.replace('/quest' as any)} style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 24 }}>
+          <TouchableOpacity onPress={() => router.replace(QUEST_ROUTE)} style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 24 }}>
             <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Back to Quest Menu</Text>
           </TouchableOpacity>
         </SafeAreaView>

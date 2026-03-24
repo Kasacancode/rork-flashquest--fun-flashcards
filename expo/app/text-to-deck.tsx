@@ -26,6 +26,7 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import { Flashcard } from '@/types/flashcard';
+import { DECKS_ROUTE } from '@/utils/routes';
 import { generateObject } from '@rork-ai/toolkit-sdk';
 
 const flashcardSchema = z.object({
@@ -261,7 +262,7 @@ export default function TextToDeckPage() {
     });
 
     Alert.alert('Deck Created!', `${validCards.length} flashcards generated from your text.`, [
-      { text: 'View Decks', onPress: () => router.replace('/decks' as any) },
+      { text: 'View Decks', onPress: () => router.replace(DECKS_ROUTE) },
     ]);
   }, [deckCategory, deckName, deckDescription, generatedCards, addDeck, router]);
 

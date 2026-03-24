@@ -7,6 +7,7 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { computeAchievements } from '@/utils/achievements';
 import { logger } from '@/utils/logger';
+import { normalizeStringArray, safeParseJsonOrNull } from '@/utils/safeJson';
 import { enqueueToastRunner, releaseToastRunner } from '@/utils/toastQueue';
 
 const COMPLETED_ACHIEVEMENTS_KEY = 'flashquest_completed_achievements';
@@ -56,12 +57,17 @@ export default function AchievementMonitor() {
     AsyncStorage.getItem(COMPLETED_ACHIEVEMENTS_KEY)
       .then((stored) => {
         if (stored) {
-          try {
-            const ids = JSON.parse(stored) as string[];
+          const ids = safeParseJsonOrNull<string[]>({
+            raw: stored,
+            label: 'completed achievements',
+            normalize: normalizeStringArray,
+          });
+
+          if (ids) {
             previouslyCompletedRef.current = new Set(ids);
             logger.log('[AchievementMonitor] Loaded persisted achievements:', ids.length);
-          } catch (error) {
-            logger.warn('[AchievementMonitor] Failed to parse persisted achievements:', error);
+          } else {
+            logger.warn('[AchievementMonitor] Failed to parse persisted achievements.');
           }
         }
 

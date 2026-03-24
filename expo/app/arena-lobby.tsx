@@ -19,6 +19,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { generateOptions, shuffleArray } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
 import { shareTextWithFallback } from '@/utils/share';
+import { ARENA_ROUTE, ARENA_SESSION_ROUTE } from '@/utils/routes';
 
 const ARENA_ACCENT_LIGHT = '#f97316';
 const ARENA_ACCENT_DARK = '#f59e0b';
@@ -81,7 +82,7 @@ export default function ArenaLobbyScreen() {
   useEffect(() => {
     if (room?.status === 'playing' && prevStatus.current !== 'playing') {
       logger.log('[Lobby] Game started, navigating to session');
-      router.replace('/arena-session' as any);
+      router.replace(ARENA_SESSION_ROUTE);
     }
     prevStatus.current = room?.status ?? null;
   }, [room?.status, router]);
@@ -92,7 +93,7 @@ export default function ArenaLobbyScreen() {
     }
 
     if (!roomCode && !room) {
-      router.replace('/arena' as any);
+      router.replace(ARENA_ROUTE);
     }
   }, [connectionError, roomCode, room, router]);
 
@@ -103,7 +104,7 @@ export default function ArenaLobbyScreen() {
           text: 'OK',
           onPress: () => {
             clearError();
-            router.replace('/arena' as any);
+            router.replace(ARENA_ROUTE);
           },
         },
       ]);
@@ -210,7 +211,7 @@ export default function ArenaLobbyScreen() {
   const handleConfirmLeave = useCallback(() => {
     setShowLeaveModal(false);
     disconnect();
-    router.replace('/arena' as any);
+    router.replace(ARENA_ROUTE);
   }, [disconnect, router]);
 
   const handleRoundsChange = useCallback((rounds: ArenaRoundOption) => {
