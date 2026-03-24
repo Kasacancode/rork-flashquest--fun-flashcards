@@ -199,9 +199,7 @@ export default function HomePage() {
             ]}
           >
             <View style={styles.statItem}>
-              <View style={[styles.levelBadge, { backgroundColor: theme.primary }]}>
-                <Text style={styles.levelBadgeText}>{level}</Text>
-              </View>
+              <Text style={[styles.levelText, { color: theme.primary }]}>LV {level}</Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{levelEntry.title}</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: isDark ? 'rgba(148, 163, 184, 0.14)' : '#e0e0e0' }]} />
@@ -463,18 +461,10 @@ const styles = StyleSheet.create({
   statItem: {
     alignItems: 'center',
   },
-  levelBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  levelBadgeText: {
-    fontSize: 20,
+  levelText: {
+    fontSize: 28,
     fontWeight: '800' as const,
-    color: '#fff',
+    marginBottom: 4,
   },
   statValue: {
     fontSize: 32,
