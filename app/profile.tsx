@@ -289,6 +289,11 @@ export default function ProfilePage() {
     Alert.alert(label, `${label} is coming soon.`);
   }, []);
 
+  const handleOpenFAQ = useCallback(() => {
+    logger.log('[Profile] Opening FAQ screen');
+    navigation.push('/faq' as any);
+  }, [navigation]);
+
   const handleSelectSuit = useCallback(
     (suitId: AvatarSuitId) => {
       logger.log('[Profile] Selecting avatar suit', suitId);
@@ -443,6 +448,7 @@ export default function ProfilePage() {
               toggleTheme={toggleTheme}
               canAccessDeveloperTools={canAccessDeveloperTools}
               onOpenAnalyticsDebug={handleOpenAnalyticsDebug}
+              onOpenFAQ={handleOpenFAQ}
               onComingSoon={handleComingSoon}
               surfaceGradient={surfaceGradient}
               styles={styles}
