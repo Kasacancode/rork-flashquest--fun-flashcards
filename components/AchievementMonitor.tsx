@@ -6,6 +6,7 @@ import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { computeAchievements } from '@/utils/achievements';
+import { logger } from '@/utils/logger';
 import { enqueueToastRunner, releaseToastRunner } from '@/utils/toastQueue';
 
 const COMPLETED_ACHIEVEMENTS_KEY = 'flashquest_completed_achievements';
@@ -21,8 +22,9 @@ export default function AchievementMonitor() {
   const { leaderboard, isLoading: isArenaLoading } = useArena();
   const { performance, isLoading: isPerformanceLoading } = usePerformance();
   const [toastAchievement, setToastAchievement] = useState<ToastAchievement | null>(null);
+  const [hasLoadedStoredAchievements, setHasLoadedStoredAchievements] = useState<boolean>(false);
   const previouslyCompletedRef = useRef<Set<string>>(new Set());
-  const hasLoadedRef = useRef(false);
+  const hasInitializedSnapshotRef = useRef<boolean>(false);
 
   const customDeckCount = useMemo(
     () => decks.filter((deck) => deck.isCustom).length,
@@ -48,39 +50,72 @@ export default function AchievementMonitor() {
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
     AsyncStorage.getItem(COMPLETED_ACHIEVEMENTS_KEY)
       .then((stored) => {
         if (stored) {
           try {
             const ids = JSON.parse(stored) as string[];
             previouslyCompletedRef.current = new Set(ids);
-          } catch {
+            logger.log('[AchievementMonitor] Loaded persisted achievements:', ids.length);
+          } catch (error) {
+            logger.warn('[AchievementMonitor] Failed to parse persisted achievements:', error);
           }
         }
-        hasLoadedRef.current = true;
+
+        if (isMounted) {
+          setHasLoadedStoredAchievements(true);
+        }
       })
-      .catch(() => {
-        hasLoadedRef.current = true;
+      .catch((error) => {
+        logger.warn('[AchievementMonitor] Failed to load persisted achievements:', error);
+        if (isMounted) {
+          setHasLoadedStoredAchievements(true);
+        }
       });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
-    if (!isReady || !hasLoadedRef.current) {
+    if (!isReady || !hasLoadedStoredAchievements) {
       return;
     }
 
     const currentlyCompleted = achievements.filter((achievement) => achievement.progress >= achievement.total);
     const currentIds = new Set(currentlyCompleted.map((achievement) => achievement.id));
     const previousIds = previouslyCompletedRef.current;
+    const nextKnownIds = new Set<string>([...previousIds, ...currentIds]);
+
+    if (!hasInitializedSnapshotRef.current) {
+      hasInitializedSnapshotRef.current = true;
+      previouslyCompletedRef.current = nextKnownIds;
+      logger.log('[AchievementMonitor] Hydrated baseline snapshot:', {
+        storedCount: previousIds.size,
+        completedCount: currentIds.size,
+        mergedCount: nextKnownIds.size,
+      });
+      AsyncStorage.setItem(COMPLETED_ACHIEVEMENTS_KEY, JSON.stringify([...nextKnownIds])).catch((error) => {
+        logger.warn('[AchievementMonitor] Failed to persist baseline achievements:', error);
+      });
+      return;
+    }
 
     const newlyCompleted = currentlyCompleted.filter((achievement) => !previousIds.has(achievement.id));
-    previouslyCompletedRef.current = currentIds;
+    previouslyCompletedRef.current = nextKnownIds;
 
-    AsyncStorage.setItem(COMPLETED_ACHIEVEMENTS_KEY, JSON.stringify([...currentIds])).catch(() => {});
+    AsyncStorage.setItem(COMPLETED_ACHIEVEMENTS_KEY, JSON.stringify([...nextKnownIds])).catch((error) => {
+      logger.warn('[AchievementMonitor] Failed to persist achievements:', error);
+    });
 
     if (newlyCompleted.length === 0) {
       return;
     }
+
+    logger.log('[AchievementMonitor] Queueing newly completed achievements:', newlyCompleted.map((achievement) => achievement.id));
 
     newlyCompleted.forEach((achievement) => {
       enqueueToastRunner(() => {
@@ -91,7 +126,7 @@ export default function AchievementMonitor() {
         });
       });
     });
-  }, [achievements, isReady]);
+  }, [achievements, hasLoadedStoredAchievements, isReady]);
 
   if (!isReady && !toastAchievement) {
     return null;
