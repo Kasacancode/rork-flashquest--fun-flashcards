@@ -25,6 +25,12 @@ import { computeLevel, getLevelBandPalette, getLevelEntry } from '@/utils/levels
 import { computeDeckMastery } from '@/utils/mastery';
 
 const { width } = Dimensions.get('window');
+const quickStartSectionPadding = 24;
+const quickStartCardGap = 14;
+const quickStartCardWidth = Math.max(
+  152,
+  Math.min(166, Math.floor((width - quickStartSectionPadding * 2 - quickStartCardGap - 2) / 2)),
+);
 
 function AnimatedStatValue({ animValue, style }: { animValue: Animated.Value; style: StyleProp<TextStyle> }) {
   const [display, setDisplay] = React.useState<string>('0');
@@ -827,7 +833,7 @@ const styles = StyleSheet.create<{
     color: '#fff',
   },
   deckCard: {
-    width: 166,
+    width: quickStartCardWidth,
     height: 124,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 20,
