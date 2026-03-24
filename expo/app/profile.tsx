@@ -381,7 +381,7 @@ export default function ProfilePage() {
 
           <View style={styles.headerTextBlock}>
             <View style={styles.headerTitleWrap}>
-              <UserRound color="#fff" size={20} strokeWidth={2.35} />
+              <UserRound color="#fff" size={22} strokeWidth={2.4} />
               <Text style={styles.headerTitle}>Profile</Text>
             </View>
           </View>
@@ -538,26 +538,26 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     header: {
       paddingHorizontal: 20,
-      paddingTop: 8,
-      paddingBottom: 10,
+      paddingTop: 10,
+      paddingBottom: 12,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
     iconButton: {
-      width: 42,
-      height: 42,
-      borderRadius: 14,
-      backgroundColor: 'rgba(255, 255, 255, 0.14)',
+      width: 46,
+      height: 46,
+      borderRadius: 16,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.22)',
       borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.18)',
+      borderColor: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.28)',
       justifyContent: 'center',
       alignItems: 'center',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: isDark ? 0.28 : 0.12,
-      shadowRadius: 16,
-      elevation: isDark ? 8 : 3,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: isDark ? 0.24 : 0.08,
+      shadowRadius: 14,
+      elevation: isDark ? 6 : 3,
     },
     headerTextBlock: {
       alignItems: 'center',
@@ -570,20 +570,20 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       justifyContent: 'center',
       gap: 10,
       paddingHorizontal: 18,
-      paddingVertical: 10,
+      paddingVertical: 12,
       borderRadius: 18,
-      backgroundColor: 'rgba(255, 255, 255, 0.14)',
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.22)',
       borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.2)',
+      borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.32)',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: isDark ? 0.22 : 0.12,
-      shadowRadius: 16,
-      elevation: isDark ? 6 : 3,
+      shadowOpacity: isDark ? 0.2 : 0.08,
+      shadowRadius: 14,
+      elevation: isDark ? 5 : 2,
     },
     headerSpacer: {
-      width: 42,
-      height: 42,
+      width: 46,
+      height: 46,
     },
     headerEyebrow: {
       fontSize: 11,
@@ -596,7 +596,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       fontSize: 22,
       fontWeight: '800' as const,
       color: '#fff',
-      letterSpacing: -0.5,
+      letterSpacing: -0.4,
     },
     scrollView: {
       flex: 1,

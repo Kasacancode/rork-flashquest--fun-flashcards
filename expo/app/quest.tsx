@@ -223,7 +223,7 @@ export default function QuestMenuScreen() {
           </TouchableOpacity>
           <View style={[styles.headerTitleContainer, { backgroundColor: headerSurface, borderColor: subtleBorderColor }]}>
             <Target color={headerContentColor} size={24} strokeWidth={2.4} />
-            <Text style={[styles.headerTitle, { color: headerContentColor }]}>Quest Mode</Text>
+            <Text style={[styles.headerTitle, { color: headerContentColor }]}>Quest</Text>
           </View>
           <TouchableOpacity
             style={[
