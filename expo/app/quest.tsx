@@ -131,21 +131,33 @@ export default function QuestMenuScreen() {
   };
 
   const smallDeckWarning = selectedDeck && selectedDeck.flashcards.length < 8;
-  const screenGradient = isDark ? ['#0b1324', '#13203a', '#0a1224'] as const : ['#f8fbff', '#eef4ff', '#faf7ff'] as const;
+  const screenGradient = isDark
+    ? ['#0b1324', '#13203a', '#0a1224'] as const
+    : ['#eaf0ff', '#e5ecff', '#ece9ff', '#f4eeff'] as const;
+  const upperAtmosphereGradient = isDark
+    ? ['rgba(8, 15, 29, 0)', 'rgba(66, 86, 168, 0.08)', 'rgba(14, 20, 36, 0)'] as const
+    : ['rgba(102, 137, 255, 0.28)', 'rgba(123, 113, 244, 0.16)', 'rgba(255, 255, 255, 0)'] as const;
+  const lowerAtmosphereGradient = isDark
+    ? ['rgba(16, 24, 39, 0)', 'rgba(78, 64, 172, 0.05)', 'rgba(20, 28, 46, 0.08)'] as const
+    : ['rgba(255, 255, 255, 0)', 'rgba(188, 170, 244, 0.12)', 'rgba(214, 187, 244, 0.2)'] as const;
+  const shellOverlayGradient = isDark
+    ? ['rgba(10, 16, 29, 0)', 'rgba(9, 16, 29, 0.1)', 'rgba(4, 8, 18, 0.2)'] as const
+    : ['rgba(255, 255, 255, 0.08)', 'rgba(117, 132, 240, 0.08)', 'rgba(198, 177, 238, 0.12)'] as const;
   const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.13)' : 'rgba(148, 163, 184, 0.16)';
-  const subtleBorderColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(148, 163, 184, 0.1)';
-  const statSurface = isDark ? 'rgba(9, 17, 33, 0.78)' : 'rgba(255, 255, 255, 0.78)';
-  const sectionSurface = isDark ? 'rgba(10, 18, 34, 0.84)' : 'rgba(255, 255, 255, 0.84)';
-  const insetSurface = isDark ? 'rgba(16, 26, 44, 0.92)' : 'rgba(243, 246, 255, 0.96)';
-  const selectedSurface = isDark ? 'rgba(99, 102, 241, 0.14)' : 'rgba(79, 70, 229, 0.08)';
-  const controlSurface = isDark ? 'rgba(10, 17, 34, 0.46)' : 'rgba(255, 255, 255, 0.54)';
-  const headerSurface = isDark ? 'rgba(10, 17, 34, 0.42)' : 'rgba(255, 255, 255, 0.48)';
+  const subtleBorderColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(129, 140, 248, 0.12)';
+  const statSurface = isDark ? 'rgba(9, 17, 33, 0.78)' : 'rgba(255, 255, 255, 0.82)';
+  const sectionSurface = isDark ? 'rgba(10, 18, 34, 0.84)' : 'rgba(255, 255, 255, 0.86)';
+  const insetSurface = isDark ? 'rgba(16, 26, 44, 0.92)' : 'rgba(246, 247, 255, 0.96)';
+  const selectedSurface = isDark ? 'rgba(99, 102, 241, 0.14)' : 'rgba(79, 70, 229, 0.1)';
+  const controlSurface = isDark ? 'rgba(10, 17, 34, 0.46)' : 'rgba(255, 255, 255, 0.62)';
+  const headerSurface = isDark ? 'rgba(10, 17, 34, 0.42)' : 'rgba(255, 255, 255, 0.56)';
   const sheetSurface = isDark ? 'rgba(10, 17, 34, 0.98)' : 'rgba(255, 255, 255, 0.96)';
   const inactiveToggleSurface = isDark ? 'rgba(71, 85, 105, 0.58)' : 'rgba(203, 213, 225, 0.9)';
   const questAccent = isDark ? '#A5B4FC' : '#4F46E5';
   const headerContentColor = isDark ? '#F8FAFC' : '#2E2A60';
-  const topGlowColor = isDark ? 'rgba(99, 102, 241, 0.16)' : 'rgba(99, 102, 241, 0.12)';
-  const bottomGlowColor = isDark ? 'rgba(45, 212, 191, 0.1)' : 'rgba(56, 189, 248, 0.08)';
+  const topGlowColor = isDark ? 'rgba(99, 102, 241, 0.16)' : 'rgba(99, 121, 255, 0.22)';
+  const midGlowColor = isDark ? 'rgba(45, 212, 191, 0.08)' : 'rgba(128, 109, 241, 0.1)';
+  const bottomGlowColor = isDark ? 'rgba(45, 212, 191, 0.1)' : 'rgba(204, 168, 240, 0.18)';
 
   const settingsLabel = useMemo(() => {
     const parts: string[] = [];
@@ -161,22 +173,33 @@ export default function QuestMenuScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LinearGradient
         colors={screenGradient}
-        start={{ x: 0, y: 0 }}
+        start={{ x: 0.04, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
       <LinearGradient
-        colors={
-          isDark
-            ? ['rgba(6, 10, 22, 0.04)', 'rgba(6, 10, 22, 0.28)', 'rgba(5, 8, 20, 0.74)']
-            : ['rgba(255, 255, 255, 0.22)', 'rgba(241, 245, 255, 0.12)', 'rgba(248, 250, 252, 0.58)']
-        }
-        start={{ x: 0.1, y: 0 }}
+        colors={upperAtmosphereGradient}
+        start={{ x: 0.02, y: 0 }}
+        end={{ x: 0.82, y: 0.42 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={lowerAtmosphereGradient}
+        start={{ x: 0.2, y: 0.5 }}
+        end={{ x: 0.94, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={shellOverlayGradient}
+        start={{ x: 0.08, y: 0 }}
         end={{ x: 0.95, y: 1 }}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
       <View pointerEvents="none" style={[styles.topGlow, { backgroundColor: topGlowColor }]} />
+      <View pointerEvents="none" style={[styles.midGlow, { backgroundColor: midGlowColor }]} />
       <View pointerEvents="none" style={[styles.bottomGlow, { backgroundColor: bottomGlowColor }]} />
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -703,19 +726,27 @@ const styles = StyleSheet.create({
   },
   topGlow: {
     position: 'absolute',
-    top: -88,
-    right: -52,
+    top: -104,
+    right: -56,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+  },
+  midGlow: {
+    position: 'absolute',
+    top: '34%',
+    left: -88,
     width: 240,
     height: 240,
     borderRadius: 120,
   },
   bottomGlow: {
     position: 'absolute',
-    bottom: 96,
-    left: -68,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
+    bottom: 78,
+    left: -72,
+    width: 288,
+    height: 288,
+    borderRadius: 144,
   },
   header: {
     flexDirection: 'row',

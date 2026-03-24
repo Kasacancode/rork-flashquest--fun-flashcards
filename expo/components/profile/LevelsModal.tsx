@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import type { Theme } from '@/constants/colors';
+import { getLevelBandPalette, type LevelBandPalette } from '@/utils/levels';
 
 type ViewStyles<K extends string> = { [P in K]: StyleProp<ViewStyle> };
 type TextStyles<K extends string> = { [P in K]: StyleProp<TextStyle> };
@@ -56,6 +57,8 @@ interface LevelsModalProps {
       levelList: StyleProp<ViewStyle>;
     };
   theme: Theme;
+  isDark?: boolean;
+  levelPalette?: LevelBandPalette;
 }
 
 export default function LevelsModal({
@@ -66,7 +69,11 @@ export default function LevelsModal({
   onClose,
   styles,
   theme,
+  isDark = false,
+  levelPalette,
 }: LevelsModalProps) {
+  const activePalette = levelPalette ?? getLevelBandPalette(level, isDark);
+
   return (
     <Modal
       visible={visible}
@@ -87,7 +94,7 @@ export default function LevelsModal({
             <View style={styles.levelModalTitleWrap}>
               <Text style={styles.levelModalEyebrow}>Rank progression</Text>
               <Text style={styles.levelModalTitle}>Levels & titles</Text>
-              <Text style={styles.levelModalSubtitle}>Current rank: Lv {level} · {levelEntry.title}</Text>
+              <Text style={[styles.levelModalSubtitle, { color: activePalette.modalBadgeText }]}>Current rank: Lv {level} · {levelEntry.title}</Text>
             </View>
             <TouchableOpacity
               style={styles.settingsCloseButton}
@@ -104,8 +111,33 @@ export default function LevelsModal({
             contentContainerStyle={styles.levelList}
           >
             {levels.map((item) => {
-              const isCurrent = item.level === levelEntry.level;
+              const isCurrent = item.level === level;
               const isReached = level >= item.level;
+              const itemPalette = getLevelBandPalette(item.level, isDark);
+              const rowTone = isCurrent
+                ? {
+                    borderColor: itemPalette.modalCurrentBorder,
+                    backgroundColor: itemPalette.modalCurrentBackground,
+                    shadowColor: itemPalette.badgeShadow,
+                    shadowOpacity: isDark ? 0.24 : 0.08,
+                    shadowRadius: isDark ? 14 : 10,
+                    shadowOffset: { width: 0, height: 6 },
+                    elevation: isCurrent ? 4 : 0,
+                  }
+                : {
+                    borderColor: itemPalette.modalReachedBorder,
+                    backgroundColor: itemPalette.modalReachedBackground,
+                  };
+              const badgeTone = {
+                backgroundColor: itemPalette.modalBadgeBackground,
+                borderColor: isCurrent ? itemPalette.modalCurrentBorder : itemPalette.modalReachedBorder,
+                borderWidth: 1,
+              };
+              const badgeTextTone = { color: itemPalette.modalBadgeText };
+              const metaTone = {
+                color: itemPalette.modalBadgeText,
+                opacity: isCurrent ? 1 : isReached ? 0.88 : 0.76,
+              };
 
               return (
                 <View
@@ -114,22 +146,23 @@ export default function LevelsModal({
                     styles.levelRow,
                     isCurrent && styles.levelRowCurrent,
                     !isCurrent && isReached && styles.levelRowReached,
+                    rowTone,
                   ]}
                 >
                   <View
                     style={[
                       styles.levelBadge,
-                      isCurrent && { backgroundColor: theme.primary },
                       !isCurrent && isReached && styles.levelBadgeReached,
+                      badgeTone,
                     ]}
                   >
-                    <Text style={[styles.levelBadgeText, isCurrent && styles.levelBadgeTextCurrent]}>Lv {item.level}</Text>
+                    <Text style={[styles.levelBadgeText, badgeTextTone]}>Lv {item.level}</Text>
                   </View>
 
                   <View style={styles.levelRowTextWrap}>
                     <Text style={styles.levelRowTitle}>{item.title}</Text>
                     <Text style={styles.levelRowSubtitle}>{item.subtitle}</Text>
-                    <Text style={styles.levelRowMeta}>{item.xpRequired} XP unlock</Text>
+                    <Text style={[styles.levelRowMeta, metaTone]}>{item.xpRequired.toLocaleString()} XP unlock</Text>
                   </View>
 
                   {isReached && (

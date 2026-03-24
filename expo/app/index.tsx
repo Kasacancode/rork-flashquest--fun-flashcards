@@ -63,7 +63,23 @@ export default function HomePage() {
     () => (
       isDark
         ? ['#08111f', '#0c1730', '#09111d'] as const
-        : ['#f4f6fb', '#edf2f8', '#f7f9fc'] as const
+        : ['#7490f6', '#8b87ef', '#b193ec', '#d8aaed'] as const
+    ),
+    [isDark],
+  );
+  const upperAtmosphereGradient = useMemo(
+    () => (
+      isDark
+        ? ['rgba(8, 15, 29, 0)', 'rgba(47, 72, 134, 0.07)', 'rgba(14, 20, 36, 0)'] as const
+        : ['rgba(110, 145, 255, 0.34)', 'rgba(121, 112, 241, 0.16)', 'rgba(255, 255, 255, 0)'] as const
+    ),
+    [isDark],
+  );
+  const lowerAtmosphereGradient = useMemo(
+    () => (
+      isDark
+        ? ['rgba(16, 24, 39, 0)', 'rgba(86, 65, 176, 0.04)', 'rgba(20, 28, 46, 0.08)'] as const
+        : ['rgba(255, 255, 255, 0)', 'rgba(199, 141, 232, 0.14)', 'rgba(230, 173, 222, 0.28)'] as const
     ),
     [isDark],
   );
@@ -71,16 +87,16 @@ export default function HomePage() {
     () => (
       isDark
         ? ['rgba(10, 16, 29, 0)', 'rgba(9, 16, 29, 0.08)', 'rgba(4, 8, 18, 0.18)'] as const
-        : ['rgba(255, 255, 255, 0)', 'rgba(246, 249, 252, 0.08)', 'rgba(226, 233, 242, 0.18)'] as const
+        : ['rgba(255, 255, 255, 0.08)', 'rgba(111, 125, 236, 0.1)', 'rgba(219, 160, 229, 0.16)'] as const
     ),
     [isDark],
   );
-  const titleColor = isDark ? '#f8fafc' : '#162033';
-  const subtitleColor = isDark ? 'rgba(226, 232, 240, 0.86)' : 'rgba(71, 85, 105, 0.82)';
+  const titleColor = isDark ? '#f8fbff' : '#ffffff';
+  const subtitleColor = isDark ? 'rgba(229, 236, 248, 0.84)' : 'rgba(241, 236, 252, 0.88)';
   const sectionTitleColor = isDark ? '#f8fafc' : '#1a2740';
-  const topGlowColor = isDark ? 'rgba(88, 97, 215, 0.075)' : 'rgba(99, 102, 241, 0.06)';
-  const midGlowColor = isDark ? 'rgba(44, 166, 154, 0.038)' : 'rgba(59, 130, 246, 0.038)';
-  const bottomGlowColor = isDark ? 'rgba(96, 72, 191, 0.035)' : 'rgba(99, 102, 241, 0.032)';
+  const topGlowColor = isDark ? 'rgba(88, 97, 215, 0.075)' : 'rgba(97, 131, 255, 0.24)';
+  const midGlowColor = isDark ? 'rgba(44, 166, 154, 0.038)' : 'rgba(133, 114, 237, 0.08)';
+  const bottomGlowColor = isDark ? 'rgba(96, 72, 191, 0.035)' : 'rgba(220, 160, 228, 0.22)';
   const profileSurface = isDark ? 'rgba(29, 38, 57, 0.92)' : 'rgba(255, 255, 255, 0.94)';
   const profileBorderColor = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(148, 163, 184, 0.18)';
   const profileGradient = isDark
@@ -89,7 +105,7 @@ export default function HomePage() {
   const profileIconColor = isDark ? '#f8fafc' : '#334155';
   const statsCardGradient = isDark
     ? ['rgba(18, 28, 45, 0.99)', 'rgba(14, 22, 37, 0.99)'] as const
-    : ['rgba(255, 255, 255, 0.99)', 'rgba(242, 246, 251, 0.99)'] as const;
+    : ['rgba(255, 255, 255, 0.97)', 'rgba(248, 245, 255, 0.97)'] as const;
   const statsBorderColor = isDark ? 'rgba(110, 130, 162, 0.18)' : 'rgba(148, 163, 184, 0.16)';
   const statsDividerColor = isDark ? 'rgba(112, 132, 163, 0.24)' : 'rgba(148, 163, 184, 0.22)';
   const statsShadowColor = isDark ? '#020617' : '#94a3b8';
@@ -101,7 +117,7 @@ export default function HomePage() {
   const deckCardSurface = isDark ? 'rgba(9, 17, 31, 0.98)' : 'rgba(255, 255, 255, 0.99)';
   const deckCardGradient = isDark
     ? ['rgba(9, 18, 31, 0.995)', 'rgba(13, 21, 36, 0.995)'] as const
-    : ['rgba(255, 255, 255, 0.995)', 'rgba(244, 247, 251, 0.995)'] as const;
+    : ['rgba(255, 255, 255, 0.97)', 'rgba(250, 247, 255, 0.97)'] as const;
   const deckCardBorderColor = isDark ? 'rgba(124, 140, 168, 0.14)' : 'rgba(148, 163, 184, 0.14)';
   const deckCardShadowColor = isDark ? '#020617' : '#94a3b8';
   const deckTrackColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(148, 163, 184, 0.16)';
@@ -251,6 +267,20 @@ export default function HomePage() {
         start={{ x: 0.04, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
+      />
+      <LinearGradient
+        colors={upperAtmosphereGradient}
+        start={{ x: 0.02, y: 0 }}
+        end={{ x: 0.82, y: 0.42 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={lowerAtmosphereGradient}
+        start={{ x: 0.18, y: 0.5 }}
+        end={{ x: 0.92, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
       />
       <LinearGradient
         colors={shellOverlayGradient}
@@ -419,9 +449,9 @@ export default function HomePage() {
                           borderWidth: 1,
                           borderColor: deckCardBorderColor,
                           shadowColor: deckCardShadowColor,
-                          shadowOpacity: isDark ? 0.18 : 0.1,
-                          shadowRadius: isDark ? 14 : 10,
-                          elevation: isDark ? 6 : 4,
+                          shadowOpacity: isDark ? 0.18 : 0.14,
+                          shadowRadius: isDark ? 14 : 12,
+                          elevation: isDark ? 6 : 5,
                         },
                       ]}
                       onPress={() => router.push({ pathname: '/deck-hub', params: { deckId: rec.deckId } } as Href)}
@@ -470,9 +500,9 @@ export default function HomePage() {
                           borderWidth: 1,
                           borderColor: deckCardBorderColor,
                           shadowColor: deckCardShadowColor,
-                          shadowOpacity: isDark ? 0.18 : 0.1,
-                          shadowRadius: isDark ? 14 : 10,
-                          elevation: isDark ? 6 : 4,
+                          shadowOpacity: isDark ? 0.18 : 0.14,
+                          shadowRadius: isDark ? 14 : 12,
+                          elevation: isDark ? 6 : 5,
                         },
                       ]}
                       onPress={() => router.push({ pathname: '/deck-hub', params: { deckId: deck.id } } as Href)}

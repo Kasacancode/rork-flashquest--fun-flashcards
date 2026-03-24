@@ -221,20 +221,44 @@ export default function DecksPage() {
     () => (
       isDark
         ? ['#0b1427', '#13213c', '#091224'] as const
-        : ['#f8fbff', '#eef4ff', '#fbf7ff'] as const
+        : ['#e5ebff', '#e0e7ff', '#ece9ff', '#f4edf7'] as const
     ),
     [isDark],
   );
-  const headerControlSurface = isDark ? 'rgba(10, 17, 34, 0.46)' : 'rgba(255, 255, 255, 0.6)';
-  const headerControlBorder = isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.18)';
-  const searchSurface = isDark ? 'rgba(9, 18, 35, 0.78)' : 'rgba(255, 255, 255, 0.82)';
-  const quietSurface = isDark ? 'rgba(13, 21, 38, 0.8)' : 'rgba(243, 246, 255, 0.88)';
-  const deckSurface = isDark ? 'rgba(8, 17, 32, 0.84)' : 'rgba(255, 255, 255, 0.84)';
-  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.16)';
-  const subtleBorderColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(148, 163, 184, 0.1)';
-  const headerContentColor = isDark ? '#F8FAFC' : '#2D2A61';
-  const topGlowColor = isDark ? 'rgba(99, 102, 241, 0.14)' : 'rgba(129, 140, 248, 0.14)';
-  const bottomGlowColor = isDark ? 'rgba(56, 189, 248, 0.1)' : 'rgba(125, 211, 252, 0.12)';
+  const upperAtmosphereGradient = useMemo(
+    () => (
+      isDark
+        ? ['rgba(8, 15, 29, 0.05)', 'rgba(53, 74, 130, 0.08)', 'rgba(14, 20, 36, 0)'] as const
+        : ['rgba(98, 127, 246, 0.18)', 'rgba(123, 130, 236, 0.1)', 'rgba(255, 255, 255, 0)'] as const
+    ),
+    [isDark],
+  );
+  const lowerAtmosphereGradient = useMemo(
+    () => (
+      isDark
+        ? ['rgba(16, 24, 39, 0)', 'rgba(86, 65, 176, 0.05)', 'rgba(20, 28, 46, 0.08)'] as const
+        : ['rgba(255, 255, 255, 0)', 'rgba(202, 176, 237, 0.08)', 'rgba(226, 196, 235, 0.16)'] as const
+    ),
+    [isDark],
+  );
+  const shellOverlayGradient = useMemo(
+    () => (
+      isDark
+        ? ['rgba(6, 10, 22, 0.04)', 'rgba(6, 10, 22, 0.28)', 'rgba(5, 8, 20, 0.74)'] as const
+        : ['rgba(255, 255, 255, 0.16)', 'rgba(128, 139, 235, 0.05)', 'rgba(236, 232, 248, 0.14)'] as const
+    ),
+    [isDark],
+  );
+  const headerControlSurface = isDark ? 'rgba(10, 17, 34, 0.46)' : 'rgba(255, 255, 255, 0.74)';
+  const headerControlBorder = isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(126, 143, 212, 0.24)';
+  const searchSurface = isDark ? 'rgba(9, 18, 35, 0.78)' : 'rgba(255, 255, 255, 0.94)';
+  const quietSurface = isDark ? 'rgba(13, 21, 38, 0.8)' : 'rgba(248, 247, 255, 0.9)';
+  const deckSurface = isDark ? 'rgba(8, 17, 32, 0.84)' : 'rgba(255, 255, 255, 0.94)';
+  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(126, 143, 212, 0.22)';
+  const subtleBorderColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(129, 140, 248, 0.16)';
+  const headerContentColor = isDark ? '#F8FAFC' : '#283460';
+  const topGlowColor = isDark ? 'rgba(99, 102, 241, 0.14)' : 'rgba(105, 134, 255, 0.08)';
+  const bottomGlowColor = isDark ? 'rgba(56, 189, 248, 0.1)' : 'rgba(224, 171, 231, 0.1)';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}> 
@@ -245,11 +269,21 @@ export default function DecksPage() {
         style={StyleSheet.absoluteFill}
       />
       <LinearGradient
-        colors={
-          isDark
-            ? ['rgba(6, 10, 22, 0.04)', 'rgba(6, 10, 22, 0.28)', 'rgba(5, 8, 20, 0.74)']
-            : ['rgba(255, 255, 255, 0.22)', 'rgba(241, 245, 255, 0.12)', 'rgba(248, 250, 252, 0.58)']
-        }
+        colors={upperAtmosphereGradient}
+        start={{ x: 0.02, y: 0 }}
+        end={{ x: 0.84, y: 0.4 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={lowerAtmosphereGradient}
+        start={{ x: 0.18, y: 0.48 }}
+        end={{ x: 0.92, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={shellOverlayGradient}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.95, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -267,9 +301,10 @@ export default function DecksPage() {
               {
                 backgroundColor: headerControlSurface,
                 borderColor: headerControlBorder,
-                shadowOpacity: isDark ? 0.22 : 0.08,
-                shadowRadius: isDark ? 14 : 10,
-                elevation: isDark ? 6 : 3,
+                shadowColor: isDark ? '#000' : '#8b5cf6',
+                shadowOpacity: isDark ? 0.22 : 0.1,
+                shadowRadius: isDark ? 14 : 12,
+                elevation: isDark ? 6 : 4,
               },
             ]}
             activeOpacity={0.78}
@@ -277,7 +312,7 @@ export default function DecksPage() {
             <ArrowLeft color={headerContentColor} size={24} strokeWidth={2.5} />
           </TouchableOpacity>
 
-          <View style={[styles.headerTitleWrap, { backgroundColor: isDark ? 'rgba(10, 17, 34, 0.42)' : 'rgba(255, 255, 255, 0.5)', borderColor: headerControlBorder }]}> 
+          <View style={[styles.headerTitleWrap, { backgroundColor: isDark ? 'rgba(10, 17, 34, 0.42)' : 'rgba(255, 255, 255, 0.62)', borderColor: headerControlBorder }]}> 
             <Text style={[styles.headerTitle, { color: headerContentColor }]}>My Decks</Text>
           </View>
 
@@ -287,9 +322,10 @@ export default function DecksPage() {
               {
                 backgroundColor: headerControlSurface,
                 borderColor: headerControlBorder,
-                shadowOpacity: isDark ? 0.22 : 0.08,
-                shadowRadius: isDark ? 14 : 10,
-                elevation: isDark ? 6 : 3,
+                shadowColor: isDark ? '#000' : '#8b5cf6',
+                shadowOpacity: isDark ? 0.22 : 0.1,
+                shadowRadius: isDark ? 14 : 12,
+                elevation: isDark ? 6 : 4,
               },
             ]}
             onPress={() => setShowMenu(true)}
@@ -311,6 +347,10 @@ export default function DecksPage() {
               backgroundColor: searchSurface,
               color: theme.text,
               borderColor: surfaceBorderColor,
+              shadowColor: isDark ? '#000' : '#93a0ee',
+              shadowOpacity: isDark ? 0.06 : 0.08,
+              shadowRadius: isDark ? 14 : 18,
+              elevation: isDark ? 2 : 5,
             },
           ]}
           autoCapitalize="none"
@@ -339,6 +379,11 @@ export default function DecksPage() {
                   {
                     backgroundColor: isActive ? theme.primary : quietSurface,
                     borderColor: isActive ? theme.primary : subtleBorderColor,
+                    shadowColor: isDark ? '#000' : '#98a4ec',
+                    shadowOpacity: isDark ? 0 : isActive ? 0.12 : 0.04,
+                    shadowRadius: isDark ? 0 : isActive ? 12 : 8,
+                    shadowOffset: { width: 0, height: isActive ? 6 : 4 },
+                    elevation: isDark ? 0 : isActive ? 3 : 1,
                   },
                 ]}
                 testID={`deck-category-pill-${category.replace(/\s+/g, '-').toLowerCase()}`}
@@ -403,9 +448,10 @@ export default function DecksPage() {
                         backgroundColor: deckSurface,
                         borderWidth: 1,
                         borderColor: surfaceBorderColor,
-                        shadowOpacity: isDark ? 0.24 : 0.08,
-                        shadowRadius: isDark ? 18 : 12,
-                        elevation: isDark ? 8 : 4,
+                        shadowColor: isDark ? '#000' : '#8f7ae8',
+                        shadowOpacity: isDark ? 0.24 : 0.12,
+                        shadowRadius: isDark ? 18 : 14,
+                        elevation: isDark ? 8 : 6,
                       },
                       isFullyMastered ? { borderColor: '#10B981', borderWidth: 2 } : null,
                     ]}
@@ -649,19 +695,19 @@ const styles = StyleSheet.create({
   },
   topGlow: {
     position: 'absolute',
-    top: -96,
-    right: -48,
-    width: 240,
-    height: 240,
-    borderRadius: 120,
+    top: -148,
+    right: -118,
+    width: 360,
+    height: 360,
+    borderRadius: 180,
   },
   bottomGlow: {
     position: 'absolute',
-    bottom: 120,
-    left: -72,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
+    bottom: 64,
+    left: -124,
+    width: 380,
+    height: 380,
+    borderRadius: 190,
   },
   header: {
     flexDirection: 'row',

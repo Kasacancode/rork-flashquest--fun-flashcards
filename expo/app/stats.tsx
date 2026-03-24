@@ -10,7 +10,7 @@ import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
-import { LEVELS, computeLevel, computeLevelProgress, getLevelEntry } from '@/utils/levels';
+import { LEVELS, computeLevel, computeLevelProgress, getLevelBandPalette, getLevelEntry } from '@/utils/levels';
 import { computeDeckMastery } from '@/utils/mastery';
 
 type ThemeValues = ReturnType<typeof useTheme>['theme'];
@@ -63,11 +63,12 @@ export default function StatsPage() {
   const { leaderboard, playerName: savedPlayerName } = useArena();
   const { theme, isDark } = useTheme();
   const [showLevels, setShowLevels] = useState<boolean>(false);
-  const statsAccent = isDark ? '#38bdf8' : '#0ea5e9';
+  const statsAccent = isDark ? '#38bdf8' : '#2563eb';
 
   const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
   const levelEntry = useMemo(() => getLevelEntry(level), [level]);
   const levelProgress = useMemo(() => computeLevelProgress(stats.totalScore), [stats.totalScore]);
+  const levelPalette = useMemo(() => getLevelBandPalette(level, isDark), [level, isDark]);
 
   const masteryOverview = useMemo(() => {
     return decks.reduce((accumulator, deck) => {
@@ -297,7 +298,34 @@ export default function StatsPage() {
     () => (
       isDark
         ? ['#09111f', '#11203a', '#0a1323'] as const
-        : ['#fafcff', '#eef4ff', '#f9f7ff'] as const
+        : ['#f7fbff', '#e6efff', '#eef0ff'] as const
+    ),
+    [isDark],
+  );
+
+  const upperAtmosphereGradient = useMemo(
+    () => (
+      isDark
+        ? ['rgba(56, 189, 248, 0.18)', 'rgba(37, 99, 235, 0.08)', 'rgba(5, 8, 20, 0)'] as const
+        : ['rgba(96, 165, 250, 0.3)', 'rgba(129, 140, 248, 0.16)', 'rgba(255, 255, 255, 0)'] as const
+    ),
+    [isDark],
+  );
+
+  const lowerAtmosphereGradient = useMemo(
+    () => (
+      isDark
+        ? ['rgba(5, 8, 20, 0)', 'rgba(59, 130, 246, 0.08)', 'rgba(14, 165, 233, 0.16)'] as const
+        : ['rgba(255, 255, 255, 0)', 'rgba(191, 219, 254, 0.16)', 'rgba(196, 181, 253, 0.18)'] as const
+    ),
+    [isDark],
+  );
+
+  const shellOverlayGradient = useMemo(
+    () => (
+      isDark
+        ? ['rgba(6, 10, 22, 0.06)', 'rgba(6, 10, 22, 0.34)', 'rgba(5, 8, 20, 0.76)'] as const
+        : ['rgba(255, 255, 255, 0.3)', 'rgba(241, 247, 255, 0.14)', 'rgba(237, 243, 255, 0.5)'] as const
     ),
     [isDark],
   );
@@ -321,11 +349,13 @@ export default function StatsPage() {
     [isDark],
   );
 
+  const secondaryTextColor = isDark ? theme.textSecondary : '#4F6284';
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const levelModalStyles = useMemo(() => createLevelModalStyles(theme, isDark), [theme, isDark]);
-  const headerContentColor = isDark ? '#F8FAFC' : '#2D2A61';
-  const topGlowColor = isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(125, 211, 252, 0.18)';
-  const bottomGlowColor = isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(99, 102, 241, 0.1)';
+  const headerContentColor = isDark ? '#F8FAFC' : '#173A71';
+  const topGlowColor = isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(96, 165, 250, 0.22)';
+  const midGlowColor = isDark ? 'rgba(37, 99, 235, 0.1)' : 'rgba(125, 211, 252, 0.16)';
+  const bottomGlowColor = isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(196, 181, 253, 0.14)';
 
   const handleOpenLevels = useCallback(() => {
     setShowLevels(true);
@@ -344,17 +374,28 @@ export default function StatsPage() {
         style={StyleSheet.absoluteFill}
       />
       <LinearGradient
-        colors={
-          isDark
-            ? ['rgba(6, 10, 22, 0.06)', 'rgba(6, 10, 22, 0.34)', 'rgba(5, 8, 20, 0.76)']
-            : ['rgba(255, 255, 255, 0.24)', 'rgba(239, 246, 255, 0.16)', 'rgba(248, 250, 252, 0.62)']
-        }
+        colors={upperAtmosphereGradient}
+        start={{ x: 0.02, y: 0 }}
+        end={{ x: 0.86, y: 0.44 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={lowerAtmosphereGradient}
+        start={{ x: 0.16, y: 0.52 }}
+        end={{ x: 0.94, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={shellOverlayGradient}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.95, y: 1 }}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
       <View pointerEvents="none" style={[styles.topGlow, { backgroundColor: topGlowColor }]} />
+      <View pointerEvents="none" style={[styles.midGlow, { backgroundColor: midGlowColor }]} />
       <View pointerEvents="none" style={[styles.bottomGlow, { backgroundColor: bottomGlowColor }]} />
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -384,7 +425,7 @@ export default function StatsPage() {
               },
             ]}
           >
-            <Text style={[styles.headerTitle, { color: headerContentColor }]}>Stats</Text>
+            <Text style={[styles.headerTitle, { color: headerContentColor }]}>Your Stats</Text>
           </View>
           <View style={styles.placeholder} />
         </View>
@@ -396,34 +437,62 @@ export default function StatsPage() {
           testID="stats-scroll-view"
         >
           <TouchableOpacity
-            style={styles.levelCard}
+            style={[
+              styles.levelCard,
+              {
+                borderColor: levelPalette.badgeBorder,
+                shadowColor: levelPalette.badgeShadow,
+              },
+            ]}
             onPress={handleOpenLevels}
             activeOpacity={0.92}
             testID="stats-score-card"
           >
             <LinearGradient
-              colors={
-                isDark
-                  ? ['rgba(56, 189, 248, 0.18)', 'rgba(9, 17, 33, 0.98)']
-                  : ['rgba(255, 255, 255, 0.94)', 'rgba(229, 241, 255, 0.92)']
-              }
+              colors={levelPalette.heroGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
             />
-            <View style={[styles.levelOrb, { backgroundColor: isDark ? 'rgba(56, 189, 248, 0.2)' : 'rgba(125, 211, 252, 0.2)' }]} />
+            <LinearGradient
+              colors={['rgba(255, 255, 255, 0)', levelPalette.heroEdgeTint]}
+              start={{ x: 0.12, y: 0.2 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={[styles.levelOrb, { backgroundColor: levelPalette.haloColor }]} />
             <Text style={styles.levelEyebrow}>Progression</Text>
-            <View style={styles.levelBadge}>
-              <Text style={styles.levelBadgeText}>{level}</Text>
+            <View
+              style={[
+                styles.levelBadge,
+                {
+                  borderColor: levelPalette.badgeBorder,
+                  shadowColor: levelPalette.badgeShadow,
+                },
+              ]}
+            >
+              <LinearGradient
+                colors={levelPalette.badgeGradient}
+                start={{ x: 0.12, y: 0 }}
+                end={{ x: 0.88, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <Text style={[styles.levelBadgeText, { color: levelPalette.badgeText }]}>{level}</Text>
             </View>
             <Text style={styles.levelTitle}>{levelEntry.title}</Text>
             <Text style={styles.levelXpText}>{stats.totalScore.toLocaleString()} XP</Text>
             <View style={styles.levelBarContainer}>
-              <View style={styles.levelBarTrack}>
-                <View
+              <View style={[styles.levelBarTrack, { backgroundColor: levelPalette.progressTrack }] }>
+                <LinearGradient
+                  colors={levelPalette.progressGradient}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
                   style={[
                     styles.levelBarFill,
-                    { width: `${Math.round(levelProgress.percent * 100)}%` },
+                    {
+                      width: `${Math.round(levelProgress.percent * 100)}%`,
+                      shadowColor: levelPalette.progressGlow,
+                    },
                   ]}
                 />
               </View>
@@ -433,7 +502,7 @@ export default function StatsPage() {
                   : `${levelProgress.current} / ${levelProgress.required} to Level ${level + 1}`}
               </Text>
             </View>
-            <Text style={styles.levelHint}>Tap to view all levels</Text>
+            <Text style={[styles.levelHint, { color: levelPalette.band === 'elite' ? '#6D28D9' : undefined }]}>Tap to view all levels</Text>
           </TouchableOpacity>
 
           <View style={styles.weeklyCard}>
@@ -759,7 +828,7 @@ export default function StatsPage() {
                             color:
                               deckSummary.pct === 100
                                 ? '#10B981'
-                                : theme.textSecondary,
+                                : secondaryTextColor,
                           },
                         ]}
                       >
@@ -795,19 +864,23 @@ export default function StatsPage() {
         onClose={handleCloseLevels}
         styles={levelModalStyles}
         theme={theme}
+        isDark={isDark}
+        levelPalette={levelPalette}
       />
     </View>
   );
 }
 
 const createStyles = (theme: ThemeValues, isDark: boolean) => {
-  const statSurface = isDark ? 'rgba(9, 18, 35, 0.84)' : 'rgba(255, 255, 255, 0.84)';
-  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.16)';
-  const statsAccent = isDark ? '#38bdf8' : '#0284c7';
-  const accentTint = isDark ? 'rgba(56, 189, 248, 0.1)' : 'rgba(14, 165, 233, 0.1)';
-  const accentBorder = isDark ? 'rgba(56, 189, 248, 0.18)' : 'rgba(125, 211, 252, 0.26)';
-  const deepSurface = isDark ? 'rgba(7, 15, 31, 0.92)' : 'rgba(247, 250, 255, 0.9)';
-  const cardSurface = isDark ? 'rgba(11, 20, 37, 0.84)' : 'rgba(255, 255, 255, 0.88)';
+  const statSurface = isDark ? 'rgba(9, 18, 35, 0.84)' : 'rgba(255, 255, 255, 0.88)';
+  const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.18)';
+  const statsAccent = isDark ? '#38bdf8' : '#2563eb';
+  const accentTint = isDark ? 'rgba(56, 189, 248, 0.1)' : 'rgba(59, 130, 246, 0.12)';
+  const accentBorder = isDark ? 'rgba(56, 189, 248, 0.18)' : 'rgba(96, 165, 250, 0.28)';
+  const deepSurface = isDark ? 'rgba(7, 15, 31, 0.92)' : 'rgba(255, 255, 255, 0.9)';
+  const cardSurface = isDark ? 'rgba(11, 20, 37, 0.84)' : 'rgba(255, 255, 255, 0.9)';
+  const secondaryTextColor = isDark ? theme.textSecondary : '#4F6284';
+  const tertiaryTextColor = isDark ? theme.textTertiary : '#7183A6';
 
   return StyleSheet.create({
     container: {
@@ -821,6 +894,14 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       width: 240,
       height: 240,
       borderRadius: 120,
+    },
+    midGlow: {
+      position: 'absolute',
+      top: 280,
+      right: -54,
+      width: 220,
+      height: 220,
+      borderRadius: 110,
     },
     bottomGlow: {
       position: 'absolute',
@@ -901,7 +982,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     levelEyebrow: {
       fontSize: 11,
       fontWeight: '800' as const,
-      color: theme.textTertiary,
+      color: tertiaryTextColor,
       letterSpacing: 1,
       textTransform: 'uppercase' as const,
       marginBottom: 12,
@@ -910,14 +991,14 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       width: 56,
       height: 56,
       borderRadius: 28,
-      backgroundColor: statsAccent,
       justifyContent: 'center',
       alignItems: 'center',
       marginBottom: 12,
-      shadowColor: statsAccent,
+      overflow: 'hidden',
+      borderWidth: 1,
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
+      shadowOpacity: 0.34,
+      shadowRadius: 10,
       elevation: 6,
     },
     levelBadgeText: {
@@ -935,7 +1016,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     levelXpText: {
       fontSize: 14,
       fontWeight: '700' as const,
-      color: theme.textSecondary,
+      color: secondaryTextColor,
       marginBottom: 16,
     },
     levelBarContainer: {
@@ -950,12 +1031,15 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     levelBarFill: {
       height: '100%',
       borderRadius: 4,
-      backgroundColor: statsAccent,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.28,
+      shadowRadius: 6,
+      elevation: 2,
     },
     levelBarLabel: {
       fontSize: 12,
       fontWeight: '700' as const,
-      color: theme.textTertiary,
+      color: tertiaryTextColor,
       textAlign: 'center',
       marginTop: 10,
     },
@@ -1007,7 +1091,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     weeklyStatLabel: {
       fontSize: 12,
       fontWeight: '600' as const,
-      color: theme.textSecondary,
+      color: secondaryTextColor,
       marginTop: 4,
     },
     weeklyDivider: {
@@ -1017,7 +1101,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     weeklyComparison: {
       fontSize: 13,
       fontWeight: '600' as const,
-      color: theme.textTertiary,
+      color: tertiaryTextColor,
       textAlign: 'center',
       marginTop: 14,
     },
@@ -1045,7 +1129,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     calendarSubtitle: {
       fontSize: 13,
       fontWeight: '500' as const,
-      color: theme.textSecondary,
+      color: secondaryTextColor,
       marginBottom: 16,
     },
     calendarBody: {
@@ -1071,7 +1155,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     calendarMonthLabel: {
       fontSize: 10,
       fontWeight: '600' as const,
-      color: theme.textTertiary,
+      color: tertiaryTextColor,
       height: 12,
       lineHeight: 12,
       marginBottom: 4,
@@ -1096,7 +1180,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     calendarDayLabel: {
       fontSize: 10,
       fontWeight: '600' as const,
-      color: theme.textTertiary,
+      color: tertiaryTextColor,
       height: 14,
       lineHeight: 14,
     },
@@ -1113,7 +1197,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     calendarLegendText: {
       fontSize: 10,
       fontWeight: '500' as const,
-      color: theme.textTertiary,
+      color: tertiaryTextColor,
     },
     streakRow: {
       flexDirection: 'row',
@@ -1133,7 +1217,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     streakLabel: {
       fontSize: 13,
       fontWeight: '600' as const,
-      color: theme.textSecondary,
+      color: secondaryTextColor,
     },
 
     masteryCard: {
@@ -1154,7 +1238,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     sectionLabel: {
       fontSize: 12,
       fontWeight: '700' as const,
-      color: theme.textTertiary,
+      color: tertiaryTextColor,
       textTransform: 'uppercase',
       letterSpacing: 1,
       marginBottom: 12,
@@ -1167,7 +1251,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     masterySubtext: {
       fontSize: 13,
       fontWeight: '600' as const,
-      color: theme.textSecondary,
+      color: secondaryTextColor,
       marginTop: 4,
       marginBottom: 16,
       textAlign: 'center',
@@ -1189,7 +1273,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     masteryLegendItem: {
       fontSize: 12,
       fontWeight: '600' as const,
-      color: theme.textSecondary,
+      color: secondaryTextColor,
     },
 
     performanceCard: {
@@ -1238,13 +1322,13 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     perfValue: {
       fontSize: 13,
       fontWeight: '500' as const,
-      color: theme.textSecondary,
+      color: secondaryTextColor,
       flex: 1,
     },
     perfDetail: {
       fontSize: 12,
       fontWeight: '500' as const,
-      color: theme.textTertiary,
+      color: tertiaryTextColor,
       marginTop: 2,
     },
 
@@ -1293,7 +1377,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     trendWeek: {
       fontSize: 10,
       fontWeight: '500' as const,
-      color: theme.textTertiary,
+      color: tertiaryTextColor,
       marginTop: 2,
     },
 
@@ -1343,7 +1427,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     deckProgressBarTrack: {
       height: 6,
       borderRadius: 3,
-      backgroundColor: isDark ? 'rgba(148,163,184,0.14)' : theme.border,
+      backgroundColor: isDark ? 'rgba(148,163,184,0.14)' : 'rgba(148, 163, 184, 0.2)',
       overflow: 'hidden',
     },
     deckProgressBarFill: {
@@ -1362,13 +1446,16 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     emptyText: {
       fontSize: 14,
       fontWeight: '600' as const,
-      color: theme.textSecondary,
+      color: secondaryTextColor,
       textAlign: 'center',
     },
   });
 };
 
 const createLevelModalStyles = (theme: ThemeValues, isDark: boolean) => {
+  const secondaryTextColor = isDark ? theme.textSecondary : '#4F6284';
+  const tertiaryTextColor = isDark ? theme.textTertiary : '#7183A6';
+
   return StyleSheet.create({
     levelModalOverlay: {
       flex: 1,
@@ -1400,7 +1487,7 @@ const createLevelModalStyles = (theme: ThemeValues, isDark: boolean) => {
     levelModalEyebrow: {
       fontSize: 11,
       fontWeight: '700' as const,
-      color: theme.textTertiary,
+      color: tertiaryTextColor,
       textTransform: 'uppercase' as const,
       letterSpacing: 0.9,
     },
@@ -1413,7 +1500,7 @@ const createLevelModalStyles = (theme: ThemeValues, isDark: boolean) => {
     levelModalSubtitle: {
       fontSize: 13,
       fontWeight: '500' as const,
-      color: theme.textSecondary,
+      color: secondaryTextColor,
       lineHeight: 18,
     },
     settingsCloseButton: {
@@ -1427,7 +1514,7 @@ const createLevelModalStyles = (theme: ThemeValues, isDark: boolean) => {
     settingsCloseText: {
       fontSize: 22,
       fontWeight: '500' as const,
-      color: theme.textSecondary,
+      color: secondaryTextColor,
       lineHeight: 24,
     },
     levelList: {
@@ -1466,7 +1553,7 @@ const createLevelModalStyles = (theme: ThemeValues, isDark: boolean) => {
     levelBadgeText: {
       fontSize: 12,
       fontWeight: '800' as const,
-      color: theme.textSecondary,
+      color: secondaryTextColor,
       textTransform: 'uppercase' as const,
       letterSpacing: 0.4,
     },
@@ -1485,13 +1572,13 @@ const createLevelModalStyles = (theme: ThemeValues, isDark: boolean) => {
     levelRowSubtitle: {
       fontSize: 12,
       fontWeight: '500' as const,
-      color: theme.textSecondary,
+      color: secondaryTextColor,
       lineHeight: 17,
     },
     levelRowMeta: {
       fontSize: 11,
       fontWeight: '700' as const,
-      color: theme.textTertiary,
+      color: tertiaryTextColor,
       letterSpacing: 0.3,
       textTransform: 'uppercase' as const,
     },

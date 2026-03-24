@@ -514,6 +514,7 @@ export default function ProfilePage() {
         onClose={handleCloseLevels}
         styles={styles}
         theme={theme}
+        isDark={isDark}
       />
     </View>
   );
