@@ -373,7 +373,7 @@ export default function HomePage() {
 
           <View style={styles.decksSection}>
             <Text style={[styles.sectionTitle, { color: sectionTitleColor }]}>
-              {recommendations.length > 0 ? 'Recommended for You' : 'Quick Start'}
+              {'Quick Start'}
             </Text>
             {decks.length === 0 ? (
               <View
