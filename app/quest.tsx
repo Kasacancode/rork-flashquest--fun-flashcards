@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Target, Zap, Clock, Focus, Lightbulb, BookOpen, RefreshCw, Play, ChevronRight, Settings, X } from 'lucide-react-native';
+import { ArrowLeft, Target, Zap, Clock, Focus, Lightbulb, BookOpen, RefreshCw, Play, ChevronRight, Settings, X, Flame, Award } from 'lucide-react-native';
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Animated, Dimensions, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -238,20 +238,39 @@ export default function QuestMenuScreen() {
                 ]}
               >
             <View style={styles.statItem}>
+              <View style={[styles.statIconShell, { backgroundColor: insetSurface }]}> 
+                <Target color={theme.primary} size={18} strokeWidth={2.2} />
+              </View>
               <Text style={[styles.statValue, { color: theme.primary }]}>
                 {overallAccuracy !== null ? `${Math.round(overallAccuracy * 100)}%` : '--'}
               </Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Quest Accuracy</Text>
             </View>
-            <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+            <View
+              style={[
+                styles.statDivider,
+                { backgroundColor: isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(0,0,0,0.08)' },
+              ]}
+            />
             <View style={styles.statItem}>
+              <View style={[styles.statIconShell, { backgroundColor: insetSurface }]}> 
+                <Flame color={theme.primary} size={18} strokeWidth={2.2} />
+              </View>
               <Text style={[styles.statValue, { color: theme.primary }]}>
                 {performance.bestQuestStreak}
               </Text>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Best Streak</Text>
             </View>
-            <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+            <View
+              style={[
+                styles.statDivider,
+                { backgroundColor: isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(0,0,0,0.08)' },
+              ]}
+            />
             <View style={styles.statItem}>
+              <View style={[styles.statIconShell, { backgroundColor: insetSurface }]}> 
+                <Award color={theme.primary} size={18} strokeWidth={2.2} />
+              </View>
               <Text style={[styles.statValue, { color: theme.primary }]}>
                 {deckAccuracy !== null ? `${Math.round(deckAccuracy * 100)}%` : '--'}
               </Text>
@@ -689,33 +708,46 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   statsCard: {
-    borderRadius: 20,
-    padding: 20,
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
+    alignItems: 'stretch',
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 10,
     marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
   statItem: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    gap: 6,
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    marginBottom: 4,
+    fontSize: 28,
+    fontWeight: '800' as const,
+    letterSpacing: -0.8,
   },
   statLabel: {
     fontSize: 12,
-    fontWeight: '500' as const,
+    fontWeight: '600' as const,
+    textAlign: 'center',
+  },
+  statIconShell: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statDivider: {
     width: 1,
-    height: 40,
+    marginVertical: 8,
   },
   section: {
     borderRadius: 20,
