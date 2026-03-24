@@ -121,6 +121,7 @@ export default function ProfilePage() {
   const achievements: AchievementItem[] = useMemo(() => computeAchievements({
     stats,
     leaderboardCount: leaderboard.length,
+    totalArenaBattles: stats.totalArenaBattles ?? leaderboard.length,
     bestQuestStreak: performance.bestQuestStreak,
     customDeckCount,
     totalCardsOwned,

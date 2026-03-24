@@ -76,27 +76,35 @@ export default function StudyPage() {
   }, [selectedDeck, showResults]);
 
   const handleComplete = useCallback(() => {
-    if (selectedDeck) {
-      const xpEarned = sessionResolved * 2;
-      setSessionXp(xpEarned);
-      recordSessionResult({
-        mode: GAME_MODE.STUDY,
-        deckId: selectedDeck.id,
-        xpEarned,
-        cardsAttempted: sessionResolved,
-        timestampISO: new Date().toISOString(),
-        durationMs: Date.now() - sessionStartRef.current,
-      });
-      trackEvent({
-        event: 'study_completed',
-        deckId: selectedDeck.id,
-        properties: {
-          cards_studied: sessionResolved,
-          deck_name: selectedDeck.name,
-        },
-      });
-      logger.log('[Study] Session complete, cards:', sessionResolved, 'xp:', xpEarned);
+    if (!selectedDeck) {
+      return;
     }
+
+    if (sessionResolved === 0) {
+      setSessionXp(0);
+      setShowResults(true);
+      return;
+    }
+
+    const xpEarned = sessionResolved * 2;
+    setSessionXp(xpEarned);
+    recordSessionResult({
+      mode: GAME_MODE.STUDY,
+      deckId: selectedDeck.id,
+      xpEarned,
+      cardsAttempted: sessionResolved,
+      timestampISO: new Date().toISOString(),
+      durationMs: Date.now() - sessionStartRef.current,
+    });
+    trackEvent({
+      event: 'study_completed',
+      deckId: selectedDeck.id,
+      properties: {
+        cards_studied: sessionResolved,
+        deck_name: selectedDeck.name,
+      },
+    });
+    logger.log('[Study] Session complete, cards:', sessionResolved, 'xp:', xpEarned);
     setShowResults(true);
   }, [selectedDeck, sessionResolved, recordSessionResult]);
 

@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
+import { computeDeckMastery } from '@/utils/mastery';
 import { generateUUID } from '@/utils/uuid';
 
 export default function DeckHubScreen() {
@@ -21,15 +22,7 @@ export default function DeckHubScreen() {
 
   const mastery = useMemo(() => {
     if (!deck) return { mastered: 0, reviewing: 0, learning: 0, newCards: 0, total: 0 };
-    let mastered = 0, reviewing = 0, learning = 0, newCards = 0;
-    for (const card of deck.flashcards) {
-      const stats = performance.cardStatsById[card.id];
-      if (!stats || stats.attempts === 0) { newCards++; continue; }
-      if (stats.streakCorrect >= 5) { mastered++; continue; }
-      if (stats.streakCorrect >= 3) { reviewing++; continue; }
-      learning++;
-    }
-    return { mastered, reviewing, learning, newCards, total: deck.flashcards.length };
+    return computeDeckMastery(deck.flashcards, performance.cardStatsById);
   }, [deck, performance.cardStatsById]);
 
   const accuracy = useMemo(() => deckId ? getDeckAccuracy(deckId) : null, [deckId, getDeckAccuracy]);

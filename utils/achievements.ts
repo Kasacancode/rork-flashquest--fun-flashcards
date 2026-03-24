@@ -39,13 +39,15 @@ export interface AchievementItem {
 export interface AchievementInputs {
   stats: UserStats;
   leaderboardCount: number;
+  totalArenaBattles: number;
   bestQuestStreak: number;
   customDeckCount: number;
   totalCardsOwned: number;
 }
 
 export function computeAchievements(inputs: AchievementInputs): AchievementItem[] {
-  const { stats, leaderboardCount, bestQuestStreak, customDeckCount, totalCardsOwned } = inputs;
+  const { stats, leaderboardCount, totalArenaBattles, bestQuestStreak, customDeckCount, totalCardsOwned } = inputs;
+  const arenaBattleCount = totalArenaBattles || leaderboardCount;
 
   return [
     { id: 'first_steps', name: 'First Steps', description: 'Study your first flashcard', xp: 25, progress: Math.min(stats.totalCardsStudied, 1), total: 1, color: '#4ECDC4', icon: BookOpen, category: 'study' },
@@ -65,10 +67,10 @@ export function computeAchievements(inputs: AchievementInputs): AchievementItem[
     { id: 'point_machine', name: 'Point Machine', description: 'Earn 10,000 total XP', xp: 400, progress: Math.min(stats.totalScore, 10000), total: 10000, color: '#A855F7', icon: Crown, category: 'xp' },
     { id: 'xp_legend', name: 'XP Legend', description: 'Earn 50,000 total XP', xp: 1000, progress: Math.min(stats.totalScore, 50000), total: 50000, color: '#7C3AED', icon: Crown, category: 'xp' },
 
-    { id: 'battle_ready', name: 'Battle Ready', description: 'Complete your first arena battle', xp: 50, progress: Math.min(leaderboardCount, 1), total: 1, color: '#F59E0B', icon: Award, category: 'battle' },
-    { id: 'arena_regular', name: 'Arena Regular', description: 'Complete 5 arena battles', xp: 100, progress: Math.min(leaderboardCount, 5), total: 5, color: '#F59E0B', icon: Award, category: 'battle' },
-    { id: 'battle_hardened', name: 'Battle Hardened', description: 'Complete 25 arena battles', xp: 300, progress: Math.min(leaderboardCount, 25), total: 25, color: '#D97706', icon: Award, category: 'battle' },
-    { id: 'arena_veteran', name: 'Arena Veteran', description: 'Complete 50 arena battles', xp: 750, progress: Math.min(leaderboardCount, 50), total: 50, color: '#B45309', icon: Award, category: 'battle' },
+    { id: 'battle_ready', name: 'Battle Ready', description: 'Complete your first arena battle', xp: 50, progress: Math.min(arenaBattleCount, 1), total: 1, color: '#F59E0B', icon: Award, category: 'battle' },
+    { id: 'arena_regular', name: 'Arena Regular', description: 'Complete 5 arena battles', xp: 100, progress: Math.min(arenaBattleCount, 5), total: 5, color: '#F59E0B', icon: Award, category: 'battle' },
+    { id: 'battle_hardened', name: 'Battle Hardened', description: 'Complete 25 arena battles', xp: 300, progress: Math.min(arenaBattleCount, 25), total: 25, color: '#D97706', icon: Award, category: 'battle' },
+    { id: 'arena_veteran', name: 'Arena Veteran', description: 'Complete 50 arena battles', xp: 750, progress: Math.min(arenaBattleCount, 50), total: 50, color: '#B45309', icon: Award, category: 'battle' },
 
     { id: 'sharp_eye', name: 'Sharp Eye', description: 'Get a 3-answer streak in Quest mode', xp: 50, progress: Math.min(bestQuestStreak, 3), total: 3, color: '#6366F1', icon: Zap, category: 'quest' },
     { id: 'hot_hands', name: 'Hot Hands', description: 'Get a 7-answer streak in Quest mode', xp: 150, progress: Math.min(bestQuestStreak, 7), total: 7, color: '#6366F1', icon: Zap, category: 'quest' },

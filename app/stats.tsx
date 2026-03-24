@@ -9,12 +9,10 @@ import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
-import type { Flashcard } from '@/types/flashcard';
-import type { CardStats } from '@/types/performance';
 import { computeLevel, computeLevelProgress, getLevelEntry } from '@/utils/levels';
+import { computeDeckMastery } from '@/utils/mastery';
 
 type ThemeValues = ReturnType<typeof useTheme>['theme'];
-type MasteryStage = 'new' | 'learning' | 'reviewing' | 'mastered';
 
 type CalendarDayData = {
   date: string;
@@ -31,46 +29,6 @@ type DeckMasterySummary = {
   total: number;
   pct: number;
 };
-
-function getCardMasteryStage(
-  card: Flashcard,
-  cardStatsById: Record<string, CardStats | undefined>,
-): MasteryStage {
-  const stats = cardStatsById[card.id];
-
-  if (!stats || stats.attempts === 0) {
-    return 'new';
-  }
-
-  if (stats.streakCorrect >= 5) {
-    return 'mastered';
-  }
-
-  if (stats.streakCorrect >= 3) {
-    return 'reviewing';
-  }
-
-  return 'learning';
-}
-
-function buildDeckMasterySummary(
-  deck: { id: string; name: string; color: string; flashcards: Flashcard[] },
-  cardStatsById: Record<string, CardStats | undefined>,
-): DeckMasterySummary {
-  const total = deck.flashcards.length;
-  const mastered = deck.flashcards.reduce((count, card) => {
-    return count + (getCardMasteryStage(card, cardStatsById) === 'mastered' ? 1 : 0);
-  }, 0);
-
-  return {
-    id: deck.id,
-    name: deck.name,
-    color: deck.color,
-    mastered,
-    total,
-    pct: total > 0 ? Math.round((mastered / total) * 100) : 0,
-  };
-}
 
 function getIsoWeekString(date: Date): string {
   const normalized = new Date(date);
@@ -110,38 +68,21 @@ export default function StatsPage() {
   const levelProgress = useMemo(() => computeLevelProgress(stats.totalScore), [stats.totalScore]);
 
   const masteryOverview = useMemo(() => {
-    const cardStatsById = performance.cardStatsById as Record<string, CardStats | undefined>;
-    let totalCards = 0;
-    let mastered = 0;
-    let reviewing = 0;
-    let learning = 0;
-    let newCards = 0;
-
-    for (const deck of decks) {
-      for (const card of deck.flashcards) {
-        totalCards += 1;
-        const stage = getCardMasteryStage(card, cardStatsById);
-
-        if (stage === 'mastered') {
-          mastered += 1;
-          continue;
-        }
-
-        if (stage === 'reviewing') {
-          reviewing += 1;
-          continue;
-        }
-
-        if (stage === 'learning') {
-          learning += 1;
-          continue;
-        }
-
-        newCards += 1;
-      }
-    }
-
-    return { totalCards, mastered, reviewing, learning, newCards };
+    return decks.reduce((accumulator, deck) => {
+      const mastery = computeDeckMastery(deck.flashcards, performance.cardStatsById);
+      accumulator.totalCards += mastery.total;
+      accumulator.mastered += mastery.mastered;
+      accumulator.reviewing += mastery.reviewing;
+      accumulator.learning += mastery.learning;
+      accumulator.newCards += mastery.newCards;
+      return accumulator;
+    }, {
+      totalCards: 0,
+      mastered: 0,
+      reviewing: 0,
+      learning: 0,
+      newCards: 0,
+    });
   }, [decks, performance.cardStatsById]);
 
   const arenaStats = useMemo(() => {
@@ -236,18 +177,34 @@ export default function StatsPage() {
       comparison = lastWeekDays === 0 ? 'Start your week strong!' : 'Same as last week';
     }
 
-    const attempted = stats.totalQuestionsAttempted ?? 0;
-    const correct = stats.totalCorrectAnswers ?? 0;
-    const accuracy = attempted > 0 ? Math.round((correct / attempted) * 100) : null;
+    const currentWeekAccuracy = (() => {
+      const weekly = stats.weeklyAccuracy ?? [];
+      if (weekly.length === 0) {
+        return null;
+      }
 
-    return { thisWeekDays, comparison, accuracy };
+      const weekKey = getIsoWeekString(today);
+      const entry = weekly.find((item) => item.week === weekKey);
+      if (!entry || entry.attempted === 0) {
+        return null;
+      }
+
+      return Math.round((entry.correct / entry.attempted) * 100);
+    })();
+
+    return { thisWeekDays, comparison, currentWeekAccuracy };
   }, [
     stats.studyDates,
     stats.lastActiveDate,
-    stats.totalQuestionsAttempted,
-    stats.totalCorrectAnswers,
+    stats.weeklyAccuracy,
     stats.currentStreak,
   ]);
+
+  const lifetimeAccuracy = useMemo(() => {
+    const attempted = stats.totalQuestionsAttempted ?? 0;
+    const correct = stats.totalCorrectAnswers ?? 0;
+    return attempted > 0 ? Math.round((correct / attempted) * 100) : null;
+  }, [stats.totalQuestionsAttempted, stats.totalCorrectAnswers]);
 
   const displaySessions = useMemo(() => {
     const study = stats.totalStudySessions ?? 0;
@@ -321,8 +278,17 @@ export default function StatsPage() {
   }, [calendarWithIntensity]);
 
   const deckProgressSummaries = useMemo(() => {
-    const cardStatsById = performance.cardStatsById as Record<string, CardStats | undefined>;
-    return decks.map((deck) => buildDeckMasterySummary(deck, cardStatsById));
+    return decks.map((deck) => {
+      const mastery = computeDeckMastery(deck.flashcards, performance.cardStatsById);
+      return {
+        id: deck.id,
+        name: deck.name,
+        color: deck.color,
+        mastered: mastery.mastered,
+        total: mastery.total,
+        pct: mastery.total > 0 ? Math.round((mastery.mastered / mastery.total) * 100) : 0,
+      } satisfies DeckMasterySummary;
+    });
   }, [decks, performance.cardStatsById]);
 
   const backgroundGradient = useMemo(
@@ -466,7 +432,7 @@ export default function StatsPage() {
                   </View>
                 </>
               ) : null}
-              {weeklySummary.accuracy !== null ? (
+              {weeklySummary.currentWeekAccuracy !== null ? (
                 <>
                   <View
                     style={[
@@ -480,13 +446,13 @@ export default function StatsPage() {
                         styles.weeklyStatValue,
                         {
                           color:
-                            weeklySummary.accuracy >= 70
+                            weeklySummary.currentWeekAccuracy >= 70
                               ? theme.success
                               : theme.warning,
                         },
                       ]}
                     >
-                      {weeklySummary.accuracy}%
+                      {weeklySummary.currentWeekAccuracy}%
                     </Text>
                     <Text style={styles.weeklyStatLabel}>Accuracy</Text>
                   </View>
@@ -656,9 +622,9 @@ export default function StatsPage() {
                 <Text style={styles.perfValue}>
                   {displaySessions.quest} sessions · {stats.totalQuestionsAttempted ?? 0} questions
                 </Text>
-                {weeklySummary.accuracy !== null ? (
+                {lifetimeAccuracy !== null ? (
                   <Text style={styles.perfDetail}>
-                    {weeklySummary.accuracy}% accuracy
+                    {lifetimeAccuracy}% accuracy
                     {performance.bestQuestStreak > 0 ? ` · ${performance.bestQuestStreak} best streak` : ''}
                   </Text>
                 ) : null}

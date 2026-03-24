@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DeckMasteryToast from '@/components/DeckMasteryToast';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
+import { computeDeckMastery } from '@/utils/mastery';
 import { enqueueToastRunner, releaseToastRunner } from '@/utils/toastQueue';
 
 const MASTERED_DECKS_KEY = 'flashquest_mastered_decks';
@@ -21,10 +22,7 @@ export default function DeckMasteryMonitor() {
     const ids: string[] = [];
     for (const deck of decks) {
       if (deck.flashcards.length === 0) continue;
-      const allMastered = deck.flashcards.every((card) => {
-        const stats = performance.cardStatsById[card.id];
-        return stats && stats.streakCorrect >= 5;
-      });
+      const allMastered = computeDeckMastery(deck.flashcards, performance.cardStatsById).mastered === deck.flashcards.length;
       if (allMastered) ids.push(deck.id);
     }
     return ids;

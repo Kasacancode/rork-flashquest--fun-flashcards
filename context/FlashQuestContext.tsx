@@ -30,6 +30,7 @@ const DEFAULT_STATS: UserStats = {
   totalQuestSessions: 0,
   totalPracticeSessions: 0,
   totalArenaSessions: 0,
+  totalArenaBattles: 0,
   totalStudyTimeMs: 0,
   weeklyAccuracy: [],
 };
@@ -239,7 +240,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     const correctAnswersToAdd = params.correctCount != null ? params.correctCount : 0;
     const questionsAttemptedToAdd = params.correctCount != null ? params.cardsAttempted : 0;
     const existingStudyDates = currentStats.studyDates ?? [];
-    const studyDatesUpdated = existingStudyDates.includes(today) ? existingStudyDates : [...existingStudyDates, today];
+    const studyDatesUpdated = existingStudyDates.includes(today) ? existingStudyDates : [...existingStudyDates, today].slice(-365);
     const weekNumber = getIsoWeekString(new Date());
     const existingWeekly = currentStats.weeklyAccuracy ?? [];
     const currentWeekEntry = existingWeekly.find((entry) => entry.week === weekNumber);
@@ -286,6 +287,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       totalQuestSessions: (currentStats.totalQuestSessions ?? 0) + (params.mode === 'quest' ? 1 : 0),
       totalPracticeSessions: (currentStats.totalPracticeSessions ?? 0) + (params.mode === 'practice' ? 1 : 0),
       totalArenaSessions: (currentStats.totalArenaSessions ?? 0) + (params.mode === 'arena' ? 1 : 0),
+      totalArenaBattles: (currentStats.totalArenaBattles ?? 0) + (params.mode === 'arena' ? 1 : 0),
       totalStudyTimeMs: (currentStats.totalStudyTimeMs ?? 0) + (params.durationMs ?? 0),
       weeklyAccuracy: updatedWeekly,
     };

@@ -46,6 +46,7 @@ export interface UserStats {
   totalQuestSessions: number;
   totalPracticeSessions: number;
   totalArenaSessions: number;
+  totalArenaBattles: number;
   totalStudyTimeMs: number;
   weeklyAccuracy: { week: string; correct: number; attempted: number }[];
 }

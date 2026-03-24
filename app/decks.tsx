@@ -33,33 +33,7 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { Deck, Flashcard } from '@/types/flashcard';
-import type { CardStats } from '@/types/performance';
-
-function computeDeckMastery(flashcards: Flashcard[], cardStatsById: Record<string, CardStats>) {
-  let mastered = 0;
-  let reviewing = 0;
-  let learning = 0;
-  let newCards = 0;
-
-  for (const card of flashcards) {
-    const stats = cardStatsById[card.id];
-    if (!stats || stats.attempts === 0) {
-      newCards += 1;
-      continue;
-    }
-    if (stats.streakCorrect >= 5) {
-      mastered += 1;
-      continue;
-    }
-    if (stats.streakCorrect >= 3) {
-      reviewing += 1;
-      continue;
-    }
-    learning += 1;
-  }
-
-  return { mastered, reviewing, learning, newCards, total: flashcards.length };
-}
+import { computeDeckMastery } from '@/utils/mastery';
 
 export default function DecksPage() {
   const router = useRouter();
@@ -155,6 +129,11 @@ export default function DecksPage() {
         category?: unknown;
         flashcards?: ImportedFlashcard[];
       };
+
+      if (text.length > 500000) {
+        Alert.alert('Import Too Large', 'The clipboard content is too large to import. Try a smaller deck.');
+        return;
+      }
 
       let data: ImportedDeckPayload;
       try {

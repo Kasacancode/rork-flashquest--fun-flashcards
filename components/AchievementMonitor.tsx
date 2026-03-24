@@ -39,6 +39,7 @@ export default function AchievementMonitor() {
   const achievements = useMemo(() => computeAchievements({
     stats,
     leaderboardCount: leaderboard.length,
+    totalArenaBattles: stats.totalArenaBattles ?? leaderboard.length,
     bestQuestStreak: performance.bestQuestStreak,
     customDeckCount,
     totalCardsOwned,

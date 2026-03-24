@@ -161,6 +161,11 @@ export default function CreateFlashcardPage() {
         return;
       }
 
+      if (text.length > 100000) {
+        Alert.alert('Too Much Text', 'The clipboard content is too large. Try pasting fewer cards at a time.');
+        return;
+      }
+
       const lines = text.trim().split('\n').filter((line) => line.trim());
       const newCards: CardInput[] = [];
 
