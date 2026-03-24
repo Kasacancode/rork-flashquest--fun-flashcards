@@ -29,15 +29,6 @@ app.use("*", cors());
  *   the public runtime path, even though Hono registers the handler on /trpc/* internally.
  * - Changing either side casually can break the entire tRPC transport.
  */
-app.use(TRPC_INTERNAL_PATH, async (c, next) => {
-  console.log("[Backend] FlashQuest battle request", {
-    method: c.req.method,
-    pathname: new URL(c.req.url).pathname,
-    endpoint: TRPC_INTERNAL_PATH,
-  });
-  await next();
-});
-
 app.use(TRPC_INTERNAL_PATH, trpcServer(TRPC_SERVER_CONFIG));
 
 app.get("/", (c) => {

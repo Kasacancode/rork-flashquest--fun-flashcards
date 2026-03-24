@@ -199,7 +199,7 @@ async function persistMirroredStorage<T>(primaryKey: string, backupKey: string, 
     AsyncStorage.setItem(primaryKey, serialized),
     AsyncStorage.setItem(backupKey, serialized),
   ]);
-  logger.log('[FlashQuest] Persisted mirrored storage for', label);
+  logger.debug('[FlashQuest] Persisted mirrored storage for', label);
   return value;
 }
 
@@ -234,7 +234,7 @@ async function readMirroredStorage<T>(options: {
     const normalizedBackup = parsedBackup == null ? null : parse(parsedBackup);
 
     if (normalizedBackup != null) {
-      logger.log('[FlashQuest] Recovered', label, 'from backup storage');
+      logger.debug('[FlashQuest] Recovered', label, 'from backup storage');
       await persistMirroredStorage(primaryKey, backupKey, normalizedBackup, `${label} recovery`);
       return normalizedBackup;
     }
@@ -242,7 +242,7 @@ async function readMirroredStorage<T>(options: {
     logger.warn('[FlashQuest] Backup persisted payload was invalid for', label);
   }
 
-  logger.log('[FlashQuest] Falling back to default payload for', label);
+  logger.debug('[FlashQuest] Falling back to default payload for', label);
   return fallback;
 }
 
@@ -362,7 +362,7 @@ async function loadDecksSnapshot(): Promise<Deck[]> {
   const normalizedDecks = normalizeStoredDecks(storedDecks);
 
   if (normalizedDecks.didChange) {
-    logger.log('[FlashQuest] Synced built-in decks with latest default content');
+    logger.debug('[FlashQuest] Synced built-in decks with latest default content');
     await persistMirroredStorage(STORAGE_KEYS.DECKS, STORAGE_BACKUP_KEYS.DECKS, normalizedDecks.decks, 'decks normalization');
   }
 
@@ -450,7 +450,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
         logger.error('[FlashQuest] Previous persistence task failed before', label, error);
       })
       .then(async () => {
-        logger.log('[FlashQuest] Running persistence task:', label);
+        logger.debug('[FlashQuest] Running persistence task:', label);
         result = await task();
       });
 
@@ -557,7 +557,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
         weeklyAccuracy: updatedWeekly,
       };
 
-      logger.log(
+      logger.debug(
         '[FlashQuest] recordSessionResult',
         params.mode,
         'xp:',
@@ -692,13 +692,13 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
 
   const deleteDeck = useCallback(async (deckId: string) => {
     return enqueuePersistenceTask('deleteDeck', async () => {
-      logger.log('[FlashQuest] Starting delete for deck:', deckId);
+      logger.debug('[FlashQuest] Starting delete for deck:', deckId);
       const currentDecks = await getHydratedDecks();
       const currentProgress = await getHydratedProgress();
       const filteredDecks = currentDecks.filter((deck) => deck.id !== deckId);
 
       if (filteredDecks.length === currentDecks.length) {
-        logger.log('[FlashQuest] Deck not found, aborting delete');
+        logger.debug('[FlashQuest] Deck not found, aborting delete');
         return currentDecks;
       }
 
@@ -711,7 +711,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
           saveDecksMutateAsync(filteredDecks),
           filteredProgress.length !== currentProgress.length ? saveProgressMutateAsync(filteredProgress) : Promise.resolve([]),
         ]);
-        logger.log('[FlashQuest] Persisted deck delete via queued mutation');
+        logger.debug('[FlashQuest] Persisted deck delete via queued mutation');
       } catch (error) {
         queryClient.setQueryData(['decks'], currentDecks);
         queryClient.setQueryData(['progress'], currentProgress);

@@ -1,5 +1,6 @@
 import type { AnalyticsEventInput } from '@/backend/analytics/types';
 import { trpcClient } from '@/lib/trpc';
+import { logger } from '@/utils/logger';
 import { generateUUID } from '@/utils/uuid';
 
 const ANALYTICS_FLUSH_DELAY_MS = 1200;
@@ -11,9 +12,7 @@ let flushTimeout: ReturnType<typeof setTimeout> | null = null;
 let isFlushing = false;
 
 function logAnalyticsDebug(...args: unknown[]): void {
-  if (__DEV__) {
-    console.log('[Analytics]', ...args);
-  }
+  logger.debug('[Analytics]', ...args);
 }
 
 export async function createSessionIdIfNeeded(): Promise<string> {

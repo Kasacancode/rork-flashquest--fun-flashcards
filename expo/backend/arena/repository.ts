@@ -49,7 +49,6 @@ function getRedis(): Redis {
   }
 
   redisInstance = new Redis({ url, token });
-  console.log('[Repo] Upstash Redis client initialized');
   return redisInstance;
 }
 
@@ -204,7 +203,6 @@ class RoomRepository {
       });
       await redis.expire(presenceKey(room.code), ROOM_TTL_SECONDS);
 
-      console.log(`[Repo] Created room ${room.code}`);
       return room;
     } catch (err) {
       rethrowRedisConfigError(err);
@@ -221,7 +219,6 @@ class RoomRepository {
       pipeline.del(presenceKey(code));
       pipeline.srem(CODES_SET, code);
       await pipeline.exec();
-      console.log(`[Repo] Deleted room ${code}`);
     } catch (err) {
       rethrowRedisConfigError(err);
       console.error(`[Repo] Error deleting room ${code}:`, err);
@@ -296,10 +293,6 @@ class RoomRepository {
           await redis.srem(CODES_SET, codes[i]);
         }
       }
-      if (stale > 0) {
-        console.log(`[Repo] Cleaned ${stale} stale codes from index set`);
-      }
-
       return codes.length - stale;
     } catch (err) {
       rethrowRedisConfigError(err);

@@ -552,7 +552,7 @@ export function generateDistractors(params: {
   const distractors = selectDistractors({ candidates, count });
 
   rememberDistractors(currentCardId, distractors);
-  logger.log('[QuestUtils] Generated deck-aware distractors for card:', currentCardId, distractors);
+  logger.debug('[QuestUtils] Generated deck-aware distractors for card:', currentCardId, distractors);
 
   return distractors;
 }
@@ -601,7 +601,7 @@ export function generateOptions(params: {
   });
 
   rememberDistractors(params.currentCardId, distractors);
-  logger.log('[QuestUtils] Generated options for card:', params.currentCardId, distractors);
+  logger.debug('[QuestUtils] Generated options for card:', params.currentCardId, distractors);
 
   const options = [params.correctAnswer, ...distractors];
   return shuffleArray(options);
@@ -617,7 +617,7 @@ export async function generateAIDistractors(
   cardId: string,
 ): Promise<string[]> {
   if (aiDistractorCache[cardId] && aiDistractorCache[cardId].length > 0) {
-    logger.log('[QuestUtils] Using cached AI distractors for card:', cardId);
+    logger.debug('[QuestUtils] Using cached AI distractors for card:', cardId);
     return aiDistractorCache[cardId];
   }
 
@@ -642,13 +642,13 @@ export async function generateAIDistractors(
         delete aiDistractorCache[keys[0]];
       }
       aiDistractorCache[cardId] = distractors;
-      logger.log('[QuestUtils] Generated AI distractors for card:', cardId, distractors);
+      logger.debug('[QuestUtils] Generated AI distractors for card:', cardId, distractors);
       return distractors;
     }
 
     return [];
   } catch (error) {
-    logger.log('[QuestUtils] AI distractor generation failed:', error);
+    logger.debug('[QuestUtils] AI distractor generation failed:', error);
     return [];
   }
 }

@@ -46,7 +46,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
   const performanceQuery = useQuery({
     queryKey: ['performance'],
     queryFn: async () => {
-      logger.log('[Performance] Loading performance data from storage');
+      logger.debug('[Performance] Loading performance data from storage');
       const storedPerformance = await readStorageSnapshot<QuestPerformance>({
         primaryKey: STORAGE_KEY,
         backupKey: STORAGE_BACKUP_KEY,
@@ -62,9 +62,9 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
           value: migrated.performance,
           label: 'performance migration',
         });
-        logger.log('[Performance] Migrated performance model for', Object.keys(migrated.performance.cardStatsById).length, 'cards');
+        logger.debug('[Performance] Migrated performance model for', Object.keys(migrated.performance.cardStatsById).length, 'cards');
       } else {
-        logger.log('[Performance] Loaded performance:', Object.keys(migrated.performance.cardStatsById).length, 'cards tracked');
+        logger.debug('[Performance] Loaded performance:', Object.keys(migrated.performance.cardStatsById).length, 'cards tracked');
       }
 
       return migrated.performance;
@@ -79,7 +79,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
 
   const savePerformanceMutation = useMutation({
     mutationFn: async (newPerformance: QuestPerformance) => {
-      logger.log('[Performance] Saving performance data');
+      logger.debug('[Performance] Saving performance data');
       await persistStorageSnapshot({
         primaryKey: STORAGE_KEY,
         backupKey: STORAGE_BACKUP_KEY,
@@ -129,7 +129,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
       explanationOpened: params.explanationOpened,
     });
 
-    logger.log('[Performance] Logging attempt:', {
+    logger.debug('[Performance] Logging attempt:', {
       cardId: params.cardId,
       mode: params.mode ?? 'quest',
       isCorrect: params.isCorrect,
@@ -147,7 +147,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
         lastAttemptAt: now,
       };
 
-      logger.log('[Performance] Updated card memory:', {
+      logger.debug('[Performance] Updated card memory:', {
         cardId: params.cardId,
         status: updatedCardStats.status,
         stability: Number(updatedCardStats.stability.toFixed(2)),
@@ -176,7 +176,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
         return prev;
       }
 
-      logger.log('[Performance] New best streak:', runStreak);
+      logger.debug('[Performance] New best streak:', runStreak);
       return {
         ...prev,
         bestQuestStreak: runStreak,
@@ -224,7 +224,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
   }, [performance.cardStatsById]);
 
   const saveLastQuestSettings = useCallback((settings: QuestSettings) => {
-    logger.log('[Performance] Saving last quest settings');
+    logger.debug('[Performance] Saving last quest settings');
     applyPerformanceUpdate((prev) => ({
       ...prev,
       lastQuestSettings: settings,
@@ -252,7 +252,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
   }, [performance.deckStatsById]);
 
   const cleanupDeck = useCallback((deckId: string, cardIds: string[]) => {
-    logger.log('[Performance] Cleaning up data for deleted deck:', deckId, 'cards:', cardIds.length);
+    logger.debug('[Performance] Cleaning up data for deleted deck:', deckId, 'cards:', cardIds.length);
     applyPerformanceUpdate((prev) => {
       const updatedCardStats = { ...prev.cardStatsById };
       for (const cardId of cardIds) {

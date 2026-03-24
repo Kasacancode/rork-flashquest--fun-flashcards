@@ -25,7 +25,6 @@ function getRedis(): Redis {
   }
 
   redisInstance = new Redis({ url, token });
-  console.log('[AnalyticsRepo] Upstash Redis client initialized');
   return redisInstance;
 }
 
@@ -162,7 +161,6 @@ class AnalyticsRepository {
     });
 
     if (dedupeResult !== 'OK') {
-      console.log(`[AnalyticsRepo] battle_finished already tracked for room ${room.code} at ${finishedGame.startedAt}`);
       return false;
     }
 
@@ -185,7 +183,6 @@ class AnalyticsRepository {
         },
       });
 
-      console.log(`[AnalyticsRepo] Tracked battle_finished for room ${room.code}`);
       return true;
     } catch (error) {
       await redis.del(dedupeKey);

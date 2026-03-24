@@ -41,7 +41,6 @@ import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
-import { logger } from '@/utils/logger';
 import { ANALYTICS_DEBUG_ROUTE, FAQ_ROUTE } from '@/utils/routes';
 import {
   ACHIEVEMENT_CATEGORIES,
@@ -253,53 +252,43 @@ export default function ProfilePage() {
   }, [isEditingPlayerName, playerName]);
 
   const handleBack = useCallback(() => {
-    logger.log('[Profile] Navigating back');
     navigation.back();
   }, [navigation]);
 
   const handleSelectTab = useCallback((tab: TabType) => {
-    logger.log('[Profile] Switching tab to', tab);
     setActiveTab(tab);
   }, []);
 
   const handleOpenLevels = useCallback(() => {
-    logger.log('[Profile] Opening levels modal');
     setShowLevels(true);
   }, []);
 
   const handleSelectAchievementCategory = useCallback((categoryId: AchievementCategoryId) => {
-    logger.log('[Profile] Switching achievement category to', categoryId);
     setActiveAchievementCategory(categoryId);
   }, []);
 
   const handleCloseLevels = useCallback(() => {
-    logger.log('[Profile] Closing levels modal');
     setShowLevels(false);
   }, []);
 
   const handleOpenAnalyticsDebug = useCallback(() => {
     if (!canAccessDeveloperTools) {
-      logger.log('[Profile] Analytics debug blocked without developer access');
       return;
     }
 
-    logger.log('[Profile] Opening analytics debug screen');
     navigation.push(ANALYTICS_DEBUG_ROUTE);
   }, [canAccessDeveloperTools, navigation]);
 
   const handleComingSoon = useCallback((label: string) => {
-    logger.log('[Profile] Coming soon pressed', label);
     Alert.alert(label, `${label} is coming soon.`);
   }, []);
 
   const handleOpenFAQ = useCallback(() => {
-    logger.log('[Profile] Opening FAQ screen');
     navigation.push(FAQ_ROUTE);
   }, [navigation]);
 
   const handleSelectSuit = useCallback(
     (suitId: AvatarSuitId) => {
-      logger.log('[Profile] Selecting avatar suit', suitId);
       setSelectedSuit(suitId);
     },
     [setSelectedSuit]
@@ -307,21 +296,18 @@ export default function ProfilePage() {
 
   const handleSelectColor = useCallback(
     (colorId: AvatarColorId) => {
-      logger.log('[Profile] Selecting avatar color', colorId);
       setSelectedColor(colorId);
     },
     [setSelectedColor]
   );
 
   const handleEditPlayerName = useCallback(() => {
-    logger.log('[Profile] Editing player name');
     setPlayerNameInput(playerName);
     setPlayerNameError(null);
     setIsEditingPlayerName(true);
   }, [playerName]);
 
   const handleCancelPlayerNameEdit = useCallback(() => {
-    logger.log('[Profile] Cancelling player name edit');
     setPlayerNameInput(playerName);
     setPlayerNameError(null);
     setIsEditingPlayerName(false);
@@ -348,7 +334,6 @@ export default function ProfilePage() {
       return;
     }
 
-    logger.log('[Profile] Saved player name:', nextPlayerName);
     setPlayerNameInput(nextPlayerName);
     setPlayerNameError(null);
     setIsEditingPlayerName(false);

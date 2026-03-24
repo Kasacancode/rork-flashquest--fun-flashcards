@@ -2,6 +2,8 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { logger } from '@/utils/logger';
+
 interface Props {
   children: ReactNode;
 }
@@ -23,8 +25,8 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('[ErrorBoundary] Caught error:', error.message);
-    console.error('[ErrorBoundary] Component stack:', errorInfo.componentStack);
+    logger.error('[ErrorBoundary] Caught error:', error.message);
+    logger.error('[ErrorBoundary] Component stack:', errorInfo.componentStack);
     this.setState({
       errorInfo: errorInfo.componentStack || '',
     });

@@ -195,7 +195,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     lastErrorMsgRef.current = null;
     connectedAtRef.current = 0;
     lastVersionRef.current = 0;
-    logger.log('[Arena] Disconnected');
+    logger.debug('[Arena] Disconnected');
   }, []);
 
   const getRoomClosedMessage = useCallback((currentRoom: SanitizedRoom | null) => {
@@ -236,7 +236,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
         || incomingVersion < currentVersion
         || (incomingVersion === currentVersion && incomingUpdatedAt < currentUpdatedAt)
       ) {
-        logger.log('[Arena] Ignoring stale room snapshot:', {
+        logger.debug('[Arena] Ignoring stale room snapshot:', {
           incomingVersion,
           currentVersion,
           incomingUpdatedAt,
@@ -265,18 +265,18 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
 
       if (isArenaRoomNotFoundError(roomQuery.error)) {
         const nextMessage = getRoomClosedMessage(stableRoom);
-        logger.log('[Arena] Room closed while polling, disconnecting:', nextMessage);
+        logger.debug('[Arena] Room closed while polling, disconnecting:', nextMessage);
         clearArenaConnection(nextMessage);
         return;
       }
 
       const timeSinceConnect = Date.now() - connectedAtRef.current;
       if (timeSinceConnect < GRACE_PERIOD_MS) {
-        logger.log('[Arena] Poll error during grace period, ignoring:', msg);
+        logger.debug('[Arena] Poll error during grace period, ignoring:', msg);
         return;
       }
       if (hasRedisConfigError) {
-        logger.log('[Arena] Backend configuration error while polling, disconnecting:', msg);
+        logger.debug('[Arena] Backend configuration error while polling, disconnecting:', msg);
         clearArenaConnection(msg);
         return;
       }
@@ -286,9 +286,9 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       } else {
         pollFailCountRef.current += 1;
       }
-      logger.log('[Arena] Poll error (attempt', pollFailCountRef.current, '/', MAX_POLL_FAILURES, '):', msg);
+      logger.debug('[Arena] Poll error (attempt', pollFailCountRef.current, '/', MAX_POLL_FAILURES, '):', msg);
       if (pollFailCountRef.current >= MAX_POLL_FAILURES) {
-        logger.log('[Arena] Max poll failures reached, disconnecting');
+        logger.debug('[Arena] Max poll failures reached, disconnecting');
         clearArenaConnection('Room expired or not found');
       }
     }
@@ -400,7 +400,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
 
   const createRoomMut = trpc.arena.initRoom.useMutation({
     onSuccess: (data: { roomCode: string; playerId: string; room: SanitizedRoom }) => {
-      logger.log('[Arena] Created room:', data.roomCode);
+      logger.debug('[Arena] Created room:', data.roomCode);
       connectedAtRef.current = Date.now();
       pollFailCountRef.current = 0;
       lastErrorMsgRef.current = null;
@@ -421,14 +421,14 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     },
     onError: (error) => {
       const normalizedError = normalizeArenaConnectionError(error);
-      logger.log('[Arena] Create error:', normalizedError);
+      logger.debug('[Arena] Create error:', normalizedError);
       setConnectionError(normalizedError);
     },
   });
 
   const joinRoomMut = trpc.arena.joinRoom.useMutation({
     onSuccess: (data: { playerId: string; room: SanitizedRoom }) => {
-      logger.log('[Arena] Joined room:', data.room.code);
+      logger.debug('[Arena] Joined room:', data.room.code);
       connectedAtRef.current = Date.now();
       pollFailCountRef.current = 0;
       lastErrorMsgRef.current = null;
@@ -449,7 +449,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     },
     onError: (error) => {
       const normalizedError = normalizeArenaConnectionError(error);
-      logger.log('[Arena] Join error:', normalizedError);
+      logger.debug('[Arena] Join error:', normalizedError);
       setConnectionError(normalizedError);
     },
   });
@@ -457,12 +457,12 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const leaveMut = trpc.arena.leaveRoom.useMutation();
   const selectDeckMut = trpc.arena.selectDeck.useMutation({
     onSuccess: (data: { room: SanitizedRoom }) => {
-      logger.log('[Arena] Deck selection saved');
+      logger.debug('[Arena] Deck selection saved');
       applyIncomingRoom(data.room);
     },
     onError: (error) => {
       const normalizedError = normalizeArenaConnectionError(error);
-      logger.log('[Arena] Select deck error:', normalizedError);
+      logger.debug('[Arena] Select deck error:', normalizedError);
       setOptimisticDeckSelection(null);
       setConnectionError(normalizedError);
     },
@@ -473,7 +473,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     },
     onError: (error) => {
       const normalizedError = normalizeArenaConnectionError(error);
-      logger.log('[Arena] Update settings error:', normalizedError);
+      logger.debug('[Arena] Update settings error:', normalizedError);
       setOptimisticSettings(null);
       setConnectionError(normalizedError);
     },
@@ -512,7 +512,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     },
     onError: (error) => {
       const normalizedError = normalizeArenaConnectionError(error);
-      logger.log('[Arena] Start game error:', normalizedError);
+      logger.debug('[Arena] Start game error:', normalizedError);
       setConnectionError(normalizedError);
     },
   });
@@ -520,23 +520,23 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     onSuccess: (data: { isCorrect: boolean; room: SanitizedRoom; expired?: boolean }) => {
       applyIncomingRoom(data.room);
       if (data.expired) {
-        logger.log('[Arena] Answer expired before submission completed');
+        logger.debug('[Arena] Answer expired before submission completed');
         return;
       }
       setHasAnsweredCurrent(true);
       setLastAnswerCorrect(data.isCorrect);
-      logger.log('[Arena] Answer submitted, correct:', data.isCorrect);
+      logger.debug('[Arena] Answer submitted, correct:', data.isCorrect);
     },
     onError: (error: unknown) => {
       if (isArenaRoomNotFoundError(error)) {
         const nextMessage = getRoomClosedMessage(stableRoom);
-        logger.log('[Arena] Submit failed because room closed:', nextMessage);
+        logger.debug('[Arena] Submit failed because room closed:', nextMessage);
         clearArenaConnection(nextMessage);
         return;
       }
 
       const normalizedError = normalizeArenaConnectionError(error);
-      logger.log('[Arena] Submit error:', normalizedError);
+      logger.debug('[Arena] Submit error:', normalizedError);
       void roomQuery.refetch();
     },
   });
@@ -558,7 +558,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       return '';
     }
 
-    logger.log('[Arena] Updating player name:', sanitizedName);
+    logger.debug('[Arena] Updating player name:', sanitizedName);
     setPlayerName(sanitizedName);
     queryClient.setQueryData(['arena-player-name'], sanitizedName);
     savePlayerNameMut.mutate(sanitizedName);
@@ -608,7 +608,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     if (!roomCode || !playerId) return;
     setConnectionError(null);
     setOptimisticDeckSelection({ deckId, deckName });
-    logger.log('[Arena] Selecting deck:', deckId, deckName);
+    logger.debug('[Arena] Selecting deck:', deckId, deckName);
     selectDeckMut.mutate({ roomCode, playerId, deckId, deckName });
   }, [roomCode, playerId, selectDeckMut]);
 
@@ -623,7 +623,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       }));
     }
 
-    logger.log('[Arena] Updating settings:', settings);
+    logger.debug('[Arena] Updating settings:', settings);
     updateSettingsMut.mutate({ roomCode, playerId, settings });
   }, [roomCode, playerId, serverRoom?.settings, updateSettingsMut]);
 
@@ -697,12 +697,12 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   }, [room, isHost]);
 
   const cleanupDeck = useCallback((deckId: string) => {
-    logger.log('[Arena] Cleaning up leaderboard entries for deleted deck:', deckId);
+    logger.debug('[Arena] Cleaning up leaderboard entries for deleted deck:', deckId);
     setLeaderboard(prev => {
       const filtered = prev.filter(entry => entry.deckId !== deckId);
       if (filtered.length !== prev.length) {
         saveLeaderboardMut.mutate(filtered);
-        logger.log('[Arena] Removed', prev.length - filtered.length, 'leaderboard entries');
+        logger.debug('[Arena] Removed', prev.length - filtered.length, 'leaderboard entries');
       }
       return filtered;
     });

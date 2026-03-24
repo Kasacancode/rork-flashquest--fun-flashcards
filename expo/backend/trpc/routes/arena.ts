@@ -30,7 +30,6 @@ export const arenaRouter = createTRPCRouter({
       preferredIdentityKey: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
-      console.log("[Arena] initRoom:", input.name);
       const code = await roomRepository.generateUniqueCode();
       const { room, playerId } = engine.createNewRoom(input.name, code, input.preferredIdentityKey);
       const saved = await roomRepository.createRoom(room);
@@ -44,7 +43,6 @@ export const arenaRouter = createTRPCRouter({
       preferredIdentityKey: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
-      console.log("[Arena] joinRoom:", input.playerName, "->", input.roomCode);
       return roomRepository.withRoomLock(input.roomCode, async () => {
         const room = await requireRoom(input.roomCode);
         const result = engine.joinRoom(room, input.playerName, input.preferredIdentityKey);
@@ -63,7 +61,6 @@ export const arenaRouter = createTRPCRouter({
   leaveRoom: publicProcedure
     .input(z.object({ roomCode: z.string(), playerId: z.string() }))
     .mutation(async ({ input }) => {
-      console.log("[Arena] leaveRoom:", input.playerId, "from", input.roomCode);
       return roomRepository.withRoomLock(input.roomCode, async () => {
         const room = await roomRepository.getRoom(input.roomCode);
         if (!room) {
@@ -151,7 +148,6 @@ export const arenaRouter = createTRPCRouter({
       })),
     }))
     .mutation(async ({ input }) => {
-      console.log("[Arena] startGame in room", input.roomCode, "with", input.questions.length, "questions");
       return roomRepository.withRoomLock(input.roomCode, async () => {
         const room = await requireRoom(input.roomCode);
         const result = engine.startGame(room, input.playerId, input.questions);
@@ -217,7 +213,6 @@ export const arenaRouter = createTRPCRouter({
   resetRoom: publicProcedure
     .input(z.object({ roomCode: z.string(), playerId: z.string() }))
     .mutation(async ({ input }) => {
-      console.log("[Arena] resetRoom:", input.roomCode);
       return roomRepository.withRoomLock(input.roomCode, async () => {
         const room = await requireRoom(input.roomCode);
         const result = engine.resetRoom(room, input.playerId);

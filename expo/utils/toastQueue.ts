@@ -1,3 +1,5 @@
+import { logger } from '@/utils/logger';
+
 type ToastRunner = () => void;
 
 const toastQueue: ToastRunner[] = [];
@@ -18,7 +20,7 @@ function flushToastQueue() {
   try {
     nextToast();
   } catch (error) {
-    console.warn('[ToastQueue] Failed to show toast:', error);
+    logger.warn('[ToastQueue] Failed to show toast:', error);
     isToastActive = false;
     setTimeout(flushToastQueue, 0);
   }

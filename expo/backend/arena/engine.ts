@@ -132,7 +132,6 @@ export function createNewRoom(hostName: string, code: string, preferredIdentityK
     updatedAt: now,
   };
 
-  console.log(`[Engine] Created room ${code} by ${hostName}`);
   return { room, playerId };
 }
 
@@ -146,17 +145,14 @@ export function joinRoom(
   normalizeRoomPlayers(room);
 
   if (room.status !== 'lobby') {
-    console.log(`[Engine] Cannot join room ${room.code}: status=${room.status}`);
     return null;
   }
   if (room.players.length >= MAX_PLAYERS) {
-    console.log(`[Engine] Cannot join room ${room.code}: full`);
     return null;
   }
 
   const nextIdentity = getNextAvailableIdentity(room, preferredIdentityKey);
   if (!nextIdentity) {
-    console.log(`[Engine] Cannot join room ${room.code}: no player identities left`);
     return null;
   }
 
@@ -173,7 +169,6 @@ export function joinRoom(
 
   room.players.push(player);
   room.lastActivity = Date.now();
-  console.log(`[Engine] ${playerName} joined room ${room.code} (${room.players.length} players)`);
   return { player, room };
 }
 
@@ -184,7 +179,6 @@ export function leaveRoom(room: Room, playerId: string): Room | null {
   normalizeRoomPlayers(room);
 
   if (playerId === room.hostId) {
-    console.log(`[Engine] Host left, destroying room ${room.code}`);
     return null;
   }
 
@@ -207,7 +201,6 @@ export function removePlayer(
 
   room.players = room.players.filter(p => p.id !== targetId);
   room.lastActivity = Date.now();
-  console.log(`[Engine] Removed player ${targetId} from room ${room.code}`);
   return room;
 }
 
@@ -275,7 +268,6 @@ export function startGame(
   room.status = 'playing';
   room.lastActivity = Date.now();
 
-  console.log(`[Engine] Game started in room ${room.code} with ${questions.length} questions`);
   return room;
 }
 
@@ -353,7 +345,6 @@ export function resetRoom(room: Room, playerId: string): Room | null {
   room.status = 'lobby';
   room.game = null;
   room.lastActivity = Date.now();
-  console.log(`[Engine] Room ${room.code} reset to lobby`);
   return room;
 }
 
@@ -408,9 +399,7 @@ export function tick(room: Room): boolean {
 
   if (derived.phase === 'finished') {
     room.status = 'finished';
-    console.log(`[Engine] Game finished in room ${room.code}`);
   } else if (derived.currentQuestionIndex !== previousQi) {
-    console.log(`[Engine] Advanced to question ${derived.currentQuestionIndex + 1} in room ${room.code}`);
   }
 
   room.lastActivity = Date.now();

@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import StatsRankEmblem from '@/components/StatsRankEmblem';
 import LevelsModal from '@/components/profile/LevelsModal';
+import StatsDeckProgressList from '@/components/stats/StatsDeckProgressList';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
@@ -589,54 +590,14 @@ export default function StatsPage() {
 
           <View style={styles.deckProgressSection}>
             <Text style={styles.sectionLabel}>DECK PROGRESS</Text>
-            {deckProgressSummaries.length === 0 ? (
-              <View style={styles.emptyState} testID="stats-empty-progress">
-                <Text style={styles.emptyText}>Create a deck to start tracking progress!</Text>
-              </View>
-            ) : (
-              deckProgressSummaries.map((deckSummary) => (
-                <View
-                  key={deckSummary.id}
-                  style={styles.deckProgressCard}
-                  testID={`progress-card-${deckSummary.id}`}
-                >
-                  <View style={[styles.deckIndicator, { backgroundColor: deckSummary.color }]} />
-                  <View style={styles.deckProgressInfo}>
-                    <View style={styles.deckProgressHeader}>
-                      <Text style={styles.deckProgressName} numberOfLines={1}>
-                        {deckSummary.name}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.deckProgressPct,
-                          {
-                            color:
-                              deckSummary.pct === 100
-                                ? '#10B981'
-                                : secondaryTextColor,
-                          },
-                        ]}
-                      >
-                        {deckSummary.pct === 100
-                          ? '100%'
-                          : `${deckSummary.mastered}/${deckSummary.total}`}
-                      </Text>
-                    </View>
-                    <View style={styles.deckProgressBarTrack}>
-                      <View
-                        style={[
-                          styles.deckProgressBarFill,
-                          {
-                            width: `${deckSummary.pct}%`,
-                            backgroundColor: deckSummary.color,
-                          },
-                        ]}
-                      />
-                    </View>
-                  </View>
-                </View>
-              ))
-            )}
+            <StatsDeckProgressList
+              deckProgressSummaries={deckProgressSummaries}
+              textColor={theme.text}
+              secondaryTextColor={secondaryTextColor}
+              emptyTextColor={secondaryTextColor}
+              emptySurfaceColor={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}
+              trackColor={isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}
+            />
           </View>
         </ScrollView>
       </SafeAreaView>
