@@ -252,8 +252,11 @@ export default function StudyFeed({
     Animated.timing(cardTranslateY, {
       toValue: -SCREEN_HEIGHT,
       duration: 250,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start(() => {
+      // Reset position synchronously on JS thread before state update
+      // to prevent blank frame when new card renders
+      cardTranslateY.setValue(0);
       if (currentIndex + 1 >= flashcards.length) {
         onComplete();
       } else {
