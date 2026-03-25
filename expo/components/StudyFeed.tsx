@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  GestureResponderEvent,
 } from 'react-native';
 import { Lightbulb, BookOpen, Lock, CheckCircle, Sparkles } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -17,7 +18,7 @@ import * as Haptics from 'expo-haptics';
 import { generateText } from '@rork-ai/toolkit-sdk';
 
 import ConfidenceChips from '@/components/ConfidenceChips';
-import { Theme } from '@/constants/colors';
+import type { Theme } from '@/constants/colors';
 import { usePerformance } from '@/context/PerformanceContext';
 import type { Flashcard } from '@/types/flashcard';
 import type { RecallQuality } from '@/types/performance';
@@ -25,6 +26,11 @@ import type { RecallQuality } from '@/types/performance';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 60;
 const BLOCKED_SHAKE_COOLDOWN = 300;
+const CARD_SWAP_OUT_DURATION = 90;
+const CARD_SWAP_IN_DURATION = 140;
+const CARD_ENTER_OFFSET = 56;
+const CARD_EXIT_DISTANCE = Math.min(SCREEN_HEIGHT * 0.7, 520);
+const ANIMATION_USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 interface StudyFeedProps {
   flashcards: Flashcard[];
@@ -55,20 +61,36 @@ export default function StudyFeed({
   const [selectedQuality, setSelectedQuality] = useState<RecallQuality | null>(null);
   const [reviewSaved, setReviewSaved] = useState<boolean>(false);
 
-  const flipAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const hintOpacity = useRef(new Animated.Value(0)).current;
   const feedbackOpacity = useRef(new Animated.Value(0)).current;
   const cardScale = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
+  const cardOpacity = useRef(new Animated.Value(1)).current;
   const hintDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardStartedAtRef = useRef<number>(Date.now());
-
   const gestureStartRef = useRef<{ x: number; y: number } | null>(null);
-  const isProcessingRef = useRef(false);
+  const isProcessingRef = useRef<boolean>(false);
   const lastBlockedShakeRef = useRef<number>(0);
 
   const currentCard = flashcards[currentIndex];
+
+  const clearHintDismissTimer = useCallback(() => {
+    if (hintDismissTimer.current) {
+      clearTimeout(hintDismissTimer.current);
+      hintDismissTimer.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearHintDismissTimer();
+    };
+  }, [clearHintDismissTimer]);
+
+  useEffect(() => {
+    isProcessingRef.current = false;
+  }, [currentCard?.id]);
 
   const triggerHaptic = useCallback(() => {
     if (Platform.OS !== 'web') {
@@ -81,34 +103,35 @@ export default function StudyFeed({
     if (now - lastBlockedShakeRef.current < BLOCKED_SHAKE_COOLDOWN) {
       return;
     }
+
     lastBlockedShakeRef.current = now;
     triggerHaptic();
     Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 12, duration: 40, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -12, duration: 40, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 8, duration: 40, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -8, duration: 40, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 0, duration: 40, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 12, duration: 40, useNativeDriver: ANIMATION_USE_NATIVE_DRIVER }),
+      Animated.timing(shakeAnim, { toValue: -12, duration: 40, useNativeDriver: ANIMATION_USE_NATIVE_DRIVER }),
+      Animated.timing(shakeAnim, { toValue: 8, duration: 40, useNativeDriver: ANIMATION_USE_NATIVE_DRIVER }),
+      Animated.timing(shakeAnim, { toValue: -8, duration: 40, useNativeDriver: ANIMATION_USE_NATIVE_DRIVER }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 40, useNativeDriver: ANIMATION_USE_NATIVE_DRIVER }),
     ]).start();
   }, [shakeAnim, triggerHaptic]);
 
-  const resetAnimatedValues = useCallback(() => {
-    flipAnim.stopAnimation();
+  const resetAnimatedValues = useCallback((options?: { translateY?: number; opacity?: number; scale?: number }) => {
     shakeAnim.stopAnimation();
     hintOpacity.stopAnimation();
     feedbackOpacity.stopAnimation();
     cardScale.stopAnimation();
     cardTranslateY.stopAnimation();
+    cardOpacity.stopAnimation();
 
-    flipAnim.setValue(0);
     shakeAnim.setValue(0);
     hintOpacity.setValue(0);
     feedbackOpacity.setValue(0);
-    cardScale.setValue(1);
-    cardTranslateY.setValue(0);
-  }, [flipAnim, shakeAnim, hintOpacity, feedbackOpacity, cardScale, cardTranslateY]);
+    cardScale.setValue(options?.scale ?? 1);
+    cardTranslateY.setValue(options?.translateY ?? 0);
+    cardOpacity.setValue(options?.opacity ?? 1);
+  }, [shakeAnim, hintOpacity, feedbackOpacity, cardScale, cardTranslateY, cardOpacity]);
 
-  const resetForNextCard = useCallback(() => {
+  const resetForNextCard = useCallback((options?: { translateY?: number; opacity?: number; scale?: number }) => {
     setIsRevealed(false);
     setHintShown(false);
     setResolved(false);
@@ -119,30 +142,62 @@ export default function StudyFeed({
     setSelectedQuality(null);
     setReviewSaved(false);
     cardStartedAtRef.current = Date.now();
-    resetAnimatedValues();
-    if (hintDismissTimer.current) {
-      clearTimeout(hintDismissTimer.current);
-      hintDismissTimer.current = null;
-    }
-  }, [resetAnimatedValues]);
+    clearHintDismissTimer();
+    resetAnimatedValues(options);
+  }, [clearHintDismissTimer, resetAnimatedValues]);
+
+  const animateCardSwap = useCallback((onMidpoint: () => void, onComplete?: () => void) => {
+    Animated.parallel([
+      Animated.timing(cardOpacity, {
+        toValue: 0.18,
+        duration: CARD_SWAP_OUT_DURATION,
+        useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
+      }),
+      Animated.timing(cardScale, {
+        toValue: 0.98,
+        duration: CARD_SWAP_OUT_DURATION,
+        useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
+      }),
+    ]).start(({ finished }) => {
+      if (!finished) {
+        resetAnimatedValues();
+        isProcessingRef.current = false;
+        return;
+      }
+
+      onMidpoint();
+
+      Animated.parallel([
+        Animated.timing(cardOpacity, {
+          toValue: 1,
+          duration: CARD_SWAP_IN_DURATION,
+          useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
+        }),
+        Animated.timing(cardScale, {
+          toValue: 1,
+          duration: CARD_SWAP_IN_DURATION,
+          useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
+        }),
+      ]).start(({ finished: finishedIn }) => {
+        if (!finishedIn) {
+          resetAnimatedValues();
+        }
+        isProcessingRef.current = false;
+        onComplete?.();
+      });
+    });
+  }, [cardOpacity, cardScale, resetAnimatedValues]);
 
   const handleDoubleTap = useCallback(() => {
-    if (isProcessingRef.current) return;
+    if (isProcessingRef.current) {
+      return;
+    }
+
     isProcessingRef.current = true;
     triggerHaptic();
 
-    Animated.sequence([
-      Animated.timing(cardScale, { toValue: 0.96, duration: 80, useNativeDriver: true }),
-      Animated.timing(cardScale, { toValue: 1, duration: 80, useNativeDriver: true }),
-    ]).start();
-
-    const targetValue = isRevealed ? 0 : 1;
-    Animated.timing(flipAnim, {
-      toValue: targetValue,
-      duration: 250,
-      useNativeDriver: true,
-    }).start(() => {
-      const nextIsRevealed = !isRevealed;
+    const nextIsRevealed = !isRevealed;
+    animateCardSwap(() => {
       setIsRevealed(nextIsRevealed);
 
       if (nextIsRevealed && !resolved && currentCard) {
@@ -151,35 +206,37 @@ export default function StudyFeed({
         setReviewSaved(false);
         onCardResolved?.(currentCard.id);
       }
-
-      isProcessingRef.current = false;
     });
-  }, [isRevealed, resolved, currentCard, flipAnim, cardScale, onCardResolved, triggerHaptic]);
+  }, [isRevealed, resolved, currentCard, onCardResolved, triggerHaptic, animateCardSwap]);
 
   const dismissHintOverlay = useCallback(() => {
-    if (hintDismissTimer.current) {
-      clearTimeout(hintDismissTimer.current);
-      hintDismissTimer.current = null;
-    }
+    clearHintDismissTimer();
     Animated.timing(hintOpacity, {
       toValue: 0,
       duration: 300,
-      useNativeDriver: true,
+      useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
     }).start(() => {
       setShowHintOverlay(false);
     });
-  }, [hintOpacity]);
+  }, [clearHintDismissTimer, hintOpacity]);
 
   const handleShowHint = useCallback(() => {
-    if (isProcessingRef.current) return;
-    
+    if (isProcessingRef.current) {
+      return;
+    }
+
     if (isRevealed || resolved) {
       triggerShakeWithCooldown();
       return;
     }
-    
-    if (showHintOverlay) return;
-    if (hintShown && currentCard?.hint1) return;
+
+    if (showHintOverlay) {
+      return;
+    }
+
+    if (hintShown && currentCard?.hint1) {
+      return;
+    }
 
     isProcessingRef.current = true;
     triggerHaptic();
@@ -192,28 +249,44 @@ export default function StudyFeed({
     Animated.timing(hintOpacity, {
       toValue: 1,
       duration: 200,
-      useNativeDriver: true,
+      useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
     }).start(() => {
       isProcessingRef.current = false;
     });
 
     if (currentCard?.hint1) {
+      clearHintDismissTimer();
       hintDismissTimer.current = setTimeout(() => {
         dismissHintOverlay();
       }, 2500);
     }
-  }, [isRevealed, resolved, hintShown, showHintOverlay, currentCard, hintOpacity, triggerHaptic, triggerShakeWithCooldown, dismissHintOverlay]);
+  }, [
+    isRevealed,
+    resolved,
+    hintShown,
+    showHintOverlay,
+    currentCard,
+    hintOpacity,
+    triggerHaptic,
+    triggerShakeWithCooldown,
+    dismissHintOverlay,
+    clearHintDismissTimer,
+  ]);
 
   const handleShowFeedback = useCallback(() => {
-    if (isProcessingRef.current) return;
-    
+    if (isProcessingRef.current) {
+      return;
+    }
+
     if (!isRevealed) {
       triggerShakeWithCooldown();
       return;
     }
-    
-    if (showFeedbackOverlay) return;
-    
+
+    if (showFeedbackOverlay) {
+      return;
+    }
+
     isProcessingRef.current = true;
     triggerHaptic();
     setShowFeedbackOverlay(true);
@@ -221,7 +294,7 @@ export default function StudyFeed({
     Animated.timing(feedbackOpacity, {
       toValue: 1,
       duration: 200,
-      useNativeDriver: true,
+      useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
     }).start(() => {
       isProcessingRef.current = false;
     });
@@ -262,52 +335,103 @@ export default function StudyFeed({
     isProcessingRef.current = true;
     triggerHaptic();
 
-    cardTranslateY.stopAnimation();
-    Animated.timing(cardTranslateY, {
-      toValue: -SCREEN_HEIGHT,
-      duration: 250,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
+    Animated.parallel([
+      Animated.timing(cardTranslateY, {
+        toValue: -CARD_EXIT_DISTANCE,
+        duration: 220,
+        useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
+      }),
+      Animated.timing(cardOpacity, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
+      }),
+    ]).start(({ finished }) => {
       if (!finished) {
         resetAnimatedValues();
         isProcessingRef.current = false;
         return;
       }
 
-      if (currentIndex + 1 >= flashcards.length) {
+      const nextIndex = currentIndex + 1;
+      if (nextIndex >= flashcards.length) {
         resetAnimatedValues();
+        isProcessingRef.current = false;
         onComplete();
-      } else {
-        resetForNextCard();
-        setCurrentIndex(prev => prev + 1);
+        return;
       }
 
-      isProcessingRef.current = false;
+      resetForNextCard({ translateY: CARD_ENTER_OFFSET, opacity: 0, scale: 0.985 });
+      setCurrentIndex(nextIndex);
+
+      requestAnimationFrame(() => {
+        Animated.parallel([
+          Animated.timing(cardTranslateY, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
+          }),
+          Animated.timing(cardOpacity, {
+            toValue: 1,
+            duration: 180,
+            useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
+          }),
+          Animated.timing(cardScale, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
+          }),
+        ]).start(({ finished: finishedIn }) => {
+          if (!finishedIn) {
+            resetAnimatedValues();
+          }
+          isProcessingRef.current = false;
+        });
+      });
     });
-  }, [resolved, commitCurrentCardReview, cardTranslateY, currentIndex, flashcards.length, onComplete, resetAnimatedValues, resetForNextCard, triggerHaptic, triggerShakeWithCooldown]);
+  }, [
+    resolved,
+    commitCurrentCardReview,
+    cardTranslateY,
+    cardOpacity,
+    currentIndex,
+    flashcards.length,
+    onComplete,
+    resetAnimatedValues,
+    resetForNextCard,
+    triggerHaptic,
+    triggerShakeWithCooldown,
+    cardScale,
+  ]);
 
   const dismissFeedbackOverlay = useCallback(() => {
-    if (isProcessingRef.current) return;
+    if (isProcessingRef.current) {
+      return;
+    }
+
     Animated.timing(feedbackOpacity, {
       toValue: 0,
       duration: 200,
-      useNativeDriver: true,
+      useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
     }).start(() => {
       setShowFeedbackOverlay(false);
     });
   }, [feedbackOpacity]);
 
   const handleGenerateHint = useCallback(async () => {
-    if (!currentCard || isGeneratingHint) return;
+    if (!currentCard || isGeneratingHint) {
+      return;
+    }
 
     setIsGeneratingHint(true);
     try {
       const hint = await generateText({
         messages: [{
           role: 'user' as const,
-          content: `Generate a concise, helpful hint for this flashcard question. Guide the student toward the answer without revealing it directly. Keep it to 1-2 sentences.\n\nQuestion: ${currentCard.question}\nAnswer: ${currentCard.answer}`
-        }]
+          content: `Generate a concise, helpful hint for this flashcard question. Guide the student toward the answer without revealing it directly. Keep it to 1-2 sentences.\n\nQuestion: ${currentCard.question}\nAnswer: ${currentCard.answer}`,
+        }],
       });
+
       if (!hint || hint.trim().length === 0) {
         Alert.alert('Generation Failed', 'Could not generate a hint. Please try again.');
         return;
@@ -315,6 +439,7 @@ export default function StudyFeed({
 
       onUpdateCard?.(currentCard.id, { hint1: hint.trim() });
       setHintShown(true);
+      clearHintDismissTimer();
       hintDismissTimer.current = setTimeout(() => {
         dismissHintOverlay();
       }, 3500);
@@ -323,19 +448,22 @@ export default function StudyFeed({
     } finally {
       setIsGeneratingHint(false);
     }
-  }, [currentCard, isGeneratingHint, onUpdateCard, dismissHintOverlay]);
+  }, [currentCard, isGeneratingHint, onUpdateCard, dismissHintOverlay, clearHintDismissTimer]);
 
   const handleGenerateExplanation = useCallback(async () => {
-    if (!currentCard || isGeneratingExplanation) return;
+    if (!currentCard || isGeneratingExplanation) {
+      return;
+    }
 
     setIsGeneratingExplanation(true);
     try {
       const explanation = await generateText({
         messages: [{
           role: 'user' as const,
-          content: `Generate a clear, educational explanation for this flashcard. Help the student deeply understand why this answer is correct. Keep it to 2-3 sentences.\n\nQuestion: ${currentCard.question}\nAnswer: ${currentCard.answer}`
-        }]
+          content: `Generate a clear, educational explanation for this flashcard. Help the student deeply understand why this answer is correct. Keep it to 2-3 sentences.\n\nQuestion: ${currentCard.question}\nAnswer: ${currentCard.answer}`,
+        }],
       });
+
       if (!explanation || explanation.trim().length === 0) {
         Alert.alert('Generation Failed', 'Could not generate an explanation. Please try again.');
         return;
@@ -349,15 +477,17 @@ export default function StudyFeed({
     }
   }, [currentCard, isGeneratingExplanation, onUpdateCard]);
 
-  const handleTouchStart = useCallback((e: any) => {
-    const touch = e.nativeEvent;
+  const handleTouchStart = useCallback((event: GestureResponderEvent) => {
+    const touch = event.nativeEvent;
     gestureStartRef.current = { x: touch.pageX, y: touch.pageY };
   }, []);
 
-  const handleTouchEnd = useCallback((e: any) => {
-    if (!gestureStartRef.current) return;
+  const handleTouchEnd = useCallback((event: GestureResponderEvent) => {
+    if (!gestureStartRef.current) {
+      return;
+    }
 
-    const touch = e.nativeEvent;
+    const touch = event.nativeEvent;
     const dx = touch.pageX - gestureStartRef.current.x;
     const dy = touch.pageY - gestureStartRef.current.y;
     const absDx = Math.abs(dx);
@@ -365,45 +495,39 @@ export default function StudyFeed({
 
     gestureStartRef.current = null;
 
-    // Check for tap (minimal movement) — single tap reveals
     if (absDx < 10 && absDy < 10) {
       handleDoubleTap();
       return;
     }
 
-    // Check for swipe
-    if (absDx < SWIPE_THRESHOLD && absDy < SWIPE_THRESHOLD) return;
+    if (absDx < SWIPE_THRESHOLD && absDy < SWIPE_THRESHOLD) {
+      return;
+    }
 
     if (showFeedbackOverlay) {
       return;
     }
 
     if (absDx > absDy) {
-      // Horizontal swipe — left = hint, right = explain
       if (dx > SWIPE_THRESHOLD) {
         handleShowFeedback();
       } else if (dx < -SWIPE_THRESHOLD) {
         handleShowHint();
       }
-    } else {
-      // Vertical swipe
-      if (dy < -SWIPE_THRESHOLD) {
-        handleNextCard();
-      }
+      return;
+    }
+
+    if (dy < -SWIPE_THRESHOLD) {
+      handleNextCard();
     }
   }, [showFeedbackOverlay, handleDoubleTap, handleShowHint, handleShowFeedback, handleNextCard]);
 
-  const frontInterpolate = flipAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '180deg'],
-  });
-
-  const backInterpolate = flipAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['180deg', '360deg'],
-  });
-
-  const progress = useMemo(() => ((currentIndex + 1) / flashcards.length) * 100, [currentIndex, flashcards.length]);
+  const progress = useMemo(() => {
+    if (flashcards.length === 0) {
+      return 0;
+    }
+    return ((currentIndex + 1) / flashcards.length) * 100;
+  }, [currentIndex, flashcards.length]);
 
   if (!currentCard) {
     return (
@@ -426,35 +550,22 @@ export default function StudyFeed({
 
       <View style={styles.statusIndicators}>
         <View style={[styles.statusBadge, isRevealed && styles.statusBadgeActive]}>
-          <CheckCircle 
-            size={14} 
-            color={isRevealed ? '#fff' : 'rgba(255,255,255,0.5)'} 
-          />
-          <Text style={[styles.statusText, isRevealed && styles.statusTextActive]}>
-            Revealed
-          </Text>
+          <CheckCircle size={14} color={isRevealed ? '#fff' : 'rgba(255,255,255,0.5)'} />
+          <Text style={[styles.statusText, isRevealed && styles.statusTextActive]}>Revealed</Text>
         </View>
         <View style={[styles.statusBadge, resolved && styles.statusBadgeActive]}>
-          {resolved ? (
-            <CheckCircle size={14} color="#fff" />
-          ) : (
-            <Lock size={14} color="rgba(255,255,255,0.5)" />
-          )}
-          <Text style={[styles.statusText, resolved && styles.statusTextActive]}>
-            Resolved
-          </Text>
+          {resolved ? <CheckCircle size={14} color="#fff" /> : <Lock size={14} color="rgba(255,255,255,0.5)" />}
+          <Text style={[styles.statusText, resolved && styles.statusTextActive]}>Resolved</Text>
         </View>
       </View>
 
-      <Pressable 
-        style={styles.cardContainer}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
+      <Pressable style={styles.cardContainer} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <Animated.View
+          key={currentCard.id}
           style={[
             styles.cardWrapper,
             {
+              opacity: cardOpacity,
               transform: [
                 { translateX: shakeAnim },
                 { translateY: cardTranslateY },
@@ -463,47 +574,25 @@ export default function StudyFeed({
             },
           ]}
         >
-          <Animated.View
-            style={[
-              styles.card,
-              { backgroundColor: isDark ? theme.card : '#fff' },
-              { transform: [{ rotateY: frontInterpolate }] },
-              styles.cardFront,
-            ]}
-          >
+          <View style={[styles.card, { backgroundColor: isDark ? theme.card : '#fff' }]}>
             <View style={styles.cardLabelContainer}>
-              <Text style={[styles.cardLabel, { color: theme.primary || '#667eea' }]}>QUESTION</Text>
-              {hintShown && (
+              <Text style={[styles.cardLabel, { color: isRevealed ? '#4CAF50' : theme.primary || '#667eea' }]}>
+                {isRevealed ? 'ANSWER' : 'QUESTION'}
+              </Text>
+              {hintShown && !isRevealed ? (
                 <View style={styles.hintBadge}>
                   <Lightbulb size={12} color="#FFD700" />
                   <Text style={styles.hintBadgeText}>Hint used</Text>
                 </View>
-              )}
+              ) : null}
             </View>
             <Text style={[styles.cardText, { color: isDark ? theme.text : '#333' }]}>
-              {currentCard.question}
+              {isRevealed ? currentCard.answer : currentCard.question}
             </Text>
             <Text style={[styles.cardHint, { color: isDark ? theme.textSecondary : '#999' }]}>
-              Tap to reveal answer
+              {isRevealed ? 'Swipe up for the next card or right for explanation' : 'Tap to reveal answer'}
             </Text>
-          </Animated.View>
-
-          <Animated.View
-            style={[
-              styles.card,
-              { backgroundColor: isDark ? theme.card : '#fff' },
-              { transform: [{ rotateY: backInterpolate }] },
-              styles.cardBack,
-            ]}
-          >
-            <Text style={[styles.cardLabel, { color: '#4CAF50' }]}>ANSWER</Text>
-            <Text style={[styles.cardText, { color: isDark ? theme.text : '#333' }]}>
-              {currentCard.answer}
-            </Text>
-            <Text style={[styles.cardHint, { color: isDark ? theme.textSecondary : '#999' }]}>
-              Swipe up for the next card or right for explanation
-            </Text>
-          </Animated.View>
+          </View>
         </Animated.View>
       </Pressable>
 
@@ -534,17 +623,11 @@ export default function StudyFeed({
         </TouchableOpacity>
       </View>
 
-      {showHintOverlay && (
-        <Animated.View
-          style={[
-            styles.overlay,
-            styles.hintOverlay,
-            { opacity: hintOpacity },
-          ]}
-        >
+      {showHintOverlay ? (
+        <Animated.View style={[styles.overlay, styles.hintOverlay, { opacity: hintOpacity }]}>
           <Pressable style={styles.hintPressable} onPress={dismissHintOverlay}>
             <View style={styles.overlayContent}>
-              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#FFD700', marginBottom: 16 }} />
+              <View style={styles.overlayHandleYellow} />
               <View style={styles.overlayHeader}>
                 <Lightbulb size={28} color="#FFD700" />
                 <Text style={styles.overlayTitle}>Hint</Text>
@@ -575,22 +658,13 @@ export default function StudyFeed({
             </View>
           </Pressable>
         </Animated.View>
-      )}
+      ) : null}
 
-      {showFeedbackOverlay && (
-        <Animated.View
-          style={[
-            styles.overlay,
-            styles.feedbackOverlay,
-            { opacity: feedbackOpacity },
-          ]}
-        >
-          <Pressable 
-            style={styles.feedbackPressable}
-            onPress={dismissFeedbackOverlay}
-          >
+      {showFeedbackOverlay ? (
+        <Animated.View style={[styles.overlay, styles.feedbackOverlay, { opacity: feedbackOpacity }]}>
+          <Pressable style={styles.feedbackPressable} onPress={dismissFeedbackOverlay}>
             <View style={styles.overlayContent}>
-              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#4CAF50', marginBottom: 16 }} />
+              <View style={styles.overlayHandleGreen} />
               <View style={styles.overlayHeader}>
                 <BookOpen size={28} color="#4CAF50" />
                 <Text style={styles.overlayTitle}>Explanation</Text>
@@ -616,18 +690,14 @@ export default function StudyFeed({
                   </TouchableOpacity>
                 </>
               )}
-              <TouchableOpacity 
-                style={styles.continueButton}
-                onPress={dismissFeedbackOverlay}
-                activeOpacity={0.8}
-              >
+              <TouchableOpacity style={styles.continueButton} onPress={dismissFeedbackOverlay} activeOpacity={0.8}>
                 <Text style={styles.continueButtonText}>Continue</Text>
               </TouchableOpacity>
               <Text style={styles.tapHintText}>or tap anywhere to dismiss</Text>
             </View>
           </Pressable>
         </Animated.View>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -696,25 +766,17 @@ const styles = StyleSheet.create({
     maxWidth: 400,
   },
   card: {
-    position: 'absolute',
     width: '100%',
     height: '100%',
     borderRadius: 28,
     padding: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    backfaceVisibility: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.25,
     shadowRadius: 20,
     elevation: 16,
-  },
-  cardFront: {
-    zIndex: 1,
-  },
-  cardBack: {
-    zIndex: 0,
   },
   cardLabelContainer: {
     flexDirection: 'row',
@@ -816,6 +878,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  hintPressable: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   overlayContent: {
     width: '100%',
     maxWidth: 360,
@@ -825,6 +893,20 @@ const styles = StyleSheet.create({
     padding: 28,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  overlayHandleYellow: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#FFD700',
+    marginBottom: 16,
+  },
+  overlayHandleGreen: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#4CAF50',
+    marginBottom: 16,
   },
   overlayHeader: {
     flexDirection: 'row',
@@ -855,12 +937,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     color: '#fff',
-  },
-  hintPressable: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   generateButton: {
     flexDirection: 'row',
