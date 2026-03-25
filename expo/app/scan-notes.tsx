@@ -208,7 +208,7 @@ export default function ScanNotesPage() {
       if (source === 'camera') {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
         if (!permission.granted) {
-          Alert.alert('Permission needed', 'Camera access is required to take photos of your notes.');
+          Alert.alert('Permission needed', 'Camera access is required to take a photo of your notes, textbook pages, or whiteboard.');
           return;
         }
         result = await ImagePicker.launchCameraAsync({
@@ -217,11 +217,6 @@ export default function ScanNotesPage() {
           base64: true,
         });
       } else {
-        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!permission.granted) {
-          Alert.alert('Permission needed', 'Photo library access is required to select images.');
-          return;
-        }
         result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ['images'],
           quality: 0.8,
@@ -234,7 +229,14 @@ export default function ScanNotesPage() {
         setImageUri(asset.uri);
         void processImage(asset.base64 ?? null);
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof Error) {
+        const errorMessage = error.message.toLowerCase();
+        if (errorMessage.includes('permission') || errorMessage.includes('access')) {
+          Alert.alert('Permission needed', 'Photo library access is required to choose a photo of your notes, textbook pages, or whiteboard.');
+          return;
+        }
+      }
       setErrorMessage('Failed to pick image. Please try again.');
     }
   }, [processImage]);
