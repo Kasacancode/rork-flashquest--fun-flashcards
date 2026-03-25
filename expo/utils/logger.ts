@@ -1,9 +1,9 @@
-// Only log in development builds to keep production clean and performant
 const isDev = __DEV__;
+const verboseLoggingEnabled = false;
 
 export const logger = {
   log: (...args: unknown[]) => {
-    if (isDev) {
+    if (isDev && verboseLoggingEnabled) {
       console.log(...args);
     }
   },
@@ -13,13 +13,10 @@ export const logger = {
     }
   },
   error: (...args: unknown[]) => {
-    if (isDev) {
-      console.error(...args);
-    }
+    console.error(...args);
   },
-  // Verbose logging for tracing execution paths during debugging
   debug: (...args: unknown[]) => {
-    if (isDev) {
+    if (isDev && verboseLoggingEnabled) {
       console.debug(...args);
     }
   },

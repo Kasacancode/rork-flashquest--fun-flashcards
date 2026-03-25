@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  GestureResponderEvent,
+  PanResponder,
 } from 'react-native';
 import { Lightbulb, BookOpen, Lock, CheckCircle, Sparkles } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -69,8 +69,8 @@ export default function StudyFeed({
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const hintDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardStartedAtRef = useRef<number>(Date.now());
-  const gestureStartRef = useRef<{ x: number; y: number } | null>(null);
   const isProcessingRef = useRef<boolean>(false);
+  const swipeHandledRef = useRef<boolean>(false);
   const lastBlockedShakeRef = useRef<number>(0);
 
   const currentCard = flashcards[currentIndex];
@@ -188,8 +188,13 @@ export default function StudyFeed({
     });
   }, [cardOpacity, cardScale, resetAnimatedValues]);
 
-  const handleDoubleTap = useCallback(() => {
-    if (isProcessingRef.current) {
+  const handleFlipCard = useCallback(() => {
+    if (swipeHandledRef.current) {
+      swipeHandledRef.current = false;
+      return;
+    }
+
+    if (isProcessingRef.current || showHintOverlay || showFeedbackOverlay) {
       return;
     }
 
@@ -207,7 +212,7 @@ export default function StudyFeed({
         onCardResolved?.(currentCard.id);
       }
     });
-  }, [isRevealed, resolved, currentCard, onCardResolved, triggerHaptic, animateCardSwap]);
+  }, [isRevealed, resolved, currentCard, onCardResolved, showHintOverlay, showFeedbackOverlay, triggerHaptic, animateCardSwap]);
 
   const dismissHintOverlay = useCallback(() => {
     clearHintDismissTimer();
@@ -477,50 +482,54 @@ export default function StudyFeed({
     }
   }, [currentCard, isGeneratingExplanation, onUpdateCard]);
 
-  const handleTouchStart = useCallback((event: GestureResponderEvent) => {
-    const touch = event.nativeEvent;
-    gestureStartRef.current = { x: touch.pageX, y: touch.pageY };
-  }, []);
-
-  const handleTouchEnd = useCallback((event: GestureResponderEvent) => {
-    if (!gestureStartRef.current) {
-      return;
-    }
-
-    const touch = event.nativeEvent;
-    const dx = touch.pageX - gestureStartRef.current.x;
-    const dy = touch.pageY - gestureStartRef.current.y;
-    const absDx = Math.abs(dx);
-    const absDy = Math.abs(dy);
-
-    gestureStartRef.current = null;
-
-    if (absDx < 10 && absDy < 10) {
-      handleDoubleTap();
-      return;
-    }
-
-    if (absDx < SWIPE_THRESHOLD && absDy < SWIPE_THRESHOLD) {
-      return;
-    }
-
-    if (showFeedbackOverlay) {
-      return;
-    }
-
-    if (absDx > absDy) {
-      if (dx > SWIPE_THRESHOLD) {
-        handleShowFeedback();
-      } else if (dx < -SWIPE_THRESHOLD) {
-        handleShowHint();
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onStartShouldSetPanResponderCapture: () => false,
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      if (showHintOverlay || showFeedbackOverlay || isProcessingRef.current) {
+        return false;
       }
-      return;
-    }
 
-    if (dy < -SWIPE_THRESHOLD) {
-      handleNextCard();
-    }
-  }, [showFeedbackOverlay, handleDoubleTap, handleShowHint, handleShowFeedback, handleNextCard]);
+      const absDx = Math.abs(gestureState.dx);
+      const absDy = Math.abs(gestureState.dy);
+      return absDx > 10 || absDy > 10;
+    },
+    onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+      const absDx = Math.abs(gestureState.dx);
+      const absDy = Math.abs(gestureState.dy);
+      return absDx > 10 || absDy > 10;
+    },
+    onPanResponderGrant: () => {
+      swipeHandledRef.current = false;
+    },
+    onPanResponderTerminationRequest: () => true,
+    onPanResponderRelease: (_, gestureState) => {
+      const absDx = Math.abs(gestureState.dx);
+      const absDy = Math.abs(gestureState.dy);
+
+      if (absDx < SWIPE_THRESHOLD && absDy < SWIPE_THRESHOLD) {
+        return;
+      }
+
+      swipeHandledRef.current = true;
+
+      if (absDx > absDy) {
+        if (gestureState.dx > SWIPE_THRESHOLD) {
+          handleShowFeedback();
+        } else if (gestureState.dx < -SWIPE_THRESHOLD) {
+          handleShowHint();
+        }
+        return;
+      }
+
+      if (gestureState.dy < -SWIPE_THRESHOLD) {
+        handleNextCard();
+      }
+    },
+    onPanResponderTerminate: () => {
+      swipeHandledRef.current = false;
+    },
+  }), [showHintOverlay, showFeedbackOverlay, handleShowFeedback, handleShowHint, handleNextCard]);
 
   const progress = useMemo(() => {
     if (flashcards.length === 0) {
@@ -559,9 +568,8 @@ export default function StudyFeed({
         </View>
       </View>
 
-      <Pressable style={styles.cardContainer} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      <Pressable style={styles.cardContainer} onPress={handleFlipCard} {...panResponder.panHandlers}>
         <Animated.View
-          key={currentCard.id}
           style={[
             styles.cardWrapper,
             {
