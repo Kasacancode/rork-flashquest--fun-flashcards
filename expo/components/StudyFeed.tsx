@@ -25,11 +25,16 @@ import type { RecallQuality } from '@/types/performance';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 60;
+const SWIPE_ACTIVATION_DISTANCE = 18;
+const SWIPE_AXIS_DOMINANCE_RATIO = 1.15;
 const BLOCKED_SHAKE_COOLDOWN = 300;
-const CARD_SWAP_OUT_DURATION = 90;
-const CARD_SWAP_IN_DURATION = 140;
-const CARD_ENTER_OFFSET = 56;
-const CARD_EXIT_DISTANCE = Math.min(SCREEN_HEIGHT * 0.7, 520);
+const CARD_SWAP_OUT_DURATION = 80;
+const CARD_SWAP_IN_DURATION = 110;
+const CARD_SWAP_MIN_OPACITY = 0.78;
+const CARD_ENTER_OFFSET = 24;
+const CARD_ENTER_START_OPACITY = 0.58;
+const CARD_EXIT_DISTANCE = Math.min(SCREEN_HEIGHT * 0.16, 120);
+const CARD_EXIT_MIN_OPACITY = 0.24;
 const ANIMATION_USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 interface StudyFeedProps {
@@ -51,6 +56,7 @@ export default function StudyFeed({
 }: StudyFeedProps) {
   const { logQuestAttempt } = usePerformance();
   const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [displayCard, setDisplayCard] = useState<Flashcard | null>(() => flashcards[0] ?? null);
   const [isRevealed, setIsRevealed] = useState<boolean>(false);
   const [hintShown, setHintShown] = useState<boolean>(false);
   const [resolved, setResolved] = useState<boolean>(false);
@@ -68,12 +74,14 @@ export default function StudyFeed({
   const cardTranslateY = useRef(new Animated.Value(0)).current;
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const hintDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cardIntroTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardStartedAtRef = useRef<number>(Date.now());
   const isProcessingRef = useRef<boolean>(false);
   const swipeHandledRef = useRef<boolean>(false);
   const lastBlockedShakeRef = useRef<number>(0);
 
-  const currentCard = flashcards[currentIndex];
+  const sourceCard = flashcards[currentIndex] ?? null;
+  const currentCard = displayCard ?? sourceCard;
 
   const clearHintDismissTimer = useCallback(() => {
     if (hintDismissTimer.current) {
@@ -82,15 +90,41 @@ export default function StudyFeed({
     }
   }, []);
 
+  const clearCardIntroTimer = useCallback(() => {
+    if (cardIntroTimer.current) {
+      clearTimeout(cardIntroTimer.current);
+      cardIntroTimer.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       clearHintDismissTimer();
+      clearCardIntroTimer();
     };
-  }, [clearHintDismissTimer]);
+  }, [clearHintDismissTimer, clearCardIntroTimer]);
 
   useEffect(() => {
     isProcessingRef.current = false;
   }, [currentCard?.id]);
+
+  useEffect(() => {
+    setDisplayCard((previousCard) => {
+      if (sourceCard == null) {
+        return null;
+      }
+
+      if (previousCard == null) {
+        return sourceCard;
+      }
+
+      if (previousCard.id !== sourceCard.id && isProcessingRef.current) {
+        return previousCard;
+      }
+
+      return sourceCard;
+    });
+  }, [sourceCard]);
 
   const triggerHaptic = useCallback(() => {
     if (Platform.OS !== 'web') {
@@ -149,12 +183,17 @@ export default function StudyFeed({
   const animateCardSwap = useCallback((onMidpoint: () => void, onComplete?: () => void) => {
     Animated.parallel([
       Animated.timing(cardOpacity, {
-        toValue: 0.18,
+        toValue: CARD_SWAP_MIN_OPACITY,
         duration: CARD_SWAP_OUT_DURATION,
         useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
       }),
       Animated.timing(cardScale, {
-        toValue: 0.98,
+        toValue: 0.985,
+        duration: CARD_SWAP_OUT_DURATION,
+        useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
+      }),
+      Animated.timing(cardTranslateY, {
+        toValue: -10,
         duration: CARD_SWAP_OUT_DURATION,
         useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
       }),
@@ -178,6 +217,11 @@ export default function StudyFeed({
           duration: CARD_SWAP_IN_DURATION,
           useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
         }),
+        Animated.timing(cardTranslateY, {
+          toValue: 0,
+          duration: CARD_SWAP_IN_DURATION,
+          useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
+        }),
       ]).start(({ finished: finishedIn }) => {
         if (!finishedIn) {
           resetAnimatedValues();
@@ -186,7 +230,7 @@ export default function StudyFeed({
         onComplete?.();
       });
     });
-  }, [cardOpacity, cardScale, resetAnimatedValues]);
+  }, [cardOpacity, cardScale, cardTranslateY, resetAnimatedValues]);
 
   const handleFlipCard = useCallback(() => {
     if (swipeHandledRef.current) {
@@ -339,16 +383,22 @@ export default function StudyFeed({
     commitCurrentCardReview();
     isProcessingRef.current = true;
     triggerHaptic();
+    clearCardIntroTimer();
 
     Animated.parallel([
       Animated.timing(cardTranslateY, {
         toValue: -CARD_EXIT_DISTANCE,
-        duration: 220,
+        duration: 150,
         useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
       }),
       Animated.timing(cardOpacity, {
-        toValue: 0,
-        duration: 180,
+        toValue: CARD_EXIT_MIN_OPACITY,
+        duration: 140,
+        useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
+      }),
+      Animated.timing(cardScale, {
+        toValue: 0.985,
+        duration: 150,
         useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
       }),
     ]).start(({ finished }) => {
@@ -366,24 +416,33 @@ export default function StudyFeed({
         return;
       }
 
-      resetForNextCard({ translateY: CARD_ENTER_OFFSET, opacity: 0, scale: 0.985 });
+      const nextCard = flashcards[nextIndex] ?? null;
+      if (!nextCard) {
+        resetAnimatedValues();
+        isProcessingRef.current = false;
+        onComplete();
+        return;
+      }
+
+      resetForNextCard({ translateY: CARD_ENTER_OFFSET, opacity: CARD_ENTER_START_OPACITY, scale: 0.99 });
+      setDisplayCard(nextCard);
       setCurrentIndex(nextIndex);
 
-      requestAnimationFrame(() => {
+      cardIntroTimer.current = setTimeout(() => {
         Animated.parallel([
           Animated.timing(cardTranslateY, {
             toValue: 0,
-            duration: 200,
+            duration: 160,
             useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
           }),
           Animated.timing(cardOpacity, {
             toValue: 1,
-            duration: 180,
+            duration: 150,
             useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
           }),
           Animated.timing(cardScale, {
             toValue: 1,
-            duration: 200,
+            duration: 160,
             useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
           }),
         ]).start(({ finished: finishedIn }) => {
@@ -392,15 +451,16 @@ export default function StudyFeed({
           }
           isProcessingRef.current = false;
         });
-      });
+      }, 0);
     });
   }, [
     resolved,
     commitCurrentCardReview,
+    clearCardIntroTimer,
     cardTranslateY,
     cardOpacity,
     currentIndex,
-    flashcards.length,
+    flashcards,
     onComplete,
     resetAnimatedValues,
     resetForNextCard,
@@ -482,23 +542,24 @@ export default function StudyFeed({
     }
   }, [currentCard, isGeneratingExplanation, onUpdateCard]);
 
+  const shouldHandleSwipeGesture = useCallback((gestureState: { dx: number; dy: number }) => {
+    if (showHintOverlay || showFeedbackOverlay || isProcessingRef.current) {
+      return false;
+    }
+
+    const absDx = Math.abs(gestureState.dx);
+    const absDy = Math.abs(gestureState.dy);
+    const isHorizontalSwipe = absDx > SWIPE_ACTIVATION_DISTANCE && absDx > absDy * SWIPE_AXIS_DOMINANCE_RATIO;
+    const isUpwardSwipe = gestureState.dy < -SWIPE_ACTIVATION_DISTANCE && absDy > absDx * SWIPE_AXIS_DOMINANCE_RATIO;
+
+    return isHorizontalSwipe || isUpwardSwipe;
+  }, [showHintOverlay, showFeedbackOverlay]);
+
   const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => false,
     onStartShouldSetPanResponderCapture: () => false,
-    onMoveShouldSetPanResponder: (_, gestureState) => {
-      if (showHintOverlay || showFeedbackOverlay || isProcessingRef.current) {
-        return false;
-      }
-
-      const absDx = Math.abs(gestureState.dx);
-      const absDy = Math.abs(gestureState.dy);
-      return absDx > 10 || absDy > 10;
-    },
-    onMoveShouldSetPanResponderCapture: (_, gestureState) => {
-      const absDx = Math.abs(gestureState.dx);
-      const absDy = Math.abs(gestureState.dy);
-      return absDx > 10 || absDy > 10;
-    },
+    onMoveShouldSetPanResponder: (_, gestureState) => shouldHandleSwipeGesture(gestureState),
+    onMoveShouldSetPanResponderCapture: () => false,
     onPanResponderGrant: () => {
       swipeHandledRef.current = false;
     },
@@ -511,9 +572,8 @@ export default function StudyFeed({
         return;
       }
 
-      swipeHandledRef.current = true;
-
       if (absDx > absDy) {
+        swipeHandledRef.current = true;
         if (gestureState.dx > SWIPE_THRESHOLD) {
           handleShowFeedback();
         } else if (gestureState.dx < -SWIPE_THRESHOLD) {
@@ -523,13 +583,14 @@ export default function StudyFeed({
       }
 
       if (gestureState.dy < -SWIPE_THRESHOLD) {
+        swipeHandledRef.current = true;
         handleNextCard();
       }
     },
     onPanResponderTerminate: () => {
       swipeHandledRef.current = false;
     },
-  }), [showHintOverlay, showFeedbackOverlay, handleShowFeedback, handleShowHint, handleNextCard]);
+  }), [handleNextCard, handleShowFeedback, handleShowHint, shouldHandleSwipeGesture]);
 
   const progress = useMemo(() => {
     if (flashcards.length === 0) {

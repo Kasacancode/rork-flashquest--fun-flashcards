@@ -417,24 +417,24 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
 
   const saveDecksMutation = useMutation({
     mutationFn: async (decks: Deck[]) => persistMirroredStorage(STORAGE_KEYS.DECKS, STORAGE_BACKUP_KEYS.DECKS, decks, 'decks'),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['decks'] });
+    onSuccess: (decks: Deck[]) => {
+      queryClient.setQueryData(['decks'], decks);
     },
   });
   const { mutateAsync: saveDecksMutateAsync } = saveDecksMutation;
 
   const saveProgressMutation = useMutation({
     mutationFn: async (progress: UserProgress[]) => persistMirroredStorage(STORAGE_KEYS.PROGRESS, STORAGE_BACKUP_KEYS.PROGRESS, progress, 'progress'),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['progress'] });
+    onSuccess: (progress: UserProgress[]) => {
+      queryClient.setQueryData(['progress'], progress);
     },
   });
   const { mutateAsync: saveProgressMutateAsync } = saveProgressMutation;
 
   const saveStatsMutation = useMutation({
     mutationFn: async (stats: UserStats) => persistMirroredStorage(STORAGE_KEYS.STATS, STORAGE_BACKUP_KEYS.STATS, stats, 'stats'),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['stats'] });
+    onSuccess: (stats: UserStats) => {
+      queryClient.setQueryData(['stats'], stats);
     },
   });
   const { mutateAsync: saveStatsMutateAsync } = saveStatsMutation;

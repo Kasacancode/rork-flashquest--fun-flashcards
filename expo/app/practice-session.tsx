@@ -32,6 +32,11 @@ import { clearAIDistractorCache as clearDistractorCache, generateOptionsWithAI }
 import { logger } from '@/utils/logger';
 import { questHref, studyHref } from '@/utils/routes';
 
+const FEEDBACK_REVEAL_DELAY_MS = 850;
+const TURN_TRANSITION_DELAY_MS = 850;
+const OPPONENT_THINK_MIN_DELAY_MS = 700;
+const OPPONENT_THINK_RANGE_MS = 1100;
+
 export default function PracticeSessionPage() {
   const router = useRouter();
   const params = useLocalSearchParams<{ deckId?: string | string[]; mode?: PracticeMode | PracticeMode[] }>();
@@ -71,8 +76,35 @@ export default function PracticeSessionPage() {
   const scorePopAnim = useRef(new Animated.Value(1)).current;
   const handleTimeUpRef = useRef<() => void>(() => {});
   const resultRecordedRef = useRef(false);
+  const pendingTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const pulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  const clearPendingTimeouts = useCallback(() => {
+    pendingTimeoutsRef.current.forEach((timeoutId) => {
+      clearTimeout(timeoutId);
+    });
+    pendingTimeoutsRef.current = [];
+  }, []);
+
+  const scheduleTimeout = useCallback((callback: () => void, delay: number) => {
+    const timeoutId = setTimeout(() => {
+      pendingTimeoutsRef.current = pendingTimeoutsRef.current.filter((existingId) => existingId !== timeoutId);
+      callback();
+    }, delay);
+
+    pendingTimeoutsRef.current = [...pendingTimeoutsRef.current, timeoutId];
+    return timeoutId;
+  }, []);
 
   useEffect(() => {
+    return () => {
+      clearPendingTimeouts();
+      pulseLoopRef.current?.stop();
+    };
+  }, [clearPendingTimeouts]);
+
+  useEffect(() => {
+    clearPendingTimeouts();
     if (!deckId) {
       setCurrentBattle(null);
       return;
@@ -82,7 +114,7 @@ export default function PracticeSessionPage() {
     resultRecordedRef.current = false;
     setCurrentBattle(createPracticeSession(deckId, practiceMode));
     setAiState({ streak: 0, confidence: 0.5 });
-  }, [deckId, practiceMode]);
+  }, [deckId, practiceMode, clearPendingTimeouts]);
 
   const updateBattle = useCallback((playerCorrect: boolean, opponentCorrect: boolean) => {
     setCurrentBattle((previousBattle) => {
@@ -109,6 +141,7 @@ export default function PracticeSessionPage() {
   }, []);
 
   const deck = useMemo(() => decks.find((d) => d.id === deckId), [decks, deckId]);
+  const allFlashcards = useMemo(() => decks.flatMap((existingDeck) => existingDeck.flashcards), [decks]);
   
   const shuffledFlashcards = useMemo(() => {
     if (!deck || !currentBattle?.shuffled) return deck?.flashcards || [];
@@ -124,6 +157,34 @@ export default function PracticeSessionPage() {
     if (!deck || !currentBattle) return null;
     return shuffledFlashcards[currentBattle.currentRound];
   }, [deck, shuffledFlashcards, currentBattle]);
+
+  const revealResults = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(feedbackOpacity, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.spring(feedbackScale, {
+        toValue: 1,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    setGamePhase('reveal-results');
+  }, [feedbackOpacity, feedbackScale]);
+
+  const advanceToSecondPlayerTurn = useCallback(() => {
+    setCurrentPlayer(2);
+    setUserAnswer('');
+    setButtonState('idle');
+    setTimeLeft(QUESTION_TIME);
+  }, []);
+
+  const advanceToOpponentTurn = useCallback(() => {
+    setGamePhase('opponent-turn');
+    setTimeLeft(QUESTION_TIME);
+  }, []);
 
   const simulateOpponentAnswer = useCallback(() => {
     if (!currentCard || !currentBattle) return;
@@ -159,27 +220,14 @@ export default function PracticeSessionPage() {
       timeUsed: opponentTime,
     });
 
-    logger.log('[Practice] AI answered:', opponentCorrect ? 'correct' : wrongAnswer, 'in', opponentTime, 's', 'streak:', aiState.streak);
+    logger.debug('[Practice] AI answered:', opponentCorrect ? 'correct' : wrongAnswer, 'in', opponentTime, 's', 'streak:', aiState.streak);
 
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(feedbackOpacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(feedbackScale, {
-          toValue: 1,
-          friction: 6,
-          useNativeDriver: true,
-        }),
-      ]).start();
-      setGamePhase('reveal-results');
-    }, 1200);
-  }, [currentCard, currentBattle, feedbackOpacity, feedbackScale, distractors, aiState]);
+    scheduleTimeout(revealResults, FEEDBACK_REVEAL_DELAY_MS);
+  }, [currentCard, currentBattle, distractors, aiState, scheduleTimeout, revealResults]);
 
   useEffect(() => {
     if (!currentCard) return;
+    clearPendingTimeouts();
     setTimeLeft(QUESTION_TIME);
     setGamePhase('player-turn');
     setUserAnswer('');
@@ -201,7 +249,7 @@ export default function PracticeSessionPage() {
         question: currentCard.question,
         correctAnswer: currentCard.answer,
         deckCards: deck?.flashcards ?? [],
-        allCards: decks.flatMap((existingDeck) => existingDeck.flashcards),
+        allCards: allFlashcards,
         currentCardId: currentCard.id,
       })
         .then((options) => {
@@ -213,7 +261,7 @@ export default function PracticeSessionPage() {
             (option) => option.toLowerCase().trim() !== currentCard.answer.toLowerCase().trim()
           );
           setDistractors(generatedDistractors);
-          logger.log('[Practice] Pre-loaded distractors for card:', currentCard.id);
+          logger.debug('[Practice] Pre-loaded distractors for card:', currentCard.id);
         })
         .catch(() => {
           if (!isCancelled) {
@@ -227,28 +275,36 @@ export default function PracticeSessionPage() {
     return () => {
       isCancelled = true;
     };
-  }, [currentCard, currentBattle?.mode, deck?.flashcards, decks, feedbackOpacity, feedbackScale]);
+  }, [currentCard, currentBattle?.mode, deck?.flashcards, allFlashcards, clearPendingTimeouts, feedbackOpacity, feedbackScale]);
 
   useEffect(() => {
+    pulseLoopRef.current?.stop();
+    pulseLoopRef.current = null;
+
     if (gamePhase === 'opponent-turn') {
-      Animated.loop(
+      const pulseLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
             toValue: 1.15,
-            duration: 600,
+            duration: 450,
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 600,
+            duration: 450,
             useNativeDriver: true,
           }),
         ])
-      ).start();
-    } else {
-      pulseAnim.stopAnimation();
-      pulseAnim.setValue(1);
+      );
+      pulseLoopRef.current = pulseLoop;
+      pulseLoop.start();
+      return () => {
+        pulseLoop.stop();
+      };
     }
+
+    pulseAnim.stopAnimation();
+    pulseAnim.setValue(1);
   }, [gamePhase, pulseAnim]);
 
   const triggerShake = useCallback(() => {
@@ -294,7 +350,7 @@ export default function PracticeSessionPage() {
   const handleTimeUp = useCallback(() => {
     if (gamePhase === 'player-turn') {
       const correct = false;
-      
+
       if (currentBattle?.mode === 'multiplayer') {
         if (currentPlayer === 1) {
           setPlayer1Result({
@@ -308,13 +364,8 @@ export default function PracticeSessionPage() {
           if (Platform.OS !== 'web') {
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           }
-          
-          setTimeout(() => {
-            setCurrentPlayer(2);
-            setUserAnswer('');
-            setButtonState('idle');
-            setTimeLeft(QUESTION_TIME);
-          }, 1200);
+
+          scheduleTimeout(advanceToSecondPlayerTurn, TURN_TRANSITION_DELAY_MS);
         } else {
           setPlayer2Result({
             name: 'Player 2',
@@ -327,14 +378,8 @@ export default function PracticeSessionPage() {
           if (Platform.OS !== 'web') {
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           }
-          
-          setTimeout(() => {
-            Animated.parallel([
-              Animated.timing(feedbackOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-              Animated.spring(feedbackScale, { toValue: 1, friction: 6, useNativeDriver: true }),
-            ]).start();
-            setGamePhase('reveal-results');
-          }, 1200);
+
+          scheduleTimeout(revealResults, TURN_TRANSITION_DELAY_MS);
         }
       } else {
         setPlayerResult({
@@ -358,16 +403,26 @@ export default function PracticeSessionPage() {
         if (Platform.OS !== 'web') {
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
-        
-        setTimeout(() => {
-          setGamePhase('opponent-turn');
-          setTimeLeft(QUESTION_TIME);
-        }, 1200);
+
+        scheduleTimeout(advanceToOpponentTurn, TURN_TRANSITION_DELAY_MS);
       }
     } else if (gamePhase === 'opponent-turn') {
       simulateOpponentAnswer();
     }
-  }, [gamePhase, userAnswer, simulateOpponentAnswer, currentBattle, currentPlayer, triggerShake, feedbackOpacity, feedbackScale, deckId, currentCard]);
+  }, [
+    advanceToOpponentTurn,
+    advanceToSecondPlayerTurn,
+    currentBattle,
+    currentCard,
+    currentPlayer,
+    deckId,
+    gamePhase,
+    revealResults,
+    scheduleTimeout,
+    simulateOpponentAnswer,
+    triggerShake,
+    userAnswer,
+  ]);
 
   handleTimeUpRef.current = handleTimeUp;
 
@@ -433,12 +488,7 @@ export default function PracticeSessionPage() {
           Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 50 }),
         ]).start();
 
-        setTimeout(() => {
-          setCurrentPlayer(2);
-          setUserAnswer('');
-          setButtonState('idle');
-          setTimeLeft(QUESTION_TIME);
-        }, 1200);
+        scheduleTimeout(advanceToSecondPlayerTurn, TURN_TRANSITION_DELAY_MS);
       } else {
         setPlayer2Result({
           name: 'Player 2',
@@ -459,13 +509,7 @@ export default function PracticeSessionPage() {
           Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 50 }),
         ]).start();
 
-        setTimeout(() => {
-          Animated.parallel([
-            Animated.timing(feedbackOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-            Animated.spring(feedbackScale, { toValue: 1, friction: 6, useNativeDriver: true }),
-          ]).start();
-          setGamePhase('reveal-results');
-        }, 1200);
+        scheduleTimeout(revealResults, TURN_TRANSITION_DELAY_MS);
       }
     } else {
       setPlayerResult({
@@ -504,18 +548,18 @@ export default function PracticeSessionPage() {
         Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 50 }),
       ]).start();
 
-      setTimeout(() => {
-        setGamePhase('opponent-turn');
-        setTimeLeft(QUESTION_TIME);
-        
-        setTimeout(() => {
-          simulateOpponentAnswer();
-        }, Math.random() * 6000 + 2000);
-      }, 1200);
+      scheduleTimeout(() => {
+        advanceToOpponentTurn();
+        scheduleTimeout(
+          simulateOpponentAnswer,
+          OPPONENT_THINK_MIN_DELAY_MS + Math.round(Math.random() * OPPONENT_THINK_RANGE_MS),
+        );
+      }, TURN_TRANSITION_DELAY_MS);
     }
   };
 
   const handleNext = () => {
+    clearPendingTimeouts();
     commitPendingReview();
 
     if (currentBattle?.mode === 'multiplayer') {
@@ -542,6 +586,7 @@ export default function PracticeSessionPage() {
   };
 
   const handleQuit = () => {
+    clearPendingTimeouts();
     commitPendingReview();
     clearDistractorCache();
     endBattle();
@@ -581,9 +626,10 @@ export default function PracticeSessionPage() {
           accuracy: currentBattle.totalRounds > 0 ? Math.round((currentBattle.playerScore / currentBattle.totalRounds) * 100) : 0,
         },
       });
-      logger.log('[Practice] Recorded session result, xp:', practiceXp);
+      logger.debug('[Practice] Recorded session result, xp:', practiceXp);
     }
 
+    clearPendingTimeouts();
     endBattle();
 
     if (destination === 'quest') {
@@ -597,7 +643,7 @@ export default function PracticeSessionPage() {
     }
 
     router.back();
-  }, [currentBattle, deckId, endBattle, recordSessionResult, router]);
+  }, [clearPendingTimeouts, currentBattle, deckId, endBattle, recordSessionResult, router]);
 
   if (currentBattle.status === 'completed') {
     const won = currentBattle.playerScore > currentBattle.opponentScore;

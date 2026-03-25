@@ -34,6 +34,7 @@ export default function StudyPage() {
   const [sessionXp, setSessionXp] = useState<number>(0);
   const trackedStudyDeckIdRef = useRef<string | null>(null);
   const sessionStartRef = useRef<number>(Date.now());
+  const sessionResolvedRef = useRef<number>(0);
 
   const selectedDeck = useMemo(
     () => decks.find((d) => d.id === selectedDeckId),
@@ -43,6 +44,7 @@ export default function StudyPage() {
   const handleDeckSelect = useCallback((deckId: string) => {
     trackedStudyDeckIdRef.current = null;
     sessionStartRef.current = Date.now();
+    sessionResolvedRef.current = 0;
     setSelectedDeckId(deckId);
     setShowDeckSelector(false);
     setSessionResolved(0);
@@ -52,7 +54,7 @@ export default function StudyPage() {
 
   const handleCardResolved = useCallback((_cardId: string) => {
     if (selectedDeck) {
-      setSessionResolved(prev => prev + 1);
+      sessionResolvedRef.current += 1;
     }
   }, [selectedDeck]);
 
@@ -81,19 +83,22 @@ export default function StudyPage() {
       return;
     }
 
-    if (sessionResolved === 0) {
+    const resolvedCount = sessionResolvedRef.current;
+    setSessionResolved(resolvedCount);
+
+    if (resolvedCount === 0) {
       setSessionXp(0);
       setShowResults(true);
       return;
     }
 
-    const xpEarned = sessionResolved * 2;
+    const xpEarned = resolvedCount * 2;
     setSessionXp(xpEarned);
     recordSessionResult({
       mode: GAME_MODE.STUDY,
       deckId: selectedDeck.id,
       xpEarned,
-      cardsAttempted: sessionResolved,
+      cardsAttempted: resolvedCount,
       timestampISO: new Date().toISOString(),
       durationMs: Date.now() - sessionStartRef.current,
     });
@@ -101,17 +106,18 @@ export default function StudyPage() {
       event: 'study_completed',
       deckId: selectedDeck.id,
       properties: {
-        cards_studied: sessionResolved,
+        cards_studied: resolvedCount,
         deck_name: selectedDeck.name,
       },
     });
-    logger.log('[Study] Session complete, cards:', sessionResolved, 'xp:', xpEarned);
+    logger.debug('[Study] Session complete, cards:', resolvedCount, 'xp:', xpEarned);
     setShowResults(true);
-  }, [selectedDeck, sessionResolved, recordSessionResult]);
+  }, [selectedDeck, recordSessionResult]);
 
   const handleRestart = useCallback(() => {
     trackedStudyDeckIdRef.current = null;
     sessionStartRef.current = Date.now();
+    sessionResolvedRef.current = 0;
     setSessionResolved(0);
     setSessionXp(0);
     setShowResults(false);
