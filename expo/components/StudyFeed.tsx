@@ -92,6 +92,22 @@ export default function StudyFeed({
     ]).start();
   }, [shakeAnim, triggerHaptic]);
 
+  const resetAnimatedValues = useCallback(() => {
+    flipAnim.stopAnimation();
+    shakeAnim.stopAnimation();
+    hintOpacity.stopAnimation();
+    feedbackOpacity.stopAnimation();
+    cardScale.stopAnimation();
+    cardTranslateY.stopAnimation();
+
+    flipAnim.setValue(0);
+    shakeAnim.setValue(0);
+    hintOpacity.setValue(0);
+    feedbackOpacity.setValue(0);
+    cardScale.setValue(1);
+    cardTranslateY.setValue(0);
+  }, [flipAnim, shakeAnim, hintOpacity, feedbackOpacity, cardScale, cardTranslateY]);
+
   const resetForNextCard = useCallback(() => {
     setIsRevealed(false);
     setHintShown(false);
@@ -103,15 +119,12 @@ export default function StudyFeed({
     setSelectedQuality(null);
     setReviewSaved(false);
     cardStartedAtRef.current = Date.now();
-    flipAnim.setValue(0);
-    hintOpacity.setValue(0);
-    feedbackOpacity.setValue(0);
-    cardTranslateY.setValue(0);
+    resetAnimatedValues();
     if (hintDismissTimer.current) {
       clearTimeout(hintDismissTimer.current);
       hintDismissTimer.current = null;
     }
-  }, [flipAnim, hintOpacity, feedbackOpacity, cardTranslateY]);
+  }, [resetAnimatedValues]);
 
   const handleDoubleTap = useCallback(() => {
     if (isProcessingRef.current) return;
@@ -249,23 +262,29 @@ export default function StudyFeed({
     isProcessingRef.current = true;
     triggerHaptic();
 
+    cardTranslateY.stopAnimation();
     Animated.timing(cardTranslateY, {
       toValue: -SCREEN_HEIGHT,
       duration: 250,
-      useNativeDriver: false,
-    }).start(() => {
-      // Reset position synchronously on JS thread before state update
-      // to prevent blank frame when new card renders
-      cardTranslateY.setValue(0);
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (!finished) {
+        resetAnimatedValues();
+        isProcessingRef.current = false;
+        return;
+      }
+
       if (currentIndex + 1 >= flashcards.length) {
+        resetAnimatedValues();
         onComplete();
       } else {
-        setCurrentIndex(prev => prev + 1);
         resetForNextCard();
+        setCurrentIndex(prev => prev + 1);
       }
+
       isProcessingRef.current = false;
     });
-  }, [resolved, commitCurrentCardReview, cardTranslateY, currentIndex, flashcards.length, onComplete, resetForNextCard, triggerHaptic, triggerShakeWithCooldown]);
+  }, [resolved, commitCurrentCardReview, cardTranslateY, currentIndex, flashcards.length, onComplete, resetAnimatedValues, resetForNextCard, triggerHaptic, triggerShakeWithCooldown]);
 
   const dismissFeedbackOverlay = useCallback(() => {
     if (isProcessingRef.current) return;
