@@ -27,6 +27,8 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 60;
 const SWIPE_ACTIVATION_DISTANCE = 18;
 const SWIPE_AXIS_DOMINANCE_RATIO = 1.15;
+const TAP_CANCEL_DISTANCE = 10;
+const SWIPE_PRESS_BLOCK_MS = 180;
 const BLOCKED_SHAKE_COOLDOWN = 300;
 const CARD_SWAP_OUT_DURATION = 80;
 const CARD_SWAP_IN_DURATION = 110;
@@ -78,6 +80,7 @@ export default function StudyFeed({
   const cardStartedAtRef = useRef<number>(Date.now());
   const isProcessingRef = useRef<boolean>(false);
   const swipeHandledRef = useRef<boolean>(false);
+  const blockFlipUntilRef = useRef<number>(0);
   const lastBlockedShakeRef = useRef<number>(0);
 
   const sourceCard = flashcards[currentIndex] ?? null;
@@ -233,7 +236,8 @@ export default function StudyFeed({
   }, [cardOpacity, cardScale, cardTranslateY, resetAnimatedValues]);
 
   const handleFlipCard = useCallback(() => {
-    if (swipeHandledRef.current) {
+    const now = Date.now();
+    if (swipeHandledRef.current || now < blockFlipUntilRef.current) {
       swipeHandledRef.current = false;
       return;
     }
@@ -563,10 +567,22 @@ export default function StudyFeed({
     onPanResponderGrant: () => {
       swipeHandledRef.current = false;
     },
+    onPanResponderMove: (_, gestureState) => {
+      const absDx = Math.abs(gestureState.dx);
+      const absDy = Math.abs(gestureState.dy);
+
+      if (absDx > TAP_CANCEL_DISTANCE || absDy > TAP_CANCEL_DISTANCE) {
+        blockFlipUntilRef.current = Date.now() + SWIPE_PRESS_BLOCK_MS;
+      }
+    },
     onPanResponderTerminationRequest: () => true,
     onPanResponderRelease: (_, gestureState) => {
       const absDx = Math.abs(gestureState.dx);
       const absDy = Math.abs(gestureState.dy);
+
+      if (absDx > TAP_CANCEL_DISTANCE || absDy > TAP_CANCEL_DISTANCE) {
+        blockFlipUntilRef.current = Date.now() + SWIPE_PRESS_BLOCK_MS;
+      }
 
       if (absDx < SWIPE_THRESHOLD && absDy < SWIPE_THRESHOLD) {
         return;
@@ -587,7 +603,14 @@ export default function StudyFeed({
         handleNextCard();
       }
     },
-    onPanResponderTerminate: () => {
+    onPanResponderTerminate: (_, gestureState) => {
+      const absDx = Math.abs(gestureState.dx);
+      const absDy = Math.abs(gestureState.dy);
+
+      if (absDx > TAP_CANCEL_DISTANCE || absDy > TAP_CANCEL_DISTANCE) {
+        blockFlipUntilRef.current = Date.now() + SWIPE_PRESS_BLOCK_MS;
+      }
+
       swipeHandledRef.current = false;
     },
   }), [handleNextCard, handleShowFeedback, handleShowHint, shouldHandleSwipeGesture]);
@@ -672,6 +695,7 @@ export default function StudyFeed({
             onSelect={setSelectedQuality}
             allowForgot
             prompt="How did that feel?"
+            promptColor="#F8FAFC"
             testIDPrefix="study-review"
           />
         </View>

@@ -10,6 +10,7 @@ interface ConfidenceChipsProps {
   compact?: boolean;
   allowForgot?: boolean;
   prompt?: string;
+  promptColor?: string;
   testIDPrefix?: string;
 }
 
@@ -25,6 +26,7 @@ export default function ConfidenceChips({
   compact = false,
   allowForgot = false,
   prompt = 'How did that feel?',
+  promptColor,
   testIDPrefix = 'confidence-chip',
 }: ConfidenceChipsProps) {
   const { theme, isDark } = useTheme();
@@ -43,7 +45,7 @@ export default function ConfidenceChips({
 
   return (
     <View style={[styles.container, compact && styles.containerCompact]}>
-      <Text style={[styles.prompt, { color: theme.textSecondary }]}>{prompt}</Text>
+      <Text style={[styles.prompt, { color: promptColor ?? theme.textSecondary }]}>{prompt}</Text>
       <View style={[styles.row, compact && styles.rowCompact]}>
         {chips.map((chip) => {
           const isSelected = selectedQuality === chip.quality;
