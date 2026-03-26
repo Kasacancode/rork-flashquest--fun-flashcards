@@ -19,15 +19,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as z from 'zod/v4';
 
 import DeckCategoryPicker from '@/components/DeckCategoryPicker';
+import ConsentSheet from '@/components/privacy/ConsentSheet';
 import {
   AI_DEFAULT_DECK_CATEGORY,
   PRESET_DECK_CATEGORIES,
 } from '@/constants/deckCategories';
 import { useFlashQuest } from '@/context/FlashQuestContext';
+import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import { Flashcard } from '@/types/flashcard';
-import { DECKS_ROUTE } from '@/utils/routes';
+import { DATA_PRIVACY_ROUTE, DECKS_ROUTE } from '@/utils/routes';
 import { generateObject } from '@rork-ai/toolkit-sdk';
 
 const flashcardSchema = z.object({
@@ -62,6 +64,7 @@ type ScanStep = 'pick' | 'processing' | 'review';
 export default function ScanNotesPage() {
   const router = useRouter();
   const { addDeck } = useFlashQuest();
+  const { hasAcknowledgedAIDisclosure, acknowledgeAIDisclosure } = usePrivacy();
   const { theme, isDark } = useTheme();
 
   const [step, setStep] = useState<ScanStep>('pick');
@@ -73,6 +76,7 @@ export default function ScanNotesPage() {
   const [showCustomCategory, setShowCustomCategory] = useState<boolean>(false);
   const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingSource, setPendingSource] = useState<'camera' | 'gallery' | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const startPulse = useCallback(() => {
@@ -241,6 +245,30 @@ export default function ScanNotesPage() {
     }
   }, [processImage]);
 
+  const handlePressImageSource = useCallback((source: 'camera' | 'gallery') => {
+    if (!hasAcknowledgedAIDisclosure('deckGeneration')) {
+      setPendingSource(source);
+      return;
+    }
+
+    void pickImage(source);
+  }, [hasAcknowledgedAIDisclosure, pickImage]);
+
+  const handleAcceptDeckDisclosure = useCallback(() => {
+    if (!pendingSource) {
+      return;
+    }
+
+    const nextSource = pendingSource;
+    setPendingSource(null);
+    acknowledgeAIDisclosure('deckGeneration');
+    void pickImage(nextSource);
+  }, [acknowledgeAIDisclosure, pendingSource, pickImage]);
+
+  const handleDismissDeckDisclosure = useCallback(() => {
+    setPendingSource(null);
+  }, []);
+
   const updateCard = useCallback((id: string, field: 'question' | 'answer', value: string) => {
     setGeneratedCards(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
   }, []);
@@ -371,7 +399,7 @@ export default function ScanNotesPage() {
             <View style={styles.actionButtons}>
               <TouchableOpacity
                 style={[styles.actionCard, { backgroundColor: theme.cardBackground }]}
-                onPress={() => pickImage('camera')}
+                onPress={() => handlePressImageSource('camera')}
                 activeOpacity={0.8}
                 testID="scanCamera"
               >
@@ -386,7 +414,7 @@ export default function ScanNotesPage() {
 
               <TouchableOpacity
                 style={[styles.actionCard, { backgroundColor: theme.cardBackground }]}
-                onPress={() => pickImage('gallery')}
+                onPress={() => handlePressImageSource('gallery')}
                 activeOpacity={0.8}
                 testID="scanGallery"
               >
@@ -549,6 +577,23 @@ export default function ScanNotesPage() {
           </>
         )}
       </SafeAreaView>
+      <ConsentSheet
+        visible={pendingSource !== null}
+        title="Send this image to AI?"
+        description="FlashQuest sends the photo you choose to an AI processing service so it can extract concepts and build flashcards from the content."
+        bullets={[
+          'Only the notes, textbook page, or whiteboard image you choose is sent for this feature.',
+          'The result comes back as an editable flashcard deck before you save it.',
+          'You can review Data & Privacy anytime for a fuller breakdown.',
+        ]}
+        primaryLabel="Continue"
+        secondaryLabel="Cancel"
+        onPrimaryPress={handleAcceptDeckDisclosure}
+        onSecondaryPress={handleDismissDeckDisclosure}
+        footerActionLabel="Open Data & Privacy"
+        onFooterActionPress={() => router.push(DATA_PRIVACY_ROUTE)}
+        testID="scan-ai-disclosure"
+      />
     </View>
   );
 }

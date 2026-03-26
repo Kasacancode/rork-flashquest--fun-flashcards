@@ -6,6 +6,7 @@ export const HOME_ROUTE = '/' as const satisfies Href;
 export const ONBOARDING_ROUTE = '/onboarding' as const satisfies Href;
 export const DECKS_ROUTE = '/decks' as const satisfies Href;
 export const PROFILE_ROUTE = '/profile' as const satisfies Href;
+export const DATA_PRIVACY_ROUTE = '/data-privacy' as const satisfies Href;
 export const FAQ_ROUTE = '/faq' as const satisfies Href;
 export const QUEST_ROUTE = '/quest' as const satisfies Href;
 export const QUEST_SESSION_ROUTE = '/quest-session' as const satisfies Href;

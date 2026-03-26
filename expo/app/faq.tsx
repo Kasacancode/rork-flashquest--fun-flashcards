@@ -182,7 +182,7 @@ const FAQ_GROUPS: readonly FAQGroup[] = [
         content: [
           'The Stats screen brings together your level progress, study history, activity calendar, mode performance, and deck-level progress in one place.',
           'Mastery counts and due-for-review sections are powered by the smarter card memory system, so they are meant to reflect real learning state rather than shallow streak math.',
-          'Your data is stored locally on your device, and FlashQuest uses it to keep your progress feeling coherent across the app.',
+          'Most deck data, progress, and settings stay on your device. Some features, including AI tools, multiplayer, and optional analytics, use remote services when you choose to use them.',
         ],
       },
     ],

@@ -10,6 +10,7 @@ let cachedSessionId: string | null = null;
 let queuedEvents: AnalyticsEventInput[] = [];
 let flushTimeout: ReturnType<typeof setTimeout> | null = null;
 let isFlushing = false;
+let analyticsCollectionEnabled = false;
 
 function logAnalyticsDebug(...args: unknown[]): void {
   logger.debug('[Analytics]', ...args);
@@ -46,6 +47,12 @@ function scheduleFlush(immediate = false): void {
 }
 
 async function flushQueuedEvents(): Promise<void> {
+  if (!analyticsCollectionEnabled) {
+    queuedEvents = [];
+    clearScheduledFlush();
+    return;
+  }
+
   if (isFlushing || queuedEvents.length === 0) {
     return;
   }
@@ -75,7 +82,7 @@ async function flushQueuedEvents(): Promise<void> {
 }
 
 async function enqueueEvents(events: AnalyticsEventInput[]): Promise<void> {
-  if (events.length === 0) {
+  if (!analyticsCollectionEnabled || events.length === 0) {
     return;
   }
 
@@ -91,6 +98,15 @@ async function enqueueEvents(events: AnalyticsEventInput[]): Promise<void> {
     scheduleFlush(queuedEvents.length >= ANALYTICS_BATCH_SIZE);
   } catch (error) {
     logAnalyticsDebug('queueing failed', error);
+  }
+}
+
+export function setAnalyticsCollectionEnabled(enabled: boolean): void {
+  analyticsCollectionEnabled = enabled;
+
+  if (!enabled) {
+    queuedEvents = [];
+    clearScheduledFlush();
   }
 }
 

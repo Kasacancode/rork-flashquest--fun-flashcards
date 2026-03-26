@@ -5,21 +5,25 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ConsentSheet from '@/components/privacy/ConsentSheet';
 import { useFlashQuest } from '@/context/FlashQuestContext';
+import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import { GAME_MODE } from '@/types/game';
 import type { PracticeMode } from '@/types/practice';
-import { DECKS_ROUTE, practiceSessionHref } from '@/utils/routes';
+import { DATA_PRIVACY_ROUTE, DECKS_ROUTE, practiceSessionHref } from '@/utils/routes';
 import { getFirstRouteParam } from '@/utils/safeJson';
 
 export default function PracticePage() {
   const router = useRouter();
   const params = useLocalSearchParams<{ deckId?: string | string[] }>();
   const { decks } = useFlashQuest();
+  const { hasAcknowledgedAIDisclosure, acknowledgeAIDisclosure } = usePrivacy();
   const { theme, isDark } = useTheme();
   const [selectedMode, setSelectedMode] = useState<PracticeMode | null>(null);
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(false);
+  const [pendingAiDeckId, setPendingAiDeckId] = useState<string | null>(null);
 
   const requestedDeckId = getFirstRouteParam(params.deckId);
   const preselectedDeck = decks.find((deck) => deck.id === requestedDeckId);
@@ -41,11 +45,16 @@ export default function PracticePage() {
   const handleModeSelect = useCallback((mode: PracticeMode) => {
     setSelectedMode(mode);
     if (preselectedDeck) {
+      if (mode === 'ai' && !hasAcknowledgedAIDisclosure('gameplayAssist')) {
+        setPendingAiDeckId(preselectedDeck.id);
+        return;
+      }
+
       startPracticeSession(preselectedDeck.id, mode);
       return;
     }
     setShowDeckSelector(true);
-  }, [preselectedDeck, startPracticeSession]);
+  }, [hasAcknowledgedAIDisclosure, preselectedDeck, startPracticeSession]);
 
   const handleDeckSelect = useCallback((deckId: string) => {
     if (!selectedMode) {
@@ -53,8 +62,29 @@ export default function PracticePage() {
     }
 
     setShowDeckSelector(false);
+
+    if (selectedMode === 'ai' && !hasAcknowledgedAIDisclosure('gameplayAssist')) {
+      setPendingAiDeckId(deckId);
+      return;
+    }
+
     startPracticeSession(deckId, selectedMode);
-  }, [selectedMode, startPracticeSession]);
+  }, [hasAcknowledgedAIDisclosure, selectedMode, startPracticeSession]);
+
+  const handleAcceptGameplayDisclosure = useCallback(() => {
+    if (!pendingAiDeckId) {
+      return;
+    }
+
+    const nextDeckId = pendingAiDeckId;
+    setPendingAiDeckId(null);
+    acknowledgeAIDisclosure('gameplayAssist');
+    startPracticeSession(nextDeckId, 'ai');
+  }, [acknowledgeAIDisclosure, pendingAiDeckId, startPracticeSession]);
+
+  const handleDismissGameplayDisclosure = useCallback(() => {
+    setPendingAiDeckId(null);
+  }, []);
 
   const backgroundGradient = useMemo(
     () => (
@@ -392,6 +422,23 @@ export default function PracticePage() {
           </View>
         </View>
       </Modal>
+      <ConsentSheet
+        visible={pendingAiDeckId !== null}
+        title="Use AI-assisted practice?"
+        description="Solo Practice sends the current question and answer to an AI processing service to generate stronger answer choices for the match."
+        bullets={[
+          'Only the flashcard content needed for the current round is sent for this feature.',
+          'Local pass-and-play does not use this AI processing flow.',
+          'You can revisit this anytime in Data & Privacy.',
+        ]}
+        primaryLabel="Continue"
+        secondaryLabel="Cancel"
+        onPrimaryPress={handleAcceptGameplayDisclosure}
+        onSecondaryPress={handleDismissGameplayDisclosure}
+        footerActionLabel="Open Data & Privacy"
+        onFooterActionPress={() => router.push(DATA_PRIVACY_ROUTE)}
+        testID="practice-ai-disclosure"
+      />
     </View>
   );
 }

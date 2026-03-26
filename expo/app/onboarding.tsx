@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, type Href } from 'expo-router';
-import { BookOpen, Swords, Trophy } from 'lucide-react-native';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { BookOpen, ShieldCheck, Sparkles, Swords, Trophy } from 'lucide-react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -17,11 +17,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useArena } from '@/context/ArenaContext';
+import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
+import { DATA_PRIVACY_ROUTE } from '@/utils/routes';
 
 const ONBOARDING_STORAGE_KEY = 'flashquest_onboarding_complete';
 
 type SlideGradient = readonly [string, string] | readonly [string, string, string];
+type AnalyticsChoice = 'granted' | 'declined' | null;
 
 type SlideItem = {
   key: string;
@@ -37,9 +40,19 @@ export default function OnboardingPage() {
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const { playerName, updatePlayerName } = useArena();
+  const { analyticsConsent, setAnalyticsConsent } = usePrivacy();
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [name, setName] = useState<string>(playerName);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [analyticsChoice, setAnalyticsChoice] = useState<AnalyticsChoice>(
+    analyticsConsent === 'granted' || analyticsConsent === 'declined' ? analyticsConsent : null,
+  );
+
+  useEffect(() => {
+    if (analyticsConsent === 'granted' || analyticsConsent === 'declined') {
+      setAnalyticsChoice(analyticsConsent);
+    }
+  }, [analyticsConsent]);
 
   const slides = useMemo<SlideItem[]>(() => [
     {
@@ -69,6 +82,7 @@ export default function OnboardingPage() {
   ], [theme.arenaGradient, theme.gradientEnd, theme.gradientMid, theme.gradientStart, theme.scoreGradient]);
 
   const totalSteps = slides.length + 1;
+  const canFinish = analyticsChoice !== null && !isSaving;
 
   const scrollToStep = useCallback((index: number) => {
     scrollViewRef.current?.scrollTo({ x: width * index, animated: true });
@@ -86,7 +100,7 @@ export default function OnboardingPage() {
   }, [currentStep, scrollToStep, totalSteps]);
 
   const handleCompleteOnboarding = useCallback(async () => {
-    if (isSaving) {
+    if (!canFinish) {
       return;
     }
 
@@ -94,6 +108,8 @@ export default function OnboardingPage() {
 
     try {
       const trimmedName = name.trim();
+
+      setAnalyticsConsent(analyticsChoice);
 
       if (trimmedName.length > 0) {
         updatePlayerName(trimmedName);
@@ -105,10 +121,10 @@ export default function OnboardingPage() {
       console.warn('[Onboarding] Failed to complete onboarding:', error);
       setIsSaving(false);
     }
-  }, [isSaving, name, updatePlayerName]);
+  }, [analyticsChoice, canFinish, name, setAnalyticsConsent, updatePlayerName]);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}> 
       <ScrollView
         ref={scrollViewRef}
         horizontal
@@ -178,38 +194,96 @@ export default function OnboardingPage() {
           />
           <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
             <View style={styles.pageContent}>
-              <View style={styles.nameCard}>
-                <Text style={styles.nameTitle}>What should we call you?</Text>
-                <Text style={styles.nameSubtitle}>
-                  This is your battle name. You can change it later in your profile.
-                </Text>
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Enter your name"
-                  placeholderTextColor="rgba(255,255,255,0.62)"
-                  maxLength={20}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  returnKeyType="done"
-                  onSubmitEditing={() => {
-                    void handleCompleteOnboarding();
-                  }}
-                  style={styles.nameInput}
-                  testID="onboarding-name-input"
-                />
-                <TouchableOpacity
-                  style={[styles.primaryButton, isSaving ? styles.primaryButtonDisabled : null]}
-                  onPress={() => {
-                    void handleCompleteOnboarding();
-                  }}
-                  activeOpacity={0.85}
-                  disabled={isSaving}
-                  testID="onboarding-start-button"
-                >
-                  <Text style={styles.primaryButtonText}>{isSaving ? 'Starting...' : 'Start FlashQuest'}</Text>
-                </TouchableOpacity>
-              </View>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.finalStepContent}>
+                <View style={styles.nameCard}>
+                  <Text style={styles.nameTitle}>Start with trust built in</Text>
+                  <Text style={styles.nameSubtitle}>
+                    Pick your battle name, choose your analytics preference, and jump into the sample decks waiting on your home screen.
+                  </Text>
+
+                  <TextInput
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="Enter your name"
+                    placeholderTextColor="rgba(255,255,255,0.62)"
+                    maxLength={20}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    onSubmitEditing={() => {
+                      void handleCompleteOnboarding();
+                    }}
+                    style={styles.nameInput}
+                    testID="onboarding-name-input"
+                  />
+
+                  <View style={styles.starterCard}>
+                    <View style={styles.starterIconWrap}>
+                      <Sparkles color="#fff" size={18} strokeWidth={2.3} />
+                    </View>
+                    <View style={styles.starterCopy}>
+                      <Text style={styles.starterTitle}>Starter sample decks included</Text>
+                      <Text style={styles.starterBody}>Open FlashQuest and you can start studying right away with built-in decks, or make your own with text and photo tools.</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.privacyCard}>
+                    <View style={styles.privacyHeader}>
+                      <View style={styles.privacyIconWrap}>
+                        <ShieldCheck color="#fff" size={18} strokeWidth={2.3} />
+                      </View>
+                      <View style={styles.privacyCopy}>
+                        <Text style={styles.privacyTitle}>Anonymous analytics</Text>
+                        <Text style={styles.privacyBody}>FlashQuest keeps analytics off until you choose. You can change this later in Data & Privacy.</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.analyticsChoices}>
+                      <TouchableOpacity
+                        style={[
+                          styles.analyticsChoice,
+                          analyticsChoice === 'granted' ? styles.analyticsChoiceActive : null,
+                        ]}
+                        onPress={() => setAnalyticsChoice('granted')}
+                        activeOpacity={0.82}
+                        testID="onboarding-allow-analytics"
+                      >
+                        <Text style={styles.analyticsChoiceTitle}>Allow Analytics</Text>
+                        <Text style={styles.analyticsChoiceBody}>Share anonymous usage events to help improve FlashQuest.</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.analyticsChoice,
+                          analyticsChoice === 'declined' ? styles.analyticsChoiceActive : null,
+                        ]}
+                        onPress={() => setAnalyticsChoice('declined')}
+                        activeOpacity={0.82}
+                        testID="onboarding-decline-analytics"
+                      >
+                        <Text style={styles.analyticsChoiceTitle}>Not Now</Text>
+                        <Text style={styles.analyticsChoiceBody}>Keep analytics off and start using the app immediately.</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity onPress={() => router.push(DATA_PRIVACY_ROUTE)} activeOpacity={0.8} testID="onboarding-open-privacy-center">
+                      <Text style={styles.privacyLink}>Open Data & Privacy</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.primaryButton, (!canFinish || isSaving) ? styles.primaryButtonDisabled : null]}
+                    onPress={() => {
+                      void handleCompleteOnboarding();
+                    }}
+                    activeOpacity={0.85}
+                    disabled={!canFinish || isSaving}
+                    testID="onboarding-start-button"
+                  >
+                    <Text style={styles.primaryButtonText}>{isSaving ? 'Starting...' : 'Start FlashQuest'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             </View>
           </SafeAreaView>
         </LinearGradient>
@@ -297,9 +371,11 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.92)',
     textAlign: 'center' as const,
   },
+  finalStepContent: {
+    paddingBottom: 40,
+  },
   nameCard: {
     flex: 1,
-    justifyContent: 'center',
     paddingHorizontal: 2,
   },
   nameTitle: {
@@ -315,7 +391,7 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     fontWeight: '500' as const,
     color: 'rgba(255,255,255,0.88)',
-    marginBottom: 28,
+    marginBottom: 24,
     maxWidth: 320,
   },
   nameInput: {
@@ -328,7 +404,109 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     paddingHorizontal: 18,
     paddingVertical: 18,
-    marginBottom: 22,
+    marginBottom: 18,
+  },
+  starterCard: {
+    flexDirection: 'row',
+    gap: 12,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    padding: 16,
+    marginBottom: 16,
+  },
+  starterIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  starterCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  starterTitle: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800' as const,
+  },
+  starterBody: {
+    color: 'rgba(255,255,255,0.86)',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500' as const,
+  },
+  privacyCard: {
+    borderRadius: 24,
+    backgroundColor: 'rgba(17,24,39,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    padding: 18,
+    marginBottom: 20,
+  },
+  privacyHeader: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 14,
+  },
+  privacyIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  privacyCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  privacyTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800' as const,
+  },
+  privacyBody: {
+    color: 'rgba(255,255,255,0.84)',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500' as const,
+  },
+  analyticsChoices: {
+    gap: 10,
+    marginBottom: 14,
+  },
+  analyticsChoice: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    padding: 14,
+  },
+  analyticsChoiceActive: {
+    borderColor: 'rgba(255,255,255,0.36)',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  analyticsChoiceTitle: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800' as const,
+    marginBottom: 3,
+  },
+  analyticsChoiceBody: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500' as const,
+  },
+  privacyLink: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700' as const,
+    textAlign: 'center' as const,
   },
   primaryButton: {
     minHeight: 60,

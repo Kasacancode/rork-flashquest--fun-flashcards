@@ -10,13 +10,14 @@ import { DealerReaction } from '@/components/AnswerCard';
 import { trackEvent } from '@/lib/analytics';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
+import { createRetryDeck } from '@/utils/retryDeck';
 import { useTheme } from '@/context/ThemeContext';
 import type { ArenaLeaderboardEntry } from '@/types/arena';
 import { GAME_MODE } from '@/types/game';
 import { selectAssistantDialogue } from '@/utils/dialogue';
 import { logger } from '@/utils/logger';
 import { shareTextWithFallback } from '@/utils/share';
-import { ARENA_LOBBY_ROUTE, HOME_ROUTE, questHref } from '@/utils/routes';
+import { ARENA_LOBBY_ROUTE, DECKS_ROUTE, HOME_ROUTE, questHref } from '@/utils/routes';
 
 interface ResultPlayer {
   id: string;
@@ -72,7 +73,7 @@ function getPlacementLabel(rank: number): string {
 export default function ArenaResultsScreen() {
   const router = useRouter();
   const { theme } = useTheme();
-  const { recordSessionResult } = useFlashQuest();
+  const { recordSessionResult, addDeck } = useFlashQuest();
   const {
     room,
     playerId,
@@ -344,6 +345,25 @@ export default function ArenaResultsScreen() {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   }, [shareMessage, winner]);
+
+  const handleCreateRetryDeck = useCallback(() => {
+    if (missedQuestions.length === 0) {
+      return;
+    }
+
+    const retryDeck = createRetryDeck({
+      sourceDeckName: data?.deckName ?? 'Arena Review',
+      sourceDeckDescription: 'A focused deck made from questions missed in your last battle.',
+      cards: missedQuestions.map((item) => ({
+        question: item.question,
+        answer: item.correctAnswer,
+      })),
+      category: 'Arena Retry',
+    });
+
+    addDeck(retryDeck);
+    router.replace(DECKS_ROUTE);
+  }, [addDeck, data?.deckName, missedQuestions, router]);
 
   const handlePlayAgain = () => {
     if (isHost) {
@@ -738,6 +758,17 @@ export default function ArenaResultsScreen() {
               >
                 <Target color={theme.primary} size={20} />
                 <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>Practice This Deck</Text>
+              </TouchableOpacity>
+            )}
+
+            {missedQuestions.length > 0 && (
+              <TouchableOpacity
+                style={[styles.secondaryButton, { borderColor: theme.success }]}
+                onPress={handleCreateRetryDeck}
+                activeOpacity={0.7}
+              >
+                <Target color={theme.success} size={20} />
+                <Text style={[styles.secondaryButtonText, { color: theme.success }]}>Retry Missed as Deck</Text>
               </TouchableOpacity>
             )}
 

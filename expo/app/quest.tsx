@@ -5,14 +5,16 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Animated, Dimensions, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ConsentSheet from '@/components/privacy/ConsentSheet';
 import QuestDeckSelector from '@/components/quest/QuestDeckSelector';
 import QuestSettingsOptions from '@/components/quest/QuestSettingsOptions';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
+import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { QuestMode, QuestSettings } from '@/types/performance';
 import { serializeQuestSettings } from '@/utils/questParams';
-import { DECKS_ROUTE, questSessionHref } from '@/utils/routes';
+import { DATA_PRIVACY_ROUTE, DECKS_ROUTE, questSessionHref } from '@/utils/routes';
 import { getFirstRouteParam } from '@/utils/safeJson';
 
 type RunLength = 5 | 10 | 20;
@@ -27,6 +29,7 @@ export default function QuestMenuScreen() {
   const { theme, isDark } = useTheme();
   const { decks } = useFlashQuest();
   const { performance, getLastQuestSettings, getDeckAccuracy, getOverallQuestAccuracy, saveLastQuestSettings } = usePerformance();
+  const { hasAcknowledgedAIDisclosure, acknowledgeAIDisclosure } = usePrivacy();
 
   const lastSettings = getLastQuestSettings();
 
@@ -43,6 +46,7 @@ export default function QuestMenuScreen() {
   const [secondChanceEnabled, setSecondChanceEnabled] = useState<boolean>(lastSettings?.secondChanceEnabled || false);
 
   const [sheetVisible, setSheetVisible] = useState<boolean>(false);
+  const [pendingQuestSettings, setPendingQuestSettings] = useState<QuestSettings | null>(null);
   const slideAnim = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
 
@@ -107,8 +111,15 @@ export default function QuestMenuScreen() {
     }
   };
 
-  const handleStartQuest = () => {
-    if (!selectedDeckId) return;
+  const launchQuest = useCallback((settings: QuestSettings) => {
+    saveLastQuestSettings(settings);
+    router.push(questSessionHref({ settings: serializeQuestSettings(settings) }));
+  }, [router, saveLastQuestSettings]);
+
+  const handleStartQuest = useCallback(() => {
+    if (!selectedDeckId) {
+      return;
+    }
 
     const settings: QuestSettings = {
       deckId: selectedDeckId,
@@ -121,16 +132,52 @@ export default function QuestMenuScreen() {
       secondChanceEnabled,
     };
 
-    saveLastQuestSettings(settings);
+    if (!hasAcknowledgedAIDisclosure('gameplayAssist')) {
+      setPendingQuestSettings(settings);
+      return;
+    }
 
-    router.push(questSessionHref({ settings: serializeQuestSettings(settings) }));
-  };
+    launchQuest(settings);
+  }, [
+    explanationsEnabled,
+    focusWeakOnly,
+    hasAcknowledgedAIDisclosure,
+    hintsEnabled,
+    launchQuest,
+    mode,
+    runLength,
+    secondChanceEnabled,
+    selectedDeckId,
+    timerSeconds,
+  ]);
 
-  const handleQuickResume = () => {
-    if (!lastSettings) return;
+  const handleQuickResume = useCallback(() => {
+    if (!lastSettings) {
+      return;
+    }
 
-    router.push(questSessionHref({ settings: serializeQuestSettings(lastSettings) }));
-  };
+    if (!hasAcknowledgedAIDisclosure('gameplayAssist')) {
+      setPendingQuestSettings(lastSettings);
+      return;
+    }
+
+    launchQuest(lastSettings);
+  }, [hasAcknowledgedAIDisclosure, lastSettings, launchQuest]);
+
+  const handleAcceptGameplayDisclosure = useCallback(() => {
+    if (!pendingQuestSettings) {
+      return;
+    }
+
+    const nextSettings = pendingQuestSettings;
+    setPendingQuestSettings(null);
+    acknowledgeAIDisclosure('gameplayAssist');
+    launchQuest(nextSettings);
+  }, [acknowledgeAIDisclosure, launchQuest, pendingQuestSettings]);
+
+  const handleDismissGameplayDisclosure = useCallback(() => {
+    setPendingQuestSettings(null);
+  }, []);
 
   const smallDeckWarning = selectedDeck && selectedDeck.flashcards.length < 8;
   const screenGradient = isDark
@@ -565,6 +612,23 @@ export default function QuestMenuScreen() {
           </Animated.View>
         </View>
       </Modal>
+      <ConsentSheet
+        visible={pendingQuestSettings !== null}
+        title="Use AI-assisted question mode?"
+        description="Quest sends the active question and answer to an AI processing service to generate stronger distractors and keep rounds feeling sharp."
+        bullets={[
+          'Only the card content needed for the current session is sent for this feature.',
+          'This improves answer choices in Quest and AI-powered practice sessions.',
+          'You can review this again in Data & Privacy anytime.',
+        ]}
+        primaryLabel="Continue"
+        secondaryLabel="Cancel"
+        onPrimaryPress={handleAcceptGameplayDisclosure}
+        onSecondaryPress={handleDismissGameplayDisclosure}
+        footerActionLabel="Open Data & Privacy"
+        onFooterActionPress={() => router.push(DATA_PRIVACY_ROUTE)}
+        testID="quest-ai-disclosure"
+      />
     </View>
   );
 }

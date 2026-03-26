@@ -10,7 +10,8 @@ import { trpc } from '@/lib/trpc';
 import type { ArenaLeaderboardEntry } from '@/types/arena';
 import { GAME_MODE } from '@/types/game';
 import { logger } from '@/utils/logger';
-import { sanitizePlayerName } from '@/utils/playerName';
+import { sanitizePublicLabel } from '@/utils/contentSafety';
+import { getPlayerNameValidationError, sanitizePlayerName } from '@/utils/playerName';
 
 const LEADERBOARD_KEY = 'flashquest_arena_leaderboard';
 const PLAYER_NAME_KEY = 'flashquest_arena_player_name';
@@ -78,6 +79,18 @@ function isRedisConfigArenaError(error: unknown): boolean {
   return backendCode === 'REDIS_CONFIG_MISSING'
     || normalizedMessage.includes('missing upstash_redis_rest_url')
     || normalizedMessage.includes('service temporarily unavailable');
+}
+
+function sanitizeRoomSnapshot(room: SanitizedRoom): SanitizedRoom {
+  return {
+    ...room,
+    deckName: room.deckName ? sanitizePublicLabel(room.deckName, { maxLength: 80, fallback: 'Study Deck' }) : room.deckName,
+    players: room.players.map((player) => ({
+      ...player,
+      name: sanitizePublicLabel(player.name, { maxLength: 20, fallback: 'Guest Player' }),
+      identityLabel: sanitizePublicLabel(player.identityLabel, { maxLength: 40, fallback: player.identityLabel }),
+    })),
+  };
 }
 
 function normalizeArenaConnectionError(error: unknown): string {
@@ -247,7 +260,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       }
 
       lastVersionRef.current = incomingVersion;
-      return incomingRoom;
+      return sanitizeRoomSnapshot(incomingRoom);
     });
   }, []);
 
@@ -552,12 +565,12 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   });
 
   const updatePlayerName = useCallback((name: string): string => {
-    const sanitizedName = sanitizePlayerName(name);
-
-    if (!sanitizedName) {
+    const validationError = getPlayerNameValidationError(name);
+    if (validationError) {
       return '';
     }
 
+    const sanitizedName = sanitizePlayerName(name);
     logger.debug('[Arena] Updating player name:', sanitizedName);
     setPlayerName(sanitizedName);
     queryClient.setQueryData(['arena-player-name'], sanitizedName);
@@ -566,6 +579,12 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   }, [queryClient, savePlayerNameMut]);
 
   const createRoom = useCallback((name: string) => {
+    const validationError = getPlayerNameValidationError(name);
+    if (validationError) {
+      setConnectionError(validationError);
+      return;
+    }
+
     const sanitizedName = updatePlayerName(name);
     if (!sanitizedName) {
       setConnectionError('Enter a player name.');
@@ -582,6 +601,12 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   }, [createRoomMut, selectedIdentityKey, updatePlayerName]);
 
   const joinRoom = useCallback((code: string, name: string) => {
+    const validationError = getPlayerNameValidationError(name);
+    if (validationError) {
+      setConnectionError(validationError);
+      return;
+    }
+
     const sanitizedName = updatePlayerName(name);
     if (!sanitizedName) {
       setConnectionError('Enter a player name.');
@@ -605,11 +630,15 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   }, [clearArenaConnection, roomCode, playerId, leaveMut]);
 
   const selectDeck = useCallback((deckId: string, deckName: string) => {
-    if (!roomCode || !playerId) return;
+    if (!roomCode || !playerId) {
+      return;
+    }
+
+    const safeDeckName = sanitizePublicLabel(deckName, { maxLength: 80, fallback: 'Study Deck' });
     setConnectionError(null);
-    setOptimisticDeckSelection({ deckId, deckName });
-    logger.debug('[Arena] Selecting deck:', deckId, deckName);
-    selectDeckMut.mutate({ roomCode, playerId, deckId, deckName });
+    setOptimisticDeckSelection({ deckId, deckName: safeDeckName });
+    logger.debug('[Arena] Selecting deck:', deckId, safeDeckName);
+    selectDeckMut.mutate({ roomCode, playerId, deckId, deckName: safeDeckName });
   }, [roomCode, playerId, selectDeckMut]);
 
   const updateSettings = useCallback((settings: { rounds?: number; timerSeconds?: number; showExplanationsAtEnd?: boolean }) => {

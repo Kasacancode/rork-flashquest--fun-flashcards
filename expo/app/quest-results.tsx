@@ -8,17 +8,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import DealerPlaceholder from '@/components/DealerPlaceholder';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
+import { createRetryDeck } from '@/utils/retryDeck';
 import type { QuestSettings } from '@/types/performance';
 import { getQuestCompletionDialogueEvent, selectAssistantDialogue } from '@/utils/dialogue';
 import { logger } from '@/utils/logger';
 import { parseQuestResultParam, serializeQuestSettings } from '@/utils/questParams';
-import { HOME_ROUTE, QUEST_ROUTE, questSessionHref, studyHref } from '@/utils/routes';
+import { DECKS_ROUTE, HOME_ROUTE, QUEST_ROUTE, questSessionHref, studyHref } from '@/utils/routes';
 
 export default function QuestResultsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ result?: string | string[] }>();
   const { theme } = useTheme();
-  const { decks } = useFlashQuest();
+  const { decks, addDeck } = useFlashQuest();
 
   const [showMissedCards, setShowMissedCards] = useState(false);
 
@@ -105,6 +106,30 @@ export default function QuestResultsScreen() {
       settings: serializeQuestSettings(drillSettings),
       drillCardIds: JSON.stringify(result.missedCardIds),
     }));
+  };
+
+  const handleCreateRetryDeck = () => {
+    if (!deck || missedCards.length === 0) {
+      return;
+    }
+
+    const retryDeck = createRetryDeck({
+      sourceDeckName: deck.name,
+      sourceDeckDescription: 'A focused deck made from the cards you missed in your last quest.',
+      cards: missedCards
+        .filter((card): card is NonNullable<typeof card> => Boolean(card))
+        .map((card) => ({
+          question: card.question,
+          answer: card.answer,
+          hint1: card.hint1,
+          hint2: card.hint2,
+          explanation: card.explanation,
+        })),
+      category: 'Retry Missed',
+    });
+
+    addDeck(retryDeck);
+    router.replace(DECKS_ROUTE);
   };
 
   const handleBackToMenu = () => {
@@ -285,6 +310,17 @@ export default function QuestResultsScreen() {
                 <Text style={[styles.secondaryButtonText, { color: theme.warning }]}> 
                   Drill Missed Cards
                 </Text>
+              </TouchableOpacity>
+            )}
+
+            {missedCards.length > 0 && deck && (
+              <TouchableOpacity
+                style={[styles.secondaryButton, { borderColor: theme.success }]}
+                onPress={handleCreateRetryDeck}
+                activeOpacity={0.7}
+              >
+                <BookOpen color={theme.success} size={20} />
+                <Text style={[styles.secondaryButtonText, { color: theme.success }]}>Retry Missed as Deck</Text>
               </TouchableOpacity>
             )}
 

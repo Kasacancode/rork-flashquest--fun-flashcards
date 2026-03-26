@@ -18,15 +18,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as z from 'zod/v4';
 
 import DeckCategoryPicker from '@/components/DeckCategoryPicker';
+import ConsentSheet from '@/components/privacy/ConsentSheet';
 import {
   AI_DEFAULT_DECK_CATEGORY,
   PRESET_DECK_CATEGORIES,
 } from '@/constants/deckCategories';
 import { useFlashQuest } from '@/context/FlashQuestContext';
+import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import { Flashcard } from '@/types/flashcard';
-import { DECKS_ROUTE } from '@/utils/routes';
+import { DATA_PRIVACY_ROUTE, DECKS_ROUTE } from '@/utils/routes';
 import { generateObject } from '@rork-ai/toolkit-sdk';
 
 const flashcardSchema = z.object({
@@ -61,6 +63,7 @@ type Step = 'input' | 'processing' | 'review';
 export default function TextToDeckPage() {
   const router = useRouter();
   const { addDeck } = useFlashQuest();
+  const { hasAcknowledgedAIDisclosure, acknowledgeAIDisclosure } = usePrivacy();
   const { theme, isDark } = useTheme();
 
   const [step, setStep] = useState<Step>('input');
@@ -72,6 +75,7 @@ export default function TextToDeckPage() {
   const [showCustomCategory, setShowCustomCategory] = useState<boolean>(false);
   const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showDeckDisclosure, setShowDeckDisclosure] = useState<boolean>(false);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const charCount = sourceText.length;
@@ -195,6 +199,25 @@ export default function TextToDeckPage() {
       stopPulse();
     }
   }, [sourceText, isTextValid, startPulse, stopPulse]);
+
+  const handlePressGenerate = useCallback(() => {
+    if (!hasAcknowledgedAIDisclosure('deckGeneration')) {
+      setShowDeckDisclosure(true);
+      return;
+    }
+
+    void handleGenerate();
+  }, [handleGenerate, hasAcknowledgedAIDisclosure]);
+
+  const handleAcceptDeckDisclosure = useCallback(() => {
+    setShowDeckDisclosure(false);
+    acknowledgeAIDisclosure('deckGeneration');
+    void handleGenerate();
+  }, [acknowledgeAIDisclosure, handleGenerate]);
+
+  const handleDismissDeckDisclosure = useCallback(() => {
+    setShowDeckDisclosure(false);
+  }, []);
 
   const updateCard = useCallback((id: string, field: 'question' | 'answer', value: string) => {
     setGeneratedCards(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
@@ -351,7 +374,7 @@ export default function TextToDeckPage() {
                 styles.generateButton,
                 { backgroundColor: isTextValid ? theme.primary : isDark ? 'rgba(148,163,184,0.2)' : 'rgba(0,0,0,0.1)' },
               ]}
-              onPress={handleGenerate}
+              onPress={handlePressGenerate}
               activeOpacity={0.85}
               disabled={!isTextValid}
               testID="textToDeckGenerate"
@@ -521,6 +544,23 @@ export default function TextToDeckPage() {
           </>
         )}
       </SafeAreaView>
+      <ConsentSheet
+        visible={showDeckDisclosure}
+        title="Send this text to AI?"
+        description="FlashQuest sends the notes or text you paste to an AI processing service so it can turn the content into flashcards."
+        bullets={[
+          'Only the text you submit for this action is sent for processing.',
+          'You review and edit the generated deck before saving it.',
+          'You can revisit this in Data & Privacy anytime.',
+        ]}
+        primaryLabel="Continue"
+        secondaryLabel="Cancel"
+        onPrimaryPress={handleAcceptDeckDisclosure}
+        onSecondaryPress={handleDismissDeckDisclosure}
+        footerActionLabel="Open Data & Privacy"
+        onFooterActionPress={() => router.push(DATA_PRIVACY_ROUTE)}
+        testID="text-ai-disclosure"
+      />
     </View>
   );
 }

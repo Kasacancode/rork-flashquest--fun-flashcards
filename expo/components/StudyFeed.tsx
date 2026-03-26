@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   View,
@@ -18,10 +19,13 @@ import * as Haptics from 'expo-haptics';
 import { generateText } from '@rork-ai/toolkit-sdk';
 
 import ConfidenceChips from '@/components/ConfidenceChips';
+import ConsentSheet from '@/components/privacy/ConsentSheet';
 import type { Theme } from '@/constants/colors';
 import { usePerformance } from '@/context/PerformanceContext';
+import { usePrivacy } from '@/context/PrivacyContext';
 import type { Flashcard } from '@/types/flashcard';
 import type { RecallQuality } from '@/types/performance';
+import { DATA_PRIVACY_ROUTE } from '@/utils/routes';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 60;
@@ -56,7 +60,9 @@ export default function StudyFeed({
   onCardResolved,
   onUpdateCard,
 }: StudyFeedProps) {
+  const router = useRouter();
   const { logQuestAttempt } = usePerformance();
+  const { hasAcknowledgedAIDisclosure, acknowledgeAIDisclosure } = usePrivacy();
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [displayCard, setDisplayCard] = useState<Flashcard | null>(() => flashcards[0] ?? null);
   const [isRevealed, setIsRevealed] = useState<boolean>(false);
@@ -66,6 +72,7 @@ export default function StudyFeed({
   const [showFeedbackOverlay, setShowFeedbackOverlay] = useState<boolean>(false);
   const [isGeneratingHint, setIsGeneratingHint] = useState<boolean>(false);
   const [isGeneratingExplanation, setIsGeneratingExplanation] = useState<boolean>(false);
+  const [pendingAiAction, setPendingAiAction] = useState<'hint' | 'explanation' | null>(null);
   const [selectedQuality, setSelectedQuality] = useState<RecallQuality | null>(null);
   const [reviewSaved, setReviewSaved] = useState<boolean>(false);
 
@@ -538,6 +545,45 @@ export default function StudyFeed({
     }
   }, [currentCard, isGeneratingExplanation, onUpdateCard]);
 
+  const handlePressGenerateHint = useCallback(() => {
+    if (!hasAcknowledgedAIDisclosure('studyAssist')) {
+      setPendingAiAction('hint');
+      return;
+    }
+
+    void handleGenerateHint();
+  }, [handleGenerateHint, hasAcknowledgedAIDisclosure]);
+
+  const handlePressGenerateExplanation = useCallback(() => {
+    if (!hasAcknowledgedAIDisclosure('studyAssist')) {
+      setPendingAiAction('explanation');
+      return;
+    }
+
+    void handleGenerateExplanation();
+  }, [handleGenerateExplanation, hasAcknowledgedAIDisclosure]);
+
+  const handleAcceptStudyDisclosure = useCallback(() => {
+    if (!pendingAiAction) {
+      return;
+    }
+
+    const nextAction = pendingAiAction;
+    setPendingAiAction(null);
+    acknowledgeAIDisclosure('studyAssist');
+
+    if (nextAction === 'hint') {
+      void handleGenerateHint();
+      return;
+    }
+
+    void handleGenerateExplanation();
+  }, [acknowledgeAIDisclosure, handleGenerateExplanation, handleGenerateHint, pendingAiAction]);
+
+  const handleDismissStudyDisclosure = useCallback(() => {
+    setPendingAiAction(null);
+  }, []);
+
   const resolveCardGestureIntent = useCallback((gestureState: { dx: number; dy: number }): CardGestureIntent => {
     const absDx = Math.abs(gestureState.dx);
     const absDy = Math.abs(gestureState.dy);
@@ -723,7 +769,7 @@ export default function StudyFeed({
                   <Text style={styles.overlayText}>No hint available for this card.</Text>
                   <TouchableOpacity
                     style={styles.generateButton}
-                    onPress={handleGenerateHint}
+                    onPress={handlePressGenerateHint}
                     disabled={isGeneratingHint}
                     activeOpacity={0.8}
                   >
@@ -765,7 +811,7 @@ export default function StudyFeed({
                   <Text style={styles.overlayText}>No explanation available for this card.</Text>
                   <TouchableOpacity
                     style={[styles.generateButton, styles.generateButtonGreen]}
-                    onPress={handleGenerateExplanation}
+                    onPress={handlePressGenerateExplanation}
                     disabled={isGeneratingExplanation}
                     activeOpacity={0.8}
                   >
@@ -782,6 +828,24 @@ export default function StudyFeed({
           </Pressable>
         </Animated.View>
       ) : null}
+
+      <ConsentSheet
+        visible={pendingAiAction !== null}
+        title="Use AI study tools?"
+        description="FlashQuest sends the current question and answer to an AI processing service when you ask it to generate a hint or explanation."
+        bullets={[
+          'This only happens when you tap the AI hint or explanation button.',
+          'The generated hint or explanation is saved back onto the card on your device.',
+          'You can revisit this anytime in Data & Privacy.',
+        ]}
+        primaryLabel="Continue"
+        secondaryLabel="Cancel"
+        onPrimaryPress={handleAcceptStudyDisclosure}
+        onSecondaryPress={handleDismissStudyDisclosure}
+        footerActionLabel="Open Data & Privacy"
+        onFooterActionPress={() => router.push(DATA_PRIVACY_ROUTE)}
+        testID="study-ai-disclosure"
+      />
     </View>
   );
 }
