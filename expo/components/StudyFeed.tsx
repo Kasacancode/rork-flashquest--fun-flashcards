@@ -80,6 +80,7 @@ export default function StudyFeed({
   const cardStartedAtRef = useRef<number>(Date.now());
   const isProcessingRef = useRef<boolean>(false);
   const swipeHandledRef = useRef<boolean>(false);
+  const gestureCancelledPressRef = useRef<boolean>(false);
   const blockFlipUntilRef = useRef<number>(0);
   const lastBlockedShakeRef = useRef<number>(0);
 
@@ -237,7 +238,7 @@ export default function StudyFeed({
 
   const handleFlipCard = useCallback(() => {
     const now = Date.now();
-    if (swipeHandledRef.current || now < blockFlipUntilRef.current) {
+    if (gestureCancelledPressRef.current || swipeHandledRef.current || now < blockFlipUntilRef.current) {
       swipeHandledRef.current = false;
       return;
     }
@@ -261,6 +262,11 @@ export default function StudyFeed({
       }
     });
   }, [isRevealed, resolved, currentCard, onCardResolved, showHintOverlay, showFeedbackOverlay, triggerHaptic, animateCardSwap]);
+
+  const blockFlipFromGesture = useCallback(() => {
+    gestureCancelledPressRef.current = true;
+    blockFlipUntilRef.current = Date.now() + SWIPE_PRESS_BLOCK_MS;
+  }, []);
 
   const dismissHintOverlay = useCallback(() => {
     clearHintDismissTimer();
@@ -572,7 +578,7 @@ export default function StudyFeed({
       const absDy = Math.abs(gestureState.dy);
 
       if (absDx > TAP_CANCEL_DISTANCE || absDy > TAP_CANCEL_DISTANCE) {
-        blockFlipUntilRef.current = Date.now() + SWIPE_PRESS_BLOCK_MS;
+        blockFlipFromGesture();
       }
     },
     onPanResponderTerminationRequest: () => true,
@@ -581,7 +587,7 @@ export default function StudyFeed({
       const absDy = Math.abs(gestureState.dy);
 
       if (absDx > TAP_CANCEL_DISTANCE || absDy > TAP_CANCEL_DISTANCE) {
-        blockFlipUntilRef.current = Date.now() + SWIPE_PRESS_BLOCK_MS;
+        blockFlipFromGesture();
       }
 
       if (absDx < SWIPE_THRESHOLD && absDy < SWIPE_THRESHOLD) {
@@ -590,6 +596,7 @@ export default function StudyFeed({
 
       if (absDx > absDy) {
         swipeHandledRef.current = true;
+        blockFlipFromGesture();
         if (gestureState.dx > SWIPE_THRESHOLD) {
           handleShowFeedback();
         } else if (gestureState.dx < -SWIPE_THRESHOLD) {
@@ -600,6 +607,7 @@ export default function StudyFeed({
 
       if (gestureState.dy < -SWIPE_THRESHOLD) {
         swipeHandledRef.current = true;
+        blockFlipFromGesture();
         handleNextCard();
       }
     },
@@ -608,12 +616,12 @@ export default function StudyFeed({
       const absDy = Math.abs(gestureState.dy);
 
       if (absDx > TAP_CANCEL_DISTANCE || absDy > TAP_CANCEL_DISTANCE) {
-        blockFlipUntilRef.current = Date.now() + SWIPE_PRESS_BLOCK_MS;
+        blockFlipFromGesture();
       }
 
       swipeHandledRef.current = false;
     },
-  }), [handleNextCard, handleShowFeedback, handleShowHint, shouldHandleSwipeGesture]);
+  }), [blockFlipFromGesture, handleNextCard, handleShowFeedback, handleShowHint, shouldHandleSwipeGesture]);
 
   const progress = useMemo(() => {
     if (flashcards.length === 0) {
@@ -652,7 +660,15 @@ export default function StudyFeed({
         </View>
       </View>
 
-      <Pressable style={styles.cardContainer} onPress={handleFlipCard} {...panResponder.panHandlers}>
+      <Pressable
+        style={styles.cardContainer}
+        onPressIn={() => {
+          swipeHandledRef.current = false;
+          gestureCancelledPressRef.current = false;
+        }}
+        onPress={handleFlipCard}
+        {...panResponder.panHandlers}
+      >
         <Animated.View
           style={[
             styles.cardWrapper,

@@ -859,6 +859,7 @@ export default function PracticeSessionPage() {
                       selectedQuality={reviewQuality ?? 3}
                       onSelect={handleReviewQualitySelect}
                       prompt="How did that feel?"
+                      promptColor="rgba(255,255,255,0.96)"
                       testIDPrefix="practice-review"
                     />
                   ) : (
