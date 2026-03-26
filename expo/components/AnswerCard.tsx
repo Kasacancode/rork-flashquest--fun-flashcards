@@ -1,4 +1,3 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, Dimensions, NativeSyntheticEvent, TextLayoutEventData } from 'react-native';
@@ -21,17 +20,6 @@ type OptionSizing = {
   lineHeight: number;
 };
 
-type CardPalette = {
-  gradient: readonly [string, string, string];
-  border: string;
-  innerBorder: string;
-  text: string;
-  suitColor: string;
-  shadow: string;
-  glaze: string;
-  texture: string;
-};
-
 function getOptionFontSize(text: string): OptionSizing {
   const len = text.length;
   if (len <= 12) return { fontSize: 16, lineHeight: 20 };
@@ -41,48 +29,19 @@ function getOptionFontSize(text: string): OptionSizing {
   return { fontSize: 10, lineHeight: 13 };
 }
 
-const CARD_PALETTES: Record<CardSuit, CardPalette> = {
-  '♠': {
-    gradient: ['#FFF9F2', '#FBEBD8', '#F4DDC8'],
-    border: '#FF993C',
-    innerBorder: 'rgba(255, 255, 255, 0.78)',
-    text: '#473122',
-    suitColor: '#8B8A8C',
-    shadow: 'rgba(207, 109, 33, 0.38)',
-    glaze: 'rgba(255, 255, 255, 0.58)',
-    texture: 'rgba(255, 153, 60, 0.08)',
-  },
-  '♥': {
-    gradient: ['#FFF2FF', '#F5E4FF', '#EDD7FF'],
-    border: '#D573E6',
-    innerBorder: 'rgba(255, 255, 255, 0.76)',
-    text: '#442A57',
-    suitColor: '#EC6B9F',
-    shadow: 'rgba(186, 92, 208, 0.34)',
-    glaze: 'rgba(255, 255, 255, 0.5)',
-    texture: 'rgba(213, 115, 230, 0.08)',
-  },
-  '♦': {
-    gradient: ['#FCFDF4', '#F2F5DE', '#EBF0CB'],
-    border: '#9DCE5F',
-    innerBorder: 'rgba(255, 255, 255, 0.76)',
-    text: '#344025',
-    suitColor: '#EB5A5A',
-    shadow: 'rgba(132, 171, 53, 0.34)',
-    glaze: 'rgba(255, 255, 255, 0.52)',
-    texture: 'rgba(157, 206, 95, 0.08)',
-  },
-  '♣': {
-    gradient: ['#F7FAFF', '#E7EEFF', '#DDE7FF'],
-    border: '#7FA3FF',
-    innerBorder: 'rgba(255, 255, 255, 0.78)',
-    text: '#2A3F64',
-    suitColor: '#7991C9',
-    shadow: 'rgba(92, 128, 214, 0.34)',
-    glaze: 'rgba(255, 255, 255, 0.56)',
-    texture: 'rgba(127, 163, 255, 0.08)',
-  },
+const SUIT_COLORS: Record<CardSuit, string> = {
+  '♠': '#1e293b',
+  '♥': '#dc2626',
+  '♦': '#dc2626',
+  '♣': '#1e293b',
 };
+
+const CARD_BACKGROUNDS = [
+  { bg: '#fef7f0', border: '#d4a574', accent: 'rgba(212, 165, 116, 0.15)' },
+  { bg: '#fff5f5', border: '#c9a0a0', accent: 'rgba(201, 160, 160, 0.15)' },
+  { bg: '#f0f7ff', border: '#7c9fc9', accent: 'rgba(124, 159, 201, 0.15)' },
+  { bg: '#f5f5f0', border: '#a0a078', accent: 'rgba(160, 160, 120, 0.15)' },
+];
 
 export function getSuitForIndex(index: number): CardSuit {
   return SUITS[index % SUITS.length];
@@ -110,14 +69,12 @@ export function AnswerCard({
   animatedOpacity,
 }: AnswerCardProps) {
   const localScale = useRef(new Animated.Value(1)).current;
-  const localShake = useRef(new Animated.Value(0)).current;
-  const localOpacity = useRef(new Animated.Value(1)).current;
   const pressDepthAnim = useRef(new Animated.Value(0)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
 
-  const scale = animatedScale ?? localScale;
-  const shake = animatedShake ?? localShake;
-  const opacity = animatedOpacity ?? localOpacity;
+  const scale = animatedScale || localScale;
+  const shake = animatedShake || new Animated.Value(0);
+  const opacity = animatedOpacity || new Animated.Value(1);
   const [optionSizing, setOptionSizing] = useState<OptionSizing>(() => getOptionFontSize(optionText));
 
   useEffect(() => {
@@ -135,7 +92,7 @@ export function AnswerCard({
       Animated.loop(
         Animated.sequence([
           Animated.timing(glowAnim, { toValue: 1, duration: 600, useNativeDriver: false }),
-          Animated.timing(glowAnim, { toValue: 0.35, duration: 600, useNativeDriver: false }),
+          Animated.timing(glowAnim, { toValue: 0.4, duration: 600, useNativeDriver: false }),
         ])
       ).start();
     } else {
@@ -173,8 +130,8 @@ export function AnswerCard({
   const handlePressIn = () => {
     if (state === 'idle') {
       Animated.parallel([
-        Animated.spring(scale, { toValue: 0.976, useNativeDriver: true, speed: 52 }),
-        Animated.timing(pressDepthAnim, { toValue: 1, duration: 90, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 50 }),
+        Animated.timing(pressDepthAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
       ]).start();
     }
   };
@@ -182,87 +139,75 @@ export function AnswerCard({
   const handlePressOut = () => {
     if (state === 'idle') {
       Animated.parallel([
-        Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 5 }),
-        Animated.timing(pressDepthAnim, { toValue: 0, duration: 140, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4 }),
+        Animated.timing(pressDepthAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
       ]).start();
     }
   };
 
   const handlePress = () => {
-    if (state !== 'idle') {
-      return;
-    }
-
+    if (state !== 'idle') return;
+    
     if (Platform.OS !== 'web') {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-
+    
     Animated.sequence([
-      Animated.timing(scale, { toValue: 0.94, duration: 75, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, friction: 4.5, useNativeDriver: true }),
+      Animated.timing(scale, { toValue: 0.92, duration: 80, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, friction: 4, useNativeDriver: true }),
     ]).start();
-
+    
     onPress();
   };
 
-  const palette = CARD_PALETTES[suit];
-  const textureOpacity = index % 2 === 0 ? 0.24 : 0.18;
+  const cardColors = CARD_BACKGROUNDS[index % CARD_BACKGROUNDS.length];
+  const suitColor = SUIT_COLORS[suit];
 
-  const getCardStateStyle = () => {
+  const getCardStyle = () => {
     switch (state) {
       case 'correct':
         return {
-          borderColor: '#22C55E',
-          shadowColor: '#22C55E',
-          overlayColor: 'rgba(34, 197, 94, 0.12)',
-          textColor: '#14532D',
-          opacity: 1,
+          backgroundColor: '#dcfce7',
+          borderColor: '#16a34a',
+          shadowColor: '#16a34a',
         };
       case 'wrong':
         return {
-          borderColor: '#EF4444',
-          shadowColor: '#EF4444',
-          overlayColor: 'rgba(239, 68, 68, 0.14)',
-          textColor: '#7F1D1D',
-          opacity: 1,
+          backgroundColor: '#fee2e2',
+          borderColor: '#dc2626',
+          shadowColor: '#dc2626',
         };
       case 'selected':
         return {
-          borderColor: '#F59E0B',
-          shadowColor: '#F59E0B',
-          overlayColor: 'rgba(245, 158, 11, 0.08)',
-          textColor: palette.text,
-          opacity: 1,
+          backgroundColor: cardColors.bg,
+          borderColor: '#f59e0b',
+          shadowColor: '#f59e0b',
         };
       case 'disabled':
         return {
-          borderColor: palette.border,
-          shadowColor: palette.shadow,
-          overlayColor: 'rgba(255, 255, 255, 0.06)',
-          textColor: palette.text,
-          opacity: 0.7,
+          backgroundColor: cardColors.bg,
+          borderColor: cardColors.border,
+          opacity: 0.5,
         };
       default:
         return {
-          borderColor: palette.border,
-          shadowColor: palette.shadow,
-          overlayColor: 'transparent',
-          textColor: palette.text,
-          opacity: 1,
+          backgroundColor: cardColors.bg,
+          borderColor: cardColors.border,
+          shadowColor: '#000',
         };
     }
   };
 
-  const cardStateStyle = getCardStateStyle();
+  const cardStyle = getCardStyle();
 
   const translateY = pressDepthAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -3],
+    outputRange: [0, -2],
   });
 
   const glowOpacity = glowAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 0.18],
+    outputRange: [0, 0.6],
   });
 
   return (
@@ -283,9 +228,10 @@ export function AnswerCard({
         style={[
           styles.card,
           {
-            borderColor: cardStateStyle.borderColor,
-            shadowColor: cardStateStyle.shadowColor,
-            opacity: cardStateStyle.opacity,
+            backgroundColor: cardStyle.backgroundColor,
+            borderColor: cardStyle.borderColor,
+            shadowColor: cardStyle.shadowColor,
+            opacity: cardStyle.opacity ?? 1,
           },
         ]}
         onPress={handlePress}
@@ -293,40 +239,24 @@ export function AnswerCard({
         onPressOut={handlePressOut}
         activeOpacity={1}
         disabled={state !== 'idle'}
-        testID={`answer-card-${index}`}
       >
-        <LinearGradient
-          colors={palette.gradient}
-          start={{ x: 0.06, y: 0.04 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.cardFill}
-        />
-        <View pointerEvents="none" style={[styles.cardTexture, { backgroundColor: palette.texture, opacity: textureOpacity }]} />
-        <View pointerEvents="none" style={[styles.cardGlaze, { backgroundColor: palette.glaze }]} />
-        <View pointerEvents="none" style={[styles.stateWash, { backgroundColor: cardStateStyle.overlayColor }]} />
-        <View pointerEvents="none" style={[styles.innerBorder, { borderColor: palette.innerBorder }]} />
+        <View style={[styles.cardTexture, { backgroundColor: cardColors.accent }]} />
 
         <View style={styles.suitCornerTop}>
-          <Text style={[styles.suitText, { color: palette.suitColor }]}>{suit}</Text>
+          <Text style={[styles.suitText, { color: suitColor }]}>{suit}</Text>
         </View>
-
+        
         <View style={styles.suitCornerBottom}>
-          <Text style={[styles.suitText, { color: palette.suitColor }]}>{suit}</Text>
+          <Text style={[styles.suitText, styles.suitRotated, { color: suitColor }]}>{suit}</Text>
         </View>
-
-        {state === 'correct' ? (
-          <Animated.View pointerEvents="none" style={[styles.glowOverlay, { opacity: glowOpacity }]} />
-        ) : null}
-
+        
         <View style={styles.cardContent}>
           <Text
             style={[
               styles.optionText,
-              {
-                fontSize: optionSizing.fontSize,
-                lineHeight: optionSizing.lineHeight,
-                color: cardStateStyle.textColor,
-              },
+              { fontSize: optionSizing.fontSize, lineHeight: optionSizing.lineHeight },
+              state === 'correct' && styles.optionTextCorrect,
+              state === 'wrong' && styles.optionTextWrong,
             ]}
             onTextLayout={handleOptionTextLayout}
           >
@@ -334,17 +264,21 @@ export function AnswerCard({
           </Text>
         </View>
 
-        {state === 'correct' ? (
+        {state === 'correct' && (
+          <Animated.View style={[styles.glowOverlay, { opacity: glowOpacity }]} />
+        )}
+
+        {state === 'correct' && (
           <View style={styles.feedbackBadge}>
             <Text style={styles.feedbackIcon}>✓</Text>
           </View>
-        ) : null}
+        )}
 
-        {state === 'wrong' ? (
+        {state === 'wrong' && (
           <View style={[styles.feedbackBadge, styles.feedbackBadgeWrong]}>
             <Text style={styles.feedbackIcon}>✗</Text>
           </View>
-        ) : null}
+        )}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -391,36 +325,36 @@ export function DealerReaction({ text, isCorrect }: DealerReactionProps) {
 
 export const DEALER_LINES = {
   idle: [
-    'Pick a card.',
-    'Choose wisely.',
-    'Make your move.',
+    "Pick a card.",
+    "Choose wisely.",
+    "Make your move.",
     "What's your call?",
-    'Trust your gut.',
+    "Trust your gut.",
   ],
   correct: [
-    'Sharp.',
-    'Lucky draw.',
-    'Well played.',
-    'Nice call.',
-    'You know your cards.',
+    "Sharp.",
+    "Lucky draw.",
+    "Well played.",
+    "Nice call.",
+    "You know your cards.",
   ],
   wrong: [
-    'Not this one.',
-    'Bad draw.',
-    'The house wins.',
-    'Better luck next time.',
-    'Close, but no.',
+    "Not this one.",
+    "Bad draw.",
+    "The house wins.",
+    "Better luck next time.",
+    "Close, but no.",
   ],
   timeout: [
     "Time's up.",
-    'Too slow.',
-    'Clock ran out.',
-    'Dealer takes it.',
+    "Too slow.",
+    "Clock ran out.",
+    "Dealer takes it.",
   ],
 };
 
 export function getRandomDealerLine(type: keyof typeof DEALER_LINES, lastLine?: string): string {
-  const lines = DEALER_LINES[type].filter((line) => line !== lastLine);
+  const lines = DEALER_LINES[type].filter(l => l !== lastLine);
   return lines[Math.floor(Math.random() * lines.length)];
 }
 
@@ -434,110 +368,88 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     height: '100%',
-    borderRadius: 28,
-    borderWidth: 4,
+    borderRadius: 16,
+    borderWidth: 1.5,
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.28,
-    shadowRadius: 14,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: '#fff',
-  },
-  cardFill: {
-    ...StyleSheet.absoluteFillObject,
   },
   cardTexture: {
-    position: 'absolute',
-    width: '78%',
-    height: '72%',
-    right: -14,
-    bottom: -10,
-    borderRadius: 32,
-    transform: [{ rotate: '-12deg' }],
-  },
-  cardGlaze: {
-    position: 'absolute',
-    top: 10,
-    left: 12,
-    width: '68%',
-    height: '48%',
-    borderRadius: 26,
-    transform: [{ rotate: '-8deg' }],
-  },
-  stateWash: {
     ...StyleSheet.absoluteFillObject,
-  },
-  innerBorder: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
-    right: 6,
-    bottom: 6,
-    borderRadius: 20,
-    borderWidth: 1,
+    opacity: 0.5,
   },
   suitCornerTop: {
     position: 'absolute',
-    top: 12,
-    left: 12,
+    top: 10,
+    left: 10,
   },
   suitCornerBottom: {
     position: 'absolute',
     bottom: 10,
-    right: 12,
+    right: 10,
   },
   suitText: {
-    fontSize: 26,
-    fontWeight: '800' as const,
-    opacity: 0.68,
+    fontSize: 15,
+    fontWeight: '700' as const,
+    opacity: 0.38,
+  },
+  suitRotated: {
+    transform: [{ rotate: '180deg' }],
   },
   cardContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 18,
-    zIndex: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
   },
   optionText: {
     width: '100%',
-    fontWeight: '800' as const,
+    fontWeight: '700' as const,
+    color: '#1e293b',
     textAlign: 'center',
     flexShrink: 1,
-    letterSpacing: -0.2,
+  },
+  optionTextCorrect: {
+    color: '#166534',
+  },
+  optionTextWrong: {
+    color: '#991b1b',
   },
   glowOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#22c55e',
+    borderRadius: 10,
   },
   feedbackBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    top: -3,
+    right: -3,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#16a34a',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-    zIndex: 2,
+    shadowRadius: 3,
+    elevation: 3,
   },
   feedbackBadgeWrong: {
     backgroundColor: '#dc2626',
   },
   feedbackIcon: {
-    fontSize: 13,
-    fontWeight: '800' as const,
+    fontSize: 12,
+    fontWeight: '700' as const,
     color: '#fff',
   },
   dealerReaction: {

@@ -36,7 +36,7 @@ const FALLBACK_QUEST_SETTINGS: QuestSettings = {
 export default function QuestSessionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ settings?: string | string[]; drillCardIds?: string | string[] }>();
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const { decks, recordSessionResult } = useFlashQuest();
   const { performance, logQuestAttempt, updateBestStreak } = usePerformance();
 
@@ -567,19 +567,6 @@ export default function QuestSessionScreen() {
 
     return parts.join(' • ');
   }, [settings.mode, settings.timerSeconds]);
-  const questionCardGradient = isDark
-    ? ['#FFF9F2', '#F9EBD9', '#F5E0CB'] as const
-    : ['#FFFDF8', '#FBF0E2', '#F8E7D8'] as const;
-  const questionCardBorder = isDark ? 'rgba(255, 153, 60, 0.55)' : '#FF9F45';
-  const questionTextColor = '#3D2A1D';
-  const questionMetaSurface = 'rgba(255, 153, 60, 0.12)';
-  const questionMetaBorder = 'rgba(255, 153, 60, 0.16)';
-  const questionMetaTextColor = '#C86B1A';
-  const questionFooterColor = '#8A6A55';
-  const tableSurfaceGradient = isDark
-    ? ['rgba(128, 88, 178, 0.54)', 'rgba(98, 61, 150, 0.42)', 'rgba(69, 41, 111, 0.4)'] as const
-    : ['rgba(154, 116, 205, 0.34)', 'rgba(129, 88, 189, 0.24)', 'rgba(98, 64, 158, 0.18)'] as const;
-  const tableSurfaceBorder = isDark ? 'rgba(231, 203, 255, 0.14)' : 'rgba(122, 80, 183, 0.18)';
 
   const handleHintPress = useCallback(() => {
     if (!settings.hintsEnabled || !currentCard?.hint1 || inputLocked) return;
@@ -690,42 +677,19 @@ export default function QuestSessionScreen() {
             <DealerPlaceholder dialogueType={assistantTone} customDialogue={assistantLine} size="small" title="Round assistant" />
           </View>
 
-          <LinearGradient
-            colors={questionCardGradient}
-            start={{ x: 0.06, y: 0.04 }}
-            end={{ x: 1, y: 1 }}
-            style={[
-              styles.questionCard,
-              {
-                backgroundColor: 'transparent',
-                borderWidth: 4,
-                borderColor: questionCardBorder,
-                shadowColor: '#B86A22',
-              },
-            ]}
-            testID="questQuestionCard"
-          >
+          <View style={[styles.questionCard, { backgroundColor: theme.cardBackground }]} testID="questQuestionCard">
             <View style={styles.questionMetaRow}>
-              <View
-                style={[
-                  styles.questionPill,
-                  {
-                    backgroundColor: questionMetaSurface,
-                    borderWidth: 1,
-                    borderColor: questionMetaBorder,
-                  },
-                ]}
-              >
-                <Text style={[styles.questionPillText, { color: questionMetaTextColor }]} numberOfLines={1}>
+              <View style={[styles.questionPill, { backgroundColor: `${theme.primary}22` }]}>
+                <Text style={[styles.questionPillText, { color: theme.primary }]} numberOfLines={1}>
                   {deck.name}
                 </Text>
               </View>
             </View>
-            <Text style={[styles.questionText, { color: questionTextColor }]} numberOfLines={4}>
+            <Text style={[styles.questionText, { color: theme.text }]} numberOfLines={4}>
               {displayQuestion}
             </Text>
             <View style={styles.questionFooter}>
-              <Text style={[styles.questionFooterText, { color: questionFooterColor }]} numberOfLines={1}>
+              <Text style={[styles.questionFooterText, { color: theme.textSecondary }]} numberOfLines={1}>
                 {questionFooterText}
               </Text>
             </View>
@@ -747,16 +711,11 @@ export default function QuestSessionScreen() {
               <Text style={[styles.hintText, { color: theme.warning }]}>{displayHint}</Text>
             </View>
           )}
-          </LinearGradient>
+          </View>
         </View>
 
         <View style={styles.gameArea}>
-          <LinearGradient
-            colors={tableSurfaceGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.tableSurface, { backgroundColor: 'transparent', borderColor: tableSurfaceBorder }]}
-          >
+          <View style={styles.tableSurface}>
             <View key={`${currentCard.id}-${optionsRenderKey}`} style={styles.optionsGrid} testID="questAnswerGrid">
               {displayOptionRows.map((row, rowIndex) => {
                 const isLastRow = rowIndex === displayOptionRows.length - 1;
@@ -785,7 +744,7 @@ export default function QuestSessionScreen() {
                 );
               })}
             </View>
-          </LinearGradient>
+          </View>
         </View>
 
         {showExplanation && !!currentCard.explanation && (
