@@ -248,6 +248,19 @@ export default function ArenaSessionScreen() {
     '1 correct',
     timerTotal > 0 ? `${timerTotal}s clock` : 'live round',
   ].join(' • ');
+  const questionCardGradient = isDark
+    ? ['#FFF5FB', '#F5E7FF', '#EAE8FF'] as const
+    : ['#FFF9FD', '#F7EEFF', '#EEF2FF'] as const;
+  const questionCardBorder = isDark ? 'rgba(213, 115, 230, 0.5)' : '#D573E6';
+  const questionTextColor = '#38254D';
+  const questionMetaSurface = 'rgba(213, 115, 230, 0.12)';
+  const questionMetaBorder = 'rgba(213, 115, 230, 0.18)';
+  const questionMetaTextColor = '#A84EC5';
+  const questionFooterColor = '#866C9A';
+  const tableSurfaceGradient = isDark
+    ? ['rgba(103, 78, 164, 0.54)', 'rgba(79, 54, 134, 0.44)', 'rgba(48, 29, 92, 0.42)'] as const
+    : ['rgba(137, 111, 203, 0.34)', 'rgba(103, 82, 183, 0.24)', 'rgba(77, 57, 151, 0.18)'] as const;
+  const tableSurfaceBorder = isDark ? 'rgba(230, 220, 255, 0.14)' : 'rgba(126, 95, 205, 0.18)';
 
   useEffect(() => {
     if (!game || phase !== 'question' || timerTotal <= 0 || game.timeRemainingMs == null) {
@@ -631,10 +644,33 @@ export default function ArenaSessionScreen() {
             </View>
           )}
 
-          <View style={[styles.questionCard, { backgroundColor: isDark ? theme.cardBackground : 'rgba(255,255,255,0.95)' }]} testID="arenaQuestionCard">
+          <LinearGradient
+            colors={questionCardGradient}
+            start={{ x: 0.06, y: 0.04 }}
+            end={{ x: 1, y: 1 }}
+            style={[
+              styles.questionCard,
+              {
+                backgroundColor: 'transparent',
+                borderWidth: 4,
+                borderColor: questionCardBorder,
+                shadowColor: '#A84EC5',
+              },
+            ]}
+            testID="arenaQuestionCard"
+          >
             <View style={styles.questionMetaRow}>
-              <View style={styles.questionPill}>
-                <Text style={styles.questionPillText} numberOfLines={1}>
+              <View
+                style={[
+                  styles.questionPill,
+                  {
+                    backgroundColor: questionMetaSurface,
+                    borderWidth: 1,
+                    borderColor: questionMetaBorder,
+                  },
+                ]}
+              >
+                <Text style={[styles.questionPillText, { color: questionMetaTextColor }]} numberOfLines={1}>
                   {room?.code ? `ROOM ${room.code}` : 'ARENA BATTLE'}
                 </Text>
               </View>
@@ -647,19 +683,24 @@ export default function ArenaSessionScreen() {
                 />
               </View>
             )}
-            <Text style={[styles.questionText, { color: theme.text }]} numberOfLines={4}>
+            <Text style={[styles.questionText, { color: questionTextColor }]} numberOfLines={4}>
               {displayQuestion}
             </Text>
             <View style={styles.questionFooter}>
-              <Text style={[styles.questionFooterText, { color: isDark ? 'rgba(255,255,255,0.72)' : theme.textSecondary }]} numberOfLines={1}>
+              <Text style={[styles.questionFooterText, { color: questionFooterColor }]} numberOfLines={1}>
                 {questionFooterText}
               </Text>
             </View>
-          </View>
+          </LinearGradient>
         </View>
 
         <View style={styles.gameArea}>
-          <View style={[styles.tableSurface, { backgroundColor: theme.arenaTableSurface }]}>
+          <LinearGradient
+            colors={tableSurfaceGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.tableSurface, { backgroundColor: 'transparent', borderColor: tableSurfaceBorder }]}
+          >
             <View style={styles.optionsGrid} testID="arenaAnswerGrid">
               {displayOptionRows.map((row, rowIndex) => {
                 const isLastRow = rowIndex === displayOptionRows.length - 1;
@@ -688,7 +729,7 @@ export default function ArenaSessionScreen() {
                 );
               })}
             </View>
-          </View>
+          </LinearGradient>
 
           {phase === 'reveal' && currentAnswers && (
             <Animated.View style={[styles.playerAnswers, { opacity: revealOpacity }]}>
