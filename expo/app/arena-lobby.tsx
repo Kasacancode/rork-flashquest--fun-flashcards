@@ -997,16 +997,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700' as const,
   },
-  suitBadge: {
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  suitBadgeText: {
-    fontSize: 11,
-    fontWeight: '800' as const,
-  },
   playerName: {
     fontSize: 15,
     fontWeight: '600' as const,
