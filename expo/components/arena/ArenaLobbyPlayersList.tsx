@@ -103,9 +103,6 @@ const LobbyPlayerRow = memo(function LobbyPlayerRow({
                 {player.identityLabel}
               </Text>
             </View>
-            <View style={[styles.suitBadge, { borderColor: `${player.color}55`, backgroundColor: `${player.color}18` }]}>
-              <Text style={[styles.suitBadgeText, { color: player.color }]}>{player.suit}</Text>
-            </View>
             {player.id === playerId ? <Text style={[styles.youBadge, { color: theme.primary }]}>You</Text> : null}
           </View>
           <Text style={[styles.playerName, { color: theme.text }]} numberOfLines={1}>
@@ -296,16 +293,6 @@ const styles = StyleSheet.create({
     maxWidth: '62%',
   },
   identityBadgeText: {
-    fontSize: 11,
-    fontWeight: '700' as const,
-  },
-  suitBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  suitBadgeText: {
     fontSize: 11,
     fontWeight: '700' as const,
   },
