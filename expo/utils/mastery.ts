@@ -287,6 +287,20 @@ export function isCardDue(stats: CardStats | undefined, now: number = Date.now()
   return now >= card.nextReviewAt;
 }
 
+export function isCardDueForReview(stats: CardStats | undefined, now: number = Date.now()): boolean {
+  const card = getLiveCardStats(stats, now);
+
+  if (card.attempts === 0) {
+    return false;
+  }
+
+  if (!card.nextReviewAt) {
+    return false;
+  }
+
+  return now >= card.nextReviewAt;
+}
+
 export function getWeaknessScore(stats: CardStats | undefined, now: number = Date.now()): number {
   const card = getLiveCardStats(stats, now);
 

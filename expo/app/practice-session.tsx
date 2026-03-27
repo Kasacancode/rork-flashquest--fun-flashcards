@@ -30,7 +30,7 @@ import type { RecallQuality } from '@/types/performance';
 import type { PracticeMode, PracticeSessionState } from '@/types/practice';
 import { clearAIDistractorCache as clearDistractorCache, generateOptionsWithAI } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
-import { questHref, studyHref } from '@/utils/routes';
+import { focusedQuestSessionHref, questHref, studyHref } from '@/utils/routes';
 
 const FEEDBACK_REVEAL_DELAY_MS = 850;
 const TURN_TRANSITION_DELAY_MS = 850;
@@ -66,6 +66,7 @@ export default function PracticeSessionPage() {
   const [aiState, setAiState] = useState<AdaptiveOpponentState>({ streak: 0, confidence: 0.5 });
   const [reviewQuality, setReviewQuality] = useState<RecallQuality | null>(null);
   const [pendingReview, setPendingReview] = useState<PendingCardReview | null>(null);
+  const [missedCardIds, setMissedCardIds] = useState<string[]>([]);
 
   const sessionStartRef = useRef<number>(Date.now());
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -114,6 +115,7 @@ export default function PracticeSessionPage() {
     resultRecordedRef.current = false;
     setCurrentBattle(createPracticeSession(deckId, practiceMode));
     setAiState({ streak: 0, confidence: 0.5 });
+    setMissedCardIds([]);
   }, [deckId, practiceMode, clearPendingTimeouts]);
 
   const updateBattle = useCallback((playerCorrect: boolean, opponentCorrect: boolean) => {
@@ -317,6 +319,20 @@ export default function PracticeSessionPage() {
     ]).start();
   }, [shakeAnim]);
 
+  const markCardMissed = useCallback((cardId: string | undefined) => {
+    if (!cardId) {
+      return;
+    }
+
+    setMissedCardIds((previous) => {
+      if (previous.includes(cardId)) {
+        return previous;
+      }
+
+      return [...previous, cardId];
+    });
+  }, []);
+
   const handleReviewQualitySelect = useCallback((quality: RecallQuality) => {
     setReviewQuality(quality);
     setPendingReview((previousReview) => (
@@ -360,6 +376,7 @@ export default function PracticeSessionPage() {
             timeUsed: QUESTION_TIME,
           });
           setButtonState('incorrect');
+          markCardMissed(currentCard?.id);
           triggerShake();
           if (Platform.OS !== 'web') {
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -374,6 +391,7 @@ export default function PracticeSessionPage() {
             timeUsed: QUESTION_TIME,
           });
           setButtonState('incorrect');
+          markCardMissed(currentCard?.id);
           triggerShake();
           if (Platform.OS !== 'web') {
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -399,6 +417,7 @@ export default function PracticeSessionPage() {
         });
         setButtonState('incorrect');
         setPlayerStreak(0);
+        markCardMissed(currentCard?.id);
         triggerShake();
         if (Platform.OS !== 'web') {
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -422,6 +441,7 @@ export default function PracticeSessionPage() {
     simulateOpponentAnswer,
     triggerShake,
     userAnswer,
+    markCardMissed,
   ]);
 
   handleTimeUpRef.current = handleTimeUp;
@@ -481,7 +501,10 @@ export default function PracticeSessionPage() {
           void Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
         }
 
-        if (!correct) triggerShake();
+        if (!correct) {
+          markCardMissed(currentCard?.id);
+          triggerShake();
+        }
 
         Animated.sequence([
           Animated.spring(scaleAnim, { toValue: 1.05, useNativeDriver: true, speed: 50 }),
@@ -502,7 +525,10 @@ export default function PracticeSessionPage() {
           void Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
         }
 
-        if (!correct) triggerShake();
+        if (!correct) {
+          markCardMissed(currentCard?.id);
+          triggerShake();
+        }
 
         Animated.sequence([
           Animated.spring(scaleAnim, { toValue: 1.05, useNativeDriver: true, speed: 50 }),
@@ -529,6 +555,10 @@ export default function PracticeSessionPage() {
       });
       setButtonState(correct ? 'correct' : 'incorrect');
       setPlayerStreak(correct ? playerStreak + 1 : 0);
+
+      if (!correct) {
+        markCardMissed(currentCard.id);
+      }
 
       if (Platform.OS !== 'web') {
         void Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
@@ -593,7 +623,7 @@ export default function PracticeSessionPage() {
     router.back();
   };
 
-  const finalizeCompletedSession = useCallback((destination: 'back' | 'quest' | 'study') => {
+  const finalizeCompletedSession = useCallback((destination: 'back' | 'quest' | 'study' | 'retry-missed') => {
     if (!currentBattle || !deckId) {
       endBattle();
       router.back();
@@ -642,8 +672,14 @@ export default function PracticeSessionPage() {
       return;
     }
 
+    if (destination === 'retry-missed' && missedCardIds.length > 0) {
+      logger.debug('[Practice] Retrying missed cards:', missedCardIds.length);
+      router.push(focusedQuestSessionHref({ deckId, cardIds: missedCardIds }));
+      return;
+    }
+
     router.back();
-  }, [clearPendingTimeouts, currentBattle, deckId, endBattle, recordSessionResult, router]);
+  }, [clearPendingTimeouts, currentBattle, deckId, endBattle, missedCardIds, recordSessionResult, router]);
 
   if (currentBattle.status === 'completed') {
     const won = currentBattle.playerScore > currentBattle.opponentScore;
@@ -656,7 +692,9 @@ export default function PracticeSessionPage() {
         opponentName={currentBattle.opponentName}
         playerScore={currentBattle.playerScore}
         opponentScore={currentBattle.opponentScore}
+        missedCount={missedCardIds.length}
         onDone={() => finalizeCompletedSession('back')}
+        onRetryMissed={() => finalizeCompletedSession('retry-missed')}
         onQuest={() => finalizeCompletedSession('quest')}
         onStudy={() => finalizeCompletedSession('study')}
       />

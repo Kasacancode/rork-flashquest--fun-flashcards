@@ -11,7 +11,9 @@ interface PracticeSessionCompletionScreenProps {
   opponentName: string;
   playerScore: number;
   opponentScore: number;
+  missedCount: number;
   onDone: () => void;
+  onRetryMissed: () => void;
   onQuest: () => void;
   onStudy: () => void;
 }
@@ -23,7 +25,9 @@ function PracticeSessionCompletionScreenComponent({
   opponentName,
   playerScore,
   opponentScore,
+  missedCount,
   onDone,
+  onRetryMissed,
   onQuest,
   onStudy,
 }: PracticeSessionCompletionScreenProps) {
@@ -63,6 +67,29 @@ function PracticeSessionCompletionScreenComponent({
           <TouchableOpacity style={{ backgroundColor: '#fff', borderRadius: 18, paddingHorizontal: 48, paddingVertical: 18, width: '100%' }} onPress={onDone}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: '#4338ca', textAlign: 'center' }}>Done</Text>
           </TouchableOpacity>
+
+          {missedCount > 0 ? (
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                borderRadius: 16,
+                paddingVertical: 14,
+                paddingHorizontal: 24,
+                marginTop: 10,
+                width: '100%',
+              }}
+              onPress={onRetryMissed}
+              activeOpacity={0.8}
+              testID="practice-results-retry-missed-button"
+            >
+              <Target color="#fff" size={20} strokeWidth={2} />
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#fff' }}>Retry Missed ({missedCount})</Text>
+            </TouchableOpacity>
+          ) : null}
 
           <TouchableOpacity
             style={{

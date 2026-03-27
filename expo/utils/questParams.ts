@@ -69,13 +69,17 @@ export function normalizeQuestRunResult(value: unknown): QuestRunResult | null {
 
   const missedCardIds = normalizeStringArray(value.missedCardIds) ?? [];
   const askedCardIds = normalizeStringArray(value.askedCardIds) ?? [];
+  const correctCount = toRoundedPositiveInteger(value.correctCount);
+  const incorrectCount = toRoundedPositiveInteger(value.incorrectCount);
+  const derivedTotalRounds = correctCount + incorrectCount;
 
   return {
     deckId: value.deckId,
     settings,
     totalScore: toRoundedPositiveInteger(value.totalScore),
-    correctCount: toRoundedPositiveInteger(value.correctCount),
-    incorrectCount: toRoundedPositiveInteger(value.incorrectCount),
+    totalRounds: Math.max(1, toRoundedPositiveInteger(value.totalRounds, derivedTotalRounds || settings.runLength)),
+    correctCount,
+    incorrectCount,
     accuracy: Math.max(0, Math.min(1, toFiniteNumber(value.accuracy, 0))),
     bestStreak: toRoundedPositiveInteger(value.bestStreak),
     totalTimeMs: toRoundedPositiveInteger(value.totalTimeMs),

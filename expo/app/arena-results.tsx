@@ -17,7 +17,7 @@ import { GAME_MODE } from '@/types/game';
 import { selectAssistantDialogue } from '@/utils/dialogue';
 import { logger } from '@/utils/logger';
 import { shareTextWithFallback } from '@/utils/share';
-import { ARENA_LOBBY_ROUTE, DECKS_ROUTE, HOME_ROUTE, questHref } from '@/utils/routes';
+import { ARENA_LOBBY_ROUTE, DECKS_ROUTE, HOME_ROUTE, focusedQuestSessionHref, questHref } from '@/utils/routes';
 
 interface ResultPlayer {
   id: string;
@@ -245,17 +245,24 @@ export default function ArenaResultsScreen() {
   }, [data?.roomCode, winner, winnerDisplayName, winnerStatsText]);
 
   const missedQuestions = useMemo(() => {
-    if (!data?.allQuestions || !data.allAnswers) return [];
-    const missed: { question: string; correctAnswer: string; questionIndex: number }[] = [];
+    if (!data?.allQuestions || !data.allAnswers) {
+      return [] as { cardId: string; question: string; correctAnswer: string; questionIndex: number }[];
+    }
+
+    const relevantAnswerEntries = playerId && data.allAnswers[playerId]
+      ? [data.allAnswers[playerId]]
+      : Object.values(data.allAnswers);
+    const missed: { cardId: string; question: string; correctAnswer: string; questionIndex: number }[] = [];
     const seenIds = new Set<string>();
 
-    for (const [, playerAnswers] of Object.entries(data.allAnswers)) {
+    for (const playerAnswers of relevantAnswerEntries) {
       for (const [qIndexStr, answer] of Object.entries(playerAnswers)) {
         const qIndex = parseInt(qIndexStr, 10);
         const q = data.allQuestions?.[qIndex];
         if (!answer.isCorrect && q && !seenIds.has(q.cardId)) {
           seenIds.add(q.cardId);
           missed.push({
+            cardId: q.cardId,
             question: q.question,
             correctAnswer: q.correctAnswer,
             questionIndex: qIndex,
@@ -263,8 +270,9 @@ export default function ArenaResultsScreen() {
         }
       }
     }
+
     return missed;
-  }, [data]);
+  }, [data, playerId]);
 
   useEffect(() => {
     if (winner && Platform.OS !== 'web') {
@@ -345,6 +353,18 @@ export default function ArenaResultsScreen() {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   }, [shareMessage, winner]);
+
+  const handleRetryMissed = useCallback(() => {
+    if (!data?.deckId || missedQuestions.length === 0) {
+      return;
+    }
+
+    logger.log('[Arena] Retrying missed cards:', missedQuestions.length);
+    router.replace(focusedQuestSessionHref({
+      deckId: data.deckId,
+      cardIds: missedQuestions.map((item) => item.cardId),
+    }));
+  }, [data?.deckId, missedQuestions, router]);
 
   const handleCreateRetryDeck = useCallback(() => {
     if (missedQuestions.length === 0) {
@@ -758,6 +778,18 @@ export default function ArenaResultsScreen() {
               >
                 <Target color={theme.primary} size={20} />
                 <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>Practice This Deck</Text>
+              </TouchableOpacity>
+            )}
+
+            {data?.deckId && missedQuestions.length > 0 && (
+              <TouchableOpacity
+                testID="arena-results-retry-missed-button"
+                style={[styles.secondaryButton, { borderColor: theme.warning }]}
+                onPress={handleRetryMissed}
+                activeOpacity={0.7}
+              >
+                <Target color={theme.warning} size={20} />
+                <Text style={[styles.secondaryButtonText, { color: theme.warning }]}>Retry Missed ({missedQuestions.length})</Text>
               </TouchableOpacity>
             )}
 

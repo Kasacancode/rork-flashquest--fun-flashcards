@@ -233,8 +233,9 @@ export default function QuestSessionScreen() {
 
     const result: QuestRunResult = {
       deckId: settings.deckId,
-      settings: { ...settings, runLength: effectiveRunLength as 5 | 10 | 20 },
+      settings,
       totalScore: score,
+      totalRounds,
       correctCount,
       incorrectCount,
       accuracy: finalAccuracy,
@@ -245,7 +246,7 @@ export default function QuestSessionScreen() {
     };
 
     router.replace(questResultsHref(serializeQuestResult(result)));
-  }, [currentRound, settings, score, correctCount, incorrectCount, bestStreak, totalTimeMs, missedCardIds, askedCardIds, router, updateBestStreak, recordSessionResult, effectiveRunLength]);
+  }, [currentRound, settings, score, correctCount, incorrectCount, bestStreak, totalTimeMs, missedCardIds, askedCardIds, router, updateBestStreak, recordSessionResult]);
 
   finishSessionEarlyRef.current = finishSessionEarly;
 
@@ -503,8 +504,9 @@ export default function QuestSessionScreen() {
 
       const result: QuestRunResult = {
         deckId: settings.deckId,
-        settings: { ...settings, runLength: effectiveRunLength as 5 | 10 | 20 },
+        settings,
         totalScore: score,
+        totalRounds: effectiveRunLength,
         correctCount,
         incorrectCount: incorrectCount,
         accuracy: correctCount / effectiveRunLength,

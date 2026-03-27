@@ -9,8 +9,8 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { computeDeckMastery } from '@/utils/mastery';
+import { DECKS_ROUTE, focusedQuestSessionHref } from '@/utils/routes';
 import { generateUUID } from '@/utils/uuid';
-import { DECKS_ROUTE } from '@/utils/routes';
 
 function withAlpha(color: string, alpha: number): string {
   const normalized = color.replace('#', '');
@@ -74,7 +74,7 @@ export default function DeckHubScreen() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
   const { decks, addDeck } = useFlashQuest();
-  const { performance, getDeckAccuracy, getWeakCards, getCardsDueForReview } = usePerformance();
+  const { performance, getDeckAccuracy, getWeakCards, getCardsDueForReview, getLapsedCards } = usePerformance();
   const { theme, isDark } = useTheme();
   const [menuVisible, setMenuVisible] = useState<boolean>(false);
   const menuBtnRef = useRef<View>(null);
@@ -111,6 +111,14 @@ export default function DeckHubScreen() {
 
     return getCardsDueForReview(deck.id, deck.flashcards).length;
   }, [deck, getCardsDueForReview]);
+
+  const lapsedCardIds = useMemo(() => {
+    if (!deck) {
+      return [] as string[];
+    }
+
+    return getLapsedCards(deck.id, deck.flashcards);
+  }, [deck, getLapsedCards]);
 
   const lastStudied = useMemo(() => {
     if (!deckId) {
@@ -352,6 +360,23 @@ export default function DeckHubScreen() {
               <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#F43F5E' }]} /><Text style={[styles.legendText, { color: theme.textSecondary }]}>Lapsed ({mastery.lapsed})</Text></View>
               <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)' }]} /><Text style={[styles.legendText, { color: theme.textSecondary }]}>New ({mastery.newCards})</Text></View>
             </View>
+            {lapsedCardIds.length > 0 ? (
+              <TouchableOpacity
+                style={[
+                  styles.recoverLapsedButton,
+                  {
+                    backgroundColor: isDark ? 'rgba(244,63,94,0.14)' : 'rgba(244,63,94,0.08)',
+                    borderColor: isDark ? 'rgba(244,63,94,0.26)' : 'rgba(244,63,94,0.18)',
+                  },
+                ]}
+                onPress={() => router.push(focusedQuestSessionHref({ deckId: deck.id, cardIds: lapsedCardIds }))}
+                activeOpacity={0.82}
+                testID="deckHubRecoverLapsedButton"
+              >
+                <AlertTriangle color="#F43F5E" size={16} strokeWidth={2.2} />
+                <Text style={styles.recoverLapsedButtonText}>Recover Lapsed ({lapsedCardIds.length})</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           <View style={styles.statsRow}>
@@ -578,6 +603,23 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 11, fontWeight: '600' as const },
+  recoverLapsedButton: {
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    alignSelf: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  recoverLapsedButtonText: {
+    color: '#F43F5E',
+    fontSize: 12,
+    fontWeight: '800' as const,
+  },
   statsRow: { flexDirection: 'row', gap: 12 },
   statBox: {
     flex: 1,

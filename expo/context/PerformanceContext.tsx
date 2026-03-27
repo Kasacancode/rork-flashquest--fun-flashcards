@@ -15,7 +15,7 @@ import {
   getLiveCardStats,
   getWeaknessScore,
   inferRecallQuality,
-  isCardDue,
+  isCardDueForReview,
   migrateQuestPerformance,
   updateCardMemory,
 } from '@/utils/mastery';
@@ -219,7 +219,15 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     const now = Date.now();
     return cards
       .filter((card) => card.deckId === deckId)
-      .filter((card) => isCardDue(performance.cardStatsById[card.id], now))
+      .filter((card) => isCardDueForReview(performance.cardStatsById[card.id], now))
+      .map((card) => card.id);
+  }, [performance.cardStatsById]);
+
+  const getLapsedCards = useCallback((deckId: string, cards: Flashcard[]): string[] => {
+    const now = Date.now();
+    return cards
+      .filter((card) => card.deckId === deckId)
+      .filter((card) => getLiveCardStats(performance.cardStatsById[card.id], now).status === 'lapsed')
       .map((card) => card.id);
   }, [performance.cardStatsById]);
 
@@ -289,6 +297,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     getDeckAccuracy,
     getWeakCards,
     getCardsDueForReview,
+    getLapsedCards,
     saveLastQuestSettings,
     getLastQuestSettings,
     getOverallQuestAccuracy,
@@ -303,6 +312,7 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
     getDeckAccuracy,
     getWeakCards,
     getCardsDueForReview,
+    getLapsedCards,
     saveLastQuestSettings,
     getLastQuestSettings,
     getOverallQuestAccuracy,

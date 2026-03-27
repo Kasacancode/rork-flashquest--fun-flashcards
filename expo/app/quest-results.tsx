@@ -9,11 +9,10 @@ import DealerPlaceholder from '@/components/DealerPlaceholder';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { createRetryDeck } from '@/utils/retryDeck';
-import type { QuestSettings } from '@/types/performance';
 import { getQuestCompletionDialogueEvent, selectAssistantDialogue } from '@/utils/dialogue';
 import { logger } from '@/utils/logger';
 import { parseQuestResultParam, serializeQuestSettings } from '@/utils/questParams';
-import { DECKS_ROUTE, HOME_ROUTE, QUEST_ROUTE, questSessionHref, studyHref } from '@/utils/routes';
+import { DECKS_ROUTE, HOME_ROUTE, QUEST_ROUTE, focusedQuestSessionHref, questSessionHref, studyHref } from '@/utils/routes';
 
 export default function QuestResultsScreen() {
   const router = useRouter();
@@ -80,31 +79,16 @@ export default function QuestResultsScreen() {
     router.replace(questSessionHref({ settings: serializeQuestSettings(result.settings) }));
   };
 
-  /**
-   * Re-launches a quest session using ONLY the missed card IDs.
-   * Run length snaps down to the nearest valid bucket (5/10/20).
-   * focusWeakOnly is disabled because the card pool is already filtered.
-   */
-  const handleDrillMissed = () => {
-    if (!result || missedCards.length === 0) return;
+  const handleRetryMissed = () => {
+    if (!result || missedCards.length === 0) {
+      return;
+    }
 
-    const len = missedCards.length;
-    let drillRunLength: 5 | 10 | 20 = 5;
-    if (len >= 20) drillRunLength = 20;
-    else if (len >= 10) drillRunLength = 10;
-    else drillRunLength = 5;
-
-    const drillSettings: QuestSettings = {
-      ...result.settings,
-      runLength: drillRunLength,
-      focusWeakOnly: false,
-    };
-
-    logger.log('[Quest] Drilling missed cards:', result.missedCardIds.length, 'runLength:', drillRunLength);
-
-    router.replace(questSessionHref({
-      settings: serializeQuestSettings(drillSettings),
-      drillCardIds: JSON.stringify(result.missedCardIds),
+    logger.log('[Quest] Retrying missed cards:', result.missedCardIds.length);
+    router.replace(focusedQuestSessionHref({
+      deckId: result.deckId,
+      cardIds: result.missedCardIds,
+      mode: result.settings.mode,
     }));
   };
 
@@ -223,7 +207,7 @@ export default function QuestResultsScreen() {
                   styles.correctBar, 
                   { 
                     backgroundColor: theme.success,
-                    width: `${(result.correctCount / (result.settings?.runLength || 1)) * 100}%`,
+                    width: `${(result.correctCount / Math.max(result.totalRounds, 1)) * 100}%`,
                   }
                 ]} 
               />
@@ -302,13 +286,14 @@ export default function QuestResultsScreen() {
 
             {missedCards.length > 0 && (
               <TouchableOpacity
+                testID="quest-results-retry-missed-button"
                 style={[styles.secondaryButton, { borderColor: theme.warning }]}
-                onPress={handleDrillMissed}
+                onPress={handleRetryMissed}
                 activeOpacity={0.7}
               >
                 <Target color={theme.warning} size={20} />
                 <Text style={[styles.secondaryButtonText, { color: theme.warning }]}> 
-                  Drill Missed Cards
+                  Retry Missed ({missedCards.length})
                 </Text>
               </TouchableOpacity>
             )}

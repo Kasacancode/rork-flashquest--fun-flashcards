@@ -61,6 +61,7 @@ export interface QuestRunResult {
   deckId: string;
   settings: QuestSettings;
   totalScore: number;
+  totalRounds: number;
   correctCount: number;
   incorrectCount: number;
   accuracy: number;
