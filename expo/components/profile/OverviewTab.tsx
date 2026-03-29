@@ -65,7 +65,6 @@ export default function OverviewTab({
               </View>
               <View style={styles.appearanceTextWrap}>
                 <Text style={styles.cardTitle}>Appearance</Text>
-                <Text style={styles.cardDescription}>Keep personal preferences here and keep support destinations separate.</Text>
               </View>
             </View>
           </View>
@@ -110,7 +109,6 @@ export default function OverviewTab({
               </View>
               <View style={styles.appearanceTextWrap}>
                 <Text style={styles.cardTitle}>Help & trust</Text>
-                <Text style={styles.cardDescription}>Two clear destinations: one for product guidance and support, one for privacy controls and legal details.</Text>
               </View>
             </View>
           </View>
