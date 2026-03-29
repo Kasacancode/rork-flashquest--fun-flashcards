@@ -404,7 +404,7 @@ export default function FAQScreen() {
 
           <View style={[styles.supportCard, { backgroundColor: cardBg, borderColor: cardBorder }]}> 
             <Text style={[styles.supportTitle, { color: theme.text }]}>Need help?</Text>
-            <Text style={[styles.supportBody, { color: theme.textSecondary }]}>Reach the FlashQuest team directly or open Data & Privacy for privacy and legal details.</Text>
+            <Text style={[styles.supportBody, { color: theme.textSecondary }]}>Open the FlashQuest support page or head to Data & Privacy for privacy and legal details.</Text>
 
             <TouchableOpacity style={[styles.supportRow, { borderColor: nestedCardBorder, backgroundColor: nestedCardBg }]} onPress={() => void openSupportContact()} activeOpacity={0.82} testID="faq-open-support-contact">
               <View style={[styles.supportIconWrap, { backgroundColor: isDark ? 'rgba(59,130,246,0.16)' : 'rgba(59,130,246,0.1)' }]}>
@@ -422,7 +422,7 @@ export default function FAQScreen() {
               </View>
               <View style={styles.supportCopy}>
                 <Text style={[styles.supportRowTitle, { color: theme.text }]}>Data & Privacy</Text>
-                <Text style={[styles.supportRowSubtitle, { color: theme.textSecondary }]}>Privacy: privacy@flashquest.net</Text>
+                <Text style={[styles.supportRowSubtitle, { color: theme.textSecondary }]}>{`Privacy: ${PRIVACY_LINKS.privacyEmail}`}</Text>
               </View>
             </TouchableOpacity>
           </View>

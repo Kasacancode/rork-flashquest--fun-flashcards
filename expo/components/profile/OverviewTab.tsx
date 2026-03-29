@@ -4,6 +4,7 @@ import React from 'react';
 import { Switch, Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
 import type { Theme } from '@/constants/colors';
+import { PRIVACY_LINKS } from '@/constants/privacy';
 
 type ViewStyles<K extends string> = { [P in K]: StyleProp<ViewStyle> };
 type TextStyles<K extends string> = { [P in K]: StyleProp<TextStyle> };
@@ -122,7 +123,7 @@ export default function OverviewTab({
             </View>
             <View style={styles.toggleTextWrap}>
               <Text style={styles.toggleTitle}>Support & Contact</Text>
-              <Text style={styles.toggleSubtitle}>Support: support@flashquest.net</Text>
+              <Text style={styles.toggleSubtitle}>{`Support: ${PRIVACY_LINKS.supportEmail}`}</Text>
             </View>
           </TouchableOpacity>
         </LinearGradient>
@@ -141,7 +142,7 @@ export default function OverviewTab({
             </View>
             <View style={styles.toggleTextWrap}>
               <Text style={styles.toggleTitle}>Data & Privacy</Text>
-              <Text style={styles.toggleSubtitle}>Privacy: privacy@flashquest.net</Text>
+              <Text style={styles.toggleSubtitle}>{`Privacy: ${PRIVACY_LINKS.privacyEmail}`}</Text>
             </View>
           </TouchableOpacity>
         </LinearGradient>

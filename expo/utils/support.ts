@@ -13,13 +13,20 @@ function getEmailHref(email: string): string | null {
   return normalizedEmail ? `mailto:${normalizedEmail}` : null;
 }
 
-export function getSupportHref(): string | null {
-  const supportUrl = normalizeUrl(PRIVACY_LINKS.supportUrl);
-  if (supportUrl) {
-    return supportUrl;
-  }
+export function getSupportPageHref(): string | null {
+  return normalizeUrl(PRIVACY_LINKS.supportUrl);
+}
 
-  return getEmailHref(PRIVACY_LINKS.supportEmail);
+export function getPrivacyPolicyHref(): string | null {
+  return normalizeUrl(PRIVACY_LINKS.privacyPolicyUrl);
+}
+
+export function getTermsHref(): string | null {
+  return normalizeUrl(PRIVACY_LINKS.termsUrl);
+}
+
+export function getSupportHref(): string | null {
+  return getSupportPageHref() ?? getEmailHref(PRIVACY_LINKS.supportEmail);
 }
 
 export function getPrivacyHref(): string | null {
@@ -41,6 +48,39 @@ export async function openExternalHref(url: string, fallbackTitle: string = 'Una
     Alert.alert(fallbackTitle, 'Please try again later.');
     return false;
   }
+}
+
+export async function openSupportPage(): Promise<void> {
+  const href = getSupportPageHref();
+
+  if (!href) {
+    Alert.alert('Support unavailable', 'Support is temporarily unavailable. Please try again later.');
+    return;
+  }
+
+  await openExternalHref(href, 'Unable to open support');
+}
+
+export async function openPrivacyPolicy(): Promise<void> {
+  const href = getPrivacyPolicyHref();
+
+  if (!href) {
+    Alert.alert('Privacy Policy unavailable', 'Privacy Policy is temporarily unavailable. Please try again later.');
+    return;
+  }
+
+  await openExternalHref(href, 'Unable to open Privacy Policy');
+}
+
+export async function openTermsOfService(): Promise<void> {
+  const href = getTermsHref();
+
+  if (!href) {
+    Alert.alert('Terms of Service unavailable', 'Terms of Service are temporarily unavailable. Please try again later.');
+    return;
+  }
+
+  await openExternalHref(href, 'Unable to open Terms of Service');
 }
 
 export async function openSupportContact(): Promise<void> {

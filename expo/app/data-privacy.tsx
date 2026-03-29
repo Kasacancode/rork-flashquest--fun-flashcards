@@ -2,13 +2,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Brain, ChartNoAxesCombined, ChevronRight, CircleHelp, Database, ExternalLink, Mail, ShieldCheck, ToggleRight } from 'lucide-react-native';
 import React, { useMemo } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PRIVACY_COPY, PRIVACY_LINKS } from '@/constants/privacy';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
-import { openExternalHref, openPrivacyContact, openSupportContact } from '@/utils/support';
+import { openPrivacyContact, openPrivacyPolicy, openSupportContact, openTermsOfService } from '@/utils/support';
 
 interface InfoCardProps {
   icon: React.ReactNode;
@@ -40,21 +40,22 @@ export default function DataPrivacyScreen() {
   const subtleBorder = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(99, 102, 241, 0.1)';
   const muted = isDark ? 'rgba(226, 232, 240, 0.82)' : '#5b6477';
   const policyButtons = useMemo(() => [
-    { key: 'privacy', label: 'Privacy Policy', href: PRIVACY_LINKS.privacyPolicyUrl },
-    { key: 'terms', label: 'Terms of Service', href: PRIVACY_LINKS.termsUrl },
+    {
+      key: 'privacy',
+      label: 'Privacy Policy',
+      description: 'Open the full privacy policy.',
+      onPress: () => void openPrivacyPolicy(),
+    },
+    {
+      key: 'terms',
+      label: 'Terms of Service',
+      description: 'Open the latest terms of service.',
+      onPress: () => void openTermsOfService(),
+    },
   ], []);
 
   const handleToggleAnalytics = (nextValue: boolean) => {
     setAnalyticsConsent(nextValue ? 'granted' : 'declined');
-  };
-
-  const handleOpenPolicy = async (href: string, label: string) => {
-    if (!href.trim()) {
-      Alert.alert(`${label} unavailable`, 'This link will be added before release.');
-      return;
-    }
-
-    await openExternalHref(href, `Unable to open ${label}`);
   };
 
   return (
@@ -147,7 +148,7 @@ export default function DataPrivacyScreen() {
                 <Mail color="#3B82F6" size={18} strokeWidth={2.2} />
               </View>
               <View style={styles.linkCopy}>
-                <Text style={[styles.linkTitle, { color: theme.text }]}>Support</Text>
+                <Text style={[styles.linkTitle, { color: theme.text }]}>Support & Contact</Text>
                 <Text style={[styles.linkSubtitle, { color: muted }]}>{`Support: ${PRIVACY_LINKS.supportEmail}`}</Text>
               </View>
               <ChevronRight color={theme.textSecondary} size={20} strokeWidth={2.2} />
@@ -165,13 +166,13 @@ export default function DataPrivacyScreen() {
             </TouchableOpacity>
 
             {policyButtons.map((button) => (
-              <TouchableOpacity key={button.key} style={[styles.linkRow, { borderColor: subtleBorder }]} onPress={() => void handleOpenPolicy(button.href, button.label)} activeOpacity={0.8}>
+              <TouchableOpacity key={button.key} style={[styles.linkRow, { borderColor: subtleBorder }]} onPress={button.onPress} activeOpacity={0.8}>
                 <View style={[styles.linkIconWrap, { backgroundColor: 'rgba(139,92,246,0.12)' }]}>
                   <ExternalLink color="#8B5CF6" size={18} strokeWidth={2.2} />
                 </View>
                 <View style={styles.linkCopy}>
                   <Text style={[styles.linkTitle, { color: theme.text }]}>{button.label}</Text>
-                  <Text style={[styles.linkSubtitle, { color: muted }]}>{button.href.trim() ? button.href : 'Link will be added before release.'}</Text>
+                  <Text style={[styles.linkSubtitle, { color: muted }]}>{button.description}</Text>
                 </View>
                 <ChevronRight color={theme.textSecondary} size={20} strokeWidth={2.2} />
               </TouchableOpacity>
