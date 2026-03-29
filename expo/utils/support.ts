@@ -8,18 +8,22 @@ function normalizeUrl(value: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function getEmailHref(email: string): string | null {
+  const normalizedEmail = normalizeUrl(email);
+  return normalizedEmail ? `mailto:${normalizedEmail}` : null;
+}
+
 export function getSupportHref(): string | null {
   const supportUrl = normalizeUrl(PRIVACY_LINKS.supportUrl);
   if (supportUrl) {
     return supportUrl;
   }
 
-  const supportEmail = normalizeUrl(PRIVACY_LINKS.supportEmail);
-  if (supportEmail) {
-    return `mailto:${supportEmail}`;
-  }
+  return getEmailHref(PRIVACY_LINKS.supportEmail);
+}
 
-  return null;
+export function getPrivacyHref(): string | null {
+  return getEmailHref(PRIVACY_LINKS.privacyEmail);
 }
 
 export async function openExternalHref(url: string, fallbackTitle: string = 'Unable to open link'): Promise<boolean> {
@@ -43,9 +47,20 @@ export async function openSupportContact(): Promise<void> {
   const href = getSupportHref();
 
   if (!href) {
-    Alert.alert('Support unavailable', 'Add a support email or URL in constants/privacy.ts before release.');
+    Alert.alert('Support unavailable', 'Support contact is temporarily unavailable. Please try again later.');
     return;
   }
 
   await openExternalHref(href, 'Unable to open support');
+}
+
+export async function openPrivacyContact(): Promise<void> {
+  const href = getPrivacyHref();
+
+  if (!href) {
+    Alert.alert('Privacy contact unavailable', 'Privacy contact is temporarily unavailable. Please try again later.');
+    return;
+  }
+
+  await openExternalHref(href, 'Unable to open privacy contact');
 }

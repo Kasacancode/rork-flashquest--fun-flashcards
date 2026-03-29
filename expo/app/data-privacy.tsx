@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PRIVACY_COPY, PRIVACY_LINKS } from '@/constants/privacy';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
-import { openExternalHref, openSupportContact } from '@/utils/support';
+import { openExternalHref, openPrivacyContact, openSupportContact } from '@/utils/support';
 
 interface InfoCardProps {
   icon: React.ReactNode;
@@ -50,7 +50,7 @@ export default function DataPrivacyScreen() {
 
   const handleOpenPolicy = async (href: string, label: string) => {
     if (!href.trim()) {
-      Alert.alert(label, 'Add the final URL in constants/privacy.ts before release.');
+      Alert.alert(`${label} unavailable`, 'This link will be added before release.');
       return;
     }
 
@@ -141,14 +141,25 @@ export default function DataPrivacyScreen() {
           </View>
 
           <View style={[styles.sectionCard, { backgroundColor: surface, borderColor: subtleBorder }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Support & legal</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Support, privacy & legal</Text>
             <TouchableOpacity style={[styles.linkRow, { borderColor: subtleBorder }]} onPress={() => void openSupportContact()} activeOpacity={0.8} testID="privacy-support-button">
               <View style={[styles.linkIconWrap, { backgroundColor: 'rgba(59,130,246,0.12)' }]}>
                 <Mail color="#3B82F6" size={18} strokeWidth={2.2} />
               </View>
               <View style={styles.linkCopy}>
-                <Text style={[styles.linkTitle, { color: theme.text }]}>Contact support</Text>
-                <Text style={[styles.linkSubtitle, { color: muted }]}>{PRIVACY_LINKS.supportEmail || 'Add your support address in privacy config.'}</Text>
+                <Text style={[styles.linkTitle, { color: theme.text }]}>Support</Text>
+                <Text style={[styles.linkSubtitle, { color: muted }]}>{`Support: ${PRIVACY_LINKS.supportEmail}`}</Text>
+              </View>
+              <ChevronRight color={theme.textSecondary} size={20} strokeWidth={2.2} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.linkRow, { borderColor: subtleBorder }]} onPress={() => void openPrivacyContact()} activeOpacity={0.8} testID="privacy-contact-button">
+              <View style={[styles.linkIconWrap, { backgroundColor: 'rgba(16,185,129,0.12)' }]}>
+                <ShieldCheck color="#10B981" size={18} strokeWidth={2.2} />
+              </View>
+              <View style={styles.linkCopy}>
+                <Text style={[styles.linkTitle, { color: theme.text }]}>Privacy</Text>
+                <Text style={[styles.linkSubtitle, { color: muted }]}>{`Privacy: ${PRIVACY_LINKS.privacyEmail}`}</Text>
               </View>
               <ChevronRight color={theme.textSecondary} size={20} strokeWidth={2.2} />
             </TouchableOpacity>
@@ -160,7 +171,7 @@ export default function DataPrivacyScreen() {
                 </View>
                 <View style={styles.linkCopy}>
                   <Text style={[styles.linkTitle, { color: theme.text }]}>{button.label}</Text>
-                  <Text style={[styles.linkSubtitle, { color: muted }]}>{button.href.trim() ? button.href : 'Add final URL in constants/privacy.ts'}</Text>
+                  <Text style={[styles.linkSubtitle, { color: muted }]}>{button.href.trim() ? button.href : 'Link will be added before release.'}</Text>
                 </View>
                 <ChevronRight color={theme.textSecondary} size={20} strokeWidth={2.2} />
               </TouchableOpacity>

@@ -11,6 +11,7 @@ import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
+import { openSupportContact } from '@/utils/support';
 import { ANALYTICS_DEBUG_ROUTE, DATA_PRIVACY_ROUTE, FAQ_ROUTE } from '@/utils/routes';
 import {
   ACHIEVEMENT_CATEGORIES,
@@ -169,6 +170,10 @@ export function useProfileScreenState() {
     navigation.push(FAQ_ROUTE);
   }, [navigation]);
 
+  const handleOpenSupport = useCallback(() => {
+    void openSupportContact();
+  }, []);
+
   const handleOpenPrivacy = useCallback(() => {
     navigation.push(DATA_PRIVACY_ROUTE);
   }, [navigation]);
@@ -263,6 +268,7 @@ export function useProfileScreenState() {
     handleOpenAnalyticsDebug,
     handleComingSoon,
     handleOpenFAQ,
+    handleOpenSupport,
     handleOpenPrivacy,
     handleSelectSuit,
     handleSelectColor,

@@ -1,12 +1,15 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, Sparkles, Target, Trophy } from 'lucide-react-native';
+import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, Mail, ShieldCheck, Sparkles, Target, Trophy } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { LayoutAnimation, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PRIVACY_LINKS } from '@/constants/privacy';
 import { useTheme } from '@/context/ThemeContext';
 import { logger } from '@/utils/logger';
+import { DATA_PRIVACY_ROUTE } from '@/utils/routes';
+import { openSupportContact } from '@/utils/support';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -399,6 +402,31 @@ export default function FAQScreen() {
             })}
           </View>
 
+          <View style={[styles.supportCard, { backgroundColor: cardBg, borderColor: cardBorder }]}> 
+            <Text style={[styles.supportTitle, { color: theme.text }]}>Need help?</Text>
+            <Text style={[styles.supportBody, { color: theme.textSecondary }]}>Reach the FlashQuest team directly or open Data & Privacy for privacy and legal details.</Text>
+
+            <TouchableOpacity style={[styles.supportRow, { borderColor: nestedCardBorder, backgroundColor: nestedCardBg }]} onPress={() => void openSupportContact()} activeOpacity={0.82} testID="faq-open-support-contact">
+              <View style={[styles.supportIconWrap, { backgroundColor: isDark ? 'rgba(59,130,246,0.16)' : 'rgba(59,130,246,0.1)' }]}>
+                <Mail color="#3B82F6" size={18} strokeWidth={2.2} />
+              </View>
+              <View style={styles.supportCopy}>
+                <Text style={[styles.supportRowTitle, { color: theme.text }]}>Support</Text>
+                <Text style={[styles.supportRowSubtitle, { color: theme.textSecondary }]}>{`Support: ${PRIVACY_LINKS.supportEmail}`}</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.supportRow, { borderColor: nestedCardBorder, backgroundColor: nestedCardBg }]} onPress={() => router.push(DATA_PRIVACY_ROUTE)} activeOpacity={0.82} testID="faq-open-data-privacy">
+              <View style={[styles.supportIconWrap, { backgroundColor: isDark ? 'rgba(16,185,129,0.16)' : 'rgba(16,185,129,0.1)' }]}>
+                <ShieldCheck color="#10B981" size={18} strokeWidth={2.2} />
+              </View>
+              <View style={styles.supportCopy}>
+                <Text style={[styles.supportRowTitle, { color: theme.text }]}>Data & Privacy</Text>
+                <Text style={[styles.supportRowSubtitle, { color: theme.textSecondary }]}>Privacy: privacy@flashquest.net</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: isDark ? 'rgba(226,232,240,0.72)' : 'rgba(255,255,255,0.86)' }]}>FlashQuest guide</Text>
           </View>
@@ -590,6 +618,50 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     lineHeight: 21,
+    fontWeight: '500' as const,
+  },
+  supportCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+  },
+  supportTitle: {
+    fontSize: 18,
+    fontWeight: '800' as const,
+    letterSpacing: -0.3,
+  },
+  supportBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500' as const,
+  },
+  supportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+  },
+  supportIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  supportCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  supportRowTitle: {
+    fontSize: 15,
+    fontWeight: '800' as const,
+  },
+  supportRowSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '500' as const,
   },
   footer: {

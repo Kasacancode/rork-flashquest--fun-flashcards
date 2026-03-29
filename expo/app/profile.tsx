@@ -65,6 +65,7 @@ export default function ProfilePage() {
     handleOpenAnalyticsDebug,
     handleComingSoon,
     handleOpenFAQ,
+    handleOpenSupport,
     handleOpenPrivacy,
     handleSelectSuit,
     handleSelectColor,
@@ -192,6 +193,7 @@ export default function ProfilePage() {
               canAccessDeveloperTools={canAccessDeveloperTools}
               onOpenAnalyticsDebug={handleOpenAnalyticsDebug}
               onOpenFAQ={handleOpenFAQ}
+              onOpenSupport={handleOpenSupport}
               onOpenPrivacy={handleOpenPrivacy}
               onComingSoon={handleComingSoon}
               surfaceGradient={surfaceGradient}

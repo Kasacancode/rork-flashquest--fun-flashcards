@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Crown, HelpCircle, Moon, ShieldCheck, Sun, User } from 'lucide-react-native';
+import { Crown, HelpCircle, Mail, Moon, ShieldCheck, Sun, User } from 'lucide-react-native';
 import React from 'react';
 import { Switch, Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
@@ -14,6 +14,7 @@ interface OverviewTabProps {
   canAccessDeveloperTools: boolean;
   onOpenAnalyticsDebug: () => void;
   onOpenFAQ: () => void;
+  onOpenSupport: () => void;
   onOpenPrivacy: () => void;
   onComingSoon: (label: string) => void;
   surfaceGradient: readonly [string, string];
@@ -47,6 +48,7 @@ export default function OverviewTab({
   canAccessDeveloperTools,
   onOpenAnalyticsDebug,
   onOpenFAQ,
+  onOpenSupport,
   onOpenPrivacy,
   onComingSoon,
   surfaceGradient,
@@ -114,13 +116,32 @@ export default function OverviewTab({
           end={{ x: 1, y: 1 }}
           style={styles.appearanceCard}
         >
+          <TouchableOpacity style={styles.toggleCard} onPress={onOpenSupport} activeOpacity={0.7} testID="profile-open-support-contact">
+            <View style={styles.toggleLeadingIcon}>
+              <Mail color={theme.primary} size={17} strokeWidth={2.3} />
+            </View>
+            <View style={styles.toggleTextWrap}>
+              <Text style={styles.toggleTitle}>Support & Contact</Text>
+              <Text style={styles.toggleSubtitle}>Support: support@flashquest.net</Text>
+            </View>
+          </TouchableOpacity>
+        </LinearGradient>
+      </View>
+
+      <View style={styles.cardShell}>
+        <LinearGradient
+          colors={surfaceGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.appearanceCard}
+        >
           <TouchableOpacity style={styles.toggleCard} onPress={onOpenPrivacy} activeOpacity={0.7} testID="profile-open-privacy-center">
             <View style={styles.toggleLeadingIcon}>
               <ShieldCheck color={theme.primary} size={17} strokeWidth={2.3} />
             </View>
             <View style={styles.toggleTextWrap}>
               <Text style={styles.toggleTitle}>Data & Privacy</Text>
-              <Text style={styles.toggleSubtitle}>Analytics controls, AI disclosure, and support.</Text>
+              <Text style={styles.toggleSubtitle}>Privacy: privacy@flashquest.net</Text>
             </View>
           </TouchableOpacity>
         </LinearGradient>

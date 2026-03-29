@@ -28,7 +28,8 @@ export const PRIVACY_LINKS = {
   privacyPolicyUrl: '',
   termsUrl: '',
   supportUrl: '',
-  supportEmail: 'support@flashquest.app',
+  supportEmail: 'support@flashquest.net',
+  privacyEmail: 'privacy@flashquest.net',
 } as const;
 
 export const PRIVACY_COPY = {
