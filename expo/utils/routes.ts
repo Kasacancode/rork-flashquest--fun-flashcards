@@ -47,6 +47,10 @@ export function flashcardDebugHref(params?: {
   surface?: string;
   options?: FlashcardOption[];
 }): Href {
+  if (!__DEV__) {
+    return HOME_ROUTE;
+  }
+
   if (!params?.deckId && !params?.cardId && !params?.surface && (!params?.options || params.options.length === 0)) {
     return FLASHCARD_DEBUG_ROUTE as Href;
   }

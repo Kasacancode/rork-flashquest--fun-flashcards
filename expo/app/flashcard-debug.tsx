@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { Bug, Copy, RefreshCw, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -210,18 +210,7 @@ export default function FlashcardDebugScreen() {
   const snapshotText = useMemo(() => snapshot ? serializeFlashcardDebugSnapshot(snapshot) : '', [snapshot]);
 
   if (!__DEV__) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}> 
-        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-          <View style={styles.devOnlyWrap}>
-            <Text style={[styles.devOnlyTitle, { color: theme.text }]}>Diagnostics unavailable</Text>
-            <TouchableOpacity style={[styles.primaryButton, { backgroundColor: theme.primary }]} onPress={() => router.back()}>
-              <Text style={styles.primaryButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </View>
-    );
+    return <Redirect href="/" />;
   }
 
   return (

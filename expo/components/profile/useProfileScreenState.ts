@@ -160,6 +160,10 @@ export function useProfileScreenState() {
   }, [navigation]);
 
   const handleOpenFlashcardInspector = useCallback(() => {
+    if (!__DEV__) {
+      return;
+    }
+
     navigation.push(FLASHCARD_DEBUG_ROUTE);
   }, [navigation]);
 
