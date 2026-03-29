@@ -839,13 +839,13 @@ export default function StudyFeed({
         bullets={[
           'This only happens when you tap the AI hint or explanation button.',
           'The generated hint or explanation is saved back onto the card on your device.',
-          'You can revisit this anytime in Data & Privacy.',
+          'You can revisit this anytime in Privacy & Data.',
         ]}
         primaryLabel="Continue"
         secondaryLabel="Cancel"
         onPrimaryPress={handleAcceptStudyDisclosure}
         onSecondaryPress={handleDismissStudyDisclosure}
-        footerActionLabel="Open Data & Privacy"
+        footerActionLabel="Open Privacy & Data"
         onFooterActionPress={() => router.push(DATA_PRIVACY_ROUTE)}
         testID="study-ai-disclosure"
       />

@@ -174,13 +174,13 @@ function AppShell() {
         bullets={[
           'Includes events like app opens, deck creation, study sessions, and battle flow activity.',
           'Some events can include app-generated session, deck, room, or player identifiers.',
-          'You can change this later in Data & Privacy.',
+          'You can change this later in Privacy & Data.',
         ]}
         primaryLabel="Allow Analytics"
         secondaryLabel="Not Now"
         onPrimaryPress={() => setAnalyticsConsent('granted')}
         onSecondaryPress={() => setAnalyticsConsent('declined')}
-        footerActionLabel="Open Data & Privacy"
+        footerActionLabel="Open Privacy & Data"
         onFooterActionPress={() => router.push(DATA_PRIVACY_ROUTE)}
         testID="analytics-consent-sheet"
       />

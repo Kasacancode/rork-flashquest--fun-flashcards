@@ -10,7 +10,6 @@ import { useAvatar } from '@/context/AvatarContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
-import { openSupportContact } from '@/utils/support';
 import { DATA_PRIVACY_ROUTE, FAQ_ROUTE } from '@/utils/routes';
 import {
   ACHIEVEMENT_CATEGORIES,
@@ -156,10 +155,6 @@ export function useProfileScreenState() {
     navigation.push(FAQ_ROUTE);
   }, [navigation]);
 
-  const handleOpenSupport = useCallback(() => {
-    void openSupportContact();
-  }, []);
-
   const handleOpenPrivacy = useCallback(() => {
     navigation.push(DATA_PRIVACY_ROUTE);
   }, [navigation]);
@@ -251,7 +246,6 @@ export function useProfileScreenState() {
     handleSelectAchievementCategory,
     handleCloseLevels,
     handleOpenFAQ,
-    handleOpenSupport,
     handleOpenPrivacy,
     handleSelectSuit,
     handleSelectColor,

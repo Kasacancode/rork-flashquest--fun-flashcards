@@ -234,7 +234,7 @@ export default function OnboardingPage() {
                       </View>
                       <View style={styles.privacyCopy}>
                         <Text style={styles.privacyTitle}>Optional analytics</Text>
-                        <Text style={styles.privacyBody}>FlashQuest keeps analytics off until you choose. You can change this later in Data & Privacy.</Text>
+                        <Text style={styles.privacyBody}>FlashQuest keeps analytics off until you choose. You can change this later in Privacy & Data.</Text>
                       </View>
                     </View>
 
@@ -267,7 +267,7 @@ export default function OnboardingPage() {
                     </View>
 
                     <TouchableOpacity onPress={() => router.push(DATA_PRIVACY_ROUTE)} activeOpacity={0.8} testID="onboarding-open-privacy-center">
-                      <Text style={styles.privacyLink}>Open Data & Privacy</Text>
+                      <Text style={styles.privacyLink}>Open Privacy & Data</Text>
                     </TouchableOpacity>
                   </View>
 

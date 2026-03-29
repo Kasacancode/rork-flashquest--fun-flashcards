@@ -619,13 +619,13 @@ export default function QuestMenuScreen() {
         bullets={[
           'Only the card content needed for the current session is sent for this feature.',
           'This improves answer choices in Quest and AI-powered practice sessions.',
-          'You can review this again in Data & Privacy anytime.',
+          'You can review this again in Privacy & Data anytime.',
         ]}
         primaryLabel="Continue"
         secondaryLabel="Cancel"
         onPrimaryPress={handleAcceptGameplayDisclosure}
         onSecondaryPress={handleDismissGameplayDisclosure}
-        footerActionLabel="Open Data & Privacy"
+        footerActionLabel="Open Privacy & Data"
         onFooterActionPress={() => router.push(DATA_PRIVACY_ROUTE)}
         testID="quest-ai-disclosure"
       />

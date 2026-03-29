@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Brain, ChartNoAxesCombined, ChevronRight, CircleHelp, Database, ExternalLink, Mail, ShieldCheck, ToggleRight } from 'lucide-react-native';
+import { ArrowLeft, Brain, ChartNoAxesCombined, ChevronRight, CircleHelp, Database, ExternalLink, ShieldCheck, ToggleRight } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PRIVACY_COPY, PRIVACY_LINKS } from '@/constants/privacy';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
-import { openPrivacyContact, openPrivacyPolicy, openSupportContact, openTermsOfService } from '@/utils/support';
+import { openPrivacyContact, openPrivacyPolicy, openTermsOfService } from '@/utils/support';
 
 interface InfoCardProps {
   icon: React.ReactNode;
@@ -74,7 +74,7 @@ export default function DataPrivacyScreen() {
           </TouchableOpacity>
           <View style={[styles.headerPill, { backgroundColor: surface, borderColor: subtleBorder }]}>
             <ShieldCheck color={theme.primary} size={18} strokeWidth={2.3} />
-            <Text style={[styles.headerTitle, { color: theme.text }]}>Data & Privacy</Text>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>Privacy & Data</Text>
           </View>
           <View style={styles.headerSpacer} />
         </View>
@@ -82,8 +82,8 @@ export default function DataPrivacyScreen() {
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={[styles.heroCard, { backgroundColor: surface, borderColor: subtleBorder }]}>
             <Text style={[styles.eyebrow, { color: theme.primary }]}>Trust & transparency</Text>
-            <Text style={[styles.heroTitle, { color: theme.text }]}>Clear controls for what stays private and what leaves your device.</Text>
-            <Text style={[styles.heroBody, { color: muted }]}>FlashQuest keeps most study data local, but some features need remote services to work. This screen explains where data goes and gives you direct control where possible.</Text>
+            <Text style={[styles.heroTitle, { color: theme.text }]}>Privacy controls, data use, and legal details.</Text>
+            <Text style={[styles.heroBody, { color: muted }]}>FlashQuest keeps most study data local, but some features need remote services to work. This is the single place for analytics controls, privacy context, and legal documents.</Text>
           </View>
 
           <View style={[styles.sectionCard, { backgroundColor: surface, borderColor: subtleBorder }]}>
@@ -142,18 +142,7 @@ export default function DataPrivacyScreen() {
           </View>
 
           <View style={[styles.sectionCard, { backgroundColor: surface, borderColor: subtleBorder }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Support, privacy & legal</Text>
-            <TouchableOpacity style={[styles.linkRow, { borderColor: subtleBorder }]} onPress={() => void openSupportContact()} activeOpacity={0.8} testID="privacy-support-button">
-              <View style={[styles.linkIconWrap, { backgroundColor: 'rgba(59,130,246,0.12)' }]}>
-                <Mail color="#3B82F6" size={18} strokeWidth={2.2} />
-              </View>
-              <View style={styles.linkCopy}>
-                <Text style={[styles.linkTitle, { color: theme.text }]}>Support & Contact</Text>
-                <Text style={[styles.linkSubtitle, { color: muted }]}>{`Support: ${PRIVACY_LINKS.supportEmail}`}</Text>
-              </View>
-              <ChevronRight color={theme.textSecondary} size={20} strokeWidth={2.2} />
-            </TouchableOpacity>
-
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Privacy contact & legal</Text>
             <TouchableOpacity style={[styles.linkRow, { borderColor: subtleBorder }]} onPress={() => void openPrivacyContact()} activeOpacity={0.8} testID="privacy-contact-button">
               <View style={[styles.linkIconWrap, { backgroundColor: 'rgba(16,185,129,0.12)' }]}>
                 <ShieldCheck color="#10B981" size={18} strokeWidth={2.2} />

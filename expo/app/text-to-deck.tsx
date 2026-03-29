@@ -568,13 +568,13 @@ ${sourceText}`,
         bullets={[
           'Only the text you submit for this action is sent for processing.',
           'You review and edit the generated deck before saving it.',
-          'You can revisit this in Data & Privacy anytime.',
+          'You can revisit this in Privacy & Data anytime.',
         ]}
         primaryLabel="Continue"
         secondaryLabel="Cancel"
         onPrimaryPress={handleAcceptDeckDisclosure}
         onSecondaryPress={handleDismissDeckDisclosure}
-        footerActionLabel="Open Data & Privacy"
+        footerActionLabel="Open Privacy & Data"
         onFooterActionPress={() => router.push(DATA_PRIVACY_ROUTE)}
         testID="text-ai-disclosure"
       />

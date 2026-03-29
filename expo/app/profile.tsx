@@ -62,7 +62,6 @@ export default function ProfilePage() {
     handleSelectAchievementCategory,
     handleCloseLevels,
     handleOpenFAQ,
-    handleOpenSupport,
     handleOpenPrivacy,
     handleSelectSuit,
     handleSelectColor,
@@ -188,7 +187,6 @@ export default function ProfilePage() {
               isDark={isDark}
               toggleTheme={toggleTheme}
               onOpenFAQ={handleOpenFAQ}
-              onOpenSupport={handleOpenSupport}
               onOpenPrivacy={handleOpenPrivacy}
               surfaceGradient={surfaceGradient}
               styles={styles}

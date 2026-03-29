@@ -596,13 +596,13 @@ Also suggest a deck name, description, and category.`,
         bullets={[
           'Only the notes, textbook page, or whiteboard image you choose is sent for this feature.',
           'The result comes back as an editable flashcard deck before you save it.',
-          'You can review Data & Privacy anytime for a fuller breakdown.',
+          'You can review Privacy & Data anytime for a fuller breakdown.',
         ]}
         primaryLabel="Continue"
         secondaryLabel="Cancel"
         onPrimaryPress={handleAcceptDeckDisclosure}
         onSecondaryPress={handleDismissDeckDisclosure}
-        footerActionLabel="Open Data & Privacy"
+        footerActionLabel="Open Privacy & Data"
         onFooterActionPress={() => router.push(DATA_PRIVACY_ROUTE)}
         testID="scan-ai-disclosure"
       />

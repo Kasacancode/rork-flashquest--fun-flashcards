@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, Mail, ShieldCheck, Sparkles, Target, Trophy } from 'lucide-react-native';
+import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, Mail, Sparkles, Target, Trophy } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { LayoutAnimation, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,7 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PRIVACY_LINKS } from '@/constants/privacy';
 import { useTheme } from '@/context/ThemeContext';
 import { logger } from '@/utils/logger';
-import { DATA_PRIVACY_ROUTE } from '@/utils/routes';
 import { openSupportContact } from '@/utils/support';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -276,7 +275,7 @@ export default function FAQScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8} testID="faq-back-button">
             <ArrowLeft color="#fff" size={24} strokeWidth={2.5} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Help & FAQ</Text>
+          <Text style={styles.headerTitle}>Help Center</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -291,9 +290,9 @@ export default function FAQScreen() {
               <Sparkles color="#FFFFFF" size={15} strokeWidth={2.4} />
               <Text style={styles.heroBadgeText}>FlashQuest Guide</Text>
             </View>
-            <Text style={styles.heroTitle}>Everything you need to know about FlashQuest</Text>
+            <Text style={styles.heroTitle}>Help Center</Text>
             <Text style={styles.heroSubtitle}>
-              Browse the main sections to understand decks, study modes, mastery, and progress at a glance.
+              Browse the main sections to understand decks, study modes, mastery, and progress. Privacy controls and legal documents live in Privacy & Data.
             </Text>
           </LinearGradient>
 
@@ -403,26 +402,16 @@ export default function FAQScreen() {
           </View>
 
           <View style={[styles.supportCard, { backgroundColor: cardBg, borderColor: cardBorder }]}> 
-            <Text style={[styles.supportTitle, { color: theme.text }]}>Need help?</Text>
-            <Text style={[styles.supportBody, { color: theme.textSecondary }]}>Open the FlashQuest support page or head to Data & Privacy for privacy and legal details.</Text>
+            <Text style={[styles.supportTitle, { color: theme.text }]}>Still need help?</Text>
+            <Text style={[styles.supportBody, { color: theme.textSecondary }]}>Use support for account, deck, or app questions. Privacy controls and legal documents are kept in Privacy & Data.</Text>
 
             <TouchableOpacity style={[styles.supportRow, { borderColor: nestedCardBorder, backgroundColor: nestedCardBg }]} onPress={() => void openSupportContact()} activeOpacity={0.82} testID="faq-open-support-contact">
               <View style={[styles.supportIconWrap, { backgroundColor: isDark ? 'rgba(59,130,246,0.16)' : 'rgba(59,130,246,0.1)' }]}>
                 <Mail color="#3B82F6" size={18} strokeWidth={2.2} />
               </View>
               <View style={styles.supportCopy}>
-                <Text style={[styles.supportRowTitle, { color: theme.text }]}>Support</Text>
+                <Text style={[styles.supportRowTitle, { color: theme.text }]}>Contact support</Text>
                 <Text style={[styles.supportRowSubtitle, { color: theme.textSecondary }]}>{`Support: ${PRIVACY_LINKS.supportEmail}`}</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.supportRow, { borderColor: nestedCardBorder, backgroundColor: nestedCardBg }]} onPress={() => router.push(DATA_PRIVACY_ROUTE)} activeOpacity={0.82} testID="faq-open-data-privacy">
-              <View style={[styles.supportIconWrap, { backgroundColor: isDark ? 'rgba(16,185,129,0.16)' : 'rgba(16,185,129,0.1)' }]}>
-                <ShieldCheck color="#10B981" size={18} strokeWidth={2.2} />
-              </View>
-              <View style={styles.supportCopy}>
-                <Text style={[styles.supportRowTitle, { color: theme.text }]}>Data & Privacy</Text>
-                <Text style={[styles.supportRowSubtitle, { color: theme.textSecondary }]}>{`Privacy: ${PRIVACY_LINKS.privacyEmail}`}</Text>
               </View>
             </TouchableOpacity>
           </View>

@@ -429,13 +429,13 @@ export default function PracticePage() {
         bullets={[
           'Only the flashcard content needed for the current round is sent for this feature.',
           'Local pass-and-play does not use this AI processing flow.',
-          'You can revisit this anytime in Data & Privacy.',
+          'You can revisit this anytime in Privacy & Data.',
         ]}
         primaryLabel="Continue"
         secondaryLabel="Cancel"
         onPrimaryPress={handleAcceptGameplayDisclosure}
         onSecondaryPress={handleDismissGameplayDisclosure}
-        footerActionLabel="Open Data & Privacy"
+        footerActionLabel="Open Privacy & Data"
         onFooterActionPress={() => router.push(DATA_PRIVACY_ROUTE)}
         testID="practice-ai-disclosure"
       />
