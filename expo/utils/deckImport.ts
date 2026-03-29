@@ -1,4 +1,5 @@
 import type { Deck, Flashcard } from '@/types/flashcard';
+import { createNormalizedFlashcard } from '@/utils/flashcardContent';
 import { isRecord, safeParseJsonOrNull } from '@/utils/safeJson';
 
 interface ImportedFlashcard {
@@ -50,13 +51,14 @@ export function importDeckFromClipboardText(text: string): ImportedDeckResult | 
   const newDeckId = `deck_${Date.now()}`;
   const createdAt = Date.now();
   const flashcards: Flashcard[] = data.flashcards
-    .map((card, index) => ({
+    .map((card, index) => createNormalizedFlashcard({
       id: `import_${newDeckId}_${index}`,
       question: getStringValue(card.question, '').slice(0, 500),
       answer: getStringValue(card.answer, '').slice(0, 200),
       deckId: newDeckId,
       difficulty: 'medium' as const,
       createdAt,
+      imageUrl: undefined,
     }))
     .filter((card) => card.question.trim().length > 0 && card.answer.trim().length > 0);
 

@@ -1,9 +1,20 @@
 import * as z from 'zod/v4';
 import { generateObject } from '@rork-ai/toolkit-sdk';
 
-import type { Flashcard } from '@/types/flashcard';
+import type { Flashcard, FlashcardOption } from '@/types/flashcard';
 import type { CardStats, QuestPerformance } from '@/types/performance';
-import { buildGameplayDistractorPrompt, formatGameplayOption } from '@/utils/gameplayCopy';
+import { buildGameplayDistractorPrompt, buildGameplayOptionLabels, formatGameplayOption } from '@/utils/gameplayCopy';
+import {
+  compareAnswerValues,
+  createFlashcardOption,
+  createFlashcardOptionFromCard,
+  getCanonicalAnswer,
+  getCanonicalQuestion,
+  getCardAnswerForSurface,
+  getCardQuestionForSurface,
+  getFlashcardContent,
+  getNormalizedAnswerValue,
+} from '@/utils/flashcardContent';
 import { getCardMastery, getWeaknessScore, isCardDue } from '@/utils/mastery';
 import { logger } from '@/utils/logger';
 
@@ -48,7 +59,7 @@ function normalizeText(value: string): string {
 }
 
 function normalizeAnswer(answer: string): string {
-  return normalizeText(answer);
+  return getNormalizedAnswerValue(answer);
 }
 
 function tokenize(value: string): string[] {
@@ -244,8 +255,8 @@ function createCandidatePool(params: {
   return shuffleArray(cards)
     .filter(card => card.id !== currentCardId)
     .filter(card => source !== 'global' || card.deckId !== currentCard?.deckId)
-    .filter(card => source !== 'global' || isReasonableGlobalFallback(card.answer, correctAnswer))
-    .map(card => ({ card, answer: card.answer.trim() }))
+    .filter(card => source !== 'global' || isReasonableGlobalFallback(getCardAnswerForSurface(card, 'tile'), correctAnswer))
+    .map(card => ({ card, answer: getCanonicalAnswer(card) }))
     .filter(({ answer }) => answer !== '')
     .filter(({ answer }) => {
       const normalized = normalizeAnswer(answer);
@@ -259,7 +270,7 @@ function createCandidatePool(params: {
       const normalized = normalizeAnswer(answer);
       const freshnessPenalty = recentPenaltyMap.get(normalized) ?? 0;
       const cardReusePenalty = cardHistoryPenaltyMap.get(normalized) ?? 0;
-      const questionSimilarity = currentCard ? getQuestionSimilarityScore(card.question, currentCard.question) : 0;
+      const questionSimilarity = currentCard ? getQuestionSimilarityScore(getCardQuestionForSurface(card, 'quest'), getCardQuestionForSurface(currentCard, 'quest')) : 0;
       const tagOverlap = currentCard ? getTagOverlapScore(card.tags, currentCard.tags) : 0;
       const difficultyBonus = currentCard && card.difficulty === currentCard.difficulty ? 0.75 : 0;
 
@@ -572,7 +583,7 @@ export function generateOptions(params: {
   allCards: Flashcard[];
   currentCardId: string;
   recentDistractors?: string[];
-}): string[] {
+}): FlashcardOption[] {
   const cachedAIDistractors = aiDistractorCache[params.currentCardId] ?? [];
   const recentPenaltyMap = buildRecentPenaltyMap(params.recentDistractors ?? []);
   const cardHistoryPenaltyMap = buildCardHistoryPenaltyMap(params.currentCardId);
@@ -603,12 +614,37 @@ export function generateOptions(params: {
   rememberDistractors(params.currentCardId, distractors);
   logger.debug('[QuestUtils] Generated options for card:', params.currentCardId, distractors);
 
-  const options = [params.correctAnswer, ...distractors];
-  return shuffleArray(options);
+  const currentCard = getCurrentCard(params.currentCardId, params.deckCards, params.allCards);
+  const correctOption = currentCard
+    ? createFlashcardOptionFromCard(currentCard, 'tile')
+    : createFlashcardOption({
+        value: params.correctAnswer,
+        canonicalValue: params.correctAnswer,
+        question: '',
+        surface: 'tile',
+      });
+
+  const optionObjects = shuffleArray([
+    correctOption,
+    ...distractors.map((answer) => createFlashcardOption({
+      value: answer,
+      canonicalValue: answer,
+      question: currentCard ? getCanonicalQuestion(currentCard) : '',
+      answerType: currentCard ? getFlashcardContent(currentCard).answerType : undefined,
+      surface: 'tile',
+    })),
+  ]);
+
+  const displayLabels = buildGameplayOptionLabels(optionObjects.map((option) => option.canonicalValue));
+
+  return optionObjects.map((option, index) => ({
+    ...option,
+    displayText: displayLabels[index] ?? option.displayText,
+  }));
 }
 
 export function checkAnswer(selected: string, correct: string): boolean {
-  return normalizeAnswer(selected) === normalizeAnswer(correct);
+  return compareAnswerValues(selected, correct);
 }
 
 export async function generateAIDistractors(
@@ -634,7 +670,7 @@ export async function generateAIDistractors(
 
     const distractors = result.distractors
       .map((d: string) => formatGameplayOption(d))
-      .filter((d: string) => d.toLowerCase().trim() !== correctAnswer.toLowerCase().trim());
+      .filter((d: string) => !compareAnswerValues(d, correctAnswer));
 
     if (distractors.length > 0) {
       const keys = Object.keys(aiDistractorCache);
@@ -659,7 +695,7 @@ export async function generateOptionsWithAI(params: {
   deckCards: Flashcard[];
   allCards: Flashcard[];
   currentCardId: string;
-}): Promise<string[]> {
+}): Promise<FlashcardOption[]> {
   const { correctAnswer, question, deckCards, allCards, currentCardId } = params;
 
   await generateAIDistractors(question, correctAnswer, currentCardId);

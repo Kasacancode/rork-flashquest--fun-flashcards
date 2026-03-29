@@ -294,7 +294,7 @@ export function submitAnswer(
   const question = room.game.questions[questionIndex];
   if (!question) return null;
 
-  const isCorrect = normalizeAnswer(selectedOption) === normalizeAnswer(question.correctAnswer);
+  const isCorrect = normalizeAnswer(selectedOption) === question.normalizedCorrectAnswer;
   const timeToAnswerMs = Date.now() - room.game.questionStartedAt;
   const awardedPoints = isCorrect ? calculateCorrectAnswerPoints(room, timeToAnswerMs) : 0;
 
@@ -605,6 +605,7 @@ export function sanitizeRoom(room: Room, playerLastSeenById?: Record<string, num
         question: q.question,
         options: q.options,
         correctAnswer: isRevealOrDone ? q.correctAnswer : undefined,
+        correctAnswerDisplay: isRevealOrDone ? q.correctAnswerDisplay : undefined,
       }
     : null;
 

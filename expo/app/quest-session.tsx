@@ -12,11 +12,12 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
-import type { Flashcard } from '@/types/flashcard';
+import type { Flashcard, FlashcardOption } from '@/types/flashcard';
 import { GAME_MODE } from '@/types/game';
 import type { QuestRunResult, QuestSettings } from '@/types/performance';
 import { isMeaningfulQuestSlump, isMeaningfulQuestStreak, selectAssistantDialogue, type QuestDialogueEvent } from '@/utils/dialogue';
-import { buildGameplayOptionLabels, formatGameplayHint, formatGameplayQuestion } from '@/utils/gameplayCopy';
+import { formatGameplayHint } from '@/utils/gameplayCopy';
+import { createFlashcardOptionFromCard, getCanonicalAnswer, getCardAnswerForSurface, getCardQuestionForSurface } from '@/utils/flashcardContent';
 import { logger } from '@/utils/logger';
 import { parseDrillCardIdsParam, parseQuestSettingsParam, serializeQuestResult } from '@/utils/questParams';
 import { QUEST_ROUTE, questResultsHref } from '@/utils/routes';
@@ -65,7 +66,7 @@ export default function QuestSessionScreen() {
 
   const [currentRound, setCurrentRound] = useState(0);
   const [currentCard, setCurrentCard] = useState<Flashcard | null>(null);
-  const [options, setOptions] = useState<string[]>([]);
+  const [options, setOptions] = useState<FlashcardOption[]>([]);
   const [optionsRenderKey, setOptionsRenderKey] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -146,13 +147,15 @@ export default function QuestSessionScreen() {
     }
 
     const immediateOptions = generateOptions({
-      correctAnswer: nextCard.answer,
+      correctAnswer: getCanonicalAnswer(nextCard),
       deckCards: deck.flashcards,
       allCards,
       currentCardId: nextCard.id,
       recentDistractors: recentDistractorHistoryRef.current,
     });
-    const roundDistractors = immediateOptions.filter(option => !checkAnswer(option, nextCard.answer));
+    const roundDistractors = immediateOptions
+      .filter((option) => !checkAnswer(option.canonicalValue, getCanonicalAnswer(nextCard)))
+      .map((option) => option.canonicalValue);
 
     recentDistractorHistoryRef.current = [
       ...recentDistractorHistoryRef.current,
@@ -176,7 +179,7 @@ export default function QuestSessionScreen() {
     setRoundStartTime(Date.now());
     setTimeRemaining(settings.timerSeconds > 0 ? settings.timerSeconds : null);
 
-    void generateAIDistractors(nextCard.question, nextCard.answer, nextCard.id)
+    void generateAIDistractors(getCardQuestionForSurface(nextCard, 'quest'), getCanonicalAnswer(nextCard), nextCard.id)
       .then(() => {
         logger.log('[Quest] Warmed AI distractors for card:', nextCard.id);
       })
@@ -298,14 +301,14 @@ export default function QuestSessionScreen() {
 
     logger.warn('[Quest] Empty options detected, regenerating for card:', currentCard.id);
     const recoveredOptions = generateOptions({
-      correctAnswer: currentCard.answer,
+      correctAnswer: getCanonicalAnswer(currentCard),
       deckCards: deck.flashcards,
       allCards,
       currentCardId: currentCard.id,
       recentDistractors: recentDistractorHistoryRef.current,
     });
 
-    setOptions(recoveredOptions.length > 0 ? recoveredOptions : [currentCard.answer]);
+    setOptions(recoveredOptions.length > 0 ? recoveredOptions : [createFlashcardOptionFromCard(currentCard, 'tile')]);
     setOptionsRenderKey(prev => prev + 1);
   }, [allCards, currentCard, deck, options.length]);
 
@@ -338,7 +341,7 @@ export default function QuestSessionScreen() {
       cardId: currentCard.id,
       isCorrect: false,
       selectedOption: '',
-      correctAnswer: currentCard.answer,
+      correctAnswer: getCanonicalAnswer(currentCard),
       timeToAnswerMs: timeToAnswer,
       mode: 'quest',
       hintsUsed: showHint ? 1 : 0,
@@ -369,7 +372,7 @@ export default function QuestSessionScreen() {
       timerRef.current = null;
     }
 
-    const correct = checkAnswer(option, currentCard.answer);
+    const correct = checkAnswer(option, getCanonicalAnswer(currentCard));
     setSelectedOption(option);
     setInputLocked(true);
 
@@ -401,7 +404,7 @@ export default function QuestSessionScreen() {
         cardId: currentCard.id,
         isCorrect: true,
         selectedOption: option,
-        correctAnswer: currentCard.answer,
+        correctAnswer: getCanonicalAnswer(currentCard),
         timeToAnswerMs: timeToAnswer,
         mode: 'quest',
         hintsUsed: showHint ? 1 : 0,
@@ -451,7 +454,7 @@ export default function QuestSessionScreen() {
         cardId: currentCard.id,
         isCorrect: false,
         selectedOption: option,
-        correctAnswer: currentCard.answer,
+        correctAnswer: getCanonicalAnswer(currentCard),
         timeToAnswerMs: timeToAnswer,
         mode: 'quest',
         hintsUsed: showHint ? 1 : 0,
@@ -529,7 +532,7 @@ export default function QuestSessionScreen() {
 
   const displayedOptions = useMemo(() => {
     if (!currentCard) {
-      return [] as string[];
+      return [] as FlashcardOption[];
     }
 
     if (options.length > 0) {
@@ -537,16 +540,15 @@ export default function QuestSessionScreen() {
     }
 
     logger.warn('[Quest] Rendering fallback option for card:', currentCard.id);
-    return [currentCard.answer];
+    return [createFlashcardOptionFromCard(currentCard, 'tile')];
   }, [currentCard, options]);
 
-  const displayQuestion = useMemo(() => formatGameplayQuestion(currentCard?.question ?? ''), [currentCard?.question]);
+  const displayQuestion = useMemo(() => (currentCard ? getCardQuestionForSurface(currentCard, 'quest') : ''), [currentCard]);
   const displayHint = useMemo(() => formatGameplayHint(currentCard?.hint1 ?? ''), [currentCard?.hint1]);
   const displayOptions = useMemo(() => {
-    const labels = buildGameplayOptionLabels(displayedOptions);
-    return displayedOptions.map((option, index) => ({
-      value: option,
-      label: labels[index] ?? option,
+    return displayedOptions.map((option) => ({
+      value: option.canonicalValue,
+      label: option.displayText,
     }));
   }, [displayedOptions]);
   const displayOptionRows = useMemo<{ value: string; label: string }[][]>(() => {
@@ -593,7 +595,7 @@ export default function QuestSessionScreen() {
     }
     
     const isSelected = option === selectedOption;
-    const isCorrectOption = currentCard && checkAnswer(option, currentCard.answer);
+    const isCorrectOption = currentCard && checkAnswer(option, getCanonicalAnswer(currentCard));
 
     if (isCorrectOption) {
       return 'correct';
@@ -756,7 +758,7 @@ export default function QuestSessionScreen() {
                 {isCorrect ? 'Correct!' : 'Incorrect'}
               </Text>
               <Text style={[styles.explanationAnswer, { color: theme.text }]}>
-                Answer: {currentCard.answer}
+                Answer: {getCardAnswerForSurface(currentCard, 'study')}
               </Text>
               <Text style={[styles.explanationText, { color: theme.textSecondary }]} numberOfLines={6}>
                 {currentCard.explanation}

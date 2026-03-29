@@ -1,101 +1,23 @@
-const BULLET_PREFIX_REGEX = /^\s*(?:[-•–—*]|\d+[.)]|[A-Da-d][.)])\s+/;
-const QUESTION_BREAK_TOKENS = ['. ', '; ', ' — ', ' - ', ': '] as const;
-const OPTION_BREAK_TOKENS = ['; ', ' — ', ' - ', ': ', ' (', ', ', '. '] as const;
+import { projectLooseHint, projectLooseGameplayOption, projectLooseGameplayQuestion } from '@/utils/flashcardContent';
 
-const GAMEPLAY_QUESTION_MAX_CHARS = 92;
-const GAMEPLAY_OPTION_MAX_CHARS = 80;
-const GAMEPLAY_HINT_MAX_CHARS = 72;
-const GAMEPLAY_OPTION_MAX_WORDS = 12;
-const LEADING_WRAPPER_REGEX = /^["'“”‘’([{\s]+/g;
-const TRAILING_WRAPPER_REGEX = /["'“”‘’)\]}\s]+$/g;
-const TRAILING_OPTION_PUNCTUATION_REGEX = /[.;:!?]+$/g;
-const TRAILING_QUESTION_PUNCTUATION_REGEX = /[.;:]+$/g;
-const QUESTION_SUFFIX_REGEX = /(?:choose the best answer|pick the correct answer|select the correct answer)$/i;
-
-function collapseWhitespace(value: string): string {
+function normalizeLooseCopy(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-function stripListPrefix(value: string): string {
-  return value.replace(BULLET_PREFIX_REGEX, '').trim();
-}
-
-function trimAtWordBoundary(value: string, maxChars: number): string {
-  if (value.length <= maxChars) {
-    return value;
-  }
-
-  const slice = value.slice(0, maxChars + 1);
-  const lastSpace = slice.lastIndexOf(' ');
-  const cutIndex = lastSpace > Math.floor(maxChars * 0.6) ? lastSpace : maxChars;
-
-  return slice.slice(0, cutIndex).trim();
-}
-
-function takeEarlierClause(value: string, tokens: readonly string[]): string {
-  for (const token of tokens) {
-    const index = value.indexOf(token);
-    if (index > 16) {
-      return value.slice(0, index).trim();
-    }
-  }
-
-  return value;
-}
-
-function countWords(value: string): number {
-  return value.split(/\s+/).filter(Boolean).length;
-}
-
-function stripWrappingPunctuation(value: string): string {
-  return value.replace(LEADING_WRAPPER_REGEX, '').replace(TRAILING_WRAPPER_REGEX, '').trim();
-}
-
 export function normalizeGameplayCopy(value: string): string {
-  return stripWrappingPunctuation(stripListPrefix(collapseWhitespace(value)));
+  return normalizeLooseCopy(projectLooseGameplayOption(value));
 }
 
 export function formatGameplayQuestion(question: string): string {
-  let concise = normalizeGameplayCopy(question);
-
-  concise = concise
-    .replace(/^according to (?:the text|these notes|the passage)[,:]?\s*/i, '')
-    .replace(/^in the context of\s+/i, '')
-    .replace(/^for the following scenario[,:]?\s*/i, '')
-    .replace(/^which one of the following\s+/i, 'Which ')
-    .replace(/^which of the following\s+/i, 'Which ')
-    .replace(/^identify the\s+/i, 'Identify the ')
-    .replace(/^select the\s+/i, 'Select the ')
-    .replace(/^choose the\s+/i, 'Choose the ')
-    .replace(QUESTION_SUFFIX_REGEX, '')
-    .replace(TRAILING_QUESTION_PUNCTUATION_REGEX, '');
-
-  concise = takeEarlierClause(concise, QUESTION_BREAK_TOKENS);
-  concise = trimAtWordBoundary(concise, GAMEPLAY_QUESTION_MAX_CHARS);
-
-  if (!/[?!]$/.test(concise)) {
-    concise = `${concise}?`;
-  }
-
-  return concise;
+  return projectLooseGameplayQuestion(question);
 }
 
 export function formatGameplayOption(option: string): string {
-  let concise = normalizeGameplayCopy(option).replace(TRAILING_OPTION_PUNCTUATION_REGEX, '');
-
-  if (countWords(concise) > GAMEPLAY_OPTION_MAX_WORDS || concise.length > GAMEPLAY_OPTION_MAX_CHARS) {
-    concise = takeEarlierClause(concise, OPTION_BREAK_TOKENS);
-  }
-
-  if (countWords(concise) > GAMEPLAY_OPTION_MAX_WORDS || concise.length > GAMEPLAY_OPTION_MAX_CHARS) {
-    concise = trimAtWordBoundary(concise, GAMEPLAY_OPTION_MAX_CHARS);
-  }
-
-  return concise;
+  return projectLooseGameplayOption(option);
 }
 
 export function buildGameplayOptionLabels(options: string[]): string[] {
-  const initialLabels = options.map(formatGameplayOption);
+  const initialLabels = options.map((option) => formatGameplayOption(option));
   const labelCounts = new Map<string, number>();
 
   initialLabels.forEach((label) => {
@@ -108,12 +30,12 @@ export function buildGameplayOptionLabels(options: string[]): string[] {
       return label;
     }
 
-    return normalizeGameplayCopy(option);
+    return normalizeLooseCopy(option);
   });
 }
 
 export function formatGameplayHint(hint: string): string {
-  return trimAtWordBoundary(normalizeGameplayCopy(hint), GAMEPLAY_HINT_MAX_CHARS);
+  return projectLooseHint(hint);
 }
 
 export function buildGameplayDistractorPrompt(question: string, correctAnswer: string): string {

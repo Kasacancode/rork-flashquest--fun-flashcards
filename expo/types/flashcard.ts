@@ -1,3 +1,53 @@
+export type FlashcardAnswerType =
+  | 'term'
+  | 'definition'
+  | 'formula'
+  | 'numeric'
+  | 'comparison'
+  | 'process'
+  | 'binary'
+  | 'concept_label'
+  | 'phrase';
+
+export type FlashcardFitStatus = 'safe' | 'compress' | 'reject';
+
+export interface FlashcardProjectionSet {
+  studyQuestion: string;
+  studyAnswer: string;
+  gameplayQuestion: string;
+  tileAnswer: string;
+  battleQuestion: string;
+  battleAnswer: string;
+}
+
+export interface FlashcardProjectionQuality {
+  studyAnswer: FlashcardFitStatus;
+  gameplayQuestion: FlashcardFitStatus;
+  tileAnswer: FlashcardFitStatus;
+  battleQuestion: FlashcardFitStatus;
+  battleAnswer: FlashcardFitStatus;
+}
+
+export interface FlashcardContentModel {
+  version: number;
+  canonicalQuestion: string;
+  canonicalAnswer: string;
+  normalizedAnswer: string;
+  answerType: FlashcardAnswerType;
+  projections: FlashcardProjectionSet;
+  quality: FlashcardProjectionQuality;
+  qualityFlags: string[];
+}
+
+export interface FlashcardOption {
+  id: string;
+  displayText: string;
+  canonicalValue: string;
+  normalizedValue: string;
+  answerType: FlashcardAnswerType;
+  sourceCardId?: string;
+}
+
 export interface Flashcard {
   id: string;
   question: string;
@@ -10,6 +60,7 @@ export interface Flashcard {
   hint1?: string;
   hint2?: string;
   explanation?: string;
+  content?: FlashcardContentModel;
 }
 
 export interface Deck {

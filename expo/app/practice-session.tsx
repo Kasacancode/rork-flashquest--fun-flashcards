@@ -28,6 +28,12 @@ import { trackEvent } from '@/lib/analytics';
 import { GAME_MODE } from '@/types/game';
 import type { RecallQuality } from '@/types/performance';
 import type { PracticeMode, PracticeSessionState } from '@/types/practice';
+import {
+  compareAnswerValues,
+  getCanonicalAnswer,
+  getCardAnswerForSurface,
+  getCardQuestionForSurface,
+} from '@/utils/flashcardContent';
 import { clearAIDistractorCache as clearDistractorCache, generateOptionsWithAI } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
 import { focusedQuestSessionHref, questHref, studyHref } from '@/utils/routes';
@@ -159,6 +165,9 @@ export default function PracticeSessionPage() {
     if (!deck || !currentBattle) return null;
     return shuffledFlashcards[currentBattle.currentRound];
   }, [deck, shuffledFlashcards, currentBattle]);
+  const canonicalAnswer = useMemo(() => (currentCard ? getCanonicalAnswer(currentCard) : ''), [currentCard]);
+  const displayQuestion = useMemo(() => (currentCard ? getCardQuestionForSurface(currentCard, 'quest') : ''), [currentCard]);
+  const displayAnswer = useMemo(() => (currentCard ? getCardAnswerForSurface(currentCard, 'study') : ''), [currentCard]);
 
   const revealResults = useCallback(() => {
     Animated.parallel([
@@ -217,7 +226,7 @@ export default function PracticeSessionPage() {
     }));
 
     setOpponentResult({
-      answer: opponentCorrect ? currentCard.answer || '' : wrongAnswer,
+      answer: opponentCorrect ? displayAnswer : wrongAnswer,
       isCorrect: opponentCorrect,
       timeUsed: opponentTime,
     });
@@ -225,7 +234,7 @@ export default function PracticeSessionPage() {
     logger.debug('[Practice] AI answered:', opponentCorrect ? 'correct' : wrongAnswer, 'in', opponentTime, 's', 'streak:', aiState.streak);
 
     scheduleTimeout(revealResults, FEEDBACK_REVEAL_DELAY_MS);
-  }, [currentCard, currentBattle, distractors, aiState, scheduleTimeout, revealResults]);
+  }, [aiState, currentBattle, currentCard, displayAnswer, distractors, revealResults, scheduleTimeout]);
 
   useEffect(() => {
     if (!currentCard) return;
@@ -248,8 +257,8 @@ export default function PracticeSessionPage() {
 
     if (currentBattle?.mode === 'ai') {
       void generateOptionsWithAI({
-        question: currentCard.question,
-        correctAnswer: currentCard.answer,
+        question: displayQuestion,
+        correctAnswer: canonicalAnswer,
         deckCards: deck?.flashcards ?? [],
         allCards: allFlashcards,
         currentCardId: currentCard.id,
@@ -259,9 +268,9 @@ export default function PracticeSessionPage() {
             return;
           }
 
-          const generatedDistractors = options.filter(
-            (option) => option.toLowerCase().trim() !== currentCard.answer.toLowerCase().trim()
-          );
+          const generatedDistractors = options
+            .filter((option) => !compareAnswerValues(option.canonicalValue, canonicalAnswer))
+            .map((option) => option.displayText);
           setDistractors(generatedDistractors);
           logger.debug('[Practice] Pre-loaded distractors for card:', currentCard.id);
         })
@@ -277,7 +286,7 @@ export default function PracticeSessionPage() {
     return () => {
       isCancelled = true;
     };
-  }, [currentCard, currentBattle?.mode, deck?.flashcards, allFlashcards, clearPendingTimeouts, feedbackOpacity, feedbackScale]);
+  }, [allFlashcards, canonicalAnswer, clearPendingTimeouts, currentBattle?.mode, currentCard, deck?.flashcards, displayQuestion, feedbackOpacity, feedbackScale]);
 
   useEffect(() => {
     pulseLoopRef.current?.stop();
@@ -411,7 +420,7 @@ export default function PracticeSessionPage() {
           cardId: currentCard?.id ?? '',
           isCorrect: false,
           selectedOption: userAnswer.trim() || '(No answer)',
-          correctAnswer: currentCard?.answer ?? '',
+          correctAnswer: canonicalAnswer,
           timeToAnswerMs: QUESTION_TIME * 1000,
           quality: 1,
         });
@@ -431,17 +440,18 @@ export default function PracticeSessionPage() {
   }, [
     advanceToOpponentTurn,
     advanceToSecondPlayerTurn,
+    canonicalAnswer,
     currentBattle,
     currentCard,
     currentPlayer,
     deckId,
     gamePhase,
+    markCardMissed,
     revealResults,
     scheduleTimeout,
     simulateOpponentAnswer,
     triggerShake,
     userAnswer,
-    markCardMissed,
   ]);
 
   handleTimeUpRef.current = handleTimeUp;
@@ -484,7 +494,7 @@ export default function PracticeSessionPage() {
     if (gamePhase !== 'player-turn' || userAnswer.trim() === '') return;
 
     Keyboard.dismiss();
-    const correct = userAnswer.trim().toLowerCase() === currentCard?.answer.toLowerCase();
+    const correct = compareAnswerValues(userAnswer.trim(), canonicalAnswer);
     const timeUsed = QUESTION_TIME - timeLeft;
 
     if (currentBattle?.mode === 'multiplayer') {
@@ -549,7 +559,7 @@ export default function PracticeSessionPage() {
         cardId: currentCard.id,
         isCorrect: correct,
         selectedOption: userAnswer.trim(),
-        correctAnswer: currentCard.answer,
+        correctAnswer: canonicalAnswer,
         timeToAnswerMs: timeUsed * 1000,
         quality: correct ? 3 : 1,
       });
@@ -759,7 +769,7 @@ export default function PracticeSessionPage() {
         <View style={styles.content}>
           <View style={[styles.questionCard, { backgroundColor: isDark ? theme.card : 'rgba(255, 255, 255, 0.97)' }]}>
             <Text style={[styles.questionText, { color: isDark ? theme.text : '#1a1a1a' }]}>
-              {currentCard.question}
+              {displayQuestion}
             </Text>
           </View>
 
@@ -885,7 +895,7 @@ export default function PracticeSessionPage() {
                   Correct Answer
                 </Text>
                 <Text style={[styles.correctAnswerText, { color: isDark ? theme.text : '#1a1a1a' }]}>
-                  {currentCard.answer}
+                  {displayAnswer}
                 </Text>
               </View>
 

@@ -1,9 +1,7 @@
 import {
   ARENA_BACKEND_ERROR_CODES,
   ARENA_OPTION_COUNT,
-  MAX_ARENA_ANSWER_LENGTH,
   MAX_ARENA_DECK_UPLOAD_CARDS,
-  MAX_ARENA_QUESTION_LENGTH,
   MIN_ARENA_READY_CARDS,
   type ArenaDeckPreparationDiagnostics,
   type ArenaDeckPreparationResult,
@@ -15,6 +13,7 @@ import {
   type RoomQuestion,
 } from './types';
 import { createArenaError, createArenaGameGenerationFailedError } from './errors';
+import { createFlashcardOption, createNormalizedFlashcard, getFlashcardContent } from '@/utils/flashcardContent';
 
 interface ArenaDeckRejectionCounts {
   emptyQuestion: number;
@@ -35,31 +34,6 @@ const EMPTY_REJECTION_COUNTS: ArenaDeckRejectionCounts = {
   malformedAnswer: 0,
   duplicatePair: 0,
 };
-
-function stripControlCharacters(value: string): string {
-  let result = '';
-
-  for (const character of value) {
-    const code = character.charCodeAt(0);
-    result += (code <= 31 || code === 127) ? ' ' : character;
-  }
-
-  return result;
-}
-
-function normalizeWhitespace(value: string): string {
-  return stripControlCharacters(value)
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function normalizeComparableAnswer(value: string): string {
-  return normalizeWhitespace(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
 
 function getTextEncoderSize(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).length;
@@ -154,8 +128,8 @@ function throwDeckPreparationError(options: {
   if ((options.rejectionCounts.questionTooLong + options.rejectionCounts.answerTooLong) > 0 && options.validCardCount < MIN_ARENA_READY_CARDS) {
     throw createArenaError({
       code: ARENA_BACKEND_ERROR_CODES.DECK_CONTENT_TOO_LONG,
-      userMessage: 'This deck has cards that are too long for live battle. Shorten the longest questions or answers and try again.',
-      developerMessage: `Deck ${options.deckId} did not have enough battle-safe cards after length validation.`,
+      userMessage: 'This deck has cards that are still too long or dense for live battle. Shorten the longest cards and try again.',
+      developerMessage: `Deck ${options.deckId} did not have enough battle-safe cards after projection validation.`,
       trpcCode: 'BAD_REQUEST',
       meta,
     });
@@ -211,41 +185,53 @@ export function prepareArenaDeck(input: {
   const readyCards: ArenaReadyCard[] = [];
 
   for (const sourceCard of input.sourceCards) {
-    const question = normalizeWhitespace(sourceCard.question);
-    const answer = normalizeWhitespace(sourceCard.answer);
+    const normalizedCard = createNormalizedFlashcard({
+      id: sourceCard.id,
+      question: sourceCard.question,
+      answer: sourceCard.answer,
+      deckId: input.deckId,
+      difficulty: 'medium',
+      createdAt: Date.now(),
+      imageUrl: undefined,
+    });
+    const content = getFlashcardContent(normalizedCard);
 
-    if (!question) {
+    if (!content.canonicalQuestion) {
       rejectionCounts.emptyQuestion += 1;
       continue;
     }
 
-    if (!answer) {
+    if (!content.canonicalAnswer) {
       rejectionCounts.emptyAnswer += 1;
       continue;
     }
 
-    if (question.length > MAX_ARENA_QUESTION_LENGTH) {
-      rejectionCounts.questionTooLong += 1;
-      continue;
-    }
-
-    if (answer.length > MAX_ARENA_ANSWER_LENGTH) {
-      rejectionCounts.answerTooLong += 1;
-      continue;
-    }
-
-    if (!hasMeaningfulCharacters(question) || hasTooManyRepeatingCharacters(question)) {
+    if (!hasMeaningfulCharacters(content.canonicalQuestion) || hasTooManyRepeatingCharacters(content.canonicalQuestion)) {
       rejectionCounts.malformedQuestion += 1;
       continue;
     }
 
-    const normalizedAnswer = normalizeComparableAnswer(answer);
-    if (!normalizedAnswer || !hasMeaningfulCharacters(answer) || hasTooManyRepeatingCharacters(answer)) {
+    if (!content.normalizedAnswer || !hasMeaningfulCharacters(content.canonicalAnswer) || hasTooManyRepeatingCharacters(content.canonicalAnswer)) {
       rejectionCounts.malformedAnswer += 1;
       continue;
     }
 
-    const duplicateKey = `${question.toLowerCase()}::${normalizedAnswer}`;
+    if (content.quality.battleQuestion === 'reject') {
+      rejectionCounts.questionTooLong += 1;
+      continue;
+    }
+
+    if (content.quality.battleAnswer === 'reject') {
+      rejectionCounts.answerTooLong += 1;
+      continue;
+    }
+
+    if (content.qualityFlags.includes('question_answer_too_similar')) {
+      rejectionCounts.malformedAnswer += 1;
+      continue;
+    }
+
+    const duplicateKey = `${content.canonicalQuestion.toLowerCase()}::${content.normalizedAnswer}`;
     if (seenPairs.has(duplicateKey)) {
       rejectionCounts.duplicatePair += 1;
       continue;
@@ -254,9 +240,12 @@ export function prepareArenaDeck(input: {
     seenPairs.add(duplicateKey);
     readyCards.push({
       id: sourceCard.id,
-      question,
-      answer,
-      normalizedAnswer,
+      canonicalQuestion: content.canonicalQuestion,
+      canonicalAnswer: content.canonicalAnswer,
+      battleQuestion: content.projections.battleQuestion,
+      battleAnswer: content.projections.battleAnswer,
+      normalizedAnswer: content.normalizedAnswer,
+      answerType: content.answerType,
     });
   }
 
@@ -321,16 +310,18 @@ export function generateArenaQuestions(input: {
       availableCards.filter((candidate) => candidate.id !== card.id && candidate.normalizedAnswer !== card.normalizedAnswer),
       distractorRandom,
     );
+    const sameTypePool = distractorPool.filter((candidate) => candidate.answerType === card.answerType);
+    const candidatePool = sameTypePool.length >= (ARENA_OPTION_COUNT - 1) ? sameTypePool : distractorPool;
 
-    const uniqueDistractors: string[] = [];
+    const uniqueDistractors: ArenaReadyCard[] = [];
     const usedAnswers = new Set<string>([card.normalizedAnswer]);
 
-    for (const distractor of distractorPool) {
+    for (const distractor of candidatePool) {
       if (usedAnswers.has(distractor.normalizedAnswer)) {
         continue;
       }
 
-      uniqueDistractors.push(distractor.answer);
+      uniqueDistractors.push(distractor);
       usedAnswers.add(distractor.normalizedAnswer);
 
       if (uniqueDistractors.length >= (ARENA_OPTION_COUNT - 1)) {
@@ -353,12 +344,34 @@ export function generateArenaQuestions(input: {
       });
     }
 
+    const options = shuffleWithRandom([
+      createFlashcardOption({
+        value: card.canonicalAnswer,
+        canonicalValue: card.canonicalAnswer,
+        question: card.canonicalQuestion,
+        answerType: card.answerType,
+        sourceCardId: card.id,
+        surface: 'battle',
+      }),
+      ...uniqueDistractors.map((distractor) => createFlashcardOption({
+        value: distractor.canonicalAnswer,
+        canonicalValue: distractor.canonicalAnswer,
+        question: card.canonicalQuestion,
+        answerType: distractor.answerType,
+        sourceCardId: distractor.id,
+        surface: 'battle',
+      })),
+    ], distractorRandom);
+
     return {
       cardId: card.id,
-      question: card.question,
-      correctAnswer: card.answer,
-      options: shuffleWithRandom([card.answer, ...uniqueDistractors], distractorRandom),
-    };
+      question: card.battleQuestion,
+      correctAnswer: card.canonicalAnswer,
+      correctAnswerDisplay: card.battleAnswer,
+      normalizedCorrectAnswer: card.normalizedAnswer,
+      answerType: card.answerType,
+      options,
+    } satisfies RoomQuestion;
   });
 
   const diagnostics: ArenaQuestionGenerationDiagnostics = {

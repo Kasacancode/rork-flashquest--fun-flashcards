@@ -8,6 +8,7 @@ import type { Achievement, Deck, Flashcard, UserProgress, UserStats } from '@/ty
 import type { GameResultParams } from '@/types/game';
 import { logger } from '@/utils/logger';
 import { scheduleStreakReminder } from '@/utils/notifications';
+import { mergeFlashcardUpdates, normalizeDeck, normalizeDeckCollection } from '@/utils/flashcardContent';
 
 const STORAGE_KEYS = {
   DECKS: 'flashquest_decks',
@@ -266,7 +267,7 @@ function normalizeStoredDecks(storedDecks: Deck[]): { decks: Deck[]; didChange: 
   const seenSampleDeckIds = new Set<string>();
   let didChange = false;
 
-  const decks = storedDecks.map((deck) => {
+  const syncedDecks = storedDecks.map((deck) => {
     if (deck.isCustom) {
       return deck;
     }
@@ -291,11 +292,16 @@ function normalizeStoredDecks(storedDecks: Deck[]): { decks: Deck[]; didChange: 
       return;
     }
 
-    decks.push(sampleDeck);
+    syncedDecks.push(sampleDeck);
     didChange = true;
   });
 
-  return { decks, didChange };
+  const normalizedDecks = normalizeDeckCollection(syncedDecks);
+
+  return {
+    decks: normalizedDecks.decks,
+    didChange: didChange || normalizedDecks.didChange,
+  };
 }
 
 function computeStreak(
@@ -625,7 +631,8 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
   const addDeck = useCallback((deck: Deck) => {
     void enqueuePersistenceTask('addDeck', async () => {
       const currentDecks = await getHydratedDecks();
-      const updatedDecks = [...currentDecks, deck];
+      const normalizedDeck = normalizeDeck(deck);
+      const updatedDecks = [...currentDecks, normalizedDeck];
       queryClient.setQueryData(['decks'], updatedDecks);
 
       try {
@@ -644,7 +651,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     void enqueuePersistenceTask('updateDeck', async () => {
       const currentDecks = await getHydratedDecks();
       const updatedDecks = currentDecks.map((deck) => (
-        deck.id === deckId ? { ...deck, ...updates } : deck
+        deck.id === deckId ? normalizeDeck({ ...deck, ...updates }) : deck
       ));
       queryClient.setQueryData(['decks'], updatedDecks);
 
@@ -668,12 +675,12 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
           return deck;
         }
 
-        return {
+        return normalizeDeck({
           ...deck,
           flashcards: deck.flashcards.map((card) => (
-            card.id === cardId ? { ...card, ...updates } : card
+            card.id === cardId ? mergeFlashcardUpdates(card, updates) : card
           )),
-        };
+        });
       });
 
       queryClient.setQueryData(['decks'], updatedDecks);

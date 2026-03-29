@@ -12,7 +12,6 @@ import { DealerCountdownBar, StreakIndicator } from '@/components/GameUI';
 import { useArena } from '@/context/ArenaContext';
 import { useTheme } from '@/context/ThemeContext';
 import { isMeaningfulArenaStreak, selectAssistantDialogue, type ArenaDialogueEvent } from '@/utils/dialogue';
-import { buildGameplayOptionLabels, formatGameplayQuestion } from '@/utils/gameplayCopy';
 import { logger } from '@/utils/logger';
 import { ARENA_RESULTS_ROUTE, ARENA_ROUTE } from '@/utils/routes';
 
@@ -231,11 +230,10 @@ export default function ArenaSessionScreen() {
 
     return 'Standings settle';
   }, [leader, leaderId, myStanding, phase, scoreboardPlayers]);
-  const optionLabels = buildGameplayOptionLabels(options);
-  const displayQuestion = formatGameplayQuestion(currentQuestion?.question ?? '');
-  const displayOptions = options.map((option, index) => ({
-    value: option,
-    label: optionLabels[index] ?? option,
+  const displayQuestion = currentQuestion?.question ?? '';
+  const displayOptions = options.map((option) => ({
+    value: option.canonicalValue,
+    label: option.displayText,
   }));
   const displayOptionRows: { value: string; label: string }[][] = [];
 
@@ -392,7 +390,7 @@ export default function ArenaSessionScreen() {
         );
       }
 
-      const selectedIndex = (currentQuestion?.options ?? []).findIndex((o: string) => o === selectedOption);
+      const selectedIndex = (currentQuestion?.options ?? []).findIndex((option) => option.canonicalValue === selectedOption);
       if (selectedIndex >= 0) {
         if (lastAnswerCorrect) {
           Animated.sequence([
@@ -695,7 +693,7 @@ export default function ArenaSessionScreen() {
               <View style={styles.playerAnswersHeader}>
                 <View>
                   <Text style={styles.playerAnswersEyebrow}>Correct answer</Text>
-                  <Text style={styles.playerAnswersTitle}>{currentQuestion?.correctAnswer ?? '—'}</Text>
+                  <Text style={styles.playerAnswersTitle}>{currentQuestion?.correctAnswerDisplay ?? currentQuestion?.correctAnswer ?? '—'}</Text>
                 </View>
                 <View
                   style={[

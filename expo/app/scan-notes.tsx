@@ -28,14 +28,15 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
-import { Flashcard } from '@/types/flashcard';
+import { prepareGeneratedFlashcards } from '@/utils/flashcardContent';
 import { DATA_PRIVACY_ROUTE, DECKS_ROUTE } from '@/utils/routes';
 import { generateObject } from '@rork-ai/toolkit-sdk';
 
 const flashcardSchema = z.object({
   cards: z.array(z.object({
-    question: z.string().describe('A clear question based on the notes content'),
-    answer: z.string().describe('A concise answer, maximum 60 characters. Use short phrases, not full sentences.'),
+    question: z.string().describe('A clear, concise flashcard question written for mobile study.'),
+    answer: z.string().describe('A short canonical answer label, ideally 1-5 words. Do not include explanations, caveats, or full-sentence teaching text.'),
+    explanation: z.string().optional().describe('Optional short explanation that adds context, examples, or nuance. Keep it separate from the answer.'),
   })).describe('Array of flashcard question-answer pairs extracted from the image'),
   deckName: z.string().describe('A short descriptive name for this deck based on the content'),
   deckDescription: z.string().describe('A brief description of what these flashcards cover'),
@@ -46,18 +47,8 @@ type GeneratedCard = {
   id: string;
   question: string;
   answer: string;
+  explanation?: string;
 };
-
-function trimAnswer(answer: string, maxLen: number = 70): string {
-  const normalized = answer.trim();
-  if (normalized.length <= maxLen) {
-    return normalized;
-  }
-
-  const trimmed = normalized.slice(0, maxLen).trimEnd();
-  const lastSpace = trimmed.lastIndexOf(' ');
-  return (lastSpace > maxLen * 0.6 ? trimmed.slice(0, lastSpace) : trimmed).trimEnd();
-}
 
 type ScanStep = 'pick' | 'processing' | 'review';
 
@@ -152,7 +143,19 @@ export default function ScanNotesPage() {
             content: [
               {
                 type: 'text',
-                text: 'Look at this image of notes/study material. Extract key concepts and create flashcard question-answer pairs from it. Create between 3-15 flashcards depending on how much content is visible. Make questions clear and specific. Make answers concise but complete. Keep all answers under 60 characters. Use short phrases, abbreviations, or key terms — not full sentences. Also suggest a deck name and description based on the content.',
+                text: `Look at this image of notes/study material and create high-quality flashcards for a mobile study app.
+
+Hard rules:
+- Questions must be clear, direct, and semantically specific
+- Answers must be concise canonical labels, usually 1-5 words
+- Never put explanations, examples, hedging, or teaching paragraphs inside the answer field
+- If added context matters, put it in explanation instead
+- Avoid filler like "It is", "This is", "The answer is", or sentence fragments posing as answers
+- Avoid duplicates, near-duplicates, and ambiguous cards
+- Prefer multiple-choice-friendly answers with clean concept labels
+- Keep wording visually compact and readable on a phone
+
+Also suggest a deck name, description, and category.`,
               },
               {
                 type: 'image',
@@ -167,7 +170,8 @@ export default function ScanNotesPage() {
       const cards: GeneratedCard[] = result.cards.map((card, index) => ({
         id: `gen_${Date.now()}_${index}`,
         question: card.question.slice(0, 500),
-        answer: trimAnswer(card.answer, 70),
+        answer: card.answer.trim(),
+        explanation: card.explanation?.trim(),
       }));
 
       setGeneratedCards(cards);
@@ -305,14 +309,22 @@ export default function ScanNotesPage() {
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
     const newDeckId = `deck_${Date.now()}`;
 
-    const flashcards: Flashcard[] = validCards.map((c, index) => ({
-      id: `ai_${newDeckId}_${index}`,
-      question: c.question.trim(),
-      answer: c.answer.trim(),
+    const prepared = prepareGeneratedFlashcards({
       deckId: newDeckId,
-      difficulty: 'medium' as const,
       createdAt: Date.now(),
-    }));
+      idPrefix: `ai_${newDeckId}`,
+      cards: validCards.map((c) => ({
+        question: c.question,
+        answer: c.answer,
+        explanation: c.explanation,
+        difficulty: 'medium' as const,
+      })),
+    });
+
+    if (prepared.flashcards.length === 0) {
+      Alert.alert('Generation needs review', 'These cards still need cleanup before they can be saved. Edit the wording and try again.');
+      return;
+    }
 
     addDeck({
       id: newDeckId,
@@ -321,7 +333,7 @@ export default function ScanNotesPage() {
       color: randomColor,
       icon: 'sparkles',
       category: resolvedCategory,
-      flashcards,
+      flashcards: prepared.flashcards,
       isCustom: true,
       createdAt: Date.now(),
     });
@@ -329,12 +341,12 @@ export default function ScanNotesPage() {
       event: 'deck_created',
       properties: {
         method: 'ai_scan',
-        card_count: validCards.length,
+        card_count: prepared.flashcards.length,
         deck_name: deckName.trim(),
       },
     });
 
-    Alert.alert('Deck Created!', `${validCards.length} flashcards generated from your notes.`, [
+    Alert.alert('Deck Created!', `${prepared.flashcards.length} flashcards generated from your notes.`, [
       { text: 'View Decks', onPress: () => router.replace(DECKS_ROUTE) },
     ]);
   }, [deckCategory, deckName, deckDescription, generatedCards, addDeck, router]);

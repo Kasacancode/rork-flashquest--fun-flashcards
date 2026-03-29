@@ -3,6 +3,7 @@
 // Shared by repository, engine, and TRPC routes.
 
 import { PLAYER_IDENTITIES } from '../../constants/avatar';
+import type { FlashcardAnswerType, FlashcardOption } from '../../types/flashcard';
 import type { AvatarIdentity, PlayerSuit } from '../../types/avatar';
 
 export type { PlayerSuit };
@@ -32,7 +33,10 @@ export interface RoomQuestion {
   cardId: string;
   question: string;
   correctAnswer: string;
-  options: string[];
+  correctAnswerDisplay: string;
+  normalizedCorrectAnswer: string;
+  answerType: FlashcardAnswerType;
+  options: FlashcardOption[];
 }
 
 export const ARENA_BACKEND_ERROR_CODES = {
@@ -61,9 +65,12 @@ export interface ArenaDeckSourceCard {
 
 export interface ArenaReadyCard {
   id: string;
-  question: string;
-  answer: string;
+  canonicalQuestion: string;
+  canonicalAnswer: string;
+  battleQuestion: string;
+  battleAnswer: string;
   normalizedAnswer: string;
+  answerType: FlashcardAnswerType;
 }
 
 export interface ArenaDeckPreparationDiagnostics {
@@ -191,8 +198,9 @@ export interface SanitizedPlayer {
 export interface SanitizedQuestion {
   cardId: string;
   question: string;
-  options: string[];
+  options: FlashcardOption[];
   correctAnswer?: string;
+  correctAnswerDisplay?: string;
 }
 
 export interface SanitizedGameState {

@@ -25,6 +25,7 @@ import { usePerformance } from '@/context/PerformanceContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import type { Flashcard } from '@/types/flashcard';
 import type { RecallQuality } from '@/types/performance';
+import { getCanonicalAnswer, getCanonicalQuestion, getCardAnswerForSurface, getCardQuestionForSurface } from '@/utils/flashcardContent';
 import { DATA_PRIVACY_ROUTE } from '@/utils/routes';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -90,6 +91,8 @@ export default function StudyFeed({
 
   const sourceCard = flashcards[currentIndex] ?? null;
   const currentCard = displayCard ?? sourceCard;
+  const displayQuestion = currentCard ? getCardQuestionForSurface(currentCard, 'study') : '';
+  const displayAnswer = currentCard ? getCardAnswerForSurface(currentCard, 'study') : '';
 
   const clearHintDismissTimer = useCallback(() => {
     if (hintDismissTimer.current) {
@@ -363,7 +366,7 @@ export default function StudyFeed({
       cardId: currentCard.id,
       isCorrect: quality !== 1,
       selectedOption: quality === 1 ? 'study-forgot' : 'study-self-rated',
-      correctAnswer: currentCard.answer,
+      correctAnswer: getCanonicalAnswer(currentCard),
       timeToAnswerMs: Math.max(0, Date.now() - cardStartedAtRef.current),
       quality,
       mode: 'study',
@@ -496,7 +499,7 @@ export default function StudyFeed({
       const hint = await generateText({
         messages: [{
           role: 'user' as const,
-          content: `Generate a concise, helpful hint for this flashcard question. Guide the student toward the answer without revealing it directly. Keep it to 1-2 sentences.\n\nQuestion: ${currentCard.question}\nAnswer: ${currentCard.answer}`,
+          content: `Generate a concise, helpful hint for this flashcard question. Guide the student toward the answer without revealing it directly. Keep it to 1-2 sentences.\n\nQuestion: ${getCanonicalQuestion(currentCard)}\nAnswer: ${getCanonicalAnswer(currentCard)}`,
         }],
       });
 
@@ -528,7 +531,7 @@ export default function StudyFeed({
       const explanation = await generateText({
         messages: [{
           role: 'user' as const,
-          content: `Generate a clear, educational explanation for this flashcard. Help the student deeply understand why this answer is correct. Keep it to 2-3 sentences.\n\nQuestion: ${currentCard.question}\nAnswer: ${currentCard.answer}`,
+          content: `Generate a clear, educational explanation for this flashcard. Help the student deeply understand why this answer is correct. Keep it to 2-3 sentences.\n\nQuestion: ${getCanonicalQuestion(currentCard)}\nAnswer: ${getCanonicalAnswer(currentCard)}`,
         }],
       });
 
@@ -716,7 +719,7 @@ export default function StudyFeed({
               ) : null}
             </View>
             <Text style={[styles.cardText, { color: isDark ? theme.text : '#333' }]}>
-              {isRevealed ? currentCard.answer : currentCard.question}
+              {isRevealed ? displayAnswer : displayQuestion}
             </Text>
             <Text style={[styles.cardHint, { color: isDark ? theme.textSecondary : '#999' }]}>
               {isRevealed ? 'Swipe up for the next card or right for explanation' : 'Tap to reveal answer'}

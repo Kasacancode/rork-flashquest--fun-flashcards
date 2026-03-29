@@ -6,6 +6,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import type { AnswerEntry, RoomQuestion } from '@/backend/arena/types';
 import { DealerReaction } from '@/components/AnswerCard';
 import { trackEvent } from '@/lib/analytics';
 import { useArena } from '@/context/ArenaContext';
@@ -32,8 +33,8 @@ interface ResultPlayer {
 interface CachedResults {
   players: ResultPlayer[];
   scores: Record<string, { correct: number; incorrect: number; points: number; currentStreak: number; bestStreak: number }>;
-  allQuestions: { cardId: string; question: string; correctAnswer: string; options: string[] }[] | null;
-  allAnswers: Record<string, Record<number, { selectedOption: string; isCorrect: boolean; timeToAnswerMs: number }>> | null;
+  allQuestions: RoomQuestion[] | null;
+  allAnswers: Record<string, Record<number, AnswerEntry>> | null;
   totalQuestions: number;
   startedAt: number;
   finishedAt: number | null;
@@ -245,13 +246,13 @@ export default function ArenaResultsScreen() {
 
   const missedQuestions = useMemo(() => {
     if (!data?.allQuestions || !data.allAnswers) {
-      return [] as { cardId: string; question: string; correctAnswer: string; questionIndex: number }[];
+      return [] as { cardId: string; question: string; correctAnswer: string; correctAnswerDisplay: string; questionIndex: number }[];
     }
 
     const relevantAnswerEntries = playerId && data.allAnswers[playerId]
       ? [data.allAnswers[playerId]]
       : Object.values(data.allAnswers);
-    const missed: { cardId: string; question: string; correctAnswer: string; questionIndex: number }[] = [];
+    const missed: { cardId: string; question: string; correctAnswer: string; correctAnswerDisplay: string; questionIndex: number }[] = [];
     const seenIds = new Set<string>();
 
     for (const playerAnswers of relevantAnswerEntries) {
@@ -264,6 +265,7 @@ export default function ArenaResultsScreen() {
             cardId: q.cardId,
             question: q.question,
             correctAnswer: q.correctAnswer,
+            correctAnswerDisplay: q.correctAnswerDisplay,
             questionIndex: qIndex,
           });
         }
@@ -696,7 +698,7 @@ export default function ArenaResultsScreen() {
                         {item.question}
                       </Text>
                       <Text style={[styles.missedAnswer, { color: theme.success }]}>
-                        Answer: {item.correctAnswer}
+                        Answer: {item.correctAnswerDisplay}
                       </Text>
                     </View>
                   ))}
