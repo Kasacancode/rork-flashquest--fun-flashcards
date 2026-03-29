@@ -15,6 +15,7 @@ import { useTheme } from '@/context/ThemeContext';
 import type { ArenaLeaderboardEntry } from '@/types/arena';
 import { GAME_MODE } from '@/types/game';
 import { selectAssistantDialogue } from '@/utils/dialogue';
+import { getIndexedRenderKey, getOptionalRenderKey } from '@/utils/listKeys';
 import { logger } from '@/utils/logger';
 import { shareTextWithFallback } from '@/utils/share';
 import { ARENA_LOBBY_ROUTE, HOME_ROUTE, focusedQuestSessionHref, questHref } from '@/utils/routes';
@@ -480,7 +481,7 @@ export default function ArenaResultsScreen() {
 
                 return (
                   <View
-                    key={`podium-${player.id}`}
+                    key={getOptionalRenderKey(player.id, 'podium-player', index)}
                     style={[
                       styles.podiumCard,
                       {
@@ -544,9 +545,9 @@ export default function ArenaResultsScreen() {
               <Text style={[styles.winnerSectionStats, { color: theme.textSecondary }]}>{winnerStatsText}</Text>
               {winnerCallouts.length > 0 && (
                 <View style={styles.winnerCalloutRow}>
-                  {winnerCallouts.map((callout) => (
+                  {winnerCallouts.map((callout, index) => (
                     <View
-                      key={callout}
+                      key={getIndexedRenderKey(callout, 'winner-callout', index)}
                       style={[
                         styles.winnerCalloutBadge,
                         {
@@ -578,7 +579,7 @@ export default function ArenaResultsScreen() {
 
                 return (
                   <View
-                    key={player.id}
+                    key={getOptionalRenderKey(player.id, 'arena-results-player', index)}
                     testID={`arena-results-player-row-${index + 1}`}
                     style={[
                       styles.standingRow,

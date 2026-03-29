@@ -4,6 +4,7 @@ import React from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { useTheme } from '@/context/ThemeContext';
+import { getIndexedRenderKey } from '@/utils/listKeys';
 
 interface ConsentSheetProps {
   visible: boolean;
@@ -60,8 +61,8 @@ export default function ConsentSheet({
           <Text style={[styles.description, { color: theme.textSecondary }]}>{description}</Text>
 
           <View style={styles.bulletList}>
-            {bullets.map((bullet) => (
-              <View key={bullet} style={[styles.bulletRow, { backgroundColor: bulletSurface, borderColor: subtle }]}>
+            {bullets.map((bullet, index) => (
+              <View key={getIndexedRenderKey(bullet, 'consent-bullet', index)} style={[styles.bulletRow, { backgroundColor: bulletSurface, borderColor: subtle }]}>
                 <View style={[styles.bulletDot, { backgroundColor: theme.primary }]} />
                 <Text style={[styles.bulletText, { color: theme.text }]}>{bullet}</Text>
               </View>

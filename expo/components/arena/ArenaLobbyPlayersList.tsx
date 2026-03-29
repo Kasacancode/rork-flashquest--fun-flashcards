@@ -3,6 +3,7 @@ import { Animated, FlatList, StyleSheet, Text, TouchableOpacity, View } from 're
 import { Wifi, WifiOff, X } from 'lucide-react-native';
 
 import type { Theme } from '@/constants/colors';
+import { getOptionalRenderKey } from '@/utils/listKeys';
 
 interface LobbyPlayer {
   id: string;
@@ -216,7 +217,11 @@ function ArenaLobbyPlayersList({
     [arenaAccent, codeCopied, getPlayerEntryAnimation, isDark, isHost, onCopyCode, onRemovePlayer, playerId, roomCode, theme],
   );
 
-  const keyExtractor = useCallback((item: LobbyListItem) => (item.type === 'invite' ? item.id : item.player.id), []);
+  const keyExtractor = useCallback((item: LobbyListItem, index: number) => (
+    item.type === 'invite'
+      ? getOptionalRenderKey(item.id, 'arena-lobby-invite', index)
+      : getOptionalRenderKey(item.player.id, 'arena-lobby-player', index)
+  ), []);
 
   return (
     <FlatList

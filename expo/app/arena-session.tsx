@@ -13,6 +13,7 @@ import { DealerCountdownBar, StreakIndicator } from '@/components/GameUI';
 import { useArena } from '@/context/ArenaContext';
 import { useTheme } from '@/context/ThemeContext';
 import { isMeaningfulArenaStreak, selectAssistantDialogue, type ArenaDialogueEvent } from '@/utils/dialogue';
+import { getOptionalRenderKey } from '@/utils/listKeys';
 import { logger } from '@/utils/logger';
 import { ARENA_RESULTS_ROUTE, ARENA_ROUTE } from '@/utils/routes';
 
@@ -722,12 +723,12 @@ export default function ArenaSessionScreen() {
                   <Text style={styles.pointsPillText}>+{myPointsGain} pts</Text>
                 </View>
               )}
-              {players.map((player: any) => {
+              {players.map((player: any, index: number) => {
                 const answer = currentAnswers[player.id];
                 if (!answer) return null;
                 const pointsDelta = scoreboardPlayers.find((entry) => entry.id === player.id)?.pointsDelta ?? 0;
                 return (
-                  <View key={player.id} style={styles.playerAnswerRow}>
+                  <View key={getOptionalRenderKey(player.id, 'arena-answer-player', index)} style={styles.playerAnswerRow}>
                     <View style={[styles.playerAnswerDot, { backgroundColor: player.color }]} />
                     <Text style={styles.playerAnswerName} numberOfLines={1}>{player.name}</Text>
                     {pointsDelta > 0 && (
@@ -758,9 +759,9 @@ export default function ArenaSessionScreen() {
           )}
 
           <View style={styles.compactScoreboard}>
-            {scoreboardPlayers.slice(0, 4).map((player) => (
+            {scoreboardPlayers.slice(0, 4).map((player, index) => (
               <View
-                key={player.id}
+                key={getOptionalRenderKey(player.id, 'arena-scoreboard-player', index)}
                 style={[
                   styles.compactScoreItem,
                   player.id === playerId && styles.compactScoreItemActive,

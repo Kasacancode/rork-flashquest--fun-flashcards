@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Platform } from 'react-native';
 
 import { useTheme } from '@/context/ThemeContext';
+import { getOptionalRenderKey } from '@/utils/listKeys';
 
 interface TimerProgressBarProps {
   timeRemaining: number;
@@ -290,7 +291,7 @@ export function MiniScoreboard({ players, currentPlayerId, maxDisplay = 4 }: Min
         const isCurrentPlayer = player.id === currentPlayerId;
         return (
           <View 
-            key={player.id} 
+            key={getOptionalRenderKey(player.id, 'mini-score-player', index)} 
             style={[
               styles.scoreboardItem,
               isCurrentPlayer && styles.scoreboardItemActive,
