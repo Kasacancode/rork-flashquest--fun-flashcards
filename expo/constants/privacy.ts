@@ -25,9 +25,9 @@ export const DEFAULT_PRIVACY_SETTINGS: PrivacySettings = {
 };
 
 export const PRIVACY_LINKS = {
-  privacyPolicyUrl: 'https://www.notion.so/Privacy-Policy-for-FlashQuest-32b5fb36e2a8802f9f52c44bb4d17f05',
-  termsUrl: 'https://www.notion.so/Terms-of-Service-for-FlashQuest-32f5fb36e2a880b591adeb3ae3f82adc',
-  supportUrl: 'https://www.notion.so/FlashQuest-Support-32a5fb36e2a8802499b2d3575ce79e90',
+  privacyPolicyUrl: 'https://flashquest.net/privacy.html',
+  termsUrl: 'https://flashquest.net/terms.html',
+  supportUrl: 'https://flashquest.net/support.html',
   supportEmail: 'support@flashquest.net',
   privacyEmail: 'privacy@flashquest.net',
 } as const;
