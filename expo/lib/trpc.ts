@@ -22,15 +22,7 @@ function normalizeBaseUrl(value: string | null | undefined): string | null {
 }
 
 function getProjectBaseUrlCandidates(): string[] {
-  const projectId = process.env.EXPO_PUBLIC_PROJECT_ID?.trim();
-  if (!projectId) {
-    return [];
-  }
-
-  return [
-    `https://dev-${projectId}.rorktest.dev`,
-    `https://${projectId}.rorktest.dev`,
-  ];
+  return ['https://flashquest.net'];
 }
 
 function getWindowBaseUrlCandidate(): string | null {

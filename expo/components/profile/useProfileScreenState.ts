@@ -1,18 +1,17 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated } from 'react-native';
+import { Animated } from 'react-native';
 
 import { HERO_GRADIENTS } from '@/components/profile/profileScreen.constants';
 import type { GradientTriplet, TabType } from '@/components/profile/profileScreen.types';
 import { AVATAR_COLORS, AVATAR_SUITS } from '@/constants/avatar';
 import { useArena } from '@/context/ArenaContext';
 import { useAvatar } from '@/context/AvatarContext';
-import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { openSupportContact } from '@/utils/support';
-import { ANALYTICS_DEBUG_ROUTE, DATA_PRIVACY_ROUTE, FAQ_ROUTE } from '@/utils/routes';
+import { DATA_PRIVACY_ROUTE, FAQ_ROUTE } from '@/utils/routes';
 import {
   ACHIEVEMENT_CATEGORIES,
   computeAchievements,
@@ -24,7 +23,6 @@ import { getPlayerNameValidationError } from '@/utils/playerName';
 
 export function useProfileScreenState() {
   const navigation = useRouter();
-  const { canAccessDeveloperTools } = useDeveloperAccess();
   const { stats, decks } = useFlashQuest();
   const { performance } = usePerformance();
   const { playerName, updatePlayerName, isPlayerNameReady, leaderboard } = useArena();
@@ -154,18 +152,6 @@ export function useProfileScreenState() {
     setShowLevels(false);
   }, []);
 
-  const handleOpenAnalyticsDebug = useCallback(() => {
-    if (!canAccessDeveloperTools) {
-      return;
-    }
-
-    navigation.push(ANALYTICS_DEBUG_ROUTE);
-  }, [canAccessDeveloperTools, navigation]);
-
-  const handleComingSoon = useCallback((label: string) => {
-    Alert.alert(label, `${label} is coming soon.`);
-  }, []);
-
   const handleOpenFAQ = useCallback(() => {
     navigation.push(FAQ_ROUTE);
   }, [navigation]);
@@ -228,7 +214,6 @@ export function useProfileScreenState() {
     theme,
     isDark,
     toggleTheme,
-    canAccessDeveloperTools,
     activeTab,
     activeAchievementCategory,
     showLevels,
@@ -265,8 +250,6 @@ export function useProfileScreenState() {
     handleOpenLevels,
     handleSelectAchievementCategory,
     handleCloseLevels,
-    handleOpenAnalyticsDebug,
-    handleComingSoon,
     handleOpenFAQ,
     handleOpenSupport,
     handleOpenPrivacy,

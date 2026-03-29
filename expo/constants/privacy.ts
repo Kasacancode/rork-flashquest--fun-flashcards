@@ -33,9 +33,9 @@ export const PRIVACY_LINKS = {
 } as const;
 
 export const PRIVACY_COPY = {
-  analyticsTitle: 'Anonymous analytics',
-  analyticsDescription: 'If you allow analytics, FlashQuest sends anonymous usage events like app opens, deck creation, and session starts so we can improve stability and product quality.',
+  analyticsTitle: 'Optional analytics',
+  analyticsDescription: 'If you allow analytics, FlashQuest sends usage events such as app opens, deck creation, study session activity, and battle flow events to help improve reliability and product quality. Some events can include app-generated session, deck, room, or player identifiers when needed to understand how features are performing.',
   onDeviceDescription: 'Most decks, study progress, streaks, settings, and performance history stay on your device.',
-  remoteServicesDescription: 'Multiplayer battles use remote services for rooms, player presence, deck labels, and live match state. Analytics are only sent after you opt in.',
-  aiDescription: 'When you use AI features, the notes, images, questions, or answers needed for that feature are sent to an AI processing service to generate flashcards, hints, explanations, or answer choices.',
+  remoteServicesDescription: 'Multiplayer battles use remote services to create rooms, keep players in sync, and process or store live match state. That can include room codes, player display names, selected deck labels, and the deck content used in the match such as questions, answer options, correct answers, player answers, and scores where the battle needs them.',
+  aiDescription: 'When you use AI features, FlashQuest sends the notes, images, questions, or answers needed for that feature to an AI processing service so it can generate flashcards, hints, explanations, or answer choices.',
 } as const;

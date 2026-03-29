@@ -24,7 +24,6 @@ export const PRACTICE_ROUTE = '/practice' as const satisfies Href;
 export const PRACTICE_SESSION_ROUTE = '/practice-session' as const satisfies Href;
 export const STUDY_ROUTE = '/study' as const satisfies Href;
 export const DECK_HUB_ROUTE = '/deck-hub' as const satisfies Href;
-export const ANALYTICS_DEBUG_ROUTE = '/analytics-debug' as const satisfies Href;
 
 export function createFlashcardHref(deckId?: string): Href {
   return deckId

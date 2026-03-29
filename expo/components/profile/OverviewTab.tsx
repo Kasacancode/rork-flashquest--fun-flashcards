@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Crown, HelpCircle, Mail, Moon, ShieldCheck, Sun, User } from 'lucide-react-native';
+import { HelpCircle, Mail, Moon, ShieldCheck, Sun } from 'lucide-react-native';
 import React from 'react';
 import { Switch, Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
@@ -12,12 +12,9 @@ type TextStyles<K extends string> = { [P in K]: StyleProp<TextStyle> };
 interface OverviewTabProps {
   isDark: boolean;
   toggleTheme: () => void;
-  canAccessDeveloperTools: boolean;
-  onOpenAnalyticsDebug: () => void;
   onOpenFAQ: () => void;
   onOpenSupport: () => void;
   onOpenPrivacy: () => void;
-  onComingSoon: (label: string) => void;
   surfaceGradient: readonly [string, string];
   styles: ViewStyles<
     | 'tabContent'
@@ -26,19 +23,10 @@ interface OverviewTabProps {
     | 'toggleCard'
     | 'toggleLeadingIcon'
     | 'toggleTextWrap'
-    | 'utilityGrid'
-    | 'utilityCard'
-    | 'utilityCardGradient'
-    | 'utilityIconWrap'
-    | 'debugButton'
   > &
     TextStyles<
       | 'toggleTitle'
       | 'toggleSubtitle'
-      | 'utilityTitle'
-      | 'utilityDescription'
-      | 'utilityTag'
-      | 'debugButtonText'
     >;
   theme: Theme;
 }
@@ -46,12 +34,9 @@ interface OverviewTabProps {
 export default function OverviewTab({
   isDark,
   toggleTheme,
-  canAccessDeveloperTools,
-  onOpenAnalyticsDebug,
   onOpenFAQ,
   onOpenSupport,
   onOpenPrivacy,
-  onComingSoon,
   surfaceGradient,
   styles,
   theme,
@@ -148,60 +133,6 @@ export default function OverviewTab({
         </LinearGradient>
       </View>
 
-      <View style={styles.utilityGrid}>
-        <TouchableOpacity
-          style={styles.utilityCard}
-          onPress={() => onComingSoon('Friends')}
-          activeOpacity={0.88}
-          testID="profile-card-friends"
-        >
-          <LinearGradient
-            colors={surfaceGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.utilityCardGradient}
-          >
-            <View style={styles.utilityIconWrap}>
-              <User color={theme.primary} size={18} strokeWidth={2.3} />
-            </View>
-            <Text style={styles.utilityTitle}>Friends</Text>
-            <Text style={styles.utilityDescription}>Follow classmates and compare progress soon.</Text>
-            <Text style={styles.utilityTag}>Coming soon</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.utilityCard}
-          onPress={() => onComingSoon('Leaderboard')}
-          activeOpacity={0.88}
-          testID="profile-card-leaderboard"
-        >
-          <LinearGradient
-            colors={surfaceGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.utilityCardGradient}
-          >
-            <View style={styles.utilityIconWrap}>
-              <Crown color={theme.primary} size={18} strokeWidth={2.3} />
-            </View>
-            <Text style={styles.utilityTitle}>Leaderboard</Text>
-            <Text style={styles.utilityDescription}>Rank up against other players in future updates.</Text>
-            <Text style={styles.utilityTag}>Coming soon</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-
-      {canAccessDeveloperTools ? (
-        <TouchableOpacity
-          style={styles.debugButton}
-          onPress={onOpenAnalyticsDebug}
-          activeOpacity={0.84}
-          testID="profile-open-analytics-debug"
-        >
-          <Text style={styles.debugButtonText}>Analytics Debug</Text>
-        </TouchableOpacity>
-      ) : null}
     </View>
   );
 }

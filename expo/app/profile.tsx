@@ -25,7 +25,6 @@ export default function ProfilePage() {
     theme,
     isDark,
     toggleTheme,
-    canAccessDeveloperTools,
     activeTab,
     activeAchievementCategory,
     showLevels,
@@ -62,8 +61,6 @@ export default function ProfilePage() {
     handleOpenLevels,
     handleSelectAchievementCategory,
     handleCloseLevels,
-    handleOpenAnalyticsDebug,
-    handleComingSoon,
     handleOpenFAQ,
     handleOpenSupport,
     handleOpenPrivacy,
@@ -190,12 +187,9 @@ export default function ProfilePage() {
             <OverviewTab
               isDark={isDark}
               toggleTheme={toggleTheme}
-              canAccessDeveloperTools={canAccessDeveloperTools}
-              onOpenAnalyticsDebug={handleOpenAnalyticsDebug}
               onOpenFAQ={handleOpenFAQ}
               onOpenSupport={handleOpenSupport}
               onOpenPrivacy={handleOpenPrivacy}
-              onComingSoon={handleComingSoon}
               surfaceGradient={surfaceGradient}
               styles={styles}
               theme={theme}

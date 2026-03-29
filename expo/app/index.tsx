@@ -3,7 +3,6 @@ import { useRouter, type Href } from 'expo-router';
 import { Trophy, BookOpen, Swords, Target, User } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
-  Alert,
   View,
   Text,
   StyleSheet,
@@ -17,7 +16,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useDeveloperAccess } from '@/context/DeveloperAccessContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -53,13 +51,6 @@ export default function HomePage() {
   const { stats, decks } = useFlashQuest();
   const { performance, getWeakCards } = usePerformance();
   const { theme, isDark } = useTheme();
-  const {
-    canAccessDeveloperTools,
-    disableDeveloperAccess,
-    enableDeveloperAccess,
-    isReady: isDeveloperAccessReady,
-  } = useDeveloperAccess();
-  const didHandleLongPressRef = useRef<boolean>(false);
   const streakAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
   const cardsAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
   const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
@@ -197,30 +188,8 @@ export default function HomePage() {
   }, [decks, getWeakCards, performance.cardStatsById, performance.deckStatsById]);
 
   const handleOpenProfile = useCallback(() => {
-    if (didHandleLongPressRef.current) {
-      didHandleLongPressRef.current = false;
-      return;
-    }
-
     router.push('/profile' as Href);
   }, [router]);
-
-  const handleProfileLongPress = useCallback(() => {
-    if (!isDeveloperAccessReady) {
-      return;
-    }
-
-    didHandleLongPressRef.current = true;
-
-    if (canAccessDeveloperTools) {
-      disableDeveloperAccess();
-      Alert.alert('Developer tools hidden', 'Analytics debug is now hidden on this device.');
-      return;
-    }
-
-    enableDeveloperAccess();
-    Alert.alert('Developer tools unlocked', 'Analytics debug is now available inside Profile on this device.');
-  }, [canAccessDeveloperTools, disableDeveloperAccess, enableDeveloperAccess, isDeveloperAccessReady]);
 
   const renderActionCard = ({
     route,
@@ -325,8 +294,6 @@ export default function HomePage() {
                 },
               ]}
               onPress={handleOpenProfile}
-              onLongPress={handleProfileLongPress}
-              delayLongPress={700}
               activeOpacity={0.8}
               testID="home-profile-button"
             >

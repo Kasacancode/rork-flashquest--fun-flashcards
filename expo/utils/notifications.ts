@@ -111,15 +111,19 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return false;
 }
 
-export async function scheduleStreakReminder(): Promise<void> {
+export async function scheduleStreakReminder(options?: { requestPermissionIfNeeded?: boolean }): Promise<void> {
   try {
     if (Platform.OS === 'web') {
       return;
     }
 
-    const { status } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const grantedAfterPrompt = existingStatus !== 'granted' && options?.requestPermissionIfNeeded
+      ? await requestNotificationPermission()
+      : false;
+    const hasPermission = existingStatus === 'granted' || grantedAfterPrompt;
 
-    if (status !== 'granted') {
+    if (!hasPermission) {
       return;
     }
 

@@ -2,13 +2,13 @@ import { Redis } from '@upstash/redis';
 
 import type { Room } from '../arena/types';
 import { createRedisConfigError } from '../errors';
-import { GAME_MODE } from '../../types/game';
 import type { AnalyticsEvent, AnalyticsSummaryCounts } from './types';
 import { ANALYTICS_EVENT_NAMES, createEmptyAnalyticsSummaryCounts, getAnalyticsDay } from './types';
 
 const RAW_RETENTION_SECONDS = 30 * 24 * 60 * 60;
 const COUNTER_RETENTION_SECONDS = 400 * 24 * 60 * 60;
 const KEY_PREFIX = 'flashquest:analytics';
+const ENABLE_SERVER_SIDE_BATTLE_ANALYTICS = false;
 
 let redisInstance: Redis | null = null;
 
@@ -147,6 +147,10 @@ class AnalyticsRepository {
   }
 
   async trackBattleFinishedOnce(room: Pick<Room, 'code' | 'players' | 'deckId' | 'deckName' | 'game' | 'status'>): Promise<boolean> {
+    if (!ENABLE_SERVER_SIDE_BATTLE_ANALYTICS) {
+      return false;
+    }
+
     if (!isFinishedRoom(room) || room.game.finishedAt == null) {
       return false;
     }
@@ -178,7 +182,6 @@ class AnalyticsRepository {
           battle_duration_ms: battleDurationMs,
           questions_answered: getQuestionsAnswered(room),
           winner_player_id: winnerPlayerId,
-          mode: GAME_MODE.ARENA,
           deck_name: room.deckName ?? null,
         },
       });

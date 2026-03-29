@@ -12,7 +12,6 @@ import LevelUpMonitor from '@/components/LevelUpMonitor';
 import ConsentSheet from '@/components/privacy/ConsentSheet';
 import { ArenaProvider } from '@/context/ArenaContext';
 import { AvatarProvider } from '@/context/AvatarContext';
-import { DeveloperAccessProvider } from '@/context/DeveloperAccessContext';
 import { FlashQuestProvider } from '@/context/FlashQuestContext';
 import { PerformanceProvider } from '@/context/PerformanceContext';
 import { PrivacyProvider, usePrivacy } from '@/context/PrivacyContext';
@@ -20,7 +19,6 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { setAnalyticsCollectionEnabled, trackEvent } from '@/lib/analytics';
 import { trpc, trpcClient } from '@/lib/trpc';
 import { logger } from '@/utils/logger';
-import { requestNotificationPermission, scheduleStreakReminder } from '@/utils/notifications';
 import { DATA_PRIVACY_ROUTE } from '@/utils/routes';
 import { readStringFlag } from '@/utils/storage';
 
@@ -69,7 +67,6 @@ function RootLayoutNav() {
       <Stack.Screen name="text-to-deck" options={{ headerShown: false }} />
       <Stack.Screen name="deck-hub" options={{ headerShown: false }} />
       <Stack.Screen name="data-privacy" options={{ headerShown: false }} />
-      {__DEV__ ? <Stack.Screen name="analytics-debug" options={{ headerShown: false }} /> : null}
       <Stack.Screen name="faq" options={{ headerShown: false }} />
     </Stack>
   );
@@ -104,7 +101,6 @@ function AppShell() {
   const { analyticsEnabled, setAnalyticsConsent, shouldAskForAnalyticsConsent } = usePrivacy();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState<boolean | null>(null);
   const didTrackAppOpenRef = useRef<boolean>(false);
-  const didSetupNotificationsRef = useRef<boolean>(false);
 
   useEffect(() => {
     setAnalyticsCollectionEnabled(analyticsEnabled);
@@ -154,26 +150,6 @@ function AppShell() {
     return () => clearTimeout(timer);
   }, [analyticsEnabled, isOnboardingComplete, pathname]);
 
-  useEffect(() => {
-    if (isOnboardingComplete === null || didSetupNotificationsRef.current) {
-      return;
-    }
-
-    didSetupNotificationsRef.current = true;
-
-    requestNotificationPermission()
-      .then((granted) => {
-        if (granted) {
-          return scheduleStreakReminder();
-        }
-
-        return Promise.resolve();
-      })
-      .catch((error) => {
-        logger.warn('[Layout] Notification setup skipped:', error);
-      });
-  }, [isOnboardingComplete]);
-
   const showAnalyticsConsent = isOnboardingComplete === true
     && shouldAskForAnalyticsConsent
     && pathname !== '/onboarding'
@@ -188,10 +164,10 @@ function AppShell() {
       <ConsentSheet
         visible={showAnalyticsConsent}
         title="Help improve FlashQuest?"
-        description="You control whether FlashQuest sends anonymous usage analytics. Analytics stay off until you choose."
+        description="You control whether FlashQuest sends usage analytics. Analytics stay off until you choose."
         bullets={[
-          'Includes anonymous usage events like app opens and session starts.',
-          'Does not change what stays on-device for decks and study progress.',
+          'Includes events like app opens, deck creation, study sessions, and battle flow activity.',
+          'Some events can include app-generated session, deck, room, or player identifiers.',
           'You can change this later in Data & Privacy.',
         ]}
         primaryLabel="Allow Analytics"
@@ -213,17 +189,15 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
             <PrivacyProvider>
-              <DeveloperAccessProvider>
-                <AvatarProvider>
-                  <FlashQuestProvider>
-                    <PerformanceProvider>
-                      <ArenaProvider>
-                        <AppShell />
-                      </ArenaProvider>
-                    </PerformanceProvider>
-                  </FlashQuestProvider>
-                </AvatarProvider>
-              </DeveloperAccessProvider>
+              <AvatarProvider>
+                <FlashQuestProvider>
+                  <PerformanceProvider>
+                    <ArenaProvider>
+                      <AppShell />
+                    </ArenaProvider>
+                  </PerformanceProvider>
+                </FlashQuestProvider>
+              </AvatarProvider>
             </PrivacyProvider>
           </ThemeProvider>
         </QueryClientProvider>

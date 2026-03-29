@@ -233,7 +233,7 @@ export default function OnboardingPage() {
                         <ShieldCheck color="#fff" size={18} strokeWidth={2.3} />
                       </View>
                       <View style={styles.privacyCopy}>
-                        <Text style={styles.privacyTitle}>Anonymous analytics</Text>
+                        <Text style={styles.privacyTitle}>Optional analytics</Text>
                         <Text style={styles.privacyBody}>FlashQuest keeps analytics off until you choose. You can change this later in Data & Privacy.</Text>
                       </View>
                     </View>
@@ -249,7 +249,7 @@ export default function OnboardingPage() {
                         testID="onboarding-allow-analytics"
                       >
                         <Text style={styles.analyticsChoiceTitle}>Allow Analytics</Text>
-                        <Text style={styles.analyticsChoiceBody}>Share anonymous usage events to help improve FlashQuest.</Text>
+                        <Text style={styles.analyticsChoiceBody}>Share usage events to help improve FlashQuest. Some events can include app-generated session, deck, or battle identifiers.</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity

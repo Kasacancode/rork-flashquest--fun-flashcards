@@ -616,7 +616,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
         throw error;
       }
 
-      scheduleStreakReminder().catch(() => {});
+      scheduleStreakReminder({ requestPermissionIfNeeded: true }).catch(() => {});
     }).catch((error) => {
       logger.error('[FlashQuest] recordSessionResult task failed', error);
     });
