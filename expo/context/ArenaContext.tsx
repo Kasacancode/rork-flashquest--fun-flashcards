@@ -3,7 +3,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 
-import type { RoomSettings, SanitizedRoom } from '@/backend/arena/types';
+import { ARENA_BACKEND_ERROR_CODES, type ArenaDeckSourceCard, type ArenaDeckSelectionResult, type ArenaGameStartResult, type RoomSettings, type SanitizedRoom } from '@/backend/arena/types';
 import { useAvatar } from '@/context/AvatarContext';
 import { trackEvent, trackEvents } from '@/lib/analytics';
 import { trpc } from '@/lib/trpc';
@@ -29,6 +29,7 @@ type PendingDeckSelection = {
 
 type ArenaBackendErrorData = {
   backendCode?: unknown;
+  backendMeta?: unknown;
   code?: unknown;
 };
 
@@ -96,6 +97,55 @@ function sanitizeRoomSnapshot(room: SanitizedRoom): SanitizedRoom {
 function normalizeArenaConnectionError(error: unknown): string {
   const message = getArenaErrorMessage(error).trim();
   const normalizedMessage = message.toLowerCase();
+  const backendCode = getArenaBackendErrorCode(error);
+
+  if (backendCode === ARENA_BACKEND_ERROR_CODES.DECK_NOT_SELECTED) {
+    return 'Choose a deck before starting a battle.';
+  }
+
+  if (backendCode === ARENA_BACKEND_ERROR_CODES.DECK_NOT_READY) {
+    return 'This deck is still getting ready for battle. Try again in a moment.';
+  }
+
+  if (backendCode === ARENA_BACKEND_ERROR_CODES.DECK_NOT_FOUND) {
+    return 'That battle deck could not be found. Re-select the deck and try again.';
+  }
+
+  if (backendCode === ARENA_BACKEND_ERROR_CODES.DECK_TOO_FEW_VALID_CARDS) {
+    return 'This deck needs at least 4 clean cards before it can be used in battle.';
+  }
+
+  if (backendCode === ARENA_BACKEND_ERROR_CODES.DECK_CONTENT_TOO_LONG) {
+    return 'This deck has cards that are too long for live battle. Shorten the longest questions or answers and try again.';
+  }
+
+  if (backendCode === ARENA_BACKEND_ERROR_CODES.DECK_MALFORMED) {
+    return 'This deck has empty or malformed cards that arena cannot use yet. Clean them up and try again.';
+  }
+
+  if (backendCode === ARENA_BACKEND_ERROR_CODES.NOT_ENOUGH_DISTINCT_ANSWERS) {
+    return 'This deck does not have enough distinct answers to build battle rounds.';
+  }
+
+  if (backendCode === ARENA_BACKEND_ERROR_CODES.HOST_MISMATCH) {
+    return 'Only the host can start this battle.';
+  }
+
+  if (backendCode === ARENA_BACKEND_ERROR_CODES.MIN_PLAYERS_REQUIRED) {
+    return 'You need at least 2 players to start a battle.';
+  }
+
+  if (backendCode === ARENA_BACKEND_ERROR_CODES.INVALID_ROOM_STATE) {
+    return 'This battle room is no longer ready to start.';
+  }
+
+  if (backendCode === ARENA_BACKEND_ERROR_CODES.ROOM_SAVE_FAILED || backendCode === ARENA_BACKEND_ERROR_CODES.GAME_GENERATION_FAILED) {
+    return 'Battle setup failed right now. Please try again.';
+  }
+
+  if (backendCode === ARENA_BACKEND_ERROR_CODES.DECK_UPLOAD_TOO_LARGE) {
+    return 'This deck is too large to prepare for battle right now.';
+  }
 
   if (isRedisConfigArenaError(error)) {
     return __DEV__ && message ? message : 'Battle service temporarily unavailable.';
@@ -469,8 +519,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
 
   const leaveMut = trpc.arena.leaveRoom.useMutation();
   const selectDeckMut = trpc.arena.selectDeck.useMutation({
-    onSuccess: (data: { room: SanitizedRoom }) => {
-      logger.debug('[Arena] Deck selection saved');
+    onSuccess: (data: ArenaDeckSelectionResult) => {
+      logger.debug('[Arena] Deck prepared for battle:', data.diagnostics);
       applyIncomingRoom(data.room);
     },
     onError: (error) => {
@@ -492,7 +542,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     },
   });
   const startGameMut = trpc.arena.startGame.useMutation({
-    onSuccess: (data: { room: SanitizedRoom }) => {
+    onSuccess: (data: ArenaGameStartResult) => {
+      logger.debug('[Arena] Battle started from prepared deck:', data.diagnostics);
       applyIncomingRoom(data.room);
       trackEvents([
         {
@@ -629,7 +680,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     clearArenaConnection(null);
   }, [clearArenaConnection, roomCode, playerId, leaveMut]);
 
-  const selectDeck = useCallback((deckId: string, deckName: string) => {
+  const selectDeck = useCallback((deckId: string, deckName: string, cards: ArenaDeckSourceCard[]) => {
     if (!roomCode || !playerId) {
       return;
     }
@@ -637,8 +688,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     const safeDeckName = sanitizePublicLabel(deckName, { maxLength: 80, fallback: 'Study Deck' });
     setConnectionError(null);
     setOptimisticDeckSelection({ deckId, deckName: safeDeckName });
-    logger.debug('[Arena] Selecting deck:', deckId, safeDeckName);
-    selectDeckMut.mutate({ roomCode, playerId, deckId, deckName: safeDeckName });
+    logger.debug('[Arena] Preparing selected deck for battle:', deckId, safeDeckName, 'cards:', cards.length);
+    selectDeckMut.mutate({ roomCode, playerId, deckId, deckName: safeDeckName, cards });
   }, [roomCode, playerId, selectDeckMut]);
 
   const updateSettings = useCallback((settings: { rounds?: number; timerSeconds?: number; showExplanationsAtEnd?: boolean }) => {
@@ -656,9 +707,10 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     updateSettingsMut.mutate({ roomCode, playerId, settings });
   }, [roomCode, playerId, serverRoom?.settings, updateSettingsMut]);
 
-  const startGame = useCallback((questions: { cardId: string; question: string; correctAnswer: string; options: string[] }[]) => {
+  const startGame = useCallback(() => {
     if (!roomCode || !playerId) return;
-    startGameMut.mutate({ roomCode, playerId, questions });
+    logger.debug('[Arena] Requesting backend-generated battle start:', { roomCode, playerId });
+    startGameMut.mutate({ roomCode, playerId });
   }, [roomCode, playerId, startGameMut]);
 
   const submitAnswer = useCallback((questionIndex: number, selectedOption: string) => {

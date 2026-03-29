@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ARENA_ROUND_OPTIONS,
   ARENA_TIMER_OPTIONS,
+  type ArenaDeckSourceCard,
   type ArenaRoundOption,
   type ArenaTimerOption,
   type RoomSettings,
@@ -18,7 +19,6 @@ import ArenaLobbyPlayersList from '@/components/arena/ArenaLobbyPlayersList';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
-import { generateOptions, shuffleArray } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
 import { shareTextWithFallback } from '@/utils/share';
 import { ARENA_ROUTE, ARENA_SESSION_ROUTE } from '@/utils/routes';
@@ -168,39 +168,21 @@ export default function ArenaLobbyScreen() {
   const handleSelectDeck = useCallback((deckId: string) => {
     const deck = decks.find(d => d.id === deckId);
     if (deck) {
-      logger.log('[Lobby] Selecting deck from lobby:', deck.id, deck.name);
-      selectDeck(deck.id, deck.name);
+      const arenaCards: ArenaDeckSourceCard[] = deck.flashcards.map((card) => ({
+        id: card.id,
+        question: card.question,
+        answer: card.answer,
+      }));
+      logger.log('[Lobby] Preparing deck from lobby for backend battle generation:', deck.id, deck.name, 'cards:', arenaCards.length);
+      selectDeck(deck.id, deck.name, arenaCards);
     }
   }, [decks, selectDeck]);
 
   const handleStartGame = useCallback(() => {
     if (!canStartGame || !room?.deckId) return;
-    const deck = decks.find(d => d.id === room.deckId);
-    if (!deck) {
-      Alert.alert('Error', 'Selected deck not found on this device.');
-      return;
-    }
-
-    const allCards = decks.flatMap(d => d.flashcards);
-    const numQuestions = Math.min(room.settings.rounds, deck.flashcards.length);
-    const shuffled = shuffleArray([...deck.flashcards]);
-    const selectedCards = shuffled.slice(0, numQuestions);
-
-    const questions = selectedCards.map(card => ({
-      cardId: card.id,
-      question: card.question,
-      correctAnswer: card.answer,
-      options: generateOptions({
-        correctAnswer: card.answer,
-        deckCards: deck.flashcards,
-        allCards,
-        currentCardId: card.id,
-      }),
-    }));
-
-    logger.log('[Lobby] Starting game with', questions.length, 'questions');
-    startGame(questions);
-  }, [canStartGame, room, decks, startGame]);
+    logger.log('[Lobby] Requesting backend-generated battle start for room:', room.code, 'deck:', room.deckId);
+    startGame();
+  }, [canStartGame, room?.code, room?.deckId, startGame]);
 
   const handleBack = useCallback(() => {
     setShowLeaveModal(true);

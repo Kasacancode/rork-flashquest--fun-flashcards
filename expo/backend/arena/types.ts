@@ -35,6 +35,89 @@ export interface RoomQuestion {
   options: string[];
 }
 
+export const ARENA_BACKEND_ERROR_CODES = {
+  DECK_NOT_SELECTED: 'ARENA_DECK_NOT_SELECTED',
+  DECK_NOT_READY: 'ARENA_DECK_NOT_READY',
+  DECK_NOT_FOUND: 'ARENA_DECK_NOT_FOUND',
+  DECK_TOO_FEW_VALID_CARDS: 'ARENA_DECK_TOO_FEW_VALID_CARDS',
+  DECK_CONTENT_TOO_LONG: 'ARENA_DECK_CONTENT_TOO_LONG',
+  DECK_MALFORMED: 'ARENA_DECK_MALFORMED',
+  NOT_ENOUGH_DISTINCT_ANSWERS: 'ARENA_NOT_ENOUGH_DISTINCT_ANSWERS',
+  HOST_MISMATCH: 'ARENA_HOST_MISMATCH',
+  MIN_PLAYERS_REQUIRED: 'ARENA_MIN_PLAYERS_REQUIRED',
+  INVALID_ROOM_STATE: 'ARENA_INVALID_ROOM_STATE',
+  ROOM_SAVE_FAILED: 'ARENA_ROOM_SAVE_FAILED',
+  GAME_GENERATION_FAILED: 'ARENA_GAME_GENERATION_FAILED',
+  DECK_UPLOAD_TOO_LARGE: 'ARENA_DECK_UPLOAD_TOO_LARGE',
+} as const;
+
+export type ArenaBackendErrorCode = (typeof ARENA_BACKEND_ERROR_CODES)[keyof typeof ARENA_BACKEND_ERROR_CODES];
+
+export interface ArenaDeckSourceCard {
+  id: string;
+  question: string;
+  answer: string;
+}
+
+export interface ArenaReadyCard {
+  id: string;
+  question: string;
+  answer: string;
+  normalizedAnswer: string;
+}
+
+export interface ArenaDeckPreparationDiagnostics {
+  deckId: string;
+  originalCardCount: number;
+  validCardCount: number;
+  usableCardCount: number;
+  distinctAnswerCount: number;
+  approxSerializedBytes: number;
+}
+
+export interface ArenaPreparedDeck {
+  deckId: string;
+  deckName: string;
+  cards: ArenaReadyCard[];
+  syncedAt: number;
+  diagnostics: ArenaDeckPreparationDiagnostics;
+}
+
+export interface ArenaQuestionGenerationDiagnostics {
+  deckId: string;
+  originalCardCount: number;
+  validCardCount: number;
+  selectedRoundCount: number;
+  distinctAnswerCount: number;
+  approxSerializedRoomBytes: number;
+}
+
+export const MAX_ARENA_DECK_UPLOAD_CARDS = 500;
+export const ARENA_OPTION_COUNT = 4;
+export const MIN_ARENA_READY_CARDS = 4;
+export const MAX_ARENA_QUESTION_LENGTH = 220;
+export const MAX_ARENA_ANSWER_LENGTH = 120;
+
+export interface ArenaDeckPreparationResult {
+  preparedDeck: ArenaPreparedDeck;
+  diagnostics: ArenaDeckPreparationDiagnostics;
+}
+
+export interface ArenaQuestionGenerationResult {
+  questions: RoomQuestion[];
+  diagnostics: ArenaQuestionGenerationDiagnostics;
+}
+
+export interface ArenaDeckSelectionResult {
+  room: SanitizedRoom;
+  diagnostics: ArenaDeckPreparationDiagnostics;
+}
+
+export interface ArenaGameStartResult {
+  room: SanitizedRoom;
+  diagnostics: ArenaQuestionGenerationDiagnostics;
+}
+
 export interface ScoreEntry {
   correct: number;
   incorrect: number;

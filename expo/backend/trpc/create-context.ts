@@ -2,7 +2,7 @@ import { initTRPC } from '@trpc/server';
 import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
 import superjson from 'superjson';
 
-import { isRedisConfigError, toTRPCError } from '../errors';
+import { isBackendAppError, toTRPCError } from '../errors';
 
 export const createContext = async (opts: FetchCreateContextFnOptions) => {
   return {
@@ -15,13 +15,15 @@ export type Context = Awaited<ReturnType<typeof createContext>>;
 const t = initTRPC.context<Context>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
-    const backendCode = isRedisConfigError(error.cause) ? error.cause.code : undefined;
+    const backendCode = isBackendAppError(error.cause) ? error.cause.code : undefined;
+    const backendMeta = isBackendAppError(error.cause) ? error.cause.meta : undefined;
 
     return {
       ...shape,
       data: {
         ...shape.data,
         backendCode,
+        backendMeta,
       },
     };
   },

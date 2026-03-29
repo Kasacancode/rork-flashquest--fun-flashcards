@@ -213,7 +213,7 @@ export function selectDeck(
   deckName: string,
 ): Room | null {
   normalizeRoomPlayers(room);
-  if (playerId !== room.hostId) return null;
+  if (playerId !== room.hostId || room.status !== 'lobby' || room.game !== null) return null;
   room.deckId = deckId;
   room.deckName = deckName;
   room.lastActivity = Date.now();
@@ -242,7 +242,14 @@ export function startGame(
   questions: RoomQuestion[],
 ): Room | null {
   normalizeRoomPlayers(room);
-  if (playerId !== room.hostId || room.players.length < 2 || !room.deckId) return null;
+  if (
+    playerId !== room.hostId
+    || room.players.length < 2
+    || !room.deckId
+    || room.status !== 'lobby'
+    || room.game !== null
+    || questions.length === 0
+  ) return null;
 
   const scores: Record<string, ScoreEntry> = {};
   const answers: Record<string, Record<number, AnswerEntry>> = {};

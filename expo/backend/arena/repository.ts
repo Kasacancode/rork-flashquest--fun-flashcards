@@ -10,12 +10,13 @@
 import { Redis } from '@upstash/redis';
 import { analyticsRepository } from '../analytics/repository';
 import { createRedisConfigError, isRedisConfigError } from '../errors';
-import type { Room } from './types';
+import type { ArenaPreparedDeck, Room } from './types';
 import { ROOM_TTL_MS } from './types';
 
 const ROOM_TTL_SECONDS = Math.ceil(ROOM_TTL_MS / 1000);
 const KEY_PREFIX = 'flashquest:arena:room:';
 const PRESENCE_KEY_PREFIX = 'flashquest:arena:presence:';
+const ROOM_DECK_KEY_PREFIX = 'flashquest:arena:deck:';
 const ROOM_LOCK_KEY_PREFIX = 'flashquest:arena:lock:';
 const CODES_SET = 'flashquest:arena:codes';
 const ROOM_CODE_CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -30,6 +31,10 @@ function roomKey(code: string): string {
 
 function presenceKey(code: string): string {
   return `${PRESENCE_KEY_PREFIX}${code}`;
+}
+
+function deckKey(code: string): string {
+  return `${ROOM_DECK_KEY_PREFIX}${code}`;
 }
 
 function roomLockKey(code: string): string {
@@ -79,6 +84,31 @@ function deserialize(data: unknown): Room | null {
     return room;
   } catch (err) {
     console.error('[Repo] Failed to deserialize room:', err);
+    return null;
+  }
+}
+
+function serializePreparedDeck(preparedDeck: ArenaPreparedDeck): string {
+  try {
+    return JSON.stringify(preparedDeck);
+  } catch (err) {
+    console.error('[Repo] Failed to serialize prepared deck:', err);
+    throw new Error('Prepared deck serialization failed');
+  }
+}
+
+function deserializePreparedDeck(data: unknown): ArenaPreparedDeck | null {
+  try {
+    const raw = typeof data === 'string' ? JSON.parse(data) : data;
+    if (!raw || typeof raw !== 'object') return null;
+    const preparedDeck = raw as ArenaPreparedDeck;
+    if (typeof preparedDeck.deckId !== 'string' || !Array.isArray(preparedDeck.cards)) {
+      console.error('[Repo] Deserialized prepared deck has invalid shape');
+      return null;
+    }
+    return preparedDeck;
+  } catch (err) {
+    console.error('[Repo] Failed to deserialize prepared deck:', err);
     return null;
   }
 }
@@ -211,12 +241,48 @@ class RoomRepository {
     }
   }
 
+  async savePreparedDeck(code: string, preparedDeck: ArenaPreparedDeck): Promise<ArenaPreparedDeck> {
+    try {
+      const redis = getRedis();
+      await redis.set(deckKey(code), serializePreparedDeck(preparedDeck), { ex: ROOM_TTL_SECONDS });
+      return preparedDeck;
+    } catch (err) {
+      rethrowRedisConfigError(err);
+      console.error(`[Repo] Error saving prepared deck for room ${code}:`, err);
+      throw new Error(`Failed to save prepared deck for room ${code}`);
+    }
+  }
+
+  async getPreparedDeck(code: string): Promise<ArenaPreparedDeck | null> {
+    try {
+      const redis = getRedis();
+      const data = await redis.get(deckKey(code));
+      if (!data) return null;
+      return deserializePreparedDeck(data);
+    } catch (err) {
+      rethrowRedisConfigError(err);
+      console.error(`[Repo] Error reading prepared deck for room ${code}:`, err);
+      return null;
+    }
+  }
+
+  async deletePreparedDeck(code: string): Promise<void> {
+    try {
+      const redis = getRedis();
+      await redis.del(deckKey(code));
+    } catch (err) {
+      rethrowRedisConfigError(err);
+      console.error(`[Repo] Error deleting prepared deck for room ${code}:`, err);
+    }
+  }
+
   async deleteRoom(code: string): Promise<void> {
     try {
       const redis = getRedis();
       const pipeline = redis.pipeline();
       pipeline.del(roomKey(code));
       pipeline.del(presenceKey(code));
+      pipeline.del(deckKey(code));
       pipeline.srem(CODES_SET, code);
       await pipeline.exec();
     } catch (err) {
@@ -230,6 +296,7 @@ class RoomRepository {
       const redis = getRedis();
       await redis.expire(roomKey(code), ROOM_TTL_SECONDS);
       await redis.expire(presenceKey(code), ROOM_TTL_SECONDS);
+      await redis.expire(deckKey(code), ROOM_TTL_SECONDS);
     } catch (err) {
       rethrowRedisConfigError(err);
       console.error(`[Repo] Error refreshing TTL for room ${code}:`, err);
@@ -245,6 +312,7 @@ class RoomRepository {
       await redis.hset(presenceKey(code), { [playerId]: Date.now() });
       await redis.expire(roomKey(code), ROOM_TTL_SECONDS);
       await redis.expire(presenceKey(code), ROOM_TTL_SECONDS);
+      await redis.expire(deckKey(code), ROOM_TTL_SECONDS);
     } catch (err) {
       rethrowRedisConfigError(err);
       console.error(`[Repo] Error updating heartbeat for ${playerId} in room ${code}:`, err);
