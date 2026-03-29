@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import Constants from 'expo-constants';
 import { Redirect, Stack, router, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useRef, useState } from 'react';
@@ -23,11 +24,14 @@ import { DATA_PRIVACY_ROUTE } from '@/utils/routes';
 import { readStringFlag } from '@/utils/storage';
 
 const ONBOARDING_STORAGE_KEY = 'flashquest_onboarding_complete';
+const isExpoGo = Constants.appOwnership === 'expo';
 
-try {
-  void SplashScreen.preventAutoHideAsync();
-} catch (error) {
-  logger.warn('[Layout] SplashScreen.preventAutoHideAsync failed:', error);
+if (!isExpoGo) {
+  try {
+    void SplashScreen.preventAutoHideAsync();
+  } catch (error) {
+    logger.warn('[Layout] SplashScreen.preventAutoHideAsync failed:', error);
+  }
 }
 
 if (Platform.OS !== 'web') {
@@ -139,7 +143,9 @@ function AppShell() {
     }
 
     const timer = setTimeout(() => {
-      SplashScreen.hideAsync().catch(() => {});
+      if (!isExpoGo) {
+        SplashScreen.hideAsync().catch(() => {});
+      }
 
       if (!didTrackAppOpenRef.current && analyticsEnabled) {
         didTrackAppOpenRef.current = true;
