@@ -63,6 +63,7 @@ export default function ProfilePage() {
     handleCloseLevels,
     handleOpenFAQ,
     handleOpenPrivacy,
+    handleOpenFlashcardInspector,
     handleSelectSuit,
     handleSelectColor,
     handleEditPlayerName,
@@ -188,6 +189,7 @@ export default function ProfilePage() {
               toggleTheme={toggleTheme}
               onOpenFAQ={handleOpenFAQ}
               onOpenPrivacy={handleOpenPrivacy}
+              onOpenFlashcardInspector={handleOpenFlashcardInspector}
               surfaceGradient={surfaceGradient}
               styles={styles}
               theme={theme}

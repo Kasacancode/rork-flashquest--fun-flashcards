@@ -13,7 +13,15 @@ import {
   type RoomQuestion,
 } from './types';
 import { createArenaError, createArenaGameGenerationFailedError } from './errors';
-import { createFlashcardOption, createNormalizedFlashcard, getFlashcardContent } from '@/utils/flashcardContent';
+import type { Flashcard } from '@/types/flashcard';
+import {
+  buildDeckNormalizationSummary,
+  createFlashcardOption,
+  createNormalizedFlashcard,
+  getFlashcardContent,
+  resolveOptionDisplayCollisions,
+} from '@/utils/flashcardContent';
+import { recordDeckNormalizationSummary } from '@/utils/flashcardDiagnostics';
 
 interface ArenaDeckRejectionCounts {
   emptyQuestion: number;
@@ -183,6 +191,7 @@ export function prepareArenaDeck(input: {
   const rejectionCounts: ArenaDeckRejectionCounts = { ...EMPTY_REJECTION_COUNTS };
   const seenPairs = new Set<string>();
   const readyCards: ArenaReadyCard[] = [];
+  const acceptedCards: Flashcard[] = [];
 
   for (const sourceCard of input.sourceCards) {
     const normalizedCard = createNormalizedFlashcard({
@@ -238,6 +247,7 @@ export function prepareArenaDeck(input: {
     }
 
     seenPairs.add(duplicateKey);
+    acceptedCards.push(normalizedCard);
     readyCards.push({
       id: sourceCard.id,
       canonicalQuestion: content.canonicalQuestion,
@@ -259,6 +269,20 @@ export function prepareArenaDeck(input: {
     distinctAnswerCount,
     approxSerializedBytes: getTextEncoderSize(usableCards),
   };
+
+  recordDeckNormalizationSummary(buildDeckNormalizationSummary({
+    deckId: input.deckId,
+    flashcards: acceptedCards,
+    source: 'arena_prepare',
+    originalCardCount: input.sourceCards.length,
+    rejectedCount: input.sourceCards.length - acceptedCards.length,
+    duplicatePairsRemoved: rejectionCounts.duplicatePair,
+    extraReasonCodeCounts: {
+      rejected_duplicate: rejectionCounts.duplicatePair,
+      rejected_low_fit: rejectionCounts.questionTooLong + rejectionCounts.answerTooLong,
+      rejected_display_hostile: rejectionCounts.malformedQuestion + rejectionCounts.malformedAnswer,
+    },
+  }));
 
   if (readyCards.length < MIN_ARENA_READY_CARDS || usableCards.length < MIN_ARENA_READY_CARDS || distinctAnswerCount < ARENA_OPTION_COUNT) {
     throwDeckPreparationError({
@@ -344,24 +368,30 @@ export function generateArenaQuestions(input: {
       });
     }
 
-    const options = shuffleWithRandom([
-      createFlashcardOption({
-        value: card.canonicalAnswer,
-        canonicalValue: card.canonicalAnswer,
-        question: card.canonicalQuestion,
-        answerType: card.answerType,
-        sourceCardId: card.id,
-        surface: 'battle',
-      }),
-      ...uniqueDistractors.map((distractor) => createFlashcardOption({
-        value: distractor.canonicalAnswer,
-        canonicalValue: distractor.canonicalAnswer,
-        question: card.canonicalQuestion,
-        answerType: distractor.answerType,
-        sourceCardId: distractor.id,
-        surface: 'battle',
-      })),
-    ], distractorRandom);
+    const optionResult = resolveOptionDisplayCollisions({
+      options: shuffleWithRandom([
+        createFlashcardOption({
+          value: card.canonicalAnswer,
+          canonicalValue: card.canonicalAnswer,
+          question: card.canonicalQuestion,
+          answerType: card.answerType,
+          sourceCardId: card.id,
+          surface: 'battle',
+        }),
+        ...uniqueDistractors.map((distractor) => createFlashcardOption({
+          value: distractor.canonicalAnswer,
+          canonicalValue: distractor.canonicalAnswer,
+          question: card.canonicalQuestion,
+          answerType: distractor.answerType,
+          sourceCardId: distractor.id,
+          surface: 'battle',
+        })),
+      ], distractorRandom),
+      surface: 'battle',
+      source: 'arena_prepare',
+      deckId: input.preparedDeck.deckId,
+      cardId: card.id,
+    });
 
     return {
       cardId: card.id,
@@ -370,7 +400,7 @@ export function generateArenaQuestions(input: {
       correctAnswerDisplay: card.battleAnswer,
       normalizedCorrectAnswer: card.normalizedAnswer,
       answerType: card.answerType,
-      options,
+      options: optionResult.options,
     } satisfies RoomQuestion;
   });
 

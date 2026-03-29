@@ -7,6 +7,7 @@ import { Animated, Keyboard, Platform, StyleSheet, Text, TextInput, TouchableOpa
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ConfidenceChips from '@/components/ConfidenceChips';
+import FlashcardDebugButton from '@/components/debug/FlashcardDebugButton';
 import { TimerProgressBar, StreakIndicator } from '@/components/GameUI';
 import PracticeSessionCompletionScreen from '@/components/practice-session/PracticeSessionCompletionScreen';
 import PracticeSessionEmptyState from '@/components/practice-session/PracticeSessionEmptyState';
@@ -768,6 +769,14 @@ export default function PracticeSessionPage() {
 
         <View style={styles.content}>
           <View style={[styles.questionCard, { backgroundColor: isDark ? theme.card : 'rgba(255, 255, 255, 0.97)' }]}>
+            <View style={styles.questionDebugRow}>
+              <FlashcardDebugButton
+                deckId={currentCard?.deckId}
+                cardId={currentCard?.id}
+                surface="practice"
+                testID="practice-flashcard-debug-button"
+              />
+            </View>
             <Text style={[styles.questionText, { color: isDark ? theme.text : '#1a1a1a' }]}>
               {displayQuestion}
             </Text>
@@ -1029,6 +1038,10 @@ const styles = StyleSheet.create({
     elevation: 10,
     minHeight: 120,
     justifyContent: 'center',
+  },
+  questionDebugRow: {
+    alignItems: 'flex-end',
+    marginBottom: 12,
   },
   questionText: {
     fontSize: 21,

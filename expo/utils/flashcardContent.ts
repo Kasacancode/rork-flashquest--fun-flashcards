@@ -3,15 +3,23 @@ import type {
   Flashcard,
   FlashcardAnswerType,
   FlashcardContentModel,
+  FlashcardDeckNormalizationSummary,
   FlashcardFitStatus,
+  FlashcardNormalizationReasonCode,
+  FlashcardNormalizationSource,
   FlashcardOption,
+  FlashcardOptionCollisionEntry,
+  FlashcardOptionCollisionResult,
+  FlashcardOptionSurface,
   FlashcardProjectionQuality,
   FlashcardProjectionSet,
 } from '@/types/flashcard';
+import { recordDeckNormalizationSummary, recordOptionCollision } from '@/utils/flashcardDiagnostics';
 import { logger } from '@/utils/logger';
 
-const CARD_CONTENT_VERSION = 2;
+const CARD_CONTENT_VERSION = 3;
 const MARKDOWN_DECORATION_REGEX = /[*_`>#~]+/g;
+const MARKDOWN_ARTIFACT_TEST_REGEX = /[*_`>#~]|\[(.*?)\]\((.*?)\)|\||_{2,}/;
 const BULLET_PREFIX_REGEX = /^\s*(?:[-•–—*]|\d+[.)]|[A-Za-z][.)])\s+/;
 const QUESTION_PREFIX_REGEX = /^\s*(?:q(?:uestion)?|prompt|front)\s*[:.-]\s*/i;
 const ANSWER_PREFIX_REGEX = /^\s*(?:a(?:nswer)?|back|response|correct answer)\s*[:.-]\s*/i;
@@ -19,7 +27,18 @@ const LEADING_FILLER_REGEX = /^\s*(?:the answer is|it is|it's|this is|these are|
 const TRAILING_PUNCTUATION_REGEX = /[\s.;:!?]+$/g;
 const LEADING_WRAPPER_REGEX = /^["'“”‘’([{\s]+/g;
 const TRAILING_WRAPPER_REGEX = /["'“”‘’)]}\s]+$/g;
+const WRAPPER_TEST_REGEX = /^["'“”‘’([{\s]+|["'“”‘’)]}\s]+$/;
 const MULTI_SPACE_REGEX = /\s+/g;
+function hasControlCharacters(value: string): boolean {
+  for (const character of value) {
+    const code = character.charCodeAt(0);
+    if (code <= 31 || code === 127) {
+      return true;
+    }
+  }
+
+  return false;
+}
 const EXPLANATION_SPLIT_REGEXES = [
   /\s+[—-]\s+/,
   /\s*[:;]\s+/,
@@ -31,8 +50,22 @@ const EXPLANATION_SPLIT_REGEXES = [
   /\s+e\.g\.\s+/i,
 ] as const;
 
+const SURFACE_REASON_CODES: Record<keyof FlashcardProjectionSet, FlashcardNormalizationReasonCode> = {
+  studyQuestion: 'compressed_study_question',
+  studyAnswer: 'compressed_study_answer',
+  gameplayQuestion: 'compressed_gameplay_question',
+  tileAnswer: 'compressed_tile_answer',
+  battleQuestion: 'compressed_battle_question',
+  battleAnswer: 'compressed_battle_answer',
+};
+
+const FIT_STATUS_SCORES: Record<FlashcardFitStatus, number> = {
+  safe: 100,
+  compress: 72,
+  reject: 24,
+};
+
 type ProjectionSurface = keyof FlashcardProjectionSet;
-type OptionSurface = 'tile' | 'battle' | 'study';
 
 type SurfaceRule = {
   maxChars: number;
@@ -118,6 +151,16 @@ const SURFACE_RULES: Record<ProjectionSurface, SurfaceRule> = {
   },
 };
 
+const OPTION_SURFACE_LIMITS: Record<FlashcardOptionSurface, number> = {
+  study: SURFACE_RULES.studyAnswer.maxChars,
+  tile: SURFACE_RULES.tileAnswer.maxChars,
+  battle: SURFACE_RULES.battleAnswer.maxChars,
+};
+
+function addReason(reasonCodes: Set<FlashcardNormalizationReasonCode>, code: FlashcardNormalizationReasonCode): void {
+  reasonCodes.add(code);
+}
+
 function stripControlCharacters(value: string): string {
   let result = '';
 
@@ -151,6 +194,10 @@ function stripListPrefix(value: string): string {
   return value.replace(BULLET_PREFIX_REGEX, '').trim();
 }
 
+function normalizeBaseText(value: string): string {
+  return collapseWhitespace(stripWrappers(stripListPrefix(stripMarkdownArtifacts(value))));
+}
+
 function trimAtWordBoundary(value: string, maxChars: number): string {
   if (value.length <= maxChars) {
     return value;
@@ -173,13 +220,29 @@ function takeEarlierClause(value: string, tokens: readonly string[], minIndex: n
   return value;
 }
 
-function normalizeBaseText(value: string): string {
-  return collapseWhitespace(stripWrappers(stripListPrefix(stripMarkdownArtifacts(value))));
-}
+function normalizeQuestionBase(value: string, reasonCodes?: Set<FlashcardNormalizationReasonCode>): string {
+  if (reasonCodes) {
+    if (hasControlCharacters(value) || value.trim() !== value || /\s{2,}/.test(stripControlCharacters(value))) {
+      addReason(reasonCodes, 'trimmed_whitespace');
+    }
+    if (MARKDOWN_ARTIFACT_TEST_REGEX.test(value)) {
+      addReason(reasonCodes, 'stripped_markdown_artifacts');
+    }
+    if (BULLET_PREFIX_REGEX.test(value)) {
+      addReason(reasonCodes, 'removed_list_prefix');
+    }
+    if (WRAPPER_TEST_REGEX.test(value)) {
+      addReason(reasonCodes, 'removed_wrapping_quotes');
+    }
+  }
 
-function normalizeQuestionBase(value: string): string {
-  return normalizeBaseText(value)
-    .replace(QUESTION_PREFIX_REGEX, '')
+  let result = normalizeBaseText(value);
+  const withoutPrefix = result.replace(QUESTION_PREFIX_REGEX, '');
+  if (reasonCodes && withoutPrefix !== result) {
+    addReason(reasonCodes, 'removed_question_prefix');
+  }
+
+  result = withoutPrefix
     .replace(/^according to (?:the notes|the text|the passage)[,:]?\s*/i, '')
     .replace(/^from the notes[,:]?\s*/i, '')
     .replace(/^based on (?:the notes|the text)[,:]?\s*/i, '')
@@ -191,29 +254,67 @@ function normalizeQuestionBase(value: string): string {
     .replace(/\s+(?:choose|select|pick) the correct answer$/i, '')
     .replace(TRAILING_PUNCTUATION_REGEX, '')
     .trim();
+
+  return result;
 }
 
-function normalizeAnswerBase(value: string): string {
-  return normalizeBaseText(value)
-    .replace(ANSWER_PREFIX_REGEX, '')
-    .replace(LEADING_FILLER_REGEX, '')
-    .trim();
+function normalizeAnswerBase(value: string, reasonCodes?: Set<FlashcardNormalizationReasonCode>): string {
+  if (reasonCodes) {
+    if (hasControlCharacters(value) || value.trim() !== value || /\s{2,}/.test(stripControlCharacters(value))) {
+      addReason(reasonCodes, 'trimmed_whitespace');
+    }
+    if (MARKDOWN_ARTIFACT_TEST_REGEX.test(value)) {
+      addReason(reasonCodes, 'stripped_markdown_artifacts');
+    }
+    if (BULLET_PREFIX_REGEX.test(value)) {
+      addReason(reasonCodes, 'removed_list_prefix');
+    }
+    if (WRAPPER_TEST_REGEX.test(value)) {
+      addReason(reasonCodes, 'removed_wrapping_quotes');
+    }
+  }
+
+  let result = normalizeBaseText(value);
+  const withoutAnswerPrefix = result.replace(ANSWER_PREFIX_REGEX, '');
+  if (reasonCodes && withoutAnswerPrefix !== result) {
+    addReason(reasonCodes, 'removed_answer_prefix');
+  }
+
+  const withoutFiller = withoutAnswerPrefix.replace(LEADING_FILLER_REGEX, '');
+  if (reasonCodes && withoutFiller !== withoutAnswerPrefix) {
+    addReason(reasonCodes, 'removed_leading_filler');
+  }
+
+  return withoutFiller.trim();
 }
 
-function sentenceCaseFirstLetter(value: string): string {
+function sentenceCaseFirstLetter(value: string, reasonCodes?: Set<FlashcardNormalizationReasonCode>): string {
   if (!value) {
     return value;
   }
 
-  return value[0]!.toUpperCase() + value.slice(1);
+  const nextValue = value[0]!.toUpperCase() + value.slice(1);
+  if (reasonCodes && nextValue !== value) {
+    addReason(reasonCodes, 'normalized_sentence_case');
+  }
+
+  return nextValue;
 }
 
-function ensureQuestionPunctuation(value: string): string {
+function ensureQuestionPunctuation(value: string, reasonCodes?: Set<FlashcardNormalizationReasonCode>): string {
   if (!value) {
     return value;
   }
 
-  return /[?!]$/.test(value) ? value : `${value}?`;
+  if (/[?!]$/.test(value)) {
+    return value;
+  }
+
+  if (reasonCodes) {
+    addReason(reasonCodes, 'normalized_question_punctuation');
+  }
+
+  return `${value}?`;
 }
 
 function normalizeComparableAnswerInternal(value: string): string {
@@ -244,16 +345,19 @@ function getTextProfile(value: string, rule: SurfaceRule): TextProfile {
   };
 }
 
-function getFitStatus(value: string, surface: ProjectionSurface): FlashcardFitStatus {
+function getFitStatus(value: string, surface: ProjectionSurface, answerType?: FlashcardAnswerType): FlashcardFitStatus {
   const rule = SURFACE_RULES[surface];
   const profile = getTextProfile(value, rule);
+  const punctuationRelaxation = answerType === 'numeric' ? 2.8 : answerType === 'formula' ? 2.1 : 1;
+  const parenthesisRelaxation = answerType === 'formula' ? 1.6 : 1;
+  const symbolLimit = answerType === 'numeric' ? 0.62 : answerType === 'formula' ? 0.58 : 0.42;
 
   const isReject = profile.charCount > Math.round(rule.maxChars * rule.rejectMultiplier)
     || profile.wordCount > Math.round(rule.maxWords * rule.rejectMultiplier)
     || profile.longestTokenLength > Math.round(rule.maxLongestToken * 1.45)
-    || profile.punctuationDensity > rule.maxPunctuationDensity * 1.65
-    || profile.parenthesisDensity > rule.maxParenthesisDensity * 1.8
-    || profile.symbolDensity > 0.42
+    || profile.punctuationDensity > rule.maxPunctuationDensity * 1.65 * punctuationRelaxation
+    || profile.parenthesisDensity > rule.maxParenthesisDensity * 1.8 * parenthesisRelaxation
+    || profile.symbolDensity > symbolLimit
     || profile.estimatedLines > Math.max(rule.maxLines + 2, Math.round(rule.maxLines * 1.75));
 
   if (isReject) {
@@ -263,8 +367,8 @@ function getFitStatus(value: string, surface: ProjectionSurface): FlashcardFitSt
   const isCompress = profile.charCount > rule.maxChars
     || profile.wordCount > rule.maxWords
     || profile.longestTokenLength > rule.maxLongestToken
-    || profile.punctuationDensity > rule.maxPunctuationDensity
-    || profile.parenthesisDensity > rule.maxParenthesisDensity
+    || profile.punctuationDensity > rule.maxPunctuationDensity * punctuationRelaxation
+    || profile.parenthesisDensity > rule.maxParenthesisDensity * parenthesisRelaxation
     || profile.estimatedLines > rule.maxLines;
 
   return isCompress ? 'compress' : 'safe';
@@ -288,7 +392,7 @@ function compactBinaryAnswer(value: string): string {
   if (normalized.startsWith('false')) return 'False';
   if (normalized.startsWith('yes')) return 'Yes';
   if (normalized.startsWith('no')) return 'No';
-  return sentenceCaseFirstLetter(trimAtWordBoundary(value, 12));
+  return value;
 }
 
 function compactPhraseAnswer(value: string): string {
@@ -359,12 +463,13 @@ function compactQuestionForSurface(question: string, maxChars: number): string {
   return ensureQuestionPunctuation(sentenceCaseFirstLetter(concise));
 }
 
-function extractExplanation(answer: string, existingExplanation?: string): { cleanedAnswer: string; explanation?: string } {
+function extractExplanation(answer: string, existingExplanation: string | undefined, reasonCodes: Set<FlashcardNormalizationReasonCode>): { cleanedAnswer: string; explanation?: string; explanationExtracted: boolean } {
   const normalizedExplanation = normalizeBaseText(existingExplanation ?? '');
   if (normalizedExplanation) {
     return {
       cleanedAnswer: answer,
       explanation: normalizedExplanation,
+      explanationExtracted: false,
     };
   }
 
@@ -377,26 +482,37 @@ function extractExplanation(answer: string, existingExplanation?: string): { cle
     const head = normalizeAnswerBase(parts[0] ?? '');
     const tail = normalizeBaseText(parts.slice(1).join(' '));
     if (head.length >= 2 && head.length <= 90 && tail.length >= 18) {
+      addReason(reasonCodes, 'extracted_explanation');
       return {
         cleanedAnswer: head,
         explanation: sentenceCaseFirstLetter(tail),
+        explanationExtracted: true,
       };
     }
   }
 
-  return { cleanedAnswer: answer };
+  return {
+    cleanedAnswer: answer,
+    explanationExtracted: false,
+  };
 }
 
-function buildCanonicalQuestion(value: string): string {
-  const normalized = normalizeQuestionBase(value);
+function buildCanonicalQuestion(value: string, reasonCodes?: Set<FlashcardNormalizationReasonCode>): string {
+  const normalized = normalizeQuestionBase(value, reasonCodes);
   const trimmed = trimAtWordBoundary(normalized, 240).replace(TRAILING_PUNCTUATION_REGEX, '').trim();
-  return ensureQuestionPunctuation(sentenceCaseFirstLetter(trimmed));
+  if (reasonCodes && trimmed !== normalized) {
+    addReason(reasonCodes, 'trimmed_question_length');
+  }
+  return ensureQuestionPunctuation(sentenceCaseFirstLetter(trimmed, reasonCodes), reasonCodes);
 }
 
-function buildCanonicalAnswer(value: string): string {
-  const normalized = normalizeAnswerBase(value);
+function buildCanonicalAnswer(value: string, reasonCodes?: Set<FlashcardNormalizationReasonCode>): string {
+  const normalized = normalizeAnswerBase(value, reasonCodes);
   const trimmed = trimAtWordBoundary(normalized, 220).replace(TRAILING_PUNCTUATION_REGEX, '').trim();
-  return sentenceCaseFirstLetter(trimmed);
+  if (reasonCodes && trimmed !== normalized) {
+    addReason(reasonCodes, 'trimmed_answer_length');
+  }
+  return sentenceCaseFirstLetter(trimmed, reasonCodes);
 }
 
 function inferAnswerTypeInternal(question: string, answer: string): FlashcardAnswerType {
@@ -449,18 +565,19 @@ function createProjectionValue(options: {
   compressed: string;
   surface: ProjectionSurface;
   fallbackMaxChars: number;
+  answerType?: FlashcardAnswerType;
 }): { value: string; status: FlashcardFitStatus } {
-  const originalStatus = getFitStatus(options.original, options.surface);
+  const originalStatus = getFitStatus(options.original, options.surface, options.answerType);
   if (originalStatus === 'safe') {
     return { value: options.original, status: 'safe' };
   }
 
   let projected = options.compressed.trim() || options.original;
-  let projectedStatus = getFitStatus(projected, options.surface);
+  let projectedStatus = getFitStatus(projected, options.surface, options.answerType);
 
   if (projectedStatus === 'reject') {
     projected = trimAtWordBoundary(projected, options.fallbackMaxChars);
-    projectedStatus = getFitStatus(projected, options.surface);
+    projectedStatus = getFitStatus(projected, options.surface, options.answerType);
   }
 
   return {
@@ -469,7 +586,12 @@ function createProjectionValue(options: {
   };
 }
 
-function buildProjectionSet(canonicalQuestion: string, canonicalAnswer: string, answerType: FlashcardAnswerType): {
+function buildProjectionSet(
+  canonicalQuestion: string,
+  canonicalAnswer: string,
+  answerType: FlashcardAnswerType,
+  reasonCodes: Set<FlashcardNormalizationReasonCode>,
+): {
   projections: FlashcardProjectionSet;
   quality: FlashcardProjectionQuality;
 } {
@@ -485,6 +607,7 @@ function buildProjectionSet(canonicalQuestion: string, canonicalAnswer: string, 
     compressed: compactAnswerForType(canonicalAnswer, answerType, SURFACE_RULES.studyAnswer.maxChars),
     surface: 'studyAnswer',
     fallbackMaxChars: SURFACE_RULES.studyAnswer.maxChars,
+    answerType,
   });
 
   const gameplayQuestion = createProjectionValue({
@@ -499,6 +622,7 @@ function buildProjectionSet(canonicalQuestion: string, canonicalAnswer: string, 
     compressed: compactAnswerForType(canonicalAnswer, answerType, SURFACE_RULES.tileAnswer.maxChars),
     surface: 'tileAnswer',
     fallbackMaxChars: SURFACE_RULES.tileAnswer.maxChars,
+    answerType,
   });
 
   const battleQuestion = createProjectionValue({
@@ -513,24 +637,67 @@ function buildProjectionSet(canonicalQuestion: string, canonicalAnswer: string, 
     compressed: compactAnswerForType(canonicalAnswer, answerType, SURFACE_RULES.battleAnswer.maxChars),
     surface: 'battleAnswer',
     fallbackMaxChars: SURFACE_RULES.battleAnswer.maxChars,
+    answerType,
   });
 
+  const nextProjections: FlashcardProjectionSet = {
+    studyQuestion: studyQuestion.value,
+    studyAnswer: studyAnswer.value,
+    gameplayQuestion: gameplayQuestion.value,
+    tileAnswer: tileAnswer.value,
+    battleQuestion: battleQuestion.value,
+    battleAnswer: battleAnswer.value,
+  };
+
+  const nextQuality: FlashcardProjectionQuality = {
+    studyQuestion: studyQuestion.status,
+    studyAnswer: studyAnswer.status,
+    gameplayQuestion: gameplayQuestion.status,
+    tileAnswer: tileAnswer.status,
+    battleQuestion: battleQuestion.status,
+    battleAnswer: battleAnswer.status,
+  };
+
+  (Object.keys(nextProjections) as ProjectionSurface[]).forEach((surface) => {
+    const originalValue = surface.includes('Question') ? canonicalQuestion : canonicalAnswer;
+    if (nextProjections[surface] !== originalValue && nextQuality[surface] !== 'reject') {
+      addReason(reasonCodes, SURFACE_REASON_CODES[surface]);
+    }
+  });
+
+  if (answerType === 'binary' && (nextProjections.tileAnswer !== canonicalAnswer || nextProjections.battleAnswer !== canonicalAnswer)) {
+    addReason(reasonCodes, 'normalized_binary');
+  }
+
+  if (answerType === 'numeric' && (nextProjections.tileAnswer !== canonicalAnswer || nextProjections.battleAnswer !== canonicalAnswer)) {
+    addReason(reasonCodes, 'normalized_numeric');
+  }
+
+  if (answerType === 'formula' && (nextProjections.tileAnswer !== canonicalAnswer || nextProjections.battleAnswer !== canonicalAnswer)) {
+    addReason(reasonCodes, 'normalized_formula');
+  }
+
+  if (Object.values(nextQuality).some((status) => status === 'reject')) {
+    addReason(reasonCodes, 'rejected_low_fit');
+  }
+
+  const gameplayProfile = getTextProfile(nextProjections.gameplayQuestion, SURFACE_RULES.gameplayQuestion);
+  const tileProfile = getTextProfile(nextProjections.tileAnswer, SURFACE_RULES.tileAnswer);
+  const battleProfile = getTextProfile(nextProjections.battleAnswer, SURFACE_RULES.battleAnswer);
+  if (
+    gameplayProfile.symbolDensity > 0.36
+    || tileProfile.symbolDensity > 0.36
+    || battleProfile.symbolDensity > 0.36
+    || gameplayProfile.punctuationDensity > SURFACE_RULES.gameplayQuestion.maxPunctuationDensity * 1.3
+    || tileProfile.punctuationDensity > SURFACE_RULES.tileAnswer.maxPunctuationDensity * 1.3
+    || battleProfile.punctuationDensity > SURFACE_RULES.battleAnswer.maxPunctuationDensity * 1.3
+  ) {
+    addReason(reasonCodes, 'rejected_display_hostile');
+  }
+
   return {
-    projections: {
-      studyQuestion: studyQuestion.value,
-      studyAnswer: studyAnswer.value,
-      gameplayQuestion: gameplayQuestion.value,
-      tileAnswer: tileAnswer.value,
-      battleQuestion: battleQuestion.value,
-      battleAnswer: battleAnswer.value,
-    },
-    quality: {
-      studyAnswer: studyAnswer.status,
-      gameplayQuestion: gameplayQuestion.status,
-      tileAnswer: tileAnswer.status,
-      battleQuestion: battleQuestion.status,
-      battleAnswer: battleAnswer.status,
-    },
+    projections: nextProjections,
+    quality: nextQuality,
   };
 }
 
@@ -568,6 +735,14 @@ function buildQualityFlags(params: {
     flags.add('markdown_artifacts');
   }
 
+  if (params.quality.studyQuestion === 'reject') {
+    flags.add('study_question_reject');
+  }
+
+  if (params.quality.studyAnswer === 'reject') {
+    flags.add('study_answer_reject');
+  }
+
   if (params.quality.tileAnswer === 'reject') {
     flags.add('tile_answer_reject');
   }
@@ -580,6 +755,10 @@ function buildQualityFlags(params: {
     flags.add('gameplay_question_reject');
   }
 
+  if (params.quality.battleQuestion === 'reject') {
+    flags.add('battle_question_reject');
+  }
+
   if (params.explanation && params.explanation.length > 220) {
     flags.add('long_explanation');
   }
@@ -587,18 +766,51 @@ function buildQualityFlags(params: {
   return Array.from(flags);
 }
 
+function computeFitScore(quality: FlashcardProjectionQuality): number {
+  const scores = [
+    FIT_STATUS_SCORES[quality.studyQuestion],
+    FIT_STATUS_SCORES[quality.studyAnswer],
+    FIT_STATUS_SCORES[quality.gameplayQuestion],
+    FIT_STATUS_SCORES[quality.tileAnswer],
+    FIT_STATUS_SCORES[quality.battleQuestion],
+    FIT_STATUS_SCORES[quality.battleAnswer],
+  ];
+
+  return Math.round(scores.reduce((sum, value) => sum + value, 0) / scores.length);
+}
+
+function hasCompressionReason(reasonCodes: Set<FlashcardNormalizationReasonCode>): boolean {
+  return Array.from(reasonCodes).some((reasonCode) => reasonCode.startsWith('compressed_') || reasonCode === 'trimmed_question_length' || reasonCode === 'trimmed_answer_length' || reasonCode === 'trimmed_explanation_length');
+}
+
 function buildContentModel(input: {
-  question: string;
-  answer: string;
-  explanation?: string;
+  rawQuestion: string;
+  rawAnswer: string;
+  rawExplanation?: string;
+  wasLegacyMigrated: boolean;
 }): FlashcardContentModel {
-  const canonicalQuestion = buildCanonicalQuestion(input.question);
-  const extracted = extractExplanation(normalizeAnswerBase(input.answer), input.explanation);
-  const canonicalAnswer = buildCanonicalAnswer(extracted.cleanedAnswer);
-  const explanation = extracted.explanation ? sentenceCaseFirstLetter(trimAtWordBoundary(extracted.explanation, 280)) : undefined;
+  const reasonCodes = new Set<FlashcardNormalizationReasonCode>();
+
+  if (input.wasLegacyMigrated) {
+    addReason(reasonCodes, 'legacy_card_upgraded');
+  }
+
+  const canonicalQuestion = buildCanonicalQuestion(input.rawQuestion, reasonCodes);
+  const normalizedRawAnswer = normalizeAnswerBase(input.rawAnswer, reasonCodes);
+  const extracted = extractExplanation(normalizedRawAnswer, input.rawExplanation, reasonCodes);
+  const canonicalAnswer = buildCanonicalAnswer(extracted.cleanedAnswer, reasonCodes);
+  const explanation = extracted.explanation
+    ? (() => {
+        const trimmedExplanation = trimAtWordBoundary(extracted.explanation, 280);
+        if (trimmedExplanation !== extracted.explanation) {
+          addReason(reasonCodes, 'trimmed_explanation_length');
+        }
+        return sentenceCaseFirstLetter(trimmedExplanation, reasonCodes);
+      })()
+    : undefined;
   const answerType = inferAnswerTypeInternal(canonicalQuestion, canonicalAnswer);
   const normalizedAnswer = normalizeComparableAnswerInternal(canonicalAnswer);
-  const { projections, quality } = buildProjectionSet(canonicalQuestion, canonicalAnswer, answerType);
+  const { projections, quality } = buildProjectionSet(canonicalQuestion, canonicalAnswer, answerType, reasonCodes);
   const qualityFlags = buildQualityFlags({
     canonicalQuestion,
     canonicalAnswer,
@@ -606,6 +818,8 @@ function buildContentModel(input: {
     quality,
     explanation,
   });
+  const fitScore = computeFitScore(quality);
+  const substantiveReasonCount = Array.from(reasonCodes).filter((reasonCode) => reasonCode !== 'legacy_card_upgraded').length;
 
   return {
     version: CARD_CONTENT_VERSION,
@@ -613,10 +827,44 @@ function buildContentModel(input: {
     canonicalAnswer,
     normalizedAnswer,
     answerType,
+    explanation,
     projections,
     quality,
     qualityFlags,
+    normalization: {
+      rawQuestion: input.rawQuestion,
+      rawAnswer: input.rawAnswer,
+      rawExplanation: input.rawExplanation,
+      reasonCodes: Array.from(reasonCodes),
+      explanationExtracted: extracted.explanationExtracted,
+      wasCompressed: hasCompressionReason(reasonCodes),
+      wasLegacyMigrated: input.wasLegacyMigrated,
+      unchanged: substantiveReasonCount === 0,
+      fitScore,
+    },
   } satisfies FlashcardContentModel;
+}
+
+function shouldUseCurrentRawValue<T extends string | undefined>(currentValue: T, previousCanonicalValue: T): boolean {
+  return (currentValue ?? '') !== (previousCanonicalValue ?? '');
+}
+
+function getExistingRawQuestion(card: Flashcard): string {
+  return shouldUseCurrentRawValue(card.question, card.content?.canonicalQuestion)
+    ? card.question
+    : (card.content?.normalization.rawQuestion ?? card.question);
+}
+
+function getExistingRawAnswer(card: Flashcard): string {
+  return shouldUseCurrentRawValue(card.answer, card.content?.canonicalAnswer)
+    ? card.answer
+    : (card.content?.normalization.rawAnswer ?? card.answer);
+}
+
+function getExistingRawExplanation(card: Flashcard): string | undefined {
+  return shouldUseCurrentRawValue(card.explanation, card.content?.explanation)
+    ? card.explanation
+    : (card.content?.normalization.rawExplanation ?? card.explanation);
 }
 
 export function normalizeComparableAnswer(value: string): string {
@@ -632,22 +880,31 @@ export function inferAnswerType(question: string, answer: string): FlashcardAnsw
 }
 
 export function getFlashcardContent(card: Flashcard): FlashcardContentModel {
-  const nextContent = buildContentModel({
-    question: card.content?.canonicalQuestion ?? card.question,
-    answer: card.content?.canonicalAnswer ?? card.answer,
-    explanation: card.explanation,
-  });
+  if (card.content?.version === CARD_CONTENT_VERSION) {
+    return card.content;
+  }
 
-  return nextContent;
+  return buildContentModel({
+    rawQuestion: getExistingRawQuestion(card),
+    rawAnswer: getExistingRawAnswer(card),
+    rawExplanation: getExistingRawExplanation(card),
+    wasLegacyMigrated: !card.content || card.content.version < CARD_CONTENT_VERSION,
+  });
 }
 
-export function normalizeFlashcard(card: Flashcard): Flashcard {
-  const content = getFlashcardContent(card);
+export function normalizeFlashcard(card: Flashcard, options?: { wasLegacyMigrated?: boolean }): Flashcard {
+  const content = buildContentModel({
+    rawQuestion: getExistingRawQuestion(card),
+    rawAnswer: getExistingRawAnswer(card),
+    rawExplanation: getExistingRawExplanation(card),
+    wasLegacyMigrated: options?.wasLegacyMigrated ?? (!card.content || card.content.version < CARD_CONTENT_VERSION),
+  });
+
   return {
     ...card,
     question: content.canonicalQuestion,
     answer: content.canonicalAnswer,
-    explanation: card.explanation ? sentenceCaseFirstLetter(trimAtWordBoundary(normalizeBaseText(card.explanation), 280)) : undefined,
+    explanation: content.explanation,
     content,
   } satisfies Flashcard;
 }
@@ -660,17 +917,122 @@ export function mergeFlashcardUpdates(card: Flashcard, updates: Partial<Flashcar
   });
 }
 
-export function normalizeDeck(deck: Deck): Deck {
+export function buildDeckNormalizationSummary(params: {
+  deckId: string;
+  flashcards: Flashcard[];
+  source: FlashcardNormalizationSource;
+  originalCardCount?: number;
+  rejectedCount?: number;
+  duplicatePairsRemoved?: number;
+  extraReasonCodeCounts?: Partial<Record<FlashcardNormalizationReasonCode, number>>;
+}): FlashcardDeckNormalizationSummary {
+  const cards = params.flashcards.map((card) => {
+    const content = getFlashcardContent(card);
+    return {
+      cardId: card.id,
+      answerType: content.answerType,
+      reasonCodes: content.normalization.reasonCodes,
+      qualityFlags: content.qualityFlags,
+      rawAnswerLength: content.normalization.rawAnswer.trim().length,
+      canonicalAnswerLength: content.canonicalAnswer.length,
+      fitScore: content.normalization.fitScore,
+      wasCompressed: content.normalization.wasCompressed,
+      wasLegacyMigrated: content.normalization.wasLegacyMigrated,
+      unchanged: content.normalization.unchanged,
+    };
+  });
+
+  const answerTypeDistribution = cards.reduce<Partial<Record<FlashcardAnswerType, number>>>((accumulator, card) => {
+    accumulator[card.answerType] = (accumulator[card.answerType] ?? 0) + 1;
+    return accumulator;
+  }, {});
+
+  const reasonCodeCounts = cards.reduce<Partial<Record<FlashcardNormalizationReasonCode, number>>>((accumulator, card) => {
+    card.reasonCodes.forEach((reasonCode) => {
+      accumulator[reasonCode] = (accumulator[reasonCode] ?? 0) + 1;
+    });
+    return accumulator;
+  }, {});
+
+  Object.entries(params.extraReasonCodeCounts ?? {}).forEach(([key, value]) => {
+    const reasonCode = key as FlashcardNormalizationReasonCode;
+    reasonCodeCounts[reasonCode] = (reasonCodeCounts[reasonCode] ?? 0) + (value ?? 0);
+  });
+
+  const qualityFlagCounts = cards.reduce<Record<string, number>>((accumulator, card) => {
+    card.qualityFlags.forEach((flag) => {
+      accumulator[flag] = (accumulator[flag] ?? 0) + 1;
+    });
+    return accumulator;
+  }, {});
+
+  const acceptedCount = cards.length;
+  const rejectedCount = params.rejectedCount ?? 0;
+  const duplicatePairsRemoved = params.duplicatePairsRemoved ?? 0;
+  const processedCount = params.originalCardCount ?? (acceptedCount + rejectedCount + duplicatePairsRemoved);
+  const acceptedUnchangedCount = cards.filter((card) => card.unchanged).length;
+  const acceptedCompressedCount = cards.filter((card) => card.wasCompressed).length;
+  const explanationExtractedCount = params.flashcards.filter((card) => getFlashcardContent(card).normalization.explanationExtracted).length;
+  const legacyCardsUpgraded = cards.filter((card) => card.wasLegacyMigrated).length;
+  const averageRawAnswerLength = acceptedCount > 0
+    ? cards.reduce((sum, card) => sum + card.rawAnswerLength, 0) / acceptedCount
+    : 0;
+  const averageCanonicalAnswerLength = acceptedCount > 0
+    ? cards.reduce((sum, card) => sum + card.canonicalAnswerLength, 0) / acceptedCount
+    : 0;
+  const distinctAnswerCount = new Set(params.flashcards.map((card) => getFlashcardContent(card).normalizedAnswer)).size;
+  const battleSafe = acceptedCount >= 4
+    && distinctAnswerCount >= 4
+    && params.flashcards.every((card) => {
+      const content = getFlashcardContent(card);
+      return content.quality.battleAnswer !== 'reject' && content.quality.battleQuestion !== 'reject';
+    });
+
   return {
+    deckId: params.deckId,
+    source: params.source,
+    processedCount,
+    acceptedCount,
+    acceptedUnchangedCount,
+    acceptedCompressedCount,
+    explanationExtractedCount,
+    rejectedCount,
+    duplicatePairsRemoved,
+    legacyCardsUpgraded,
+    affectedCardCount: acceptedCount - acceptedUnchangedCount,
+    answerTypeDistribution,
+    reasonCodeCounts,
+    qualityFlagCounts,
+    averageRawAnswerLength,
+    averageCanonicalAnswerLength,
+    battleSafe,
+    cards,
+    createdAt: Date.now(),
+  } satisfies FlashcardDeckNormalizationSummary;
+}
+
+export function normalizeDeck(deck: Deck, options?: { source?: FlashcardNormalizationSource; trackDiagnostics?: boolean }): Deck {
+  const normalizedDeck = {
     ...deck,
     flashcards: deck.flashcards.map((card) => normalizeFlashcard(card)),
   } satisfies Deck;
+
+  if (options?.trackDiagnostics) {
+    recordDeckNormalizationSummary(buildDeckNormalizationSummary({
+      deckId: deck.id,
+      flashcards: normalizedDeck.flashcards,
+      source: options.source ?? 'unknown',
+      originalCardCount: deck.flashcards.length,
+    }));
+  }
+
+  return normalizedDeck;
 }
 
-export function normalizeDeckCollection(decks: Deck[]): { decks: Deck[]; didChange: boolean } {
+export function normalizeDeckCollection(decks: Deck[], options?: { source?: FlashcardNormalizationSource; trackDiagnostics?: boolean }): { decks: Deck[]; didChange: boolean } {
   let didChange = false;
   const normalizedDecks = decks.map((deck) => {
-    const normalizedDeck = normalizeDeck(deck);
+    const normalizedDeck = normalizeDeck(deck, options);
     if (JSON.stringify(deck) !== JSON.stringify(normalizedDeck)) {
       didChange = true;
     }
@@ -680,10 +1042,12 @@ export function normalizeDeckCollection(decks: Deck[]): { decks: Deck[]; didChan
   return { decks: normalizedDecks, didChange };
 }
 
-export function createNormalizedFlashcard(input: Omit<Flashcard, 'content'>): Flashcard {
+export function createNormalizedFlashcard(input: Omit<Flashcard, 'content'>, options?: { wasLegacyMigrated?: boolean }): Flashcard {
   return normalizeFlashcard({
     ...input,
     content: undefined,
+  }, {
+    wasLegacyMigrated: options?.wasLegacyMigrated ?? false,
   });
 }
 
@@ -744,7 +1108,7 @@ export function createFlashcardOption(params: {
   canonicalValue?: string;
   answerType?: FlashcardAnswerType;
   sourceCardId?: string;
-  surface?: OptionSurface;
+  surface?: FlashcardOptionSurface;
   question?: string;
 }): FlashcardOption {
   const canonicalValue = buildCanonicalAnswer(params.canonicalValue ?? params.value);
@@ -766,7 +1130,7 @@ export function createFlashcardOption(params: {
   } satisfies FlashcardOption;
 }
 
-export function createFlashcardOptionFromCard(card: Flashcard, surface: OptionSurface = 'tile'): FlashcardOption {
+export function createFlashcardOptionFromCard(card: Flashcard, surface: FlashcardOptionSurface = 'tile'): FlashcardOption {
   const content = getFlashcardContent(card);
   return {
     id: createOptionId(content.canonicalAnswer, card.id),
@@ -780,6 +1144,87 @@ export function createFlashcardOptionFromCard(card: Flashcard, surface: OptionSu
     answerType: content.answerType,
     sourceCardId: card.id,
   } satisfies FlashcardOption;
+}
+
+function normalizeOptionDisplayKey(value: string): string {
+  return collapseWhitespace(value).toLowerCase();
+}
+
+function detectOptionDisplayCollisions(options: FlashcardOption[]): FlashcardOptionCollisionEntry[] {
+  const grouped = options.reduce<Map<string, FlashcardOption[]>>((accumulator, option) => {
+    const key = normalizeOptionDisplayKey(option.displayText);
+    const existing = accumulator.get(key) ?? [];
+    accumulator.set(key, [...existing, option]);
+    return accumulator;
+  }, new Map<string, FlashcardOption[]>());
+
+  return Array.from(grouped.entries())
+    .map(([normalizedDisplayText, groupedOptions]) => ({ normalizedDisplayText, groupedOptions }))
+    .filter(({ groupedOptions }) => groupedOptions.length > 1)
+    .filter(({ groupedOptions }) => new Set(groupedOptions.map((option) => option.normalizedValue)).size > 1)
+    .map(({ normalizedDisplayText, groupedOptions }) => ({
+      displayText: groupedOptions[0]?.displayText ?? '',
+      normalizedDisplayText,
+      optionIds: groupedOptions.map((option) => option.id),
+      canonicalValues: groupedOptions.map((option) => option.canonicalValue),
+    }));
+}
+
+function getFallbackOptionDisplayText(option: FlashcardOption, surface: FlashcardOptionSurface): string {
+  const maxChars = OPTION_SURFACE_LIMITS[surface];
+  const label = sentenceCaseFirstLetter(trimAtWordBoundary(buildCanonicalAnswer(option.canonicalValue), maxChars));
+  return label || option.displayText;
+}
+
+export function resolveOptionDisplayCollisions(params: {
+  options: FlashcardOption[];
+  surface: FlashcardOptionSurface;
+  source?: FlashcardNormalizationSource;
+  deckId?: string;
+  cardId?: string;
+}): FlashcardOptionCollisionResult {
+  const collisions = detectOptionDisplayCollisions(params.options);
+  if (collisions.length === 0) {
+    return {
+      options: params.options,
+      collisions: [],
+      fallbackCount: 0,
+    };
+  }
+
+  const collisionOptionIds = new Set(collisions.flatMap((collision) => collision.optionIds));
+  let fallbackCount = 0;
+  const nextOptions = params.options.map((option) => {
+    if (!collisionOptionIds.has(option.id)) {
+      return option;
+    }
+
+    const nextDisplayText = getFallbackOptionDisplayText(option, params.surface);
+    if (nextDisplayText !== option.displayText) {
+      fallbackCount += 1;
+      return {
+        ...option,
+        displayText: nextDisplayText,
+      } satisfies FlashcardOption;
+    }
+
+    return option;
+  });
+
+  recordOptionCollision({
+    deckId: params.deckId,
+    cardId: params.cardId,
+    source: params.source ?? 'option_generation',
+    surface: params.surface,
+    collisions,
+    fallbackCount,
+  });
+
+  return {
+    options: nextOptions,
+    collisions,
+    fallbackCount,
+  } satisfies FlashcardOptionCollisionResult;
 }
 
 export function prepareGeneratedFlashcards(params: {
@@ -796,6 +1241,7 @@ export function prepareGeneratedFlashcards(params: {
     tags?: string[];
   }>;
   idPrefix: string;
+  source?: FlashcardNormalizationSource;
 }): {
   flashcards: Flashcard[];
   rejectedCount: number;
@@ -804,6 +1250,7 @@ export function prepareGeneratedFlashcards(params: {
   const seenPairs = new Set<string>();
   let rejectedCount = 0;
   let duplicateCount = 0;
+  const extraReasonCodeCounts: Partial<Record<FlashcardNormalizationReasonCode, number>> = {};
 
   const flashcards = params.cards.reduce<Flashcard[]>((accumulator, rawCard, index) => {
     const normalized = createNormalizedFlashcard({
@@ -831,11 +1278,18 @@ export function prepareGeneratedFlashcards(params: {
 
     if (hasRejectFlag) {
       rejectedCount += 1;
+      if (content?.quality.tileAnswer === 'reject' || content?.quality.battleAnswer === 'reject' || content?.quality.gameplayQuestion === 'reject') {
+        extraReasonCodeCounts.rejected_low_fit = (extraReasonCodeCounts.rejected_low_fit ?? 0) + 1;
+      }
+      if (content?.qualityFlags.includes('markdown_artifacts')) {
+        extraReasonCodeCounts.rejected_display_hostile = (extraReasonCodeCounts.rejected_display_hostile ?? 0) + 1;
+      }
       return accumulator;
     }
 
     if (seenPairs.has(pairKey)) {
       duplicateCount += 1;
+      extraReasonCodeCounts.rejected_duplicate = (extraReasonCodeCounts.rejected_duplicate ?? 0) + 1;
       return accumulator;
     }
 
@@ -843,6 +1297,16 @@ export function prepareGeneratedFlashcards(params: {
     accumulator.push(normalized);
     return accumulator;
   }, []);
+
+  recordDeckNormalizationSummary(buildDeckNormalizationSummary({
+    deckId: params.deckId,
+    flashcards,
+    source: params.source ?? 'unknown',
+    originalCardCount: params.cards.length,
+    rejectedCount,
+    duplicatePairsRemoved: duplicateCount,
+    extraReasonCodeCounts,
+  }));
 
   logger.debug('[FlashcardContent] Prepared generated flashcards', {
     deckId: params.deckId,

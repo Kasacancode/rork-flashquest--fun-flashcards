@@ -1,5 +1,5 @@
 import type { Deck, Flashcard } from '@/types/flashcard';
-import { createNormalizedFlashcard } from '@/utils/flashcardContent';
+import { createNormalizedFlashcard, normalizeDeck } from '@/utils/flashcardContent';
 import { isRecord, safeParseJsonOrNull } from '@/utils/safeJson';
 
 interface ImportedFlashcard {
@@ -66,7 +66,7 @@ export function importDeckFromClipboardText(text: string): ImportedDeckResult | 
     return null;
   }
 
-  const deck: Deck = {
+  const deck = normalizeDeck({
     id: newDeckId,
     name: data.name.slice(0, 100),
     description: getStringValue(data.description, 'Imported deck').slice(0, 200),
@@ -76,10 +76,13 @@ export function importDeckFromClipboardText(text: string): ImportedDeckResult | 
     flashcards,
     isCustom: true,
     createdAt,
-  };
+  } satisfies Deck, {
+    source: 'import',
+    trackDiagnostics: true,
+  });
 
   return {
     deck,
-    cardCount: flashcards.length,
+    cardCount: deck.flashcards.length,
   };
 }

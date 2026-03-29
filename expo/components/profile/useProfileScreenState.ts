@@ -10,7 +10,7 @@ import { useAvatar } from '@/context/AvatarContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
-import { DATA_PRIVACY_ROUTE, FAQ_ROUTE } from '@/utils/routes';
+import { DATA_PRIVACY_ROUTE, FAQ_ROUTE, FLASHCARD_DEBUG_ROUTE } from '@/utils/routes';
 import {
   ACHIEVEMENT_CATEGORIES,
   computeAchievements,
@@ -159,6 +159,10 @@ export function useProfileScreenState() {
     navigation.push(DATA_PRIVACY_ROUTE);
   }, [navigation]);
 
+  const handleOpenFlashcardInspector = useCallback(() => {
+    navigation.push(FLASHCARD_DEBUG_ROUTE);
+  }, [navigation]);
+
   const handleSelectSuit = useCallback((suitId: typeof selectedSuit) => {
     setSelectedSuit(suitId);
   }, [setSelectedSuit]);
@@ -247,6 +251,7 @@ export function useProfileScreenState() {
     handleCloseLevels,
     handleOpenFAQ,
     handleOpenPrivacy,
+    handleOpenFlashcardInspector,
     handleSelectSuit,
     handleSelectColor,
     handleEditPlayerName,

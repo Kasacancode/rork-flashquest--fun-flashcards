@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnswerCard, getSuitForIndex, AnswerCardState, CARD_GAP, CARD_HEIGHT, CARD_PADDING, CARD_WIDTH, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
 import DealerPlaceholder from '@/components/DealerPlaceholder';
+import FlashcardDebugButton from '@/components/debug/FlashcardDebugButton';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -688,6 +689,13 @@ export default function QuestSessionScreen() {
                   {deck.name}
                 </Text>
               </View>
+              <FlashcardDebugButton
+                deckId={currentCard.deckId}
+                cardId={currentCard.id}
+                surface="quest"
+                options={options}
+                testID="quest-flashcard-debug-button"
+              />
             </View>
             <Text style={[styles.questionText, { color: theme.text }]} numberOfLines={4}>
               {displayQuestion}
@@ -910,8 +918,10 @@ const styles = StyleSheet.create({
   },
   questionMetaRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
+    gap: 10,
   },
   questionPill: {
     paddingHorizontal: 12,

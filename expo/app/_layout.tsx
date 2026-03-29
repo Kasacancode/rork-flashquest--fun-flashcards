@@ -70,6 +70,7 @@ function RootLayoutNav() {
       <Stack.Screen name="scan-notes" options={{ headerShown: false }} />
       <Stack.Screen name="text-to-deck" options={{ headerShown: false }} />
       <Stack.Screen name="deck-hub" options={{ headerShown: false }} />
+      <Stack.Screen name="flashcard-debug" options={{ headerShown: false, presentation: 'modal' }} />
       <Stack.Screen name="data-privacy" options={{ headerShown: false }} />
       <Stack.Screen name="faq" options={{ headerShown: false }} />
     </Stack>

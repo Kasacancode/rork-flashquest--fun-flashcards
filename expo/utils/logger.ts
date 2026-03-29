@@ -1,4 +1,4 @@
-const isDev = __DEV__;
+const isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV !== 'production';
 const verboseLoggingEnabled = false;
 
 export const logger = {

@@ -268,6 +268,7 @@ ${sourceText}`,
       deckId: newDeckId,
       createdAt: Date.now(),
       idPrefix: `ai_${newDeckId}`,
+      source: 'text_to_deck',
       cards: validCards.map((c) => ({
         question: c.question,
         answer: c.answer,

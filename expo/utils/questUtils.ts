@@ -9,6 +9,7 @@ import {
   createFlashcardOption,
   createFlashcardOptionFromCard,
   getCanonicalAnswer,
+  resolveOptionDisplayCollisions,
   getCanonicalQuestion,
   getCardAnswerForSurface,
   getCardQuestionForSurface,
@@ -636,11 +637,18 @@ export function generateOptions(params: {
   ]);
 
   const displayLabels = buildGameplayOptionLabels(optionObjects.map((option) => option.canonicalValue));
-
-  return optionObjects.map((option, index) => ({
+  const labeledOptions = optionObjects.map((option, index) => ({
     ...option,
     displayText: displayLabels[index] ?? option.displayText,
   }));
+
+  return resolveOptionDisplayCollisions({
+    options: labeledOptions,
+    surface: 'tile',
+    source: 'option_generation',
+    deckId: currentCard?.deckId,
+    cardId: params.currentCardId,
+  }).options;
 }
 
 export function checkAnswer(selected: string, correct: string): boolean {

@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronRight, HelpCircle, Moon, ShieldCheck, Sun } from 'lucide-react-native';
+import { Bug, ChevronRight, HelpCircle, Moon, ShieldCheck, Sun } from 'lucide-react-native';
 import React from 'react';
 import { Switch, Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
@@ -12,6 +12,7 @@ interface OverviewTabProps {
   toggleTheme: () => void;
   onOpenFAQ: () => void;
   onOpenPrivacy: () => void;
+  onOpenFlashcardInspector?: () => void;
   surfaceGradient: readonly [string, string];
   styles: ViewStyles<
     | 'tabContent'
@@ -39,6 +40,7 @@ export default function OverviewTab({
   toggleTheme,
   onOpenFAQ,
   onOpenPrivacy,
+  onOpenFlashcardInspector,
   surfaceGradient,
   styles,
   theme,
@@ -134,6 +136,19 @@ export default function OverviewTab({
             </View>
             <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
           </TouchableOpacity>
+
+          {__DEV__ && onOpenFlashcardInspector ? (
+            <TouchableOpacity style={styles.toggleCard} onPress={onOpenFlashcardInspector} activeOpacity={0.7} testID="profile-open-flashcard-inspector">
+              <View style={styles.toggleLeadingIcon}>
+                <Bug color={theme.primary} size={17} strokeWidth={2.3} />
+              </View>
+              <View style={styles.toggleTextWrap}>
+                <Text style={styles.toggleTitle}>Flashcard Inspector</Text>
+                <Text style={styles.toggleSubtitle}>Inspect normalization snapshots and diagnostics.</Text>
+              </View>
+              <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
+            </TouchableOpacity>
+          ) : null}
         </LinearGradient>
       </View>
 

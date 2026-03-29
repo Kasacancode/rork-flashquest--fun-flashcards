@@ -296,7 +296,10 @@ function normalizeStoredDecks(storedDecks: Deck[]): { decks: Deck[]; didChange: 
     didChange = true;
   });
 
-  const normalizedDecks = normalizeDeckCollection(syncedDecks);
+  const normalizedDecks = normalizeDeckCollection(syncedDecks, {
+    source: 'legacy_load_normalization',
+    trackDiagnostics: true,
+  });
 
   return {
     decks: normalizedDecks.decks,

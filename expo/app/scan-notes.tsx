@@ -313,6 +313,7 @@ Also suggest a deck name, description, and category.`,
       deckId: newDeckId,
       createdAt: Date.now(),
       idPrefix: `ai_${newDeckId}`,
+      source: 'scan_notes',
       cards: validCards.map((c) => ({
         question: c.question,
         answer: c.answer,

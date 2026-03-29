@@ -19,6 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { generateText } from '@rork-ai/toolkit-sdk';
 
 import ConfidenceChips from '@/components/ConfidenceChips';
+import FlashcardDebugButton from '@/components/debug/FlashcardDebugButton';
 import ConsentSheet from '@/components/privacy/ConsentSheet';
 import type { Theme } from '@/constants/colors';
 import { usePerformance } from '@/context/PerformanceContext';
@@ -711,12 +712,21 @@ export default function StudyFeed({
               <Text style={[styles.cardLabel, { color: isRevealed ? '#4CAF50' : theme.primary || '#667eea' }]}>
                 {isRevealed ? 'ANSWER' : 'QUESTION'}
               </Text>
-              {hintShown && !isRevealed ? (
-                <View style={styles.hintBadge}>
-                  <Lightbulb size={12} color="#FFD700" />
-                  <Text style={styles.hintBadgeText}>Hint used</Text>
-                </View>
-              ) : null}
+              <View style={styles.cardLabelActions}>
+                {hintShown && !isRevealed ? (
+                  <View style={styles.hintBadge}>
+                    <Lightbulb size={12} color="#FFD700" />
+                    <Text style={styles.hintBadgeText}>Hint used</Text>
+                  </View>
+                ) : null}
+                <FlashcardDebugButton
+                  deckId={currentCard?.deckId}
+                  cardId={currentCard?.id}
+                  surface="study"
+                  label="Inspect"
+                  testID="study-flashcard-debug-button"
+                />
+              </View>
             </View>
             <Text style={[styles.cardText, { color: isDark ? theme.text : '#333' }]}>
               {isRevealed ? displayAnswer : displayQuestion}
@@ -932,8 +942,14 @@ const styles = StyleSheet.create({
   cardLabelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 10,
     marginBottom: 24,
+  },
+  cardLabelActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   cardLabel: {
     fontSize: 13,

@@ -1,5 +1,6 @@
 import type { Href } from 'expo-router';
 
+import type { FlashcardOption } from '@/types/flashcard';
 import type { QuestMode, QuestSettings } from '@/types/performance';
 import type { PracticeMode } from '@/types/practice';
 import { serializeQuestSettings } from '@/utils/questParams';
@@ -24,6 +25,7 @@ export const PRACTICE_ROUTE = '/practice' as const satisfies Href;
 export const PRACTICE_SESSION_ROUTE = '/practice-session' as const satisfies Href;
 export const STUDY_ROUTE = '/study' as const satisfies Href;
 export const DECK_HUB_ROUTE = '/deck-hub' as const satisfies Href;
+export const FLASHCARD_DEBUG_ROUTE = '/flashcard-debug' as unknown as Href;
 
 export function createFlashcardHref(deckId?: string): Href {
   return deckId
@@ -37,6 +39,37 @@ export function studyHref(deckId: string): Href {
 
 export function deckHubHref(deckId: string): Href {
   return { pathname: DECK_HUB_ROUTE, params: { deckId } };
+}
+
+export function flashcardDebugHref(params?: {
+  deckId?: string;
+  cardId?: string;
+  surface?: string;
+  options?: FlashcardOption[];
+}): Href {
+  if (!params?.deckId && !params?.cardId && !params?.surface && (!params?.options || params.options.length === 0)) {
+    return FLASHCARD_DEBUG_ROUTE as Href;
+  }
+
+  const nextParams: Record<string, string> = {};
+
+  if (params?.deckId) {
+    nextParams.deckId = params.deckId;
+  }
+
+  if (params?.cardId) {
+    nextParams.cardId = params.cardId;
+  }
+
+  if (params?.surface) {
+    nextParams.surface = params.surface;
+  }
+
+  if (params?.options && params.options.length > 0) {
+    nextParams.options = JSON.stringify(params.options.slice(0, 8));
+  }
+
+  return { pathname: FLASHCARD_DEBUG_ROUTE as unknown as string, params: nextParams } as Href;
 }
 
 export function questHref(params?: { deckId?: string; focusWeak?: 'true' }): Href {

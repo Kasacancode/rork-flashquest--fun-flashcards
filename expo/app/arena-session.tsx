@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { REVEAL_DURATION_MS } from '@/backend/arena/types';
 import { AnswerCard, getSuitForIndex, DealerReaction, AnswerCardState, CARD_GAP, CARD_HEIGHT, CARD_PADDING, CARD_WIDTH, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
+import FlashcardDebugButton from '@/components/debug/FlashcardDebugButton';
 import { DealerCountdownBar, StreakIndicator } from '@/components/GameUI';
 import { useArena } from '@/context/ArenaContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -636,6 +637,13 @@ export default function ArenaSessionScreen() {
                   {room?.code ? `ROOM ${room.code}` : 'ARENA BATTLE'}
                 </Text>
               </View>
+              <FlashcardDebugButton
+                deckId={room?.deckId}
+                cardId={currentQuestion?.cardId}
+                surface="arena"
+                options={currentQuestion?.options ?? []}
+                testID="arena-flashcard-debug-button"
+              />
             </View>
             {timerTotal > 0 && displayTimeRemainingMs !== null && phase === 'question' && (
               <View style={styles.inlineTimer}>
@@ -949,8 +957,10 @@ const styles = StyleSheet.create({
   },
   questionMetaRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
+    gap: 10,
   },
   questionPill: {
     backgroundColor: 'rgba(245, 158, 11, 0.18)',

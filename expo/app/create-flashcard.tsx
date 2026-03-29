@@ -26,6 +26,7 @@ import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import { Flashcard } from '@/types/flashcard';
+import { normalizeDeck } from '@/utils/flashcardContent';
 import { logger } from '@/utils/logger';
 import { DECKS_ROUTE } from '@/utils/routes';
 import { generateUUID } from '@/utils/uuid';
@@ -218,11 +219,32 @@ export default function CreateFlashcardPage() {
         };
       });
 
-      updateDeck(editingDeckId, {
+      const normalizedDeck = normalizeDeck({
+        ...(existingDeck ?? {
+          id: editingDeckId,
+          color: '#667EEA',
+          icon: 'star',
+          isCustom: true,
+          createdAt: Date.now(),
+          name: deckName.trim(),
+          description: deckDescription.trim() || 'Custom deck',
+          category: resolvedCategory,
+        }),
+        id: editingDeckId,
         name: deckName.trim(),
         description: deckDescription.trim() || 'Custom deck',
         category: resolvedCategory,
         flashcards,
+      }, {
+        source: 'manual_create',
+        trackDiagnostics: true,
+      });
+
+      updateDeck(editingDeckId, {
+        name: normalizedDeck.name,
+        description: normalizedDeck.description,
+        category: normalizedDeck.category,
+        flashcards: normalizedDeck.flashcards,
       });
 
       Alert.alert('Success', 'Deck updated successfully!', [
@@ -245,7 +267,7 @@ export default function CreateFlashcardPage() {
         createdAt: Date.now(),
       }));
 
-      addDeck({
+      const normalizedDeck = normalizeDeck({
         id: newDeckId,
         name: deckName.trim(),
         description: deckDescription.trim() || 'Custom deck',
@@ -255,7 +277,12 @@ export default function CreateFlashcardPage() {
         flashcards,
         isCustom: true,
         createdAt: Date.now(),
+      }, {
+        source: 'manual_create',
+        trackDiagnostics: true,
       });
+
+      addDeck(normalizedDeck);
       trackEvent({
         event: 'deck_created',
         properties: {
