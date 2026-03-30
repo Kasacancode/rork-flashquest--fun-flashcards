@@ -213,35 +213,48 @@ async function readMirroredStorage<T>(options: {
   parse: (value: unknown) => T | null;
 }): Promise<T> {
   const { primaryKey, backupKey, label, fallback, parse } = options;
-  const primaryRaw = await AsyncStorage.getItem(primaryKey);
 
-  if (primaryRaw != null) {
-    const parsedPrimary = parseStoredJson(primaryRaw);
-    const normalizedPrimary = parsedPrimary == null ? null : parse(parsedPrimary);
+  try {
+    const primaryRaw = await AsyncStorage.getItem(primaryKey);
 
-    if (normalizedPrimary != null) {
-      const backupRaw = await AsyncStorage.getItem(backupKey);
-      if (backupRaw !== primaryRaw) {
-        await persistMirroredStorage(primaryKey, backupKey, normalizedPrimary, `${label} mirror sync`);
+    if (primaryRaw != null) {
+      const parsedPrimary = parseStoredJson(primaryRaw);
+      const normalizedPrimary = parsedPrimary == null ? null : parse(parsedPrimary);
+
+      if (normalizedPrimary != null) {
+        try {
+          const backupRaw = await AsyncStorage.getItem(backupKey);
+          if (backupRaw !== primaryRaw) {
+            await persistMirroredStorage(primaryKey, backupKey, normalizedPrimary, `${label} mirror sync`);
+          }
+        } catch (error) {
+          logger.warn('[FlashQuest] Mirror sync failed during read for', label, error);
+        }
+        return normalizedPrimary;
       }
-      return normalizedPrimary;
+
+      logger.warn('[FlashQuest] Primary persisted payload was invalid, trying backup for', label);
     }
 
-    logger.warn('[FlashQuest] Primary persisted payload was invalid, trying backup for', label);
-  }
+    const backupRaw = await AsyncStorage.getItem(backupKey);
+    if (backupRaw != null) {
+      const parsedBackup = parseStoredJson(backupRaw);
+      const normalizedBackup = parsedBackup == null ? null : parse(parsedBackup);
 
-  const backupRaw = await AsyncStorage.getItem(backupKey);
-  if (backupRaw != null) {
-    const parsedBackup = parseStoredJson(backupRaw);
-    const normalizedBackup = parsedBackup == null ? null : parse(parsedBackup);
+      if (normalizedBackup != null) {
+        logger.debug('[FlashQuest] Recovered', label, 'from backup storage');
+        try {
+          await persistMirroredStorage(primaryKey, backupKey, normalizedBackup, `${label} recovery`);
+        } catch (error) {
+          logger.warn('[FlashQuest] Mirror recovery persist failed for', label, error);
+        }
+        return normalizedBackup;
+      }
 
-    if (normalizedBackup != null) {
-      logger.debug('[FlashQuest] Recovered', label, 'from backup storage');
-      await persistMirroredStorage(primaryKey, backupKey, normalizedBackup, `${label} recovery`);
-      return normalizedBackup;
+      logger.warn('[FlashQuest] Backup persisted payload was invalid for', label);
     }
-
-    logger.warn('[FlashQuest] Backup persisted payload was invalid for', label);
+  } catch (error) {
+    logger.error('[FlashQuest] Failed to read mirrored storage for', label, error);
   }
 
   logger.debug('[FlashQuest] Falling back to default payload for', label);
@@ -365,21 +378,30 @@ function normalizeLoadedStats(stats: UserStats): { stats: UserStats; didChange: 
 }
 
 async function loadDecksSnapshot(): Promise<Deck[]> {
-  const storedDecks = await readMirroredStorage<Deck[]>({
-    primaryKey: STORAGE_KEYS.DECKS,
-    backupKey: STORAGE_BACKUP_KEYS.DECKS,
-    label: 'decks',
-    fallback: SAMPLE_DECKS,
-    parse: normalizeStoredDeckPayload,
-  });
-  const normalizedDecks = reconcileDeckCatalog(storedDecks, 'legacy_load_normalization');
+  try {
+    const storedDecks = await readMirroredStorage<Deck[]>({
+      primaryKey: STORAGE_KEYS.DECKS,
+      backupKey: STORAGE_BACKUP_KEYS.DECKS,
+      label: 'decks',
+      fallback: SAMPLE_DECKS,
+      parse: normalizeStoredDeckPayload,
+    });
+    const normalizedDecks = reconcileDeckCatalog(storedDecks, 'legacy_load_normalization');
 
-  if (normalizedDecks.didChange) {
-    logger.debug('[FlashQuest] Synced built-in decks with latest default content');
-    await persistMirroredStorage(STORAGE_KEYS.DECKS, STORAGE_BACKUP_KEYS.DECKS, normalizedDecks.decks, 'decks normalization');
+    if (normalizedDecks.didChange) {
+      logger.debug('[FlashQuest] Synced built-in decks with latest default content');
+      try {
+        await persistMirroredStorage(STORAGE_KEYS.DECKS, STORAGE_BACKUP_KEYS.DECKS, normalizedDecks.decks, 'decks normalization');
+      } catch (error) {
+        logger.warn('[FlashQuest] Failed to persist normalized deck catalog during load', error);
+      }
+    }
+
+    return normalizedDecks.decks;
+  } catch (error) {
+    logger.error('[FlashQuest] Failed to load deck snapshot, restoring built-in decks only', error);
+    return reconcileDeckCatalog(SAMPLE_DECKS, 'legacy_load_normalization').decks;
   }
-
-  return normalizedDecks.decks;
 }
 
 async function loadProgressSnapshot(): Promise<UserProgress[]> {
@@ -403,7 +425,11 @@ async function loadStatsSnapshot(): Promise<UserStats> {
   const normalizedStats = normalizeLoadedStats(storedStats);
 
   if (normalizedStats.didChange) {
-    await persistMirroredStorage(STORAGE_KEYS.STATS, STORAGE_BACKUP_KEYS.STATS, normalizedStats.stats, 'stats streak correction');
+    try {
+      await persistMirroredStorage(STORAGE_KEYS.STATS, STORAGE_BACKUP_KEYS.STATS, normalizedStats.stats, 'stats streak correction');
+    } catch (error) {
+      logger.warn('[FlashQuest] Failed to persist corrected stats during load', error);
+    }
   }
 
   return normalizedStats.stats;
