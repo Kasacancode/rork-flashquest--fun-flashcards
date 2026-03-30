@@ -845,6 +845,35 @@ function buildContentModel(input: {
   } satisfies FlashcardContentModel;
 }
 
+function hasCompleteFlashcardContent(content: Flashcard['content'] | undefined): content is FlashcardContentModel {
+  return content?.version === CARD_CONTENT_VERSION
+    && typeof content.canonicalQuestion === 'string'
+    && typeof content.canonicalAnswer === 'string'
+    && typeof content.normalizedAnswer === 'string'
+    && typeof content.answerType === 'string'
+    && typeof content.projections?.studyQuestion === 'string'
+    && typeof content.projections?.studyAnswer === 'string'
+    && typeof content.projections?.gameplayQuestion === 'string'
+    && typeof content.projections?.tileAnswer === 'string'
+    && typeof content.projections?.battleQuestion === 'string'
+    && typeof content.projections?.battleAnswer === 'string'
+    && typeof content.quality?.studyQuestion === 'string'
+    && typeof content.quality?.studyAnswer === 'string'
+    && typeof content.quality?.gameplayQuestion === 'string'
+    && typeof content.quality?.tileAnswer === 'string'
+    && typeof content.quality?.battleQuestion === 'string'
+    && typeof content.quality?.battleAnswer === 'string'
+    && Array.isArray(content.qualityFlags)
+    && Array.isArray(content.normalization?.reasonCodes)
+    && typeof content.normalization?.rawQuestion === 'string'
+    && typeof content.normalization?.rawAnswer === 'string'
+    && typeof content.normalization?.explanationExtracted === 'boolean'
+    && typeof content.normalization?.wasCompressed === 'boolean'
+    && typeof content.normalization?.wasLegacyMigrated === 'boolean'
+    && typeof content.normalization?.unchanged === 'boolean'
+    && typeof content.normalization?.fitScore === 'number';
+}
+
 function shouldUseCurrentRawValue<T extends string | undefined>(currentValue: T, previousCanonicalValue: T): boolean {
   return (currentValue ?? '') !== (previousCanonicalValue ?? '');
 }
@@ -852,19 +881,24 @@ function shouldUseCurrentRawValue<T extends string | undefined>(currentValue: T,
 function getExistingRawQuestion(card: Flashcard): string {
   return shouldUseCurrentRawValue(card.question, card.content?.canonicalQuestion)
     ? card.question
-    : (card.content?.normalization.rawQuestion ?? card.question);
+    : (card.content?.normalization?.rawQuestion ?? card.question);
 }
 
 function getExistingRawAnswer(card: Flashcard): string {
   return shouldUseCurrentRawValue(card.answer, card.content?.canonicalAnswer)
     ? card.answer
-    : (card.content?.normalization.rawAnswer ?? card.answer);
+    : (card.content?.normalization?.rawAnswer ?? card.answer);
 }
 
 function getExistingRawExplanation(card: Flashcard): string | undefined {
   return shouldUseCurrentRawValue(card.explanation, card.content?.explanation)
     ? card.explanation
-    : (card.content?.normalization.rawExplanation ?? card.explanation);
+    : (card.content?.normalization?.rawExplanation ?? card.explanation);
+}
+
+function getStoredContentVersion(card: Flashcard): number | undefined {
+  const version = (card.content as { version?: unknown } | undefined)?.version;
+  return typeof version === 'number' ? version : undefined;
 }
 
 export function normalizeComparableAnswer(value: string): string {
@@ -880,24 +914,27 @@ export function inferAnswerType(question: string, answer: string): FlashcardAnsw
 }
 
 export function getFlashcardContent(card: Flashcard): FlashcardContentModel {
-  if (card.content?.version === CARD_CONTENT_VERSION) {
+  if (hasCompleteFlashcardContent(card.content)) {
     return card.content;
   }
+
+  const storedContentVersion = getStoredContentVersion(card);
 
   return buildContentModel({
     rawQuestion: getExistingRawQuestion(card),
     rawAnswer: getExistingRawAnswer(card),
     rawExplanation: getExistingRawExplanation(card),
-    wasLegacyMigrated: !card.content || card.content.version < CARD_CONTENT_VERSION,
+    wasLegacyMigrated: storedContentVersion == null || storedContentVersion < CARD_CONTENT_VERSION,
   });
 }
 
 export function normalizeFlashcard(card: Flashcard, options?: { wasLegacyMigrated?: boolean }): Flashcard {
+  const storedContentVersion = getStoredContentVersion(card);
   const content = buildContentModel({
     rawQuestion: getExistingRawQuestion(card),
     rawAnswer: getExistingRawAnswer(card),
     rawExplanation: getExistingRawExplanation(card),
-    wasLegacyMigrated: options?.wasLegacyMigrated ?? (!card.content || card.content.version < CARD_CONTENT_VERSION),
+    wasLegacyMigrated: options?.wasLegacyMigrated ?? (storedContentVersion == null || storedContentVersion < CARD_CONTENT_VERSION),
   });
 
   return {

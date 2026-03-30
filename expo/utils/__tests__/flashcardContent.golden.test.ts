@@ -2,10 +2,13 @@ import { beforeEach, describe, expect, it } from 'bun:test';
 
 import { GOLDEN_DUPLICATE_DECK, GOLDEN_UGLY_GENERATED_DECK } from './fixtures/uglyDecks';
 import { buildFlashcardDebugSnapshot } from '../flashcardInspector';
+import type { Flashcard } from '@/types/flashcard';
+
 import {
   createFlashcardOption,
   createNormalizedFlashcard,
   getFlashcardContent,
+  normalizeFlashcard,
   prepareGeneratedFlashcards,
   resolveOptionDisplayCollisions,
 } from '../flashcardContent';
@@ -120,6 +123,40 @@ describe('flashcard content golden ugly-deck coverage', () => {
       surface: 'tile',
       fallbackCount: 1,
       collisions: ['French Revolution'],
+    });
+  });
+
+  it('rebuilds missing normalization metadata from legacy persisted cards without crashing', () => {
+    const legacyCard: Flashcard = {
+      id: 'legacy_partial_card',
+      question: 'Q: What is ATP?',
+      answer: 'A: Adenosine triphosphate — the main energy currency of the cell.',
+      deckId: 'legacy_partial_deck',
+      difficulty: 'medium',
+      createdAt: 1,
+      content: {
+        version: 2,
+        canonicalQuestion: 'What is ATP?',
+        canonicalAnswer: 'Adenosine triphosphate',
+        explanation: 'The main energy currency of the cell.',
+      } as unknown as Flashcard['content'],
+    };
+
+    const rebuiltContent = getFlashcardContent(legacyCard);
+    const normalizedCard = normalizeFlashcard(legacyCard);
+
+    expect({
+      rawQuestion: rebuiltContent.normalization.rawQuestion,
+      rawAnswer: rebuiltContent.normalization.rawAnswer,
+      explanation: rebuiltContent.explanation,
+      wasLegacyMigrated: normalizedCard.content?.normalization.wasLegacyMigrated,
+      canonicalAnswer: normalizedCard.answer,
+    }).toEqual({
+      rawQuestion: 'Q: What is ATP?',
+      rawAnswer: 'A: Adenosine triphosphate — the main energy currency of the cell.',
+      explanation: 'The main energy currency of the cell.',
+      wasLegacyMigrated: true,
+      canonicalAnswer: 'Adenosine triphosphate',
     });
   });
 
