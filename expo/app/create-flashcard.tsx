@@ -101,6 +101,12 @@ export default function CreateFlashcardPage() {
     return [...PRESET_DECK_CATEGORIES];
   }, [selectedCategory]);
 
+  const editingDeck = useMemo(
+    () => (editingDeckId ? decks.find((deck) => deck.id === editingDeckId) ?? null : null),
+    [decks, editingDeckId],
+  );
+  const canManageEditingDeck = editingDeck?.isCustom ?? false;
+
   const handleSelectCategory = (category: string) => {
     setSelectedCategory(category);
     setShowCustomCategory(false);
@@ -308,6 +314,11 @@ export default function CreateFlashcardPage() {
       return;
     }
 
+    if (!canManageEditingDeck) {
+      logger.log('Delete blocked: built-in decks cannot be deleted', editingDeckId);
+      return;
+    }
+
     logger.log('Attempting to delete deck:', editingDeckId);
 
     const performDelete = async () => {
@@ -388,14 +399,16 @@ export default function CreateFlashcardPage() {
               >
                 <Share2 color={theme.white} size={22} strokeWidth={2.5} />
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleDeleteDeck}
-                style={styles.iconButton}
-                activeOpacity={0.8}
-                testID="deckDeleteButton"
-              >
-                <Trash2 color={theme.white} size={24} strokeWidth={2.5} />
-              </TouchableOpacity>
+              {canManageEditingDeck ? (
+                <TouchableOpacity
+                  onPress={handleDeleteDeck}
+                  style={styles.iconButton}
+                  activeOpacity={0.8}
+                  testID="deckDeleteButton"
+                >
+                  <Trash2 color={theme.white} size={24} strokeWidth={2.5} />
+                </TouchableOpacity>
+              ) : null}
             </View>
           ) : (
             <View style={styles.placeholder} />

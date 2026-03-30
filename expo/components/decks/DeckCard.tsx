@@ -33,6 +33,7 @@ function DeckCardComponent({
   onDeleteDeck,
 }: DeckCardProps) {
   const { deck, mastery, dueCount, isFullyMastered, masteredPercent, reviewingPercent, learningPercent, lapsedPercent } = summary;
+  const canManageDeck = deck.isCustom;
 
   const handleDeletePress = useCallback(() => {
     Alert.alert(
@@ -84,20 +85,22 @@ function DeckCardComponent({
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.deleteButton,
-              {
-                backgroundColor: quietSurface,
-                borderColor: subtleBorderColor,
-              },
-            ]}
-            onPress={handleDeletePress}
-            activeOpacity={0.8}
-            testID={`deck-delete-button-${deck.id}`}
-          >
-            <Trash2 color={theme.textSecondary} size={16} strokeWidth={2.3} />
-          </TouchableOpacity>
+          {canManageDeck ? (
+            <TouchableOpacity
+              style={[
+                styles.deleteButton,
+                {
+                  backgroundColor: quietSurface,
+                  borderColor: subtleBorderColor,
+                },
+              ]}
+              onPress={handleDeletePress}
+              activeOpacity={0.8}
+              testID={`deck-delete-button-${deck.id}`}
+            >
+              <Trash2 color={theme.textSecondary} size={16} strokeWidth={2.3} />
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <View style={styles.deckStats}>
@@ -178,14 +181,16 @@ function DeckCardComponent({
             <Text style={styles.studyButtonText}>Study</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}
-            onPress={() => onEditDeck(deck.id)}
-            activeOpacity={0.8}
-            testID={`deck-edit-button-${deck.id}`}
-          >
-            <Edit color={theme.text} size={20} strokeWidth={2.5} />
-          </TouchableOpacity>
+          {canManageDeck ? (
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}
+              onPress={() => onEditDeck(deck.id)}
+              activeOpacity={0.8}
+              testID={`deck-edit-button-${deck.id}`}
+            >
+              <Edit color={theme.text} size={20} strokeWidth={2.5} />
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
     </View>
