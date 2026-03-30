@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { Flashcard, FlashcardOption } from '@/types/flashcard';
+import { canAccessDebugRoute, getDebugToolingFallbackHref } from '@/utils/debugTooling';
 import { getFlashcardDiagnosticsState, useFlashcardDiagnostics } from '@/utils/flashcardDiagnostics';
 import { normalizeFlashcard } from '@/utils/flashcardContent';
 import { buildFlashcardDebugSnapshot, serializeFlashcardDebugSnapshot } from '@/utils/flashcardInspector';
@@ -209,8 +210,8 @@ export default function FlashcardDebugScreen() {
   const lastUpdatedAt = diagnostics.lastUpdatedAt ? new Date(diagnostics.lastUpdatedAt).toLocaleTimeString() : 'Never';
   const snapshotText = useMemo(() => snapshot ? serializeFlashcardDebugSnapshot(snapshot) : '', [snapshot]);
 
-  if (!__DEV__) {
-    return <Redirect href="/" />;
+  if (!canAccessDebugRoute('flashcard-debug')) {
+    return <Redirect href={getDebugToolingFallbackHref()} />;
   }
 
   return (

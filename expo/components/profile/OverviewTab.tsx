@@ -135,7 +135,7 @@ export default function OverviewTab({
             <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
           </TouchableOpacity>
 
-          {__DEV__ && onOpenFlashcardInspector ? (
+          {onOpenFlashcardInspector ? (
             <TouchableOpacity style={styles.toggleCard} onPress={onOpenFlashcardInspector} activeOpacity={0.7} testID="profile-open-flashcard-inspector">
               <View style={styles.toggleLeadingIcon}>
                 <Bug color={theme.primary} size={17} strokeWidth={2.3} />

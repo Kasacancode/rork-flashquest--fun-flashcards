@@ -10,7 +10,8 @@ import { useAvatar } from '@/context/AvatarContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
-import { DATA_PRIVACY_ROUTE, FAQ_ROUTE, FLASHCARD_DEBUG_ROUTE } from '@/utils/routes';
+import { canAccessDebugFeature } from '@/utils/debugTooling';
+import { DATA_PRIVACY_ROUTE, FAQ_ROUTE, flashcardDebugHref } from '@/utils/routes';
 import {
   ACHIEVEMENT_CATEGORIES,
   computeAchievements,
@@ -87,6 +88,7 @@ export function useProfileScreenState() {
     [isDark],
   );
   const selectedColorValue = selectedColorData.value || AVATAR_COLORS[0]!.value;
+  const canOpenFlashcardInspector = canAccessDebugFeature('flashcard_inspector');
   const avatarShowcaseGradient = useMemo(
     () => [selectedColorValue, theme.primaryDark, theme.gradientEnd] as [string, string, string],
     [selectedColorValue, theme.primaryDark, theme.gradientEnd],
@@ -160,12 +162,12 @@ export function useProfileScreenState() {
   }, [navigation]);
 
   const handleOpenFlashcardInspector = useCallback(() => {
-    if (!__DEV__) {
+    if (!canOpenFlashcardInspector) {
       return;
     }
 
-    navigation.push(FLASHCARD_DEBUG_ROUTE);
-  }, [navigation]);
+    navigation.push(flashcardDebugHref());
+  }, [canOpenFlashcardInspector, navigation]);
 
   const handleSelectSuit = useCallback((suitId: typeof selectedSuit) => {
     setSelectedSuit(suitId);
@@ -255,7 +257,7 @@ export function useProfileScreenState() {
     handleCloseLevels,
     handleOpenFAQ,
     handleOpenPrivacy,
-    handleOpenFlashcardInspector,
+    handleOpenFlashcardInspector: canOpenFlashcardInspector ? handleOpenFlashcardInspector : undefined,
     handleSelectSuit,
     handleSelectColor,
     handleEditPlayerName,

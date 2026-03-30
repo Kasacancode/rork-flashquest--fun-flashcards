@@ -3,6 +3,7 @@ import type { Href } from 'expo-router';
 import type { FlashcardOption } from '@/types/flashcard';
 import type { QuestMode, QuestSettings } from '@/types/performance';
 import type { PracticeMode } from '@/types/practice';
+import { canAccessDebugRoute, getDebugToolingFallbackHref } from '@/utils/debugTooling';
 import { serializeQuestSettings } from '@/utils/questParams';
 
 export const HOME_ROUTE = '/' as const satisfies Href;
@@ -47,8 +48,8 @@ export function flashcardDebugHref(params?: {
   surface?: string;
   options?: FlashcardOption[];
 }): Href {
-  if (!__DEV__) {
-    return HOME_ROUTE;
+  if (!canAccessDebugRoute('flashcard-debug')) {
+    return getDebugToolingFallbackHref();
   }
 
   if (!params?.deckId && !params?.cardId && !params?.surface && (!params?.options || params.options.length === 0)) {

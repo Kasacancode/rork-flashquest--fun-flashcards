@@ -4,6 +4,7 @@ import React, { useCallback } from 'react';
 import { StyleSheet, Text, TouchableOpacity, ViewStyle, type StyleProp } from 'react-native';
 
 import type { FlashcardOption } from '@/types/flashcard';
+import { canAccessDebugFeature } from '@/utils/debugTooling';
 import { flashcardDebugHref } from '@/utils/routes';
 
 interface FlashcardDebugButtonProps {
@@ -26,17 +27,22 @@ export default function FlashcardDebugButton({
   testID,
 }: FlashcardDebugButtonProps) {
   const router = useRouter();
+  const canInspectFlashcards = canAccessDebugFeature('flashcard_inspector');
 
   const handlePress = useCallback(() => {
+    if (!canInspectFlashcards) {
+      return;
+    }
+
     router.push(flashcardDebugHref({
       deckId: deckId ?? undefined,
       cardId: cardId ?? undefined,
       surface,
       options,
     }));
-  }, [cardId, deckId, options, router, surface]);
+  }, [canInspectFlashcards, cardId, deckId, options, router, surface]);
 
-  if (!__DEV__ || !cardId) {
+  if (!canInspectFlashcards || !cardId) {
     return null;
   }
 

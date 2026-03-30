@@ -19,6 +19,7 @@ import { PrivacyProvider, usePrivacy } from '@/context/PrivacyContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { setAnalyticsCollectionEnabled, trackEvent } from '@/lib/analytics';
 import { trpc, trpcClient } from '@/lib/trpc';
+import { canAccessDebugRoute } from '@/utils/debugTooling';
 import { logger } from '@/utils/logger';
 import { DATA_PRIVACY_ROUTE } from '@/utils/routes';
 import { readStringFlag } from '@/utils/storage';
@@ -70,7 +71,9 @@ function RootLayoutNav() {
       <Stack.Screen name="scan-notes" options={{ headerShown: false }} />
       <Stack.Screen name="text-to-deck" options={{ headerShown: false }} />
       <Stack.Screen name="deck-hub" options={{ headerShown: false }} />
-      {__DEV__ ? <Stack.Screen name="flashcard-debug" options={{ headerShown: false, presentation: 'modal' }} /> : null}
+      <Stack.Protected guard={canAccessDebugRoute('flashcard-debug')}>
+        <Stack.Screen name="flashcard-debug" options={{ headerShown: false, presentation: 'modal' }} />
+      </Stack.Protected>
       <Stack.Screen name="data-privacy" options={{ headerShown: false }} />
       <Stack.Screen name="faq" options={{ headerShown: false }} />
     </Stack>

@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
+import { isInternalDiagnosticsEnabled } from '@/utils/debugTooling';
+
 import type {
   FlashcardAnswerType,
   FlashcardDeckNormalizationSummary,
@@ -9,7 +11,7 @@ import type {
   FlashcardOptionSurface,
 } from '@/types/flashcard';
 
-const DIAGNOSTICS_ENABLED = typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV !== 'production';
+const DIAGNOSTICS_ENABLED = isInternalDiagnosticsEnabled();
 const MAX_RECENT_DECK_SUMMARIES = 18;
 const MAX_RECENT_OPTION_COLLISIONS = 36;
 
