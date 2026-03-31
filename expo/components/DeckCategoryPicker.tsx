@@ -12,6 +12,7 @@ import type { Theme } from '@/constants/colors';
 
 interface DeckCategoryPickerProps {
   label?: string;
+  labelColor?: string;
   categories: readonly string[];
   selectedCategory: string;
   showCustomCategory: boolean;
@@ -27,6 +28,7 @@ interface DeckCategoryPickerProps {
 
 export default function DeckCategoryPicker({
   label = 'Category',
+  labelColor,
   categories,
   selectedCategory,
   showCustomCategory,
@@ -43,7 +45,7 @@ export default function DeckCategoryPicker({
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: theme.white }]}>{label}</Text>
+      <Text style={[styles.label, { color: labelColor ?? theme.white }]}>{label}</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}

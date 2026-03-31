@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Check, Pencil, Plus, Search, Trash2, X } from 'lucide-react-native';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -13,6 +13,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import DeckCategoryPicker from '@/components/DeckCategoryPicker';
+import {
+  MANUAL_DEFAULT_DECK_CATEGORY,
+  PRESET_DECK_CATEGORIES,
+} from '@/constants/deckCategories';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { Flashcard } from '@/types/flashcard';
@@ -32,6 +37,9 @@ export default function EditDeckScreen() {
   const [nameInput, setNameInput] = useState<string>(deck?.name ?? '');
   const [descriptionInput, setDescriptionInput] = useState<string>(deck?.description ?? '');
   const [selectedColor, setSelectedColor] = useState<string>(deck?.color ?? DECK_COLORS[0]);
+  const [selectedCategory, setSelectedCategory] = useState<string>(deck?.category?.trim() || MANUAL_DEFAULT_DECK_CATEGORY);
+  const [showCustomCategory, setShowCustomCategory] = useState<boolean>(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
   const [isEditingMeta, setIsEditingMeta] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showSearch, setShowSearch] = useState<boolean>(false);
@@ -41,6 +49,36 @@ export default function EditDeckScreen() {
     : ['#E0E7FF', '#EDE9FE', '#E0E7FF'];
   const surfaceBg = isDark ? 'rgba(30, 41, 59, 0.72)' : 'rgba(255, 255, 255, 0.88)';
   const inputBg = isDark ? 'rgba(15, 23, 42, 0.5)' : 'rgba(255,255,255,0.6)';
+
+  const isPresetCategory = useCallback((category: string) => {
+    return PRESET_DECK_CATEGORIES.includes(category as typeof PRESET_DECK_CATEGORIES[number]);
+  }, []);
+
+  const syncCategoryState = useCallback((category?: string) => {
+    const normalizedCategory = category?.trim() || MANUAL_DEFAULT_DECK_CATEGORY;
+    setSelectedCategory(normalizedCategory);
+    setCustomCategoryInput(isPresetCategory(normalizedCategory) ? '' : normalizedCategory);
+    setShowCustomCategory(false);
+  }, [isPresetCategory]);
+
+  useEffect(() => {
+    if (!deck) {
+      return;
+    }
+
+    setNameInput(deck.name);
+    setDescriptionInput(deck.description);
+    setSelectedColor(deck.color);
+    syncCategoryState(deck.category);
+  }, [deck, syncCategoryState]);
+
+  const categoryOptions = useMemo(() => {
+    const normalizedSelectedCategory = selectedCategory.trim();
+    if (normalizedSelectedCategory && !isPresetCategory(normalizedSelectedCategory)) {
+      return [...PRESET_DECK_CATEGORIES, normalizedSelectedCategory];
+    }
+    return [...PRESET_DECK_CATEGORIES];
+  }, [isPresetCategory, selectedCategory]);
 
   const filteredCards = useMemo(() => {
     if (!deck) {
@@ -58,18 +96,46 @@ export default function EditDeckScreen() {
     });
   }, [deck, searchQuery]);
 
+  const handleSelectCategory = useCallback((category: string) => {
+    setSelectedCategory(category);
+    setShowCustomCategory(false);
+    setCustomCategoryInput('');
+  }, []);
+
+  const handlePressCustomCategory = useCallback(() => {
+    const normalizedSelectedCategory = selectedCategory.trim();
+    setCustomCategoryInput(
+      normalizedSelectedCategory && !isPresetCategory(normalizedSelectedCategory)
+        ? normalizedSelectedCategory
+        : ''
+    );
+    setShowCustomCategory(true);
+  }, [isPresetCategory, selectedCategory]);
+
+  const handleSubmitCustomCategory = useCallback(() => {
+    const normalizedCustomCategory = customCategoryInput.trim();
+    if (normalizedCustomCategory) {
+      setSelectedCategory(normalizedCustomCategory);
+      setCustomCategoryInput(normalizedCustomCategory);
+    }
+    setShowCustomCategory(false);
+  }, [customCategoryInput]);
+
   const handleSaveMeta = useCallback(() => {
     if (!deckId || !nameInput.trim()) {
       return;
     }
 
+    const resolvedCategory = selectedCategory.trim() || MANUAL_DEFAULT_DECK_CATEGORY;
+
     updateDeck(deckId, {
       name: nameInput.trim(),
       description: descriptionInput.trim(),
       color: selectedColor,
+      category: resolvedCategory,
     });
     setIsEditingMeta(false);
-  }, [deckId, descriptionInput, nameInput, selectedColor, updateDeck]);
+  }, [deckId, descriptionInput, nameInput, selectedCategory, selectedColor, updateDeck]);
 
   const handleDeleteCard = useCallback((card: Flashcard) => {
     if (!deckId) {
@@ -192,6 +258,22 @@ export default function EditDeckScreen() {
                       maxLength={200}
                       testID="edit-deck-description-input"
                     />
+                    <View style={styles.categorySection}>
+                      <DeckCategoryPicker
+                        labelColor={theme.textSecondary}
+                        categories={categoryOptions}
+                        selectedCategory={selectedCategory}
+                        showCustomCategory={showCustomCategory}
+                        customCategoryInput={customCategoryInput}
+                        onSelectCategory={handleSelectCategory}
+                        onPressCustom={handlePressCustomCategory}
+                        onChangeCustomCategoryInput={setCustomCategoryInput}
+                        onSubmitCustomCategory={handleSubmitCustomCategory}
+                        theme={theme}
+                        isDark={isDark}
+                        testIDPrefix="edit-deck-category"
+                      />
+                    </View>
                     <Text style={[styles.fieldLabel, { color: theme.textSecondary, marginTop: 12 }]}>Color</Text>
                     <View style={styles.colorRow}>
                       {DECK_COLORS.map((color) => (
@@ -215,6 +297,7 @@ export default function EditDeckScreen() {
                           setNameInput(deck.name);
                           setDescriptionInput(deck.description);
                           setSelectedColor(deck.color);
+                          syncCategoryState(deck.category);
                           setIsEditingMeta(false);
                         }}
                         style={[styles.metaButton, { borderColor: theme.border }]}
@@ -393,6 +476,9 @@ const styles = StyleSheet.create({
   multilineInput: {
     minHeight: 60,
     textAlignVertical: 'top',
+  },
+  categorySection: {
+    marginTop: 12,
   },
   colorRow: {
     flexDirection: 'row',
