@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   ArrowLeft,
+  ArrowUpDown,
   BookOpen,
   Download,
   FileText,
@@ -36,6 +37,7 @@ import { getDeckListSummaries } from '@/utils/deckSelectors';
 import {
   createFlashcardHref,
   deckHubHref,
+  editDeckHref,
   SCAN_NOTES_ROUTE,
   studyHref,
   TEXT_TO_DECK_ROUTE,
@@ -51,6 +53,7 @@ export default function DecksPage() {
   const [showMenu, setShowMenu] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string>(ALL_DECK_CATEGORIES_LABEL);
+  const [sortBy, setSortBy] = useState<'name' | 'newest' | 'cards'>('newest');
 
   const categories = useMemo(() => {
     const uniqueCategories = Array.from(new Set(decks.map((deck) => deck.category).filter(Boolean)));
@@ -78,8 +81,17 @@ export default function DecksPage() {
       result = result.filter((deck) => deck.name.toLowerCase().includes(normalizedQuery));
     }
 
-    return result;
-  }, [decks, activeCategory, searchQuery]);
+    const sorted = [...result];
+    if (sortBy === 'name') {
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === 'newest') {
+      sorted.sort((a, b) => b.createdAt - a.createdAt);
+    } else if (sortBy === 'cards') {
+      sorted.sort((a, b) => b.flashcards.length - a.flashcards.length);
+    }
+
+    return sorted;
+  }, [decks, activeCategory, searchQuery, sortBy]);
 
   const filteredDeckSummaries = useMemo(() => {
     return getDeckListSummaries(filteredDecks, performance.cardStatsById, getCardsDueForReview);
@@ -139,7 +151,7 @@ export default function DecksPage() {
   }, [addDeck]);
 
   const handleEditDeck = useCallback((deckId: string) => {
-    router.push(createFlashcardHref(deckId));
+    router.push(editDeckHref(deckId));
   }, [router]);
 
   const handleDeleteDeck = useCallback(async (deckId: string) => {
@@ -330,6 +342,45 @@ export default function DecksPage() {
               >
                 <Text style={[styles.categoryPillText, { color: isActive ? '#fff' : theme.textSecondary }]}>
                   {category} ({count})
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.sortRow}
+          contentContainerStyle={styles.sortRowContent}
+        >
+          {[
+            { key: 'newest', label: 'Newest' },
+            { key: 'name', label: 'A–Z' },
+            { key: 'cards', label: 'Most Cards' },
+          ].map((option) => {
+            const isActive = sortBy === option.key;
+
+            return (
+              <TouchableOpacity
+                key={option.key}
+                onPress={() => setSortBy(option.key as 'name' | 'newest' | 'cards')}
+                activeOpacity={0.84}
+                style={[
+                  styles.sortChip,
+                  {
+                    backgroundColor: isActive ? quietSurface : 'transparent',
+                    borderColor: isActive ? subtleBorderColor : 'transparent',
+                  },
+                ]}
+                testID={`deck-sort-chip-${option.key}`}
+              >
+                <ArrowUpDown color={isActive ? theme.primary : theme.textTertiary} size={14} strokeWidth={2.2} />
+                <Text style={[
+                  styles.sortChipText,
+                  { color: isActive ? theme.text : theme.textSecondary },
+                ]}>
+                  {option.label}
                 </Text>
               </TouchableOpacity>
             );
@@ -592,6 +643,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   categoryPillText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  sortRow: {
+    marginBottom: 6,
+    flexGrow: 0,
+  },
+  sortRowContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  sortChip: {
+    height: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    borderRadius: 17,
+    borderWidth: 1,
+  },
+  sortChipText: {
     fontSize: 13,
     fontWeight: '600' as const,
   },

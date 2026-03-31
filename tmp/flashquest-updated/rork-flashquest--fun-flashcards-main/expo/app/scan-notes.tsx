@@ -1,0 +1,912 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { ArrowLeft, Camera, ImageIcon, Sparkles, Check, Plus, Trash2 } from 'lucide-react-native';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+  Animated,
+  Image,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as z from 'zod/v4';
+
+import DeckCategoryPicker from '@/components/DeckCategoryPicker';
+import ConsentSheet from '@/components/privacy/ConsentSheet';
+import {
+  AI_DEFAULT_DECK_CATEGORY,
+  PRESET_DECK_CATEGORIES,
+} from '@/constants/deckCategories';
+import { useFlashQuest } from '@/context/FlashQuestContext';
+import { usePrivacy } from '@/context/PrivacyContext';
+import { useTheme } from '@/context/ThemeContext';
+import { trackEvent } from '@/lib/analytics';
+import { prepareGeneratedFlashcards } from '@/utils/flashcardContent';
+import { DATA_PRIVACY_ROUTE, DECKS_ROUTE } from '@/utils/routes';
+import { generateObject } from '@rork-ai/toolkit-sdk';
+
+const flashcardSchema = z.object({
+  cards: z.array(z.object({
+    question: z.string().describe('A clear, concise flashcard question written for mobile study.'),
+    answer: z.string().describe('A short canonical answer label, ideally 1-5 words. Do not include explanations, caveats, or full-sentence teaching text.'),
+    explanation: z.string().optional().describe('Optional short explanation that adds context, examples, or nuance. Keep it separate from the answer.'),
+  })).describe('Array of flashcard question-answer pairs extracted from the image'),
+  deckName: z.string().describe('A short descriptive name for this deck based on the content'),
+  deckDescription: z.string().describe('A brief description of what these flashcards cover'),
+  category: z.string().describe('A category label for this deck. Choose from: Science, History, Languages, Math, Geography, Technology, Art, Business, or suggest a fitting custom category. Use one or two words.'),
+});
+
+type GeneratedCard = {
+  id: string;
+  question: string;
+  answer: string;
+  explanation?: string;
+};
+
+type ScanStep = 'pick' | 'processing' | 'review';
+
+export default function ScanNotesPage() {
+  const router = useRouter();
+  const { addDeck } = useFlashQuest();
+  const { hasAcknowledgedAIDisclosure, acknowledgeAIDisclosure } = usePrivacy();
+  const { theme, isDark } = useTheme();
+
+  const [step, setStep] = useState<ScanStep>('pick');
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [generatedCards, setGeneratedCards] = useState<GeneratedCard[]>([]);
+  const [deckName, setDeckName] = useState<string>('');
+  const [deckDescription, setDeckDescription] = useState<string>('');
+  const [deckCategory, setDeckCategory] = useState<string>(AI_DEFAULT_DECK_CATEGORY);
+  const [showCustomCategory, setShowCustomCategory] = useState<boolean>(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingSource, setPendingSource] = useState<'camera' | 'gallery' | null>(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  const startPulse = useCallback(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.6, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [pulseAnim]);
+
+  const stopPulse = useCallback(() => {
+    pulseAnim.stopAnimation();
+    pulseAnim.setValue(1);
+  }, [pulseAnim]);
+
+  const categoryOptions = useMemo(() => {
+    const normalizedCategory = deckCategory.trim();
+    if (normalizedCategory && !PRESET_DECK_CATEGORIES.includes(normalizedCategory as typeof PRESET_DECK_CATEGORIES[number])) {
+      return [...PRESET_DECK_CATEGORIES, normalizedCategory];
+    }
+    return [...PRESET_DECK_CATEGORIES];
+  }, [deckCategory]);
+
+  const handleSelectCategory = useCallback((category: string) => {
+    setDeckCategory(category);
+    setShowCustomCategory(false);
+    setCustomCategoryInput('');
+  }, []);
+
+  const handlePressCustomCategory = useCallback(() => {
+    const normalizedCategory = deckCategory.trim();
+    setCustomCategoryInput(
+      normalizedCategory && !PRESET_DECK_CATEGORIES.includes(normalizedCategory as typeof PRESET_DECK_CATEGORIES[number])
+        ? normalizedCategory
+        : ''
+    );
+    setShowCustomCategory(true);
+  }, [deckCategory]);
+
+  const handleSubmitCustomCategory = useCallback(() => {
+    const normalizedCustomCategory = customCategoryInput.trim();
+    if (normalizedCustomCategory) {
+      setDeckCategory(normalizedCustomCategory);
+      setCustomCategoryInput(normalizedCustomCategory);
+    }
+    setShowCustomCategory(false);
+  }, [customCategoryInput]);
+
+  const processImage = useCallback(async (base64: string | null) => {
+    if (!base64) {
+      setErrorMessage('Could not read image data. Please try another image.');
+      return;
+    }
+
+    setStep('processing');
+    startPulse();
+    setErrorMessage(null);
+
+    try {
+      try {
+        await fetch('https://clients3.google.com/generate_204', { method: 'HEAD', mode: 'no-cors' });
+      } catch {
+        throw new Error('OFFLINE');
+      }
+
+      trackEvent({ event: 'ai_scan_started' });
+
+      const result = await generateObject({
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `Look at this image of notes/study material and create high-quality flashcards for a mobile study app.
+
+Hard rules:
+- Questions must be clear, direct, and semantically specific
+- Answers must be concise canonical labels, usually 1-5 words
+- Never put explanations, examples, hedging, or teaching paragraphs inside the answer field
+- If added context matters, put it in explanation instead
+- Avoid filler like "It is", "This is", "The answer is", or sentence fragments posing as answers
+- Avoid duplicates, near-duplicates, and ambiguous cards
+- Prefer multiple-choice-friendly answers with clean concept labels
+- Keep wording visually compact and readable on a phone
+
+Also suggest a deck name, description, and category.`,
+              },
+              {
+                type: 'image',
+                image: base64,
+              },
+            ],
+          },
+        ],
+        schema: flashcardSchema,
+      });
+
+      const cards: GeneratedCard[] = result.cards.map((card, index) => ({
+        id: `gen_${Date.now()}_${index}`,
+        question: card.question.slice(0, 500),
+        answer: card.answer.trim(),
+        explanation: card.explanation?.trim(),
+      }));
+
+      setGeneratedCards(cards);
+      setDeckName(result.deckName);
+      setDeckDescription(result.deckDescription);
+      setDeckCategory(result.category || AI_DEFAULT_DECK_CATEGORY);
+      setCustomCategoryInput('');
+      setShowCustomCategory(false);
+      trackEvent({
+        event: 'ai_scan_completed',
+        properties: {
+          cards_generated: cards.length,
+          deck_name: result.deckName,
+        },
+      });
+      setStep('review');
+    } catch (error) {
+      trackEvent({
+        event: 'ai_scan_failed',
+        properties: {
+          error: error instanceof Error ? error.message.slice(0, 100) : 'unknown',
+        },
+      });
+      if (error instanceof Error && error.message === 'OFFLINE') {
+        Alert.alert('No Connection', 'You appear to be offline. Please check your connection and try again.');
+        setStep('pick');
+        return;
+      }
+
+      setErrorMessage('Failed to extract flashcards. Please try again with a clearer image.');
+      setStep('pick');
+    } finally {
+      stopPulse();
+    }
+  }, [startPulse, stopPulse]);
+
+  const pickImage = useCallback(async (source: 'camera' | 'gallery') => {
+    try {
+      setErrorMessage(null);
+      let result: ImagePicker.ImagePickerResult;
+
+      if (source === 'camera') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert('Permission needed', 'Camera access is required to take a photo of your notes, textbook pages, or whiteboard.');
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          quality: 0.8,
+          base64: true,
+        });
+      } else {
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: 0.8,
+          base64: true,
+        });
+      }
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        setImageUri(asset.uri);
+        void processImage(asset.base64 ?? null);
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        const errorMessage = error.message.toLowerCase();
+        if (errorMessage.includes('permission') || errorMessage.includes('access')) {
+          Alert.alert('Permission needed', 'Photo library access is required to choose a photo of your notes, textbook pages, or whiteboard.');
+          return;
+        }
+      }
+      setErrorMessage('Failed to pick image. Please try again.');
+    }
+  }, [processImage]);
+
+  const handlePressImageSource = useCallback((source: 'camera' | 'gallery') => {
+    if (!hasAcknowledgedAIDisclosure('deckGeneration')) {
+      setPendingSource(source);
+      return;
+    }
+
+    void pickImage(source);
+  }, [hasAcknowledgedAIDisclosure, pickImage]);
+
+  const handleAcceptDeckDisclosure = useCallback(() => {
+    if (!pendingSource) {
+      return;
+    }
+
+    const nextSource = pendingSource;
+    setPendingSource(null);
+    acknowledgeAIDisclosure('deckGeneration');
+    void pickImage(nextSource);
+  }, [acknowledgeAIDisclosure, pendingSource, pickImage]);
+
+  const handleDismissDeckDisclosure = useCallback(() => {
+    setPendingSource(null);
+  }, []);
+
+  const updateCard = useCallback((id: string, field: 'question' | 'answer', value: string) => {
+    setGeneratedCards(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
+  }, []);
+
+  const removeCard = useCallback((id: string) => {
+    setGeneratedCards(prev => {
+      if (prev.length <= 1) return prev;
+      return prev.filter(c => c.id !== id);
+    });
+  }, []);
+
+  const addCard = useCallback(() => {
+    setGeneratedCards(prev => [...prev, {
+      id: `gen_${Date.now()}_new`,
+      question: '',
+      answer: '',
+    }]);
+  }, []);
+
+  const handleSave = useCallback(() => {
+    if (!deckName.trim()) {
+      Alert.alert('Error', 'Please enter a deck name');
+      return;
+    }
+
+    const validCards = generatedCards.filter(c => c.question.trim() && c.answer.trim());
+    if (validCards.length === 0) {
+      Alert.alert('Error', 'Please have at least one complete flashcard');
+      return;
+    }
+
+    const resolvedCategory = deckCategory.trim() || AI_DEFAULT_DECK_CATEGORY;
+    const colors = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#9B59B6', '#E67E22', '#3498DB', '#1ABC9C'];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    const newDeckId = `deck_${Date.now()}`;
+
+    const prepared = prepareGeneratedFlashcards({
+      deckId: newDeckId,
+      createdAt: Date.now(),
+      idPrefix: `ai_${newDeckId}`,
+      source: 'scan_notes',
+      cards: validCards.map((c) => ({
+        question: c.question,
+        answer: c.answer,
+        explanation: c.explanation,
+        difficulty: 'medium' as const,
+      })),
+    });
+
+    if (prepared.flashcards.length === 0) {
+      Alert.alert('Generation needs review', 'These cards still need cleanup before they can be saved. Edit the wording and try again.');
+      return;
+    }
+
+    addDeck({
+      id: newDeckId,
+      name: deckName.trim(),
+      description: deckDescription.trim() || 'AI-generated deck from notes',
+      color: randomColor,
+      icon: 'sparkles',
+      category: resolvedCategory,
+      flashcards: prepared.flashcards,
+      isCustom: true,
+      createdAt: Date.now(),
+    });
+    trackEvent({
+      event: 'deck_created',
+      properties: {
+        method: 'ai_scan',
+        card_count: prepared.flashcards.length,
+        deck_name: deckName.trim(),
+      },
+    });
+
+    Alert.alert('Deck Created!', `${prepared.flashcards.length} flashcards generated from your notes.`, [
+      { text: 'View Decks', onPress: () => router.replace(DECKS_ROUTE) },
+    ]);
+  }, [deckCategory, deckName, deckDescription, generatedCards, addDeck, router]);
+
+  const handleRetry = useCallback(() => {
+    setStep('pick');
+    setImageUri(null);
+    setGeneratedCards([]);
+    setDeckName('');
+    setDeckDescription('');
+    setDeckCategory(AI_DEFAULT_DECK_CATEGORY);
+    setShowCustomCategory(false);
+    setCustomCategoryInput('');
+    setErrorMessage(null);
+  }, []);
+
+  const cardBg = isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(243, 246, 255, 0.9)';
+  const placeholderColor = theme.textTertiary;
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.gradientStart }]}>
+      <LinearGradient
+        colors={[theme.gradientStart, theme.gradientMid, theme.gradientEnd]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} testID="scanNotesBack">
+            <ArrowLeft color={theme.white} size={28} strokeWidth={2.5} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.white }]}>Scan Notes</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+
+        {step === 'pick' && (
+          <View style={styles.pickContainer}>
+            <View style={[styles.heroCard, { backgroundColor: theme.cardBackground }]}>
+              <View style={[styles.iconCircle, { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(102, 126, 234, 0.12)' }]}>
+                <Sparkles color={theme.primary} size={40} strokeWidth={1.8} />
+              </View>
+              <Text style={[styles.heroTitle, { color: theme.text }]}>AI Flashcard Generator</Text>
+              <Text style={[styles.heroSubtitle, { color: theme.textSecondary }]}>
+                Take a photo of your notes, textbook, or whiteboard and AI will create flashcards for you automatically.
+              </Text>
+            </View>
+
+            {!!errorMessage && (
+              <View style={[styles.errorBanner, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
+                <Text style={[styles.errorText, { color: theme.error }]}>{errorMessage}</Text>
+              </View>
+            )}
+
+            {!!imageUri && (
+              <View style={[styles.previewCard, { backgroundColor: theme.cardBackground }]}>
+                <Image source={{ uri: imageUri }} style={styles.previewImage} resizeMode="cover" />
+              </View>
+            )}
+
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={[styles.actionCard, { backgroundColor: theme.cardBackground }]}
+                onPress={() => handlePressImageSource('camera')}
+                activeOpacity={0.8}
+                testID="scanCamera"
+              >
+                <View style={[styles.actionIconWrap, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)' }]}>
+                  <Camera color={theme.success} size={28} strokeWidth={2} />
+                </View>
+                <Text style={[styles.actionCardTitle, { color: theme.text }]}>Take Photo</Text>
+                <Text style={[styles.actionCardDesc, { color: theme.textSecondary }]}>
+                  Use your camera to capture notes
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.actionCard, { backgroundColor: theme.cardBackground }]}
+                onPress={() => handlePressImageSource('gallery')}
+                activeOpacity={0.8}
+                testID="scanGallery"
+              >
+                <View style={[styles.actionIconWrap, { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(102, 126, 234, 0.1)' }]}>
+                  <ImageIcon color={theme.primary} size={28} strokeWidth={2} />
+                </View>
+                <Text style={[styles.actionCardTitle, { color: theme.text }]}>Choose Photo</Text>
+                <Text style={[styles.actionCardDesc, { color: theme.textSecondary }]}>
+                  Pick an image from your library
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {step === 'processing' && (
+          <View style={styles.processingContainer}>
+            <View style={[styles.processingCard, { backgroundColor: theme.cardBackground }]}>
+              {!!imageUri && (
+                <Animated.View style={[styles.processingImageWrap, { opacity: pulseAnim }]}>
+                  <Image source={{ uri: imageUri }} style={styles.processingImage} resizeMode="cover" />
+                  <View style={[styles.processingOverlay, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.7)' }]} />
+                </Animated.View>
+              )}
+              <View style={styles.processingContent}>
+                <ActivityIndicator size="large" color={theme.primary} />
+                <Text style={[styles.processingTitle, { color: theme.text }]}>Analyzing your notes...</Text>
+                <Text style={[styles.processingSubtitle, { color: theme.textSecondary }]}>
+                  AI is reading the image and creating flashcards
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {step === 'review' && (
+          <>
+            <ScrollView
+              style={styles.reviewScroll}
+              contentContainerStyle={styles.reviewContent}
+              showsVerticalScrollIndicator={false}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+            >
+              {!!imageUri && (
+                <View style={[styles.thumbRow, { backgroundColor: theme.cardBackground }]}>
+                  <Image source={{ uri: imageUri }} style={styles.thumbImage} resizeMode="cover" />
+                  <View style={styles.thumbInfo}>
+                    <Text style={[styles.thumbLabel, { color: theme.textSecondary }]}>Source image</Text>
+                    <TouchableOpacity onPress={handleRetry}>
+                      <Text style={[styles.thumbAction, { color: theme.primary }]}>Scan another</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.deckInfoSection}>
+                <Text style={[styles.sectionLabel, { color: theme.white }]}>Deck Info</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.cardBackground, color: theme.text }]}
+                  value={deckName}
+                  onChangeText={setDeckName}
+                  placeholder="Deck name"
+                  placeholderTextColor={placeholderColor}
+                  testID="scanDeckName"
+                />
+                <TextInput
+                  style={[styles.input, styles.inputMultiline, { backgroundColor: theme.cardBackground, color: theme.text }]}
+                  value={deckDescription}
+                  onChangeText={setDeckDescription}
+                  placeholder="Description (optional)"
+                  placeholderTextColor={placeholderColor}
+                  multiline
+                  testID="scanDeckDesc"
+                />
+                <DeckCategoryPicker
+                  categories={categoryOptions}
+                  selectedCategory={deckCategory}
+                  showCustomCategory={showCustomCategory}
+                  customCategoryInput={customCategoryInput}
+                  onSelectCategory={handleSelectCategory}
+                  onPressCustom={handlePressCustomCategory}
+                  onChangeCustomCategoryInput={setCustomCategoryInput}
+                  onSubmitCustomCategory={handleSubmitCustomCategory}
+                  theme={theme}
+                  isDark={isDark}
+                  testIDPrefix="scan-category"
+                />
+              </View>
+
+              <View style={styles.cardsSection}>
+                <View style={styles.cardsSectionHeader}>
+                  <Text style={[styles.sectionLabel, { color: theme.white }]}>
+                    {generatedCards.length} Flashcards
+                  </Text>
+                  <TouchableOpacity
+                    onPress={addCard}
+                    style={[styles.addBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.25)' }]}
+                    testID="scanAddCard"
+                  >
+                    <Plus color={theme.white} size={18} strokeWidth={2.5} />
+                    <Text style={[styles.addBtnText, { color: theme.white }]}>Add</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {generatedCards.map((card, index) => (
+                  <View key={card.id} style={[styles.cardForm, { backgroundColor: theme.cardBackground }]}>
+                    <View style={styles.cardFormHeader}>
+                      <View style={[styles.cardBadge, { backgroundColor: isDark ? 'rgba(139,92,246,0.15)' : 'rgba(102,126,234,0.1)' }]}>
+                        <Sparkles color={theme.primary} size={14} strokeWidth={2} />
+                        <Text style={[styles.cardBadgeText, { color: theme.primary }]}>Card {index + 1}</Text>
+                      </View>
+                      {generatedCards.length > 1 && (
+                        <TouchableOpacity onPress={() => removeCard(card.id)} style={styles.removeBtn} testID={`scanRemoveCard-${card.id}`}>
+                          <Trash2 color={theme.error} size={18} strokeWidth={2} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    <View style={styles.cardFieldGroup}>
+                      <Text style={[styles.cardFieldLabel, { color: theme.textSecondary }]}>Question</Text>
+                      <TextInput
+                        style={[styles.cardField, { backgroundColor: cardBg, color: theme.text }]}
+                        value={card.question}
+                        onChangeText={(v) => updateCard(card.id, 'question', v)}
+                        placeholder="Question..."
+                        placeholderTextColor={placeholderColor}
+                        multiline
+                        testID={`scanCardQ-${card.id}`}
+                      />
+                    </View>
+                    <View style={styles.cardFieldGroup}>
+                      <Text style={[styles.cardFieldLabel, { color: theme.textSecondary }]}>Answer</Text>
+                      <TextInput
+                        style={[styles.cardField, { backgroundColor: cardBg, color: theme.text }]}
+                        value={card.answer}
+                        onChangeText={(v) => updateCard(card.id, 'answer', v)}
+                        placeholder="Answer..."
+                        placeholderTextColor={placeholderColor}
+                        multiline
+                        maxLength={80}
+                        testID={`scanCardA-${card.id}`}
+                      />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+
+            <View style={[styles.footer, { borderTopColor: isDark ? 'rgba(148,163,184,0.15)' : 'rgba(255,255,255,0.35)' }]}>
+              <TouchableOpacity
+                style={[styles.saveButton, { backgroundColor: theme.cardBackground }]}
+                onPress={handleSave}
+                activeOpacity={0.9}
+                testID="scanSaveDeck"
+              >
+                <Check color={theme.primary} size={22} strokeWidth={2.5} />
+                <Text style={[styles.saveButtonText, { color: theme.primary }]}>Save Deck</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </SafeAreaView>
+      <ConsentSheet
+        visible={pendingSource !== null}
+        title="Send this image to AI?"
+        description="FlashQuest sends the photo you choose to an AI processing service so it can extract concepts and build flashcards from the content."
+        bullets={[
+          'Only the notes, textbook page, or whiteboard image you choose is sent for this feature.',
+          'The result comes back as an editable flashcard deck before you save it.',
+          'You can review Privacy & Data anytime for a fuller breakdown.',
+        ]}
+        primaryLabel="Continue"
+        secondaryLabel="Cancel"
+        onPrimaryPress={handleAcceptDeckDisclosure}
+        onSecondaryPress={handleDismissDeckDisclosure}
+        footerActionLabel="Open Privacy & Data"
+        onFooterActionPress={() => router.push(DATA_PRIVACY_ROUTE)}
+        testID="scan-ai-disclosure"
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  pickContainer: {
+    flex: 1,
+    paddingHorizontal: 24,
+    gap: 20,
+  },
+  heroCard: {
+    borderRadius: 24,
+    padding: 28,
+    alignItems: 'center',
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: '800' as const,
+    textAlign: 'center',
+  },
+  heroSubtitle: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 8,
+  },
+  errorBanner: {
+    borderRadius: 14,
+    padding: 14,
+  },
+  errorText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    textAlign: 'center',
+  },
+  previewCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  previewImage: {
+    width: '100%',
+    height: 140,
+    borderRadius: 16,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 14,
+  },
+  actionCard: {
+    flex: 1,
+    borderRadius: 20,
+    padding: 22,
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  actionIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionCardTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    textAlign: 'center',
+  },
+  actionCardDesc: {
+    fontSize: 12,
+    fontWeight: '500' as const,
+    textAlign: 'center',
+    lineHeight: 17,
+  },
+  processingContainer: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+  },
+  processingCard: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  processingImageWrap: {
+    width: '100%',
+    height: 180,
+  },
+  processingImage: {
+    width: '100%',
+    height: '100%',
+  },
+  processingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  processingContent: {
+    padding: 32,
+    alignItems: 'center',
+    gap: 14,
+  },
+  processingTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    textAlign: 'center',
+  },
+  processingSubtitle: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  reviewScroll: {
+    flex: 1,
+  },
+  reviewContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 120,
+    gap: 20,
+  },
+  thumbRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    padding: 10,
+    gap: 14,
+  },
+  thumbImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+  },
+  thumbInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  thumbLabel: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  thumbAction: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+  },
+  deckInfoSection: {
+    gap: 12,
+  },
+  sectionLabel: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    marginBottom: 2,
+  },
+  input: {
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 16,
+    fontWeight: '500' as const,
+  },
+  inputMultiline: {
+    minHeight: 72,
+    textAlignVertical: 'top',
+  },
+  cardsSection: {
+    gap: 14,
+  },
+  cardsSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    gap: 6,
+  },
+  addBtnText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+  },
+  cardForm: {
+    borderRadius: 20,
+    padding: 18,
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  cardFormHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    gap: 6,
+  },
+  cardBadgeText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+  },
+  removeBtn: {
+    padding: 6,
+  },
+  cardFieldGroup: {
+    gap: 6,
+  },
+  cardFieldLabel: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    letterSpacing: 0.4,
+  },
+  cardField: {
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    fontWeight: '500' as const,
+    minHeight: 48,
+  },
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 24,
+    paddingBottom: 32,
+    paddingTop: 12,
+    borderTopWidth: 1,
+  },
+  saveButton: {
+    borderRadius: 18,
+    paddingVertical: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  saveButtonText: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+  },
+});

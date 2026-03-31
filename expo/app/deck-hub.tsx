@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, MoreHorizontal } from 'lucide-react-native';
+import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, MoreHorizontal, Pencil } from 'lucide-react-native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,7 +9,7 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { computeDeckMastery } from '@/utils/mastery';
-import { DECKS_ROUTE, focusedQuestSessionHref } from '@/utils/routes';
+import { DECKS_ROUTE, editDeckHref, focusedQuestSessionHref } from '@/utils/routes';
 import { generateUUID } from '@/utils/uuid';
 
 function withAlpha(color: string, alpha: number): string {
@@ -146,6 +146,15 @@ export default function DeckHubScreen() {
     });
     setMenuVisible(true);
   }, []);
+
+  const handleEditDeck = useCallback(() => {
+    if (!deck) {
+      return;
+    }
+
+    setMenuVisible(false);
+    router.push(editDeckHref(deck.id));
+  }, [deck, router]);
 
   const handleDuplicateDeck = useCallback(() => {
     if (!deck) {
@@ -502,6 +511,15 @@ export default function DeckHubScreen() {
         <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
           <Pressable style={styles.menuOverlay} onPress={() => setMenuVisible(false)}>
             <View style={[styles.menuDropdown, { top: menuPos.top, right: menuPos.right, backgroundColor: menuSurface, borderColor: cardBorder }]}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={handleEditDeck}
+                activeOpacity={0.75}
+                testID="editDeckButton"
+              >
+                <Pencil color={theme.primary} size={18} strokeWidth={2.2} />
+                <Text style={[styles.menuItemText, { color: theme.text }]}>Edit Deck</Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={handleDuplicateDeck}
