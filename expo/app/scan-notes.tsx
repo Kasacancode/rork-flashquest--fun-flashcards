@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as z from 'zod/v4';
 
+import CategoryManagerSheet from '@/components/CategoryManagerSheet';
 import DeckCategoryPicker from '@/components/DeckCategoryPicker';
 import ConsentSheet from '@/components/privacy/ConsentSheet';
 import {
@@ -57,7 +58,7 @@ type ScanStep = 'pick' | 'processing' | 'review';
 
 export default function ScanNotesPage() {
   const router = useRouter();
-  const { addDeck } = useFlashQuest();
+  const { addDeck, deckCategories } = useFlashQuest();
   const { hasAcknowledgedAIDisclosure, acknowledgeAIDisclosure } = usePrivacy();
   const { theme, isDark } = useTheme();
 
@@ -69,6 +70,7 @@ export default function ScanNotesPage() {
   const [deckCategory, setDeckCategory] = useState<string>(AI_DEFAULT_DECK_CATEGORY);
   const [showCustomCategory, setShowCustomCategory] = useState<boolean>(false);
   const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
+  const [showCategoryManager, setShowCategoryManager] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingSource, setPendingSource] = useState<'camera' | 'gallery' | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -87,7 +89,10 @@ export default function ScanNotesPage() {
     pulseAnim.setValue(1);
   }, [pulseAnim]);
 
-  const categoryOptions = useMemo(() => buildDeckCategoryOptions(deckCategory), [deckCategory]);
+  const categoryOptions = useMemo(
+    () => buildDeckCategoryOptions(deckCategory, deckCategories),
+    [deckCategories, deckCategory],
+  );
 
   const handleSelectCategory = useCallback((category: string) => {
     setDeckCategory(normalizeDeckCategory(category, AI_DEFAULT_DECK_CATEGORY));
@@ -504,6 +509,7 @@ Also suggest a deck name, description, and category.`,
                   onPressCustom={handlePressCustomCategory}
                   onChangeCustomCategoryInput={setCustomCategoryInput}
                   onSubmitCustomCategory={handleSubmitCustomCategory}
+                  onPressManageCategories={() => setShowCategoryManager(true)}
                   theme={theme}
                   isDark={isDark}
                   testIDPrefix="scan-category"
@@ -582,6 +588,14 @@ Also suggest a deck name, description, and category.`,
           </>
         )}
       </SafeAreaView>
+      <CategoryManagerSheet
+        visible={showCategoryManager}
+        onClose={() => setShowCategoryManager(false)}
+        selectedCategory={deckCategory}
+        onSelectCategory={handleSelectCategory}
+        title="Manage Deck Categories"
+        testID="scan-category-manager"
+      />
       <ConsentSheet
         visible={pendingSource !== null}
         title="Send this image to AI?"

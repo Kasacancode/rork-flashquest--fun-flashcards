@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import CategoryManagerSheet from '@/components/CategoryManagerSheet';
 import DeckCategoryPicker from '@/components/DeckCategoryPicker';
 import {
   buildDeckCategoryOptions,
@@ -34,7 +35,7 @@ const DECK_COLORS = [
 export default function EditDeckScreen() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
-  const { decks, updateDeck, deleteFlashcard, deleteDeck } = useFlashQuest();
+  const { decks, updateDeck, deleteFlashcard, deleteDeck, deckCategories } = useFlashQuest();
   const { theme, isDark } = useTheme();
   const deck = useMemo(() => decks.find((item) => item.id === deckId), [decks, deckId]);
   const [nameInput, setNameInput] = useState<string>(deck?.name ?? '');
@@ -43,6 +44,7 @@ export default function EditDeckScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string>(normalizeDeckCategory(deck?.category, MANUAL_DEFAULT_DECK_CATEGORY));
   const [showCustomCategory, setShowCustomCategory] = useState<boolean>(false);
   const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
+  const [showCategoryManager, setShowCategoryManager] = useState<boolean>(false);
   const [isEditingMeta, setIsEditingMeta] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showSearch, setShowSearch] = useState<boolean>(false);
@@ -71,7 +73,10 @@ export default function EditDeckScreen() {
     syncCategoryState(deck.category);
   }, [deck, isEditingMeta, syncCategoryState]);
 
-  const categoryOptions = useMemo(() => buildDeckCategoryOptions(selectedCategory), [selectedCategory]);
+  const categoryOptions = useMemo(
+    () => buildDeckCategoryOptions(selectedCategory, deckCategories),
+    [deckCategories, selectedCategory],
+  );
 
   const filteredCards = useMemo(() => {
     if (!deck) {
@@ -257,6 +262,7 @@ export default function EditDeckScreen() {
                         onPressCustom={handlePressCustomCategory}
                         onChangeCustomCategoryInput={setCustomCategoryInput}
                         onSubmitCustomCategory={handleSubmitCustomCategory}
+                        onPressManageCategories={() => setShowCategoryManager(true)}
                         theme={theme}
                         isDark={isDark}
                         testIDPrefix="edit-deck-category"
@@ -386,6 +392,14 @@ export default function EditDeckScreen() {
           ListFooterComponent={<View style={styles.footerSpacer} />}
         />
       </SafeAreaView>
+      <CategoryManagerSheet
+        visible={showCategoryManager}
+        onClose={() => setShowCategoryManager(false)}
+        selectedCategory={selectedCategory}
+        onSelectCategory={handleSelectCategory}
+        title="Manage Deck Categories"
+        testID="edit-deck-category-manager"
+      />
     </LinearGradient>
   );
 }

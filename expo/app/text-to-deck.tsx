@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as z from 'zod/v4';
 
+import CategoryManagerSheet from '@/components/CategoryManagerSheet';
 import DeckCategoryPicker from '@/components/DeckCategoryPicker';
 import ConsentSheet from '@/components/privacy/ConsentSheet';
 import {
@@ -56,7 +57,7 @@ type Step = 'input' | 'processing' | 'review';
 
 export default function TextToDeckPage() {
   const router = useRouter();
-  const { addDeck } = useFlashQuest();
+  const { addDeck, deckCategories } = useFlashQuest();
   const { hasAcknowledgedAIDisclosure, acknowledgeAIDisclosure } = usePrivacy();
   const { theme, isDark } = useTheme();
 
@@ -68,6 +69,7 @@ export default function TextToDeckPage() {
   const [deckCategory, setDeckCategory] = useState<string>(AI_DEFAULT_DECK_CATEGORY);
   const [showCustomCategory, setShowCustomCategory] = useState<boolean>(false);
   const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
+  const [showCategoryManager, setShowCategoryManager] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showDeckDisclosure, setShowDeckDisclosure] = useState<boolean>(false);
 
@@ -89,7 +91,10 @@ export default function TextToDeckPage() {
     pulseAnim.setValue(1);
   }, [pulseAnim]);
 
-  const categoryOptions = useMemo(() => buildDeckCategoryOptions(deckCategory), [deckCategory]);
+  const categoryOptions = useMemo(
+    () => buildDeckCategoryOptions(deckCategory, deckCategories),
+    [deckCategories, deckCategory],
+  );
 
   const handleSelectCategory = useCallback((category: string) => {
     setDeckCategory(normalizeDeckCategory(category, AI_DEFAULT_DECK_CATEGORY));
@@ -476,6 +481,7 @@ ${sourceText}`,
                   onPressCustom={handlePressCustomCategory}
                   onChangeCustomCategoryInput={setCustomCategoryInput}
                   onSubmitCustomCategory={handleSubmitCustomCategory}
+                  onPressManageCategories={() => setShowCategoryManager(true)}
                   theme={theme}
                   isDark={isDark}
                   testIDPrefix="text-to-deck-category"
@@ -554,6 +560,14 @@ ${sourceText}`,
           </>
         )}
       </SafeAreaView>
+      <CategoryManagerSheet
+        visible={showCategoryManager}
+        onClose={() => setShowCategoryManager(false)}
+        selectedCategory={deckCategory}
+        onSelectCategory={handleSelectCategory}
+        title="Manage Deck Categories"
+        testID="text-category-manager"
+      />
       <ConsentSheet
         visible={showDeckDisclosure}
         title="Send this text to AI?"

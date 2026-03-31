@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import CategoryManagerSheet from '@/components/CategoryManagerSheet';
 import DeckCategoryPicker from '@/components/DeckCategoryPicker';
 import {
   buildDeckCategoryOptions,
@@ -44,7 +45,7 @@ interface CardInput {
 export default function CreateFlashcardPage() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId?: string }>();
-  const { addDeck, updateDeck, deleteDeck, decks } = useFlashQuest();
+  const { addDeck, updateDeck, deleteDeck, decks, deckCategories } = useFlashQuest();
   const { cleanupDeck: cleanupPerformance } = usePerformance();
   const { cleanupDeck: cleanupArena } = useArena();
   const { theme, isDark } = useTheme();
@@ -58,6 +59,7 @@ export default function CreateFlashcardPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>(MANUAL_DEFAULT_DECK_CATEGORY);
   const [showCustomCategory, setShowCustomCategory] = useState<boolean>(false);
   const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
+  const [showCategoryManager, setShowCategoryManager] = useState<boolean>(false);
 
   useEffect(() => {
     if (!deckId || typeof deckId !== 'string' || editingDeckId === deckId) {
@@ -100,7 +102,10 @@ export default function CreateFlashcardPage() {
     );
   };
 
-  const categoryOptions = useMemo(() => buildDeckCategoryOptions(selectedCategory), [selectedCategory]);
+  const categoryOptions = useMemo(
+    () => buildDeckCategoryOptions(selectedCategory, deckCategories),
+    [deckCategories, selectedCategory],
+  );
 
   const editingDeck = useMemo(
     () => (editingDeckId ? decks.find((deck) => deck.id === editingDeckId) ?? null : null),
@@ -454,6 +459,7 @@ export default function CreateFlashcardPage() {
               onPressCustom={handlePressCustomCategory}
               onChangeCustomCategoryInput={setCustomCategoryInput}
               onSubmitCustomCategory={handleSubmitCustomCategory}
+              onPressManageCategories={() => setShowCategoryManager(true)}
               theme={theme}
               isDark={isDark}
               testIDPrefix="create-deck-category"
@@ -546,6 +552,14 @@ export default function CreateFlashcardPage() {
           </TouchableOpacity>
         </View>
       </SafeAreaView>
+      <CategoryManagerSheet
+        visible={showCategoryManager}
+        onClose={() => setShowCategoryManager(false)}
+        selectedCategory={selectedCategory}
+        onSelectCategory={handleSelectCategory}
+        title="Manage Deck Categories"
+        testID="create-category-manager"
+      />
     </View>
   );
 }

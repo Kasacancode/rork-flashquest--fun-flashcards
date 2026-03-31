@@ -17,6 +17,25 @@ export const ALL_DECK_CATEGORIES_LABEL = 'All';
 const LEGACY_CUSTOM_CATEGORY_LABELS = new Set<string>(['custom', 'other', '+ custom']);
 
 type DeckPresetCategory = (typeof PRESET_DECK_CATEGORIES)[number];
+type DeckCategoryInput = string | null | undefined;
+
+function compareDeckCategories(left: string, right: string): number {
+  const leftIsOther = left === CUSTOM_DECK_CATEGORY_LABEL;
+  const rightIsOther = right === CUSTOM_DECK_CATEGORY_LABEL;
+
+  if (leftIsOther !== rightIsOther) {
+    return leftIsOther ? 1 : -1;
+  }
+
+  const leftIsAi = left === AI_DEFAULT_DECK_CATEGORY;
+  const rightIsAi = right === AI_DEFAULT_DECK_CATEGORY;
+
+  if (leftIsAi !== rightIsAi) {
+    return leftIsAi ? 1 : -1;
+  }
+
+  return left.localeCompare(right);
+}
 
 export function getPresetDeckCategory(category: string): DeckPresetCategory | null {
   const normalizedCategory = category.trim().toLowerCase();
@@ -49,17 +68,58 @@ export function normalizeDeckCategory(category?: string | null, fallback: string
   return sanitizeDeckCategory(category) || fallback;
 }
 
-export function buildDeckCategoryOptions(selectedCategory: string): string[] {
-  const normalizedSelectedCategory = sanitizeDeckCategory(selectedCategory);
-  if (
-    normalizedSelectedCategory
-    && !isPresetDeckCategory(normalizedSelectedCategory)
-    && normalizedSelectedCategory !== CUSTOM_DECK_CATEGORY_LABEL
-  ) {
-    return [...PRESET_DECK_CATEGORIES, normalizedSelectedCategory];
+export function buildManagedDeckCategoryList(categories: readonly DeckCategoryInput[]): string[] {
+  const normalizedByKey = new Map<string, string>();
+
+  categories.forEach((category) => {
+    const normalizedCategory = sanitizeDeckCategory(category);
+    if (!normalizedCategory) {
+      return;
+    }
+
+    const key = normalizedCategory.toLowerCase();
+    if (!normalizedByKey.has(key)) {
+      normalizedByKey.set(key, normalizedCategory);
+    }
+  });
+
+  if (!normalizedByKey.has(CUSTOM_DECK_CATEGORY_LABEL.toLowerCase())) {
+    normalizedByKey.set(CUSTOM_DECK_CATEGORY_LABEL.toLowerCase(), CUSTOM_DECK_CATEGORY_LABEL);
   }
 
-  return [...PRESET_DECK_CATEGORIES];
+  return Array.from(normalizedByKey.values()).sort(compareDeckCategories);
+}
+
+export const DEFAULT_DECK_CATEGORY_LIBRARY = buildManagedDeckCategoryList([
+  ...PRESET_DECK_CATEGORIES,
+  CUSTOM_DECK_CATEGORY_LABEL,
+]);
+
+export function mergeDeckCategoryLibraries(...categoryCollections: readonly DeckCategoryInput[][]): string[] {
+  return buildManagedDeckCategoryList(categoryCollections.flat());
+}
+
+export function buildDeckCategoryOptions(
+  selectedCategory: string,
+  baseCategories: readonly DeckCategoryInput[] = DEFAULT_DECK_CATEGORY_LIBRARY,
+): string[] {
+  return buildManagedDeckCategoryList([...baseCategories, selectedCategory]);
+}
+
+export function canRenameDeckCategory(category?: string | null): boolean {
+  const normalizedCategory = sanitizeDeckCategory(category);
+  return !!normalizedCategory
+    && normalizedCategory !== CUSTOM_DECK_CATEGORY_LABEL
+    && normalizedCategory !== AI_DEFAULT_DECK_CATEGORY
+    && !isPresetDeckCategory(normalizedCategory);
+}
+
+export function canDeleteDeckCategory(category?: string | null): boolean {
+  const normalizedCategory = sanitizeDeckCategory(category);
+  return !!normalizedCategory
+    && normalizedCategory !== CUSTOM_DECK_CATEGORY_LABEL
+    && normalizedCategory !== AI_DEFAULT_DECK_CATEGORY
+    && !isPresetDeckCategory(normalizedCategory);
 }
 
 export function getCustomCategoryDraft(category?: string | null): string {

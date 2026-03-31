@@ -1,3 +1,4 @@
+import { PenLine } from 'lucide-react-native';
 import React from 'react';
 import {
   ScrollView,
@@ -22,6 +23,7 @@ interface DeckCategoryPickerProps {
   onPressCustom: () => void;
   onChangeCustomCategoryInput: (value: string) => void;
   onSubmitCustomCategory: () => void;
+  onPressManageCategories?: () => void;
   theme: Theme;
   isDark: boolean;
   testIDPrefix?: string;
@@ -38,15 +40,17 @@ export default function DeckCategoryPicker({
   onPressCustom,
   onChangeCustomCategoryInput,
   onSubmitCustomCategory,
+  onPressManageCategories,
   theme,
   isDark,
   testIDPrefix = 'deck-category',
 }: DeckCategoryPickerProps) {
   const inputBackgroundColor = isDark ? 'rgba(15, 23, 42, 0.68)' : theme.cardBackground;
+  const displayedCategories = categories.filter((category) => category !== CUSTOM_DECK_CATEGORY_LABEL);
   const normalizedSelectedCategory = selectedCategory.trim();
-  const isCustomTriggerActive = showCustomCategory || (
-    !!normalizedSelectedCategory && !categories.includes(normalizedSelectedCategory)
-  );
+  const isCustomTriggerActive = showCustomCategory
+    || normalizedSelectedCategory === CUSTOM_DECK_CATEGORY_LABEL
+    || (!!normalizedSelectedCategory && !displayedCategories.includes(normalizedSelectedCategory));
 
   return (
     <View style={styles.container}>
@@ -57,7 +61,7 @@ export default function DeckCategoryPicker({
         contentContainerStyle={styles.pillsContent}
         style={styles.pillsScroll}
       >
-        {categories.map((category) => {
+        {displayedCategories.map((category) => {
           const isActive = selectedCategory === category;
           return (
             <TouchableOpacity
@@ -120,6 +124,18 @@ export default function DeckCategoryPicker({
           testID={`${testIDPrefix}-custom-input`}
         />
       ) : null}
+
+      {onPressManageCategories ? (
+        <TouchableOpacity
+          style={styles.manageButton}
+          onPress={onPressManageCategories}
+          activeOpacity={0.8}
+          testID={`${testIDPrefix}-manage-button`}
+        >
+          <PenLine color={theme.primary} size={15} strokeWidth={2.3} />
+          <Text style={[styles.manageButtonText, { color: theme.primary }]}>Manage categories</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -158,5 +174,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
     fontWeight: '500' as const,
+  },
+  manageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  manageButtonText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
   },
 });

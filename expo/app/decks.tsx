@@ -26,8 +26,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import CategoryManagerSheet from '@/components/CategoryManagerSheet';
 import DeckCard from '@/components/decks/DeckCard';
-import { ALL_DECK_CATEGORIES_LABEL } from '@/constants/deckCategories';
+import {
+  ALL_DECK_CATEGORIES_LABEL,
+  canRenameDeckCategory,
+  sanitizeDeckCategory,
+} from '@/constants/deckCategories';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
@@ -45,35 +50,45 @@ import {
 
 export default function DecksPage() {
   const router = useRouter();
-  const { decks, deleteDeck, addDeck } = useFlashQuest();
+  const { decks, deleteDeck, addDeck, deckCategories } = useFlashQuest();
   const { cleanupDeck } = useArena();
   const { performance, getCardsDueForReview } = usePerformance();
   const { theme, isDark } = useTheme();
 
   const [showMenu, setShowMenu] = useState<boolean>(false);
+  const [showCategoryManager, setShowCategoryManager] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string>(ALL_DECK_CATEGORIES_LABEL);
   const [sortBy, setSortBy] = useState<'name' | 'newest' | 'cards'>('newest');
 
-  const categories = useMemo(() => {
-    const uniqueCategories = Array.from(new Set(decks.map((deck) => deck.category).filter(Boolean)));
-    return [ALL_DECK_CATEGORIES_LABEL, ...uniqueCategories.sort()];
-  }, [decks]);
-
   const categoryCounts = useMemo(() => {
-    return categories.reduce<Record<string, number>>((accumulator, category) => {
-      accumulator[category] = category === ALL_DECK_CATEGORIES_LABEL
-        ? decks.length
-        : decks.filter((deck) => deck.category === category).length;
+    const counts = decks.reduce<Record<string, number>>((accumulator, deck) => {
+      const normalizedCategory = sanitizeDeckCategory(deck.category);
+      if (!normalizedCategory) {
+        return accumulator;
+      }
+
+      accumulator[normalizedCategory] = (accumulator[normalizedCategory] ?? 0) + 1;
       return accumulator;
     }, {});
-  }, [categories, decks]);
+    counts[ALL_DECK_CATEGORIES_LABEL] = decks.length;
+    return counts;
+  }, [decks]);
+
+  const categories = useMemo(() => {
+    const visibleCategories = deckCategories.filter((category) => {
+      const count = categoryCounts[category] ?? 0;
+      return count > 0 || canRenameDeckCategory(category);
+    });
+
+    return [ALL_DECK_CATEGORIES_LABEL, ...visibleCategories];
+  }, [categoryCounts, deckCategories]);
 
   const filteredDecks = useMemo(() => {
     let result = decks;
 
     if (activeCategory !== ALL_DECK_CATEGORIES_LABEL) {
-      result = result.filter((deck) => deck.category === activeCategory);
+      result = result.filter((deck) => sanitizeDeckCategory(deck.category) === activeCategory);
     }
 
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -166,6 +181,11 @@ export default function DecksPage() {
   const handleSelectCategory = useCallback((category: string) => {
     setActiveCategory(category);
     setSearchQuery('');
+  }, []);
+
+  const handleOpenCategoryManager = useCallback(() => {
+    setShowMenu(false);
+    setShowCategoryManager(true);
   }, []);
 
   const backgroundGradient = useMemo(
@@ -466,7 +486,7 @@ export default function DecksPage() {
             ]}
           >
             <View style={[styles.menuHandle, { backgroundColor: theme.sheetHandle }]} />
-            <Text style={[styles.menuTitle, { color: theme.text }]}>Create New Deck</Text>
+            <Text style={[styles.menuTitle, { color: theme.text }]}>Deck Actions</Text>
 
             <TouchableOpacity
               style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(139,92,246,0.1)' : 'rgba(102,126,234,0.08)' }]}
@@ -514,6 +534,21 @@ export default function DecksPage() {
             </TouchableOpacity>
 
             <TouchableOpacity
+              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(245,158,11,0.1)' : 'rgba(245,158,11,0.08)' }]}
+              onPress={handleOpenCategoryManager}
+              activeOpacity={0.8}
+              testID="menuManageCategories"
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(245,158,11,0.2)' : 'rgba(245,158,11,0.15)' }]}> 
+                <BookOpen color={isDark ? '#fbbf24' : '#f59e0b'} size={24} strokeWidth={2} />
+              </View>
+              <View style={styles.menuOptionText}>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Manage Categories</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Add, rename, or delete category labels</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
               style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(14,165,233,0.1)' : 'rgba(14,165,233,0.08)' }]}
               onPress={() => {
                 setShowMenu(false);
@@ -541,6 +576,14 @@ export default function DecksPage() {
           </View>
         </Pressable>
       </Modal>
+      <CategoryManagerSheet
+        visible={showCategoryManager}
+        onClose={() => setShowCategoryManager(false)}
+        selectedCategory={activeCategory === ALL_DECK_CATEGORIES_LABEL ? undefined : activeCategory}
+        onSelectCategory={handleSelectCategory}
+        title="Manage Deck Categories"
+        testID="decks-category-manager"
+      />
     </View>
   );
 }

@@ -3,23 +3,34 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useRef } from 'react';
 
+import {
+  CUSTOM_DECK_CATEGORY_LABEL,
+  DEFAULT_DECK_CATEGORY_LIBRARY,
+  buildManagedDeckCategoryList,
+  canDeleteDeckCategory,
+  canRenameDeckCategory,
+  mergeDeckCategoryLibraries,
+  sanitizeDeckCategory,
+} from '@/constants/deckCategories';
 import { SAMPLE_DECKS } from '@/data/sampleDecks';
 import type { Achievement, Deck, Flashcard, FlashcardNormalizationSource, UserProgress, UserStats } from '@/types/flashcard';
 import type { GameResultParams } from '@/types/game';
+import { mergeFlashcardUpdates, normalizeDeck, normalizeDeckCollection } from '@/utils/flashcardContent';
 import { logger } from '@/utils/logger';
 import { scheduleStreakReminder } from '@/utils/notifications';
-import { mergeFlashcardUpdates, normalizeDeck, normalizeDeckCollection } from '@/utils/flashcardContent';
 
 const STORAGE_KEYS = {
   DECKS: 'flashquest_decks',
   PROGRESS: 'flashquest_progress',
   STATS: 'flashquest_stats',
+  CATEGORIES: 'flashquest_categories',
 } as const;
 
 const STORAGE_BACKUP_KEYS = {
   DECKS: 'flashquest_decks_backup',
   PROGRESS: 'flashquest_progress_backup',
   STATS: 'flashquest_stats_backup',
+  CATEGORIES: 'flashquest_categories_backup',
 } as const;
 
 const DEFAULT_STATS: UserStats = {
@@ -193,6 +204,15 @@ function normalizeStoredDeckPayload(value: unknown): Deck[] | null {
   }
 
   return value as Deck[];
+}
+
+function normalizeStoredCategoriesPayload(value: unknown): string[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const rawCategories = value.filter((item): item is string => typeof item === 'string');
+  return buildManagedDeckCategoryList(rawCategories);
 }
 
 async function persistMirroredStorage<T>(primaryKey: string, backupKey: string, value: T, label: string): Promise<T> {
@@ -414,6 +434,16 @@ async function loadProgressSnapshot(): Promise<UserProgress[]> {
   });
 }
 
+async function loadCategoriesSnapshot(): Promise<string[]> {
+  return readMirroredStorage<string[]>({
+    primaryKey: STORAGE_KEYS.CATEGORIES,
+    backupKey: STORAGE_BACKUP_KEYS.CATEGORIES,
+    label: 'categories',
+    fallback: DEFAULT_DECK_CATEGORY_LIBRARY,
+    parse: normalizeStoredCategoriesPayload,
+  });
+}
+
 async function loadStatsSnapshot(): Promise<UserStats> {
   const storedStats = await readMirroredStorage<UserStats>({
     primaryKey: STORAGE_KEYS.STATS,
@@ -454,6 +484,11 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     queryFn: loadStatsSnapshot,
   });
 
+  const categoriesQuery = useQuery({
+    queryKey: ['deck-categories'],
+    queryFn: loadCategoriesSnapshot,
+  });
+
   const saveDecksMutation = useMutation({
     mutationFn: async (decks: Deck[]) => {
       const reconciledDecks = reconcileDeckCatalog(decks, 'deck_update').decks;
@@ -464,6 +499,17 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     },
   });
   const { mutateAsync: saveDecksMutateAsync } = saveDecksMutation;
+
+  const saveCategoriesMutation = useMutation({
+    mutationFn: async (categories: string[]) => {
+      const normalizedCategories = buildManagedDeckCategoryList(categories);
+      return persistMirroredStorage(STORAGE_KEYS.CATEGORIES, STORAGE_BACKUP_KEYS.CATEGORIES, normalizedCategories, 'categories');
+    },
+    onSuccess: (categories: string[]) => {
+      queryClient.setQueryData(['deck-categories'], categories);
+    },
+  });
+  const { mutateAsync: saveCategoriesMutateAsync } = saveCategoriesMutation;
 
   const saveProgressMutation = useMutation({
     mutationFn: async (progress: UserProgress[]) => persistMirroredStorage(STORAGE_KEYS.PROGRESS, STORAGE_BACKUP_KEYS.PROGRESS, progress, 'progress'),
@@ -536,6 +582,30 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     queryClient.setQueryData(['stats'], hydratedStats);
     return hydratedStats;
   }, [queryClient]);
+
+  const getHydratedCategories = useCallback(async (): Promise<string[]> => {
+    const cachedCategories = queryClient.getQueryData<string[]>(['deck-categories']);
+    if (cachedCategories != null) {
+      const normalizedCategories = buildManagedDeckCategoryList(cachedCategories);
+      if (JSON.stringify(normalizedCategories) !== JSON.stringify(cachedCategories)) {
+        queryClient.setQueryData(['deck-categories'], normalizedCategories);
+      }
+      return normalizedCategories;
+    }
+
+    const hydratedCategories = await loadCategoriesSnapshot();
+    queryClient.setQueryData(['deck-categories'], hydratedCategories);
+    return hydratedCategories;
+  }, [queryClient]);
+
+  const deckCategories = useMemo(
+    () => mergeDeckCategoryLibraries(
+      DEFAULT_DECK_CATEGORY_LIBRARY,
+      categoriesQuery.data ?? [],
+      (decksQuery.data ?? []).map((deck) => deck.category),
+    ),
+    [categoriesQuery.data, decksQuery.data],
+  );
 
   const recordSessionResult = useCallback((params: GameResultParams) => {
     void enqueuePersistenceTask('recordSessionResult', async () => {
@@ -671,41 +741,63 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
   const addDeck = useCallback((deck: Deck) => {
     void enqueuePersistenceTask('addDeck', async () => {
       const currentDecks = await getHydratedDecks();
+      const currentCategories = await getHydratedCategories();
       const normalizedDeck = normalizeDeck(deck);
       const updatedDecks = reconcileDeckCatalog([...currentDecks, normalizedDeck], 'deck_update').decks;
+      const updatedCategories = mergeDeckCategoryLibraries(
+        currentCategories,
+        updatedDecks.map((item) => item.category),
+      );
+      const shouldPersistCategories = JSON.stringify(updatedCategories) !== JSON.stringify(currentCategories);
       queryClient.setQueryData(['decks'], updatedDecks);
+      queryClient.setQueryData(['deck-categories'], updatedCategories);
 
       try {
-        await saveDecksMutateAsync(updatedDecks);
+        await Promise.all([
+          saveDecksMutateAsync(updatedDecks),
+          shouldPersistCategories ? saveCategoriesMutateAsync(updatedCategories) : Promise.resolve(updatedCategories),
+        ]);
       } catch (error) {
         queryClient.setQueryData(['decks'], currentDecks);
+        queryClient.setQueryData(['deck-categories'], currentCategories);
         logger.error('[FlashQuest] Failed to persist added deck, rolled back cache', error);
         throw error;
       }
     }).catch((error) => {
       logger.error('[FlashQuest] addDeck task failed', error);
     });
-  }, [enqueuePersistenceTask, getHydratedDecks, queryClient, saveDecksMutateAsync]);
+  }, [enqueuePersistenceTask, getHydratedCategories, getHydratedDecks, queryClient, saveCategoriesMutateAsync, saveDecksMutateAsync]);
 
   const updateDeck = useCallback((deckId: string, updates: Partial<Deck>) => {
     void enqueuePersistenceTask('updateDeck', async () => {
       const currentDecks = await getHydratedDecks();
+      const currentCategories = await getHydratedCategories();
       const updatedDecks = reconcileDeckCatalog(currentDecks.map((deck) => (
         deck.id === deckId ? normalizeDeck({ ...deck, ...updates }) : deck
       )), 'deck_update').decks;
+      const updatedCategories = mergeDeckCategoryLibraries(
+        currentCategories,
+        updatedDecks.map((item) => item.category),
+      );
+      const shouldPersistCategories = JSON.stringify(updatedCategories) !== JSON.stringify(currentCategories);
       queryClient.setQueryData(['decks'], updatedDecks);
+      queryClient.setQueryData(['deck-categories'], updatedCategories);
 
       try {
-        await saveDecksMutateAsync(updatedDecks);
+        await Promise.all([
+          saveDecksMutateAsync(updatedDecks),
+          shouldPersistCategories ? saveCategoriesMutateAsync(updatedCategories) : Promise.resolve(updatedCategories),
+        ]);
       } catch (error) {
         queryClient.setQueryData(['decks'], currentDecks);
+        queryClient.setQueryData(['deck-categories'], currentCategories);
         logger.error('[FlashQuest] Failed to persist updated deck, rolled back cache', error);
         throw error;
       }
     }).catch((error) => {
       logger.error('[FlashQuest] updateDeck task failed', error);
     });
-  }, [enqueuePersistenceTask, getHydratedDecks, queryClient, saveDecksMutateAsync]);
+  }, [enqueuePersistenceTask, getHydratedCategories, getHydratedDecks, queryClient, saveCategoriesMutateAsync, saveDecksMutateAsync]);
 
   const updateFlashcard = useCallback((deckId: string, cardId: string, updates: Partial<Flashcard>) => {
     void enqueuePersistenceTask('updateFlashcard', async () => {
@@ -804,6 +896,135 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     });
   }, [enqueuePersistenceTask, getHydratedDecks, getHydratedProgress, queryClient, saveDecksMutateAsync, saveProgressMutateAsync]);
 
+  const createDeckCategory = useCallback(async (categoryName: string) => {
+    return enqueuePersistenceTask('createDeckCategory', async () => {
+      const currentCategories = await getHydratedCategories();
+      const normalizedCategory = sanitizeDeckCategory(categoryName);
+
+      if (!normalizedCategory) {
+        throw new Error('Please enter a category name.');
+      }
+
+      const updatedCategories = mergeDeckCategoryLibraries(currentCategories, [normalizedCategory]);
+      queryClient.setQueryData(['deck-categories'], updatedCategories);
+
+      try {
+        await saveCategoriesMutateAsync(updatedCategories);
+      } catch (error) {
+        queryClient.setQueryData(['deck-categories'], currentCategories);
+        logger.error('[FlashQuest] Failed to create category, rolled back cache', error);
+        throw error;
+      }
+
+      return normalizedCategory;
+    });
+  }, [enqueuePersistenceTask, getHydratedCategories, queryClient, saveCategoriesMutateAsync]);
+
+  const renameDeckCategory = useCallback(async (currentCategoryName: string, nextCategoryName: string) => {
+    return enqueuePersistenceTask('renameDeckCategory', async () => {
+      const currentCategories = await getHydratedCategories();
+      const currentDecks = await getHydratedDecks();
+      const normalizedCurrentCategory = sanitizeDeckCategory(currentCategoryName);
+      const normalizedNextCategory = sanitizeDeckCategory(nextCategoryName);
+
+      if (!canRenameDeckCategory(normalizedCurrentCategory)) {
+        throw new Error('This category cannot be renamed.');
+      }
+
+      if (!normalizedNextCategory) {
+        throw new Error('Please enter a category name.');
+      }
+
+      const hasConflict = currentCategories.some((category) => (
+        category.toLowerCase() === normalizedNextCategory.toLowerCase()
+        && category.toLowerCase() !== normalizedCurrentCategory.toLowerCase()
+      ));
+
+      if (hasConflict) {
+        throw new Error('That category already exists.');
+      }
+
+      const updatedDecks = reconcileDeckCatalog(currentDecks.map((deck) => {
+        if (deck.category.trim().toLowerCase() !== normalizedCurrentCategory.toLowerCase()) {
+          return deck;
+        }
+
+        return normalizeDeck({
+          ...deck,
+          category: normalizedNextCategory,
+        });
+      }), 'deck_update').decks;
+
+      const renamedCategories = currentCategories.map((category) => (
+        category.toLowerCase() === normalizedCurrentCategory.toLowerCase() ? normalizedNextCategory : category
+      ));
+      const updatedCategories = mergeDeckCategoryLibraries(
+        renamedCategories,
+        updatedDecks.map((deck) => deck.category),
+      );
+
+      queryClient.setQueryData(['decks'], updatedDecks);
+      queryClient.setQueryData(['deck-categories'], updatedCategories);
+
+      try {
+        await Promise.all([
+          saveDecksMutateAsync(updatedDecks),
+          saveCategoriesMutateAsync(updatedCategories),
+        ]);
+      } catch (error) {
+        queryClient.setQueryData(['decks'], currentDecks);
+        queryClient.setQueryData(['deck-categories'], currentCategories);
+        logger.error('[FlashQuest] Failed to rename category, rolled back cache', error);
+        throw error;
+      }
+
+      return normalizedNextCategory;
+    });
+  }, [enqueuePersistenceTask, getHydratedCategories, getHydratedDecks, queryClient, saveCategoriesMutateAsync, saveDecksMutateAsync]);
+
+  const deleteDeckCategory = useCallback(async (categoryName: string) => {
+    return enqueuePersistenceTask('deleteDeckCategory', async () => {
+      const currentCategories = await getHydratedCategories();
+      const currentDecks = await getHydratedDecks();
+      const normalizedCategory = sanitizeDeckCategory(categoryName);
+
+      if (!canDeleteDeckCategory(normalizedCategory)) {
+        throw new Error('This category cannot be deleted.');
+      }
+
+      const updatedDecks = reconcileDeckCatalog(currentDecks.map((deck) => {
+        if (deck.category.trim().toLowerCase() !== normalizedCategory.toLowerCase()) {
+          return deck;
+        }
+
+        return normalizeDeck({
+          ...deck,
+          category: CUSTOM_DECK_CATEGORY_LABEL,
+        });
+      }), 'deck_update').decks;
+
+      const updatedCategories = mergeDeckCategoryLibraries(
+        currentCategories.filter((category) => category.toLowerCase() !== normalizedCategory.toLowerCase()),
+        updatedDecks.map((deck) => deck.category),
+      );
+
+      queryClient.setQueryData(['decks'], updatedDecks);
+      queryClient.setQueryData(['deck-categories'], updatedCategories);
+
+      try {
+        await Promise.all([
+          saveDecksMutateAsync(updatedDecks),
+          saveCategoriesMutateAsync(updatedCategories),
+        ]);
+      } catch (error) {
+        queryClient.setQueryData(['decks'], currentDecks);
+        queryClient.setQueryData(['deck-categories'], currentCategories);
+        logger.error('[FlashQuest] Failed to delete category, rolled back cache', error);
+        throw error;
+      }
+    });
+  }, [enqueuePersistenceTask, getHydratedCategories, getHydratedDecks, queryClient, saveCategoriesMutateAsync, saveDecksMutateAsync]);
+
   const updateProgress = useCallback((deckId: string) => {
     void enqueuePersistenceTask('updateProgress', async () => {
       const currentProgress = await getHydratedProgress();
@@ -846,11 +1067,15 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
 
   return useMemo(() => ({
     decks: decksQuery.data ?? [],
+    deckCategories,
     progress: progressQuery.data ?? [],
     stats: statsQuery.data ?? DEFAULT_STATS,
-    isLoading: decksQuery.isLoading || progressQuery.isLoading || statsQuery.isLoading,
+    isLoading: decksQuery.isLoading || progressQuery.isLoading || statsQuery.isLoading || categoriesQuery.isLoading,
     addDeck,
     updateDeck,
+    createDeckCategory,
+    renameDeckCategory,
+    deleteDeckCategory,
     updateFlashcard,
     deleteFlashcard,
     deleteDeck,
@@ -858,13 +1083,18 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     recordSessionResult,
   }), [
     decksQuery.data,
+    deckCategories,
     progressQuery.data,
     statsQuery.data,
     decksQuery.isLoading,
     progressQuery.isLoading,
     statsQuery.isLoading,
+    categoriesQuery.isLoading,
     addDeck,
     updateDeck,
+    createDeckCategory,
+    renameDeckCategory,
+    deleteDeckCategory,
     updateFlashcard,
     deleteFlashcard,
     deleteDeck,
