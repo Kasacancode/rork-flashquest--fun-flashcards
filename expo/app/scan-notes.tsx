@@ -22,7 +22,10 @@ import DeckCategoryPicker from '@/components/DeckCategoryPicker';
 import ConsentSheet from '@/components/privacy/ConsentSheet';
 import {
   AI_DEFAULT_DECK_CATEGORY,
-  PRESET_DECK_CATEGORIES,
+  buildDeckCategoryOptions,
+  getCustomCategoryDraft,
+  normalizeDeckCategory,
+  sanitizeDeckCategory,
 } from '@/constants/deckCategories';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePrivacy } from '@/context/PrivacyContext';
@@ -84,35 +87,24 @@ export default function ScanNotesPage() {
     pulseAnim.setValue(1);
   }, [pulseAnim]);
 
-  const categoryOptions = useMemo(() => {
-    const normalizedCategory = deckCategory.trim();
-    if (normalizedCategory && !PRESET_DECK_CATEGORIES.includes(normalizedCategory as typeof PRESET_DECK_CATEGORIES[number])) {
-      return [...PRESET_DECK_CATEGORIES, normalizedCategory];
-    }
-    return [...PRESET_DECK_CATEGORIES];
-  }, [deckCategory]);
+  const categoryOptions = useMemo(() => buildDeckCategoryOptions(deckCategory), [deckCategory]);
 
   const handleSelectCategory = useCallback((category: string) => {
-    setDeckCategory(category);
+    setDeckCategory(normalizeDeckCategory(category, AI_DEFAULT_DECK_CATEGORY));
     setShowCustomCategory(false);
     setCustomCategoryInput('');
   }, []);
 
   const handlePressCustomCategory = useCallback(() => {
-    const normalizedCategory = deckCategory.trim();
-    setCustomCategoryInput(
-      normalizedCategory && !PRESET_DECK_CATEGORIES.includes(normalizedCategory as typeof PRESET_DECK_CATEGORIES[number])
-        ? normalizedCategory
-        : ''
-    );
+    setCustomCategoryInput(getCustomCategoryDraft(deckCategory));
     setShowCustomCategory(true);
   }, [deckCategory]);
 
   const handleSubmitCustomCategory = useCallback(() => {
-    const normalizedCustomCategory = customCategoryInput.trim();
+    const normalizedCustomCategory = sanitizeDeckCategory(customCategoryInput);
     if (normalizedCustomCategory) {
       setDeckCategory(normalizedCustomCategory);
-      setCustomCategoryInput(normalizedCustomCategory);
+      setCustomCategoryInput(getCustomCategoryDraft(normalizedCustomCategory));
     }
     setShowCustomCategory(false);
   }, [customCategoryInput]);
@@ -177,7 +169,7 @@ Also suggest a deck name, description, and category.`,
       setGeneratedCards(cards);
       setDeckName(result.deckName);
       setDeckDescription(result.deckDescription);
-      setDeckCategory(result.category || AI_DEFAULT_DECK_CATEGORY);
+      setDeckCategory(normalizeDeckCategory(result.category, AI_DEFAULT_DECK_CATEGORY));
       setCustomCategoryInput('');
       setShowCustomCategory(false);
       trackEvent({

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 
 import type { Theme } from '@/constants/colors';
+import { CUSTOM_DECK_CATEGORY_LABEL } from '@/constants/deckCategories';
 
 interface DeckCategoryPickerProps {
   label?: string;
@@ -42,6 +43,10 @@ export default function DeckCategoryPicker({
   testIDPrefix = 'deck-category',
 }: DeckCategoryPickerProps) {
   const inputBackgroundColor = isDark ? 'rgba(15, 23, 42, 0.68)' : theme.cardBackground;
+  const normalizedSelectedCategory = selectedCategory.trim();
+  const isCustomTriggerActive = showCustomCategory || (
+    !!normalizedSelectedCategory && !categories.includes(normalizedSelectedCategory)
+  );
 
   return (
     <View style={styles.container}>
@@ -78,16 +83,16 @@ export default function DeckCategoryPicker({
           style={[
             styles.pill,
             {
-              backgroundColor: showCustomCategory ? theme.primary : theme.cardBackground,
-              borderColor: showCustomCategory ? theme.primary : theme.border,
+              backgroundColor: isCustomTriggerActive ? theme.primary : theme.cardBackground,
+              borderColor: isCustomTriggerActive ? theme.primary : theme.border,
             },
           ]}
           onPress={onPressCustom}
           activeOpacity={0.82}
           testID={`${testIDPrefix}-custom-trigger`}
         >
-          <Text style={[styles.pillText, { color: showCustomCategory ? '#fff' : theme.textSecondary }]}>
-            + Custom
+          <Text style={[styles.pillText, { color: isCustomTriggerActive ? '#fff' : theme.textSecondary }]}>
+            {CUSTOM_DECK_CATEGORY_LABEL}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -106,7 +111,7 @@ export default function DeckCategoryPicker({
           onChangeText={onChangeCustomCategoryInput}
           onSubmitEditing={onSubmitCustomCategory}
           onBlur={onSubmitCustomCategory}
-          placeholder="Enter custom category"
+          placeholder="Enter category"
           placeholderTextColor={theme.textTertiary}
           maxLength={30}
           returnKeyType="done"

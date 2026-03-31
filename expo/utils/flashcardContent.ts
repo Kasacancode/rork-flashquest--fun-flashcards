@@ -14,6 +14,7 @@ import type {
   FlashcardProjectionQuality,
   FlashcardProjectionSet,
 } from '@/types/flashcard';
+import { normalizeDeckCategory } from '@/constants/deckCategories';
 import { recordDeckNormalizationSummary, recordOptionCollision } from '@/utils/flashcardDiagnostics';
 import { logger } from '@/utils/logger';
 
@@ -1051,6 +1052,7 @@ export function buildDeckNormalizationSummary(params: {
 export function normalizeDeck(deck: Deck, options?: { source?: FlashcardNormalizationSource; trackDiagnostics?: boolean }): Deck {
   const normalizedDeck = {
     ...deck,
+    category: normalizeDeckCategory(deck.category),
     flashcards: deck.flashcards.map((card) => normalizeFlashcard(card)),
   } satisfies Deck;
 

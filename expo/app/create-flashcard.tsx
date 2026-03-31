@@ -17,8 +17,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import DeckCategoryPicker from '@/components/DeckCategoryPicker';
 import {
+  buildDeckCategoryOptions,
+  getCustomCategoryDraft,
   MANUAL_DEFAULT_DECK_CATEGORY,
-  PRESET_DECK_CATEGORIES,
+  normalizeDeckCategory,
+  sanitizeDeckCategory,
 } from '@/constants/deckCategories';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
@@ -57,25 +60,29 @@ export default function CreateFlashcardPage() {
   const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
 
   useEffect(() => {
-    if (deckId && typeof deckId === 'string') {
-      const deck = decks.find(d => d.id === deckId);
-      if (deck) {
-        setDeckName(deck.name);
-        setDeckDescription(deck.description);
-        setCards(deck.flashcards.map((f, i) => ({
-          id: `${i}`,
-          originalCardId: f.id,
-          question: f.question,
-          answer: f.answer,
-        })));
-        const deckCategory = deck.category?.trim() || MANUAL_DEFAULT_DECK_CATEGORY;
-        setSelectedCategory(deckCategory);
-        setCustomCategoryInput(PRESET_DECK_CATEGORIES.includes(deckCategory as typeof PRESET_DECK_CATEGORIES[number]) ? '' : deckCategory);
-        setShowCustomCategory(false);
-        setEditingDeckId(deck.id);
-      }
+    if (!deckId || typeof deckId !== 'string' || editingDeckId === deckId) {
+      return;
     }
-  }, [deckId, decks]);
+
+    const deck = decks.find((item) => item.id === deckId);
+    if (!deck) {
+      return;
+    }
+
+    setDeckName(deck.name);
+    setDeckDescription(deck.description);
+    setCards(deck.flashcards.map((flashcard, index) => ({
+      id: `${index}`,
+      originalCardId: flashcard.id,
+      question: flashcard.question,
+      answer: flashcard.answer,
+    })));
+    const deckCategory = normalizeDeckCategory(deck.category, MANUAL_DEFAULT_DECK_CATEGORY);
+    setSelectedCategory(deckCategory);
+    setCustomCategoryInput(getCustomCategoryDraft(deckCategory));
+    setShowCustomCategory(false);
+    setEditingDeckId(deck.id);
+  }, [deckId, decks, editingDeckId]);
 
   const addCard = () => {
     setCards([...cards, { id: Date.now().toString(), originalCardId: null, question: '', answer: '' }]);
@@ -93,13 +100,7 @@ export default function CreateFlashcardPage() {
     );
   };
 
-  const categoryOptions = useMemo(() => {
-    const normalizedSelectedCategory = selectedCategory.trim();
-    if (normalizedSelectedCategory && !PRESET_DECK_CATEGORIES.includes(normalizedSelectedCategory as typeof PRESET_DECK_CATEGORIES[number])) {
-      return [...PRESET_DECK_CATEGORIES, normalizedSelectedCategory];
-    }
-    return [...PRESET_DECK_CATEGORIES];
-  }, [selectedCategory]);
+  const categoryOptions = useMemo(() => buildDeckCategoryOptions(selectedCategory), [selectedCategory]);
 
   const editingDeck = useMemo(
     () => (editingDeckId ? decks.find((deck) => deck.id === editingDeckId) ?? null : null),
@@ -108,26 +109,21 @@ export default function CreateFlashcardPage() {
   const canManageEditingDeck = editingDeck?.isCustom ?? false;
 
   const handleSelectCategory = (category: string) => {
-    setSelectedCategory(category);
+    setSelectedCategory(normalizeDeckCategory(category, MANUAL_DEFAULT_DECK_CATEGORY));
     setShowCustomCategory(false);
     setCustomCategoryInput('');
   };
 
   const handlePressCustomCategory = () => {
-    const normalizedSelectedCategory = selectedCategory.trim();
-    setCustomCategoryInput(
-      normalizedSelectedCategory && !PRESET_DECK_CATEGORIES.includes(normalizedSelectedCategory as typeof PRESET_DECK_CATEGORIES[number])
-        ? normalizedSelectedCategory
-        : ''
-    );
+    setCustomCategoryInput(getCustomCategoryDraft(selectedCategory));
     setShowCustomCategory(true);
   };
 
   const handleSubmitCustomCategory = () => {
-    const normalizedCustomCategory = customCategoryInput.trim();
+    const normalizedCustomCategory = sanitizeDeckCategory(customCategoryInput);
     if (normalizedCustomCategory) {
       setSelectedCategory(normalizedCustomCategory);
-      setCustomCategoryInput(normalizedCustomCategory);
+      setCustomCategoryInput(getCustomCategoryDraft(normalizedCustomCategory));
     }
     setShowCustomCategory(false);
   };
@@ -198,7 +194,7 @@ export default function CreateFlashcardPage() {
       return;
     }
 
-    const resolvedCategory = selectedCategory.trim() || MANUAL_DEFAULT_DECK_CATEGORY;
+    const resolvedCategory = normalizeDeckCategory(selectedCategory, MANUAL_DEFAULT_DECK_CATEGORY);
 
     if (editingDeckId) {
       const existingDeck = decks.find(d => d.id === editingDeckId);

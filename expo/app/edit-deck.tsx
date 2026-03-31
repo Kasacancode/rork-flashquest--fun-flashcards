@@ -15,8 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import DeckCategoryPicker from '@/components/DeckCategoryPicker';
 import {
+  buildDeckCategoryOptions,
+  getCustomCategoryDraft,
   MANUAL_DEFAULT_DECK_CATEGORY,
-  PRESET_DECK_CATEGORIES,
+  normalizeDeckCategory,
+  sanitizeDeckCategory,
 } from '@/constants/deckCategories';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -37,7 +40,7 @@ export default function EditDeckScreen() {
   const [nameInput, setNameInput] = useState<string>(deck?.name ?? '');
   const [descriptionInput, setDescriptionInput] = useState<string>(deck?.description ?? '');
   const [selectedColor, setSelectedColor] = useState<string>(deck?.color ?? DECK_COLORS[0]);
-  const [selectedCategory, setSelectedCategory] = useState<string>(deck?.category?.trim() || MANUAL_DEFAULT_DECK_CATEGORY);
+  const [selectedCategory, setSelectedCategory] = useState<string>(normalizeDeckCategory(deck?.category, MANUAL_DEFAULT_DECK_CATEGORY));
   const [showCustomCategory, setShowCustomCategory] = useState<boolean>(false);
   const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
   const [isEditingMeta, setIsEditingMeta] = useState<boolean>(false);
@@ -50,19 +53,15 @@ export default function EditDeckScreen() {
   const surfaceBg = isDark ? 'rgba(30, 41, 59, 0.72)' : 'rgba(255, 255, 255, 0.88)';
   const inputBg = isDark ? 'rgba(15, 23, 42, 0.5)' : 'rgba(255,255,255,0.6)';
 
-  const isPresetCategory = useCallback((category: string) => {
-    return PRESET_DECK_CATEGORIES.includes(category as typeof PRESET_DECK_CATEGORIES[number]);
+  const syncCategoryState = useCallback((category?: string) => {
+    const normalizedCategory = normalizeDeckCategory(category, MANUAL_DEFAULT_DECK_CATEGORY);
+    setSelectedCategory(normalizedCategory);
+    setCustomCategoryInput(getCustomCategoryDraft(normalizedCategory));
+    setShowCustomCategory(false);
   }, []);
 
-  const syncCategoryState = useCallback((category?: string) => {
-    const normalizedCategory = category?.trim() || MANUAL_DEFAULT_DECK_CATEGORY;
-    setSelectedCategory(normalizedCategory);
-    setCustomCategoryInput(isPresetCategory(normalizedCategory) ? '' : normalizedCategory);
-    setShowCustomCategory(false);
-  }, [isPresetCategory]);
-
   useEffect(() => {
-    if (!deck) {
+    if (!deck || isEditingMeta) {
       return;
     }
 
@@ -70,15 +69,9 @@ export default function EditDeckScreen() {
     setDescriptionInput(deck.description);
     setSelectedColor(deck.color);
     syncCategoryState(deck.category);
-  }, [deck, syncCategoryState]);
+  }, [deck, isEditingMeta, syncCategoryState]);
 
-  const categoryOptions = useMemo(() => {
-    const normalizedSelectedCategory = selectedCategory.trim();
-    if (normalizedSelectedCategory && !isPresetCategory(normalizedSelectedCategory)) {
-      return [...PRESET_DECK_CATEGORIES, normalizedSelectedCategory];
-    }
-    return [...PRESET_DECK_CATEGORIES];
-  }, [isPresetCategory, selectedCategory]);
+  const categoryOptions = useMemo(() => buildDeckCategoryOptions(selectedCategory), [selectedCategory]);
 
   const filteredCards = useMemo(() => {
     if (!deck) {
@@ -97,26 +90,21 @@ export default function EditDeckScreen() {
   }, [deck, searchQuery]);
 
   const handleSelectCategory = useCallback((category: string) => {
-    setSelectedCategory(category);
+    setSelectedCategory(normalizeDeckCategory(category, MANUAL_DEFAULT_DECK_CATEGORY));
     setShowCustomCategory(false);
     setCustomCategoryInput('');
   }, []);
 
   const handlePressCustomCategory = useCallback(() => {
-    const normalizedSelectedCategory = selectedCategory.trim();
-    setCustomCategoryInput(
-      normalizedSelectedCategory && !isPresetCategory(normalizedSelectedCategory)
-        ? normalizedSelectedCategory
-        : ''
-    );
+    setCustomCategoryInput(getCustomCategoryDraft(selectedCategory));
     setShowCustomCategory(true);
-  }, [isPresetCategory, selectedCategory]);
+  }, [selectedCategory]);
 
   const handleSubmitCustomCategory = useCallback(() => {
-    const normalizedCustomCategory = customCategoryInput.trim();
+    const normalizedCustomCategory = sanitizeDeckCategory(customCategoryInput);
     if (normalizedCustomCategory) {
       setSelectedCategory(normalizedCustomCategory);
-      setCustomCategoryInput(normalizedCustomCategory);
+      setCustomCategoryInput(getCustomCategoryDraft(normalizedCustomCategory));
     }
     setShowCustomCategory(false);
   }, [customCategoryInput]);
@@ -126,7 +114,7 @@ export default function EditDeckScreen() {
       return;
     }
 
-    const resolvedCategory = selectedCategory.trim() || MANUAL_DEFAULT_DECK_CATEGORY;
+    const resolvedCategory = normalizeDeckCategory(selectedCategory, MANUAL_DEFAULT_DECK_CATEGORY);
 
     updateDeck(deckId, {
       name: nameInput.trim(),
