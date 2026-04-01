@@ -86,3 +86,17 @@ export function importDeckFromClipboardText(text: string): ImportedDeckResult | 
     cardCount: deck.flashcards.length,
   };
 }
+
+export function exportDeckToSharePayload(deck: Deck): string {
+  return JSON.stringify({
+    _type: 'flashquest_deck',
+    name: deck.name,
+    description: deck.description,
+    color: deck.color,
+    category: deck.category,
+    flashcards: deck.flashcards.map((card) => ({
+      question: card.question,
+      answer: card.answer,
+    })),
+  }, null, 2);
+}

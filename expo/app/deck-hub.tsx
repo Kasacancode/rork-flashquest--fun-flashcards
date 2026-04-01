@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, MoreHorizontal, Pencil, RotateCcw, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, MoreHorizontal, Pencil, RotateCcw, Trash2, Upload } from 'lucide-react-native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,8 +8,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
+import { exportDeckToSharePayload } from '@/utils/deckImport';
 import { computeDeckMastery } from '@/utils/mastery';
 import { DECKS_ROUTE, editDeckHref, focusedQuestSessionHref } from '@/utils/routes';
+import { shareTextWithFallback } from '@/utils/share';
 import { generateUUID } from '@/utils/uuid';
 
 function withAlpha(color: string, alpha: number): string {
@@ -191,6 +193,23 @@ export default function DeckHubScreen() {
     setMenuVisible(false);
     Alert.alert('Deck Duplicated', `"${deck.name} (Copy)" has been created with ${flashcards.length} cards.`);
   }, [addDeck, deck]);
+
+  const handleShareDeck = useCallback(() => {
+    if (!deck) {
+      return;
+    }
+
+    setMenuVisible(false);
+    const payload = exportDeckToSharePayload(deck);
+    void shareTextWithFallback({
+      message: payload,
+      title: 'Share Deck',
+      fallbackTitle: 'Share Failed',
+      fallbackMessage: 'Could not share this deck. Please try again.',
+      copiedTitle: 'Deck Copied!',
+      copiedMessage: `"${deck.name}" has been copied to your clipboard. Paste it in a message to share with friends.`,
+    });
+  }, [deck]);
 
   const handleResetProgress = useCallback(() => {
     if (!deck) {
@@ -579,6 +598,15 @@ export default function DeckHubScreen() {
               >
                 <Copy color={theme.primary} size={18} strokeWidth={2.2} />
                 <Text style={[styles.menuItemText, { color: theme.text }]}>Duplicate Deck</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={handleShareDeck}
+                activeOpacity={0.75}
+                testID="shareDeckButton"
+              >
+                <Upload color={theme.primary} size={18} strokeWidth={2.2} />
+                <Text style={[styles.menuItemText, { color: theme.text }]}>Share Deck</Text>
               </TouchableOpacity>
               <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
               <TouchableOpacity
