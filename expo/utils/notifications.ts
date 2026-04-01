@@ -6,6 +6,7 @@ import { logger } from '@/utils/logger';
 import { normalizeStringArray, safeParseJsonOrNull } from '@/utils/safeJson';
 
 const NOTIFICATION_PERMISSION_KEY = 'flashquest_notification_permission_asked';
+export const NOTIFICATIONS_ENABLED_KEY = 'flashquest_notifications_enabled';
 const STREAK_NOTIFICATION_ID = 'flashquest_streak_reminder';
 const STREAK_NOTIFICATION_CHANNEL_ID = 'flashquest-streak-reminders';
 const STREAK_NOTIFICATION_IDS_KEY = 'flashquest_streak_reminder_ids';
@@ -53,7 +54,7 @@ async function ensureAndroidChannel(): Promise<void> {
   });
 }
 
-async function clearScheduledStreakReminders(): Promise<void> {
+export async function clearScheduledStreakReminders(): Promise<void> {
   const storedIdentifiers = await AsyncStorage.getItem(STREAK_NOTIFICATION_IDS_KEY);
   if (!storedIdentifiers) {
     return;
@@ -114,6 +115,12 @@ export async function requestNotificationPermission(): Promise<boolean> {
 export async function scheduleStreakReminder(options?: { requestPermissionIfNeeded?: boolean }): Promise<void> {
   try {
     if (Platform.OS === 'web') {
+      return;
+    }
+
+    const notificationsEnabled = await AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY);
+    if (notificationsEnabled === 'false') {
+      await clearScheduledStreakReminders();
       return;
     }
 

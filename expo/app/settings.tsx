@@ -36,10 +36,10 @@ import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { setHapticsEnabled as syncHapticsPreference } from '@/utils/haptics';
 import { logger } from '@/utils/logger';
+import { clearScheduledStreakReminders, NOTIFICATIONS_ENABLED_KEY } from '@/utils/notifications';
 import { DATA_PRIVACY_ROUTE, FAQ_ROUTE } from '@/utils/routes';
 
 const HAPTICS_KEY = 'flashquest_haptics_enabled';
-const NOTIFICATIONS_KEY = 'flashquest_notifications_enabled';
 
 type NotificationPermission = 'granted' | 'denied' | 'undetermined' | null;
 
@@ -114,7 +114,7 @@ export default function SettingsScreen() {
       try {
         const [storedHaptics, storedNotifications] = await Promise.all([
           AsyncStorage.getItem(HAPTICS_KEY),
-          AsyncStorage.getItem(NOTIFICATIONS_KEY),
+          AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY),
         ]);
 
         if (!isMounted) {
@@ -160,7 +160,11 @@ export default function SettingsScreen() {
 
   const handleToggleNotifications = useCallback((value: boolean) => {
     setNotificationsEnabled(value);
-    void AsyncStorage.setItem(NOTIFICATIONS_KEY, String(value));
+    void AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, String(value));
+
+    if (!value) {
+      void clearScheduledStreakReminders();
+    }
   }, []);
 
   const handleToggleAnalytics = useCallback((value: boolean) => {
