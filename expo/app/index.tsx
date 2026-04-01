@@ -239,6 +239,26 @@ export default function HomePage() {
     setRefreshing(false);
   }, [queryClient]);
 
+  const animateStatsPagerTo = useCallback((page: number) => {
+    Animated.spring(statsPagerTranslateX, {
+      toValue: hasReviewPage ? -page * statsCardInnerWidth : 0,
+      useNativeDriver: true,
+      tension: 90,
+      friction: 10,
+    }).start();
+  }, [hasReviewPage, statsPagerTranslateX]);
+
+  const handleSetStatsPage = useCallback((page: number) => {
+    const nextPage = hasReviewPage ? Math.max(0, Math.min(1, page)) : 0;
+
+    if (nextPage === statsPage) {
+      animateStatsPagerTo(nextPage);
+      return;
+    }
+
+    setStatsPage(nextPage);
+  }, [animateStatsPagerTo, hasReviewPage, statsPage]);
+
   useEffect(() => {
     if (!hasReviewPage && statsPage !== 0) {
       setStatsPage(0);
@@ -246,15 +266,8 @@ export default function HomePage() {
   }, [hasReviewPage, statsPage]);
 
   useEffect(() => {
-    const nextTranslateX = hasReviewPage ? -statsPage * statsCardInnerWidth : 0;
-
-    Animated.spring(statsPagerTranslateX, {
-      toValue: nextTranslateX,
-      useNativeDriver: true,
-      tension: 90,
-      friction: 10,
-    }).start();
-  }, [hasReviewPage, statsPage, statsPagerTranslateX]);
+    animateStatsPagerTo(statsPage);
+  }, [animateStatsPagerTo, statsPage]);
 
   const statsPanResponder = useMemo(
     () => PanResponder.create({
@@ -263,54 +276,44 @@ export default function HomePage() {
           return false;
         }
 
-        return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+        return Math.abs(gestureState.dx) > 6 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.1;
       },
+      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+        if (!hasReviewPage) {
+          return false;
+        }
+
+        return Math.abs(gestureState.dx) > 6 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.1;
+      },
+      onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: () => {
         statsPagerTranslateX.stopAnimation((value) => {
           statsPagerDragStartX.current = value;
         });
       },
       onPanResponderMove: (_, gestureState) => {
-        const minTranslateX = -statsCardInnerWidth;
-        const maxTranslateX = 0;
-        const nextTranslateX = Math.max(
-          minTranslateX,
-          Math.min(maxTranslateX, statsPagerDragStartX.current + gestureState.dx),
-        );
+        const rawTranslateX = statsPagerDragStartX.current + gestureState.dx;
+        let nextTranslateX = rawTranslateX;
+
+        if (rawTranslateX > 0) {
+          nextTranslateX = rawTranslateX * 0.2;
+        } else if (rawTranslateX < -statsCardInnerWidth) {
+          nextTranslateX = -statsCardInnerWidth + (rawTranslateX + statsCardInnerWidth) * 0.2;
+        }
 
         statsPagerTranslateX.setValue(nextTranslateX);
       },
       onPanResponderRelease: (_, gestureState) => {
-        const shouldAdvance = gestureState.dx < -statsCardInnerWidth * 0.2 || gestureState.vx < -0.35;
-        const shouldReturn = gestureState.dx > statsCardInnerWidth * 0.2 || gestureState.vx > 0.35;
+        const projectedTranslateX = statsPagerDragStartX.current + gestureState.dx + gestureState.vx * 96;
+        const nextPage = Math.max(0, Math.min(1, Math.round(Math.abs(projectedTranslateX) / statsCardInnerWidth)));
 
-        if (shouldAdvance) {
-          setStatsPage(1);
-          return;
-        }
-
-        if (shouldReturn) {
-          setStatsPage(0);
-          return;
-        }
-
-        Animated.spring(statsPagerTranslateX, {
-          toValue: hasReviewPage ? -statsPage * statsCardInnerWidth : 0,
-          useNativeDriver: true,
-          tension: 90,
-          friction: 10,
-        }).start();
+        handleSetStatsPage(nextPage);
       },
       onPanResponderTerminate: () => {
-        Animated.spring(statsPagerTranslateX, {
-          toValue: hasReviewPage ? -statsPage * statsCardInnerWidth : 0,
-          useNativeDriver: true,
-          tension: 90,
-          friction: 10,
-        }).start();
+        animateStatsPagerTo(statsPage);
       },
     }),
-    [hasReviewPage, statsPage, statsPagerTranslateX],
+    [animateStatsPagerTo, handleSetStatsPage, hasReviewPage, statsPage, statsPagerTranslateX],
   );
 
   const renderActionCard = ({
@@ -564,8 +567,24 @@ export default function HomePage() {
 
                 {hasReviewPage && (
                   <View style={styles.statsPageDots}>
-                    <View style={[styles.statsPageDot, { backgroundColor: statsPage === 0 ? (isDark ? '#a5b4fc' : '#6366f1') : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)') }]} />
-                    <View style={[styles.statsPageDot, { backgroundColor: statsPage === 1 ? (isDark ? '#a5b4fc' : '#6366f1') : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)') }]} />
+                    <TouchableOpacity
+                      style={styles.statsPageDotButton}
+                      onPress={() => handleSetStatsPage(0)}
+                      activeOpacity={0.8}
+                      hitSlop={8}
+                      testID="stats-page-dot-0"
+                    >
+                      <View style={[styles.statsPageDot, { backgroundColor: statsPage === 0 ? (isDark ? '#a5b4fc' : '#6366f1') : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)') }]} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.statsPageDotButton}
+                      onPress={() => handleSetStatsPage(1)}
+                      activeOpacity={0.8}
+                      hitSlop={8}
+                      testID="stats-page-dot-1"
+                    >
+                      <View style={[styles.statsPageDot, { backgroundColor: statsPage === 1 ? (isDark ? '#a5b4fc' : '#6366f1') : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)') }]} />
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -761,6 +780,7 @@ const styles = StyleSheet.create<{
   statsPagerTrack: ViewStyle;
   statsPage: ViewStyle;
   statsPageDots: ViewStyle;
+  statsPageDotButton: ViewStyle;
   statsPageDot: ViewStyle;
   statItem: ViewStyle;
   levelText: TextStyle;
@@ -895,6 +915,8 @@ const styles = StyleSheet.create<{
   },
   statsPager: {
     overflow: 'hidden',
+    width: statsCardInnerWidth,
+    alignSelf: 'center',
   },
   statsPagerTrack: {
     flexDirection: 'row',
@@ -912,6 +934,12 @@ const styles = StyleSheet.create<{
     gap: 6,
     paddingTop: 10,
     paddingBottom: 2,
+  },
+  statsPageDotButton: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statsPageDot: {
     width: 6,
