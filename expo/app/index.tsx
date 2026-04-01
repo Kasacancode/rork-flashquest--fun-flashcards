@@ -956,6 +956,7 @@ const styles = StyleSheet.create<{
     fontWeight: '800' as const,
     marginBottom: 4,
     letterSpacing: -0.7,
+    transform: [{ translateY: 4 }],
   },
   statValue: {
     fontSize: 32,
