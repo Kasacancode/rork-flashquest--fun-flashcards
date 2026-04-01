@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Check, MoreHorizontal, Pencil, Plus, RotateCcw, Search, Trash2, X } from 'lucide-react-native';
+import { ArrowLeft, Check, MoreHorizontal, Pencil, Plus, Search, Trash2, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -25,7 +25,6 @@ import {
   sanitizeDeckCategory,
 } from '@/constants/deckCategories';
 import { useFlashQuest } from '@/context/FlashQuestContext';
-import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { Flashcard } from '@/types/flashcard';
 import { createFlashcardHref, editFlashcardHref } from '@/utils/routes';
@@ -39,7 +38,6 @@ export default function EditDeckScreen() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
   const { decks, updateDeck, deleteFlashcard, deleteDeck, deckCategories } = useFlashQuest();
-  const { cleanupDeck } = usePerformance();
   const { theme, isDark } = useTheme();
   const deck = useMemo(() => decks.find((item) => item.id === deckId), [decks, deckId]);
   const [nameInput, setNameInput] = useState<string>(deck?.name ?? '');
@@ -186,29 +184,6 @@ export default function EditDeckScreen() {
       ],
     );
   }, [deckId, deleteDeck, router]);
-
-  const handleResetProgress = useCallback(() => {
-    if (!deck) {
-      return;
-    }
-
-    setShowDeckMenu(false);
-
-    Alert.alert(
-      'Reset Progress',
-      `This will erase all study history, mastery data, and spaced repetition schedules for "${deck.name}". The cards themselves won't change.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: () => {
-            cleanupDeck(deck.id, deck.flashcards.map((card) => card.id));
-          },
-        },
-      ],
-    );
-  }, [deck, cleanupDeck]);
 
   if (!deck) {
     return (
@@ -447,27 +422,13 @@ export default function EditDeckScreen() {
           >
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={handleResetProgress}
+              onPress={handleDeleteDeck}
               activeOpacity={0.8}
-              testID="edit-deck-menu-reset-button"
+              testID="edit-deck-menu-delete-button"
             >
-              <RotateCcw color={theme.textSecondary} size={17} strokeWidth={2.2} />
-              <Text style={[styles.menuItemText, { color: theme.text }]}>Reset progress</Text>
+              <Trash2 color={theme.error} size={17} strokeWidth={2.2} />
+              <Text style={[styles.menuItemText, { color: theme.error }]}>Delete deck</Text>
             </TouchableOpacity>
-            {deck.isCustom ? (
-              <>
-                <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={handleDeleteDeck}
-                  activeOpacity={0.8}
-                  testID="edit-deck-menu-delete-button"
-                >
-                  <Trash2 color={theme.error} size={17} strokeWidth={2.2} />
-                  <Text style={[styles.menuItemText, { color: theme.error }]}>Delete deck</Text>
-                </TouchableOpacity>
-              </>
-            ) : null}
           </Pressable>
         </Pressable>
       </Modal>
@@ -708,10 +669,6 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
-  },
-  menuDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: 12,
   },
   menuItemText: {
     fontSize: 15,
