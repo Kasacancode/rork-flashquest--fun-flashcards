@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, type Href } from 'expo-router';
 import {
+  ArrowLeft,
   BookOpen,
   Bot,
   Camera,
@@ -13,7 +14,7 @@ import {
   Trophy,
   Zap,
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   ScrollView,
@@ -299,7 +300,7 @@ function TutorialStep({
               </TouchableOpacity>
             </Animated.View>
 
-            {!isFlipped ? (
+            {!isFlipped && tutorialPart === 'card-1' ? (
               <Animated.Text style={[styles.flipHint, { opacity: hintOpacity }]}>👆 Tap the card to flip it</Animated.Text>
             ) : null}
 
@@ -325,6 +326,7 @@ function CategoriesStep({
   onScanNotes,
   onSkip,
   onContinue,
+  onGoBack,
 }: {
   theme: Theme;
   isDark: boolean;
@@ -333,11 +335,15 @@ function CategoriesStep({
   onScanNotes: () => void;
   onSkip: () => void;
   onContinue: () => void;
+  onGoBack?: () => void;
 }) {
   return (
     <GradientScreen colors={theme.deckGradient} isDark={isDark} testID="onboarding-step-categories">
       <View style={styles.screenContent}>
-        <View style={styles.topRowRight}>
+        <View style={styles.topRow}>
+          <TouchableOpacity onPress={onGoBack} activeOpacity={0.8} testID="onboarding-back">
+            <ArrowLeft color="rgba(255,255,255,0.7)" size={22} strokeWidth={2.2} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={onSkip} activeOpacity={0.8} testID="onboarding-categories-skip">
             <Text style={styles.topTextButton}>Skip →</Text>
           </TouchableOpacity>
@@ -399,6 +405,7 @@ function ProfileStep({
   onSelectIdentity,
   onSelectAnalytics,
   onContinue,
+  onGoBack,
 }: {
   theme: Theme;
   isDark: boolean;
@@ -412,6 +419,7 @@ function ProfileStep({
   onSelectIdentity: (identityKey: string) => void;
   onSelectAnalytics: (choice: Exclude<AnalyticsChoice, null>) => void;
   onContinue: () => void;
+  onGoBack?: () => void;
 }) {
   const shouldShowNameError = nameBlurred && playerName.trim().length === 0;
   const canContinue = playerName.trim().length > 0 && analyticsChoice !== null;
@@ -419,6 +427,12 @@ function ProfileStep({
   return (
     <GradientScreen colors={theme.arenaGradient} isDark={isDark} testID="onboarding-step-profile">
       <View style={styles.screenContent}>
+        <View style={styles.topRow}>
+          <TouchableOpacity onPress={onGoBack} activeOpacity={0.8} testID="onboarding-back">
+            <ArrowLeft color="rgba(255,255,255,0.7)" size={22} strokeWidth={2.2} />
+          </TouchableOpacity>
+        </View>
+
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollStepContent}>
           <Text style={styles.stepTitle}>Set up your profile</Text>
           <Text style={styles.stepSubtitle}>Choose your name and card identity.</Text>
@@ -529,25 +543,31 @@ function CelebrationStep({
   isDark,
   selectedIdentityKey,
   playerName,
-  categorySummary,
   isSaving,
   errorMessage,
   onComplete,
+  onGoBack,
 }: {
   theme: Theme;
   isDark: boolean;
   selectedIdentityKey: string;
   playerName: string;
-  categorySummary: string | null;
   isSaving: boolean;
   errorMessage: string | null;
   onComplete: () => void;
+  onGoBack?: () => void;
 }) {
   const selectedIdentity = PLAYER_IDENTITIES.find((identity) => identity.key === selectedIdentityKey) ?? DEFAULT_AVATAR_IDENTITY;
 
   return (
     <GradientScreen colors={theme.scoreGradient} isDark={isDark} testID="onboarding-step-celebration">
       <View style={[styles.screenContent, styles.celebrationScreenContent]}>
+        <View style={styles.topRow}>
+          <TouchableOpacity onPress={onGoBack} activeOpacity={0.8} testID="onboarding-back">
+            <ArrowLeft color="rgba(255,255,255,0.7)" size={22} strokeWidth={2.2} />
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.celebrationCenter}>
           <View style={styles.iconShell}>
             <View style={styles.iconInnerShell}>
@@ -562,10 +582,6 @@ function CelebrationStep({
             <Zap color="#FFFFFF" size={14} strokeWidth={2.2} />
             <Text style={styles.xpPillText}>+4 XP from your first cards</Text>
           </View>
-
-          {categorySummary ? (
-            <Text style={styles.celebrationSummary}>Your {categorySummary} decks are ready.</Text>
-          ) : null}
         </View>
 
         <View style={styles.bottomActionWrap}>
@@ -661,21 +677,20 @@ export default function OnboardingPage() {
     };
   }, [hasShownFlipHint, hintOpacity, isFlipped, tutorialPart]);
 
-  const categorySummary = useMemo(() => {
-    if (selectedCategories.length === 0) {
-      return null;
-    }
-
-    const preview = selectedCategories.slice(0, 3);
-    return selectedCategories.length > 3
-      ? `${preview.join(', ')} +${selectedCategories.length - preview.length} more`
-      : preview.join(', ');
-  }, [selectedCategories]);
-
   const handleAdvanceStep = useCallback((nextStep: number) => {
     console.log('[Onboarding] Advancing step:', { from: step, to: nextStep });
     setSaveError(null);
     setStep(nextStep);
+  }, [step]);
+
+  const handleGoBack = useCallback(() => {
+    setSaveError(null);
+    if (step === 1) {
+      setStep(0);
+      setTutorialPart('overview');
+    } else if (step > 1) {
+      setStep(step - 1);
+    }
   }, [step]);
 
   const handleFlipCard = useCallback(() => {
@@ -823,7 +838,6 @@ export default function OnboardingPage() {
     }
 
     console.log('[Onboarding] Completing onboarding', {
-      selectedCategories,
       selectedIdentityKey,
       analyticsChoice,
       playerName: trimmedName,
@@ -855,7 +869,6 @@ export default function OnboardingPage() {
     analyticsChoice,
     isSaving,
     playerName,
-    selectedCategories,
     selectedIdentityKey,
     setAnalyticsConsent,
     setAvatarIdentity,
@@ -888,6 +901,7 @@ export default function OnboardingPage() {
             onScanNotes={handleOpenScanNotes}
             onSkip={() => handleAdvanceStep(2)}
             onContinue={handleContinueCategories}
+            onGoBack={handleGoBack}
           />
         ) : null}
 
@@ -905,6 +919,7 @@ export default function OnboardingPage() {
             onSelectIdentity={handleSelectIdentity}
             onSelectAnalytics={handleSelectAnalytics}
             onContinue={handleContinueProfile}
+            onGoBack={handleGoBack}
           />
         ) : null}
 
@@ -914,12 +929,12 @@ export default function OnboardingPage() {
             isDark={isDark}
             selectedIdentityKey={selectedIdentityKey}
             playerName={playerName}
-            categorySummary={categorySummary}
             isSaving={isSaving}
             errorMessage={saveError}
             onComplete={() => {
               void handleCompleteOnboarding();
             }}
+            onGoBack={handleGoBack}
           />
         ) : null}
       </Animated.View>
@@ -1410,14 +1425,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700' as const,
-  },
-  celebrationSummary: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500' as const,
-    textAlign: 'center' as const,
-    maxWidth: 300,
   },
   primaryButton: {
     minHeight: 60,
