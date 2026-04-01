@@ -42,6 +42,7 @@ import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { importDeckFromClipboardText } from '@/utils/deckImport';
 import { getDeckListSummaries } from '@/utils/deckSelectors';
+import { logger } from '@/utils/logger';
 import {
   createFlashcardHref,
   deckHubHref,
@@ -165,7 +166,8 @@ export default function DecksPage() {
 
       addDeck(imported.deck);
       Alert.alert('Deck Imported!', `"${imported.deck.name}" with ${imported.cardCount} cards has been added to your decks.`);
-    } catch {
+    } catch (error) {
+      logger.warn('[Decks] Deck import failed:', error);
       Alert.alert('Import Failed', 'Could not import the deck. Make sure you copied a valid FlashQuest deck.');
     }
   }, [addDeck]);
@@ -187,7 +189,8 @@ export default function DecksPage() {
     try {
       await deleteDeck(deckId);
       cleanupDeck(deckId);
-    } catch {
+    } catch (error) {
+      logger.warn('[Decks] Deck deletion failed:', error);
       Alert.alert('Error', 'Failed to delete deck. Please try again.');
     }
   }, [cleanupDeck, deleteDeck]);

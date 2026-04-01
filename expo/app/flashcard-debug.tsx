@@ -14,6 +14,7 @@ import { canAccessDebugRoute, getDebugToolingFallbackHref } from '@/utils/debugT
 import { getFlashcardDiagnosticsState, useFlashcardDiagnostics } from '@/utils/flashcardDiagnostics';
 import { normalizeFlashcard } from '@/utils/flashcardContent';
 import { buildFlashcardDebugSnapshot, serializeFlashcardDebugSnapshot } from '@/utils/flashcardInspector';
+import { logger } from '@/utils/logger';
 
 function parseOptionsParam(value: string | string[] | undefined): FlashcardOption[] {
   const rawValue = Array.isArray(value) ? value[0] : value;
@@ -39,7 +40,8 @@ function parseOptionsParam(value: string | string[] | undefined): FlashcardOptio
         && typeof candidate.normalizedValue === 'string'
         && typeof candidate.answerType === 'string';
     });
-  } catch {
+  } catch (error) {
+    logger.warn('[FlashcardDebug] Failed to parse search params:', error);
     return [];
   }
 }

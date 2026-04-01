@@ -210,7 +210,8 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       if (!stored) return [];
       try {
         return JSON.parse(stored) as ArenaLeaderboardEntry[];
-      } catch {
+      } catch (error) {
+        logger.warn('[Arena] Failed to parse stored leaderboard:', error);
         return [];
       }
     },

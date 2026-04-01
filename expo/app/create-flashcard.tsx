@@ -157,7 +157,8 @@ export default function CreateFlashcardPage() {
       };
       await Clipboard.setStringAsync(JSON.stringify(shareData));
       Alert.alert('Deck Copied!', `"${existingDeck.name}" has been copied to your clipboard. Paste it in a message to share with friends.`);
-    } catch {
+    } catch (error) {
+      logger.warn('[CreateFlashcard] Deck copy failed:', error);
       Alert.alert('Error', 'Failed to copy deck. Please try again.');
     }
   }, [decks, editingDeckId]);

@@ -27,6 +27,7 @@ import { usePrivacy } from '@/context/PrivacyContext';
 import type { Flashcard } from '@/types/flashcard';
 import type { RecallQuality } from '@/types/performance';
 import { getCanonicalAnswer, getCanonicalQuestion, getCardAnswerForSurface, getCardQuestionForSurface } from '@/utils/flashcardContent';
+import { logger } from '@/utils/logger';
 import { DATA_PRIVACY_ROUTE } from '@/utils/routes';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -523,7 +524,8 @@ export default function StudyFeed({
       hintDismissTimer.current = setTimeout(() => {
         dismissHintOverlay();
       }, 3500);
-    } catch {
+    } catch (error) {
+      logger.warn('[StudyFeed] Hint generation failed:', error);
       Alert.alert('Generation Failed', 'Could not generate a hint. Please try again.');
     } finally {
       setIsGeneratingHint(false);
@@ -550,7 +552,8 @@ export default function StudyFeed({
       }
 
       onUpdateCard?.(currentCard.id, { explanation: explanation.trim() });
-    } catch {
+    } catch (error) {
+      logger.warn('[StudyFeed] Explanation generation failed:', error);
       Alert.alert('Generation Failed', 'Could not generate an explanation. Please try again.');
     } finally {
       setIsGeneratingExplanation(false);

@@ -128,7 +128,8 @@ export default function SettingsScreen() {
         if (storedNotifications !== null) {
           setNotificationsEnabled(storedNotifications !== 'false');
         }
-      } catch {
+      } catch (error) {
+        logger.warn('[Settings] Failed to load stored settings:', error);
       }
 
       if (Platform.OS !== 'web') {
@@ -137,7 +138,8 @@ export default function SettingsScreen() {
           if (isMounted) {
             setNotificationPermission(permissions.status);
           }
-        } catch {
+        } catch (error) {
+          logger.warn('[Settings] Failed to check notification permission:', error);
           if (isMounted) {
             setNotificationPermission('undetermined');
           }
@@ -186,7 +188,7 @@ export default function SettingsScreen() {
               queryClient.clear();
               router.replace('/onboarding');
             } catch (error) {
-              logger.error('[Settings] Failed to clear data:', error);
+              logger.error('[Settings] Failed to clear all data:', error);
               Alert.alert('Clear Failed', 'FlashQuest could not clear local data. Please try again.');
             }
           },
