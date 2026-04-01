@@ -10,6 +10,7 @@ import AchievementMonitor from '@/components/AchievementMonitor';
 import DeckMasteryMonitor from '@/components/DeckMasteryMonitor';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import LevelUpMonitor from '@/components/LevelUpMonitor';
+import OfflineBanner from '@/components/OfflineBanner';
 import ConsentSheet from '@/components/privacy/ConsentSheet';
 import { ArenaProvider } from '@/context/ArenaContext';
 import { AvatarProvider } from '@/context/AvatarContext';
@@ -170,6 +171,7 @@ function AppShell() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <OfflineBanner />
       <RootLayoutContent isOnboardingComplete={isOnboardingComplete} />
       <AchievementMonitor />
       <LevelUpMonitor />

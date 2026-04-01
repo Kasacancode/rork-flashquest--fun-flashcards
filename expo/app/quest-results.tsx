@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Trophy, Target, Zap, Clock, RotateCcw, BookOpen, Home, ChevronDown, ChevronUp } from 'lucide-react-native';
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -12,14 +12,24 @@ import { getQuestCompletionDialogueEvent, selectAssistantDialogue } from '@/util
 import { logger } from '@/utils/logger';
 import { parseQuestResultParam, serializeQuestSettings } from '@/utils/questParams';
 import { HOME_ROUTE, QUEST_ROUTE, focusedQuestSessionHref, questSessionHref, studyHref } from '@/utils/routes';
+import { maybePromptReview } from '@/utils/storeReview';
 
 export default function QuestResultsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ result?: string | string[] }>();
   const { theme } = useTheme();
-  const { decks } = useFlashQuest();
+  const { decks, stats } = useFlashQuest();
 
   const [showMissedCards, setShowMissedCards] = useState(false);
+  const reviewPromptStatsRef = useRef({
+    totalStudySessions: stats.totalStudySessions,
+    totalQuestSessions: stats.totalQuestSessions,
+    currentStreak: stats.currentStreak,
+  });
+
+  useEffect(() => {
+    void maybePromptReview(reviewPromptStatsRef.current);
+  }, []);
 
   const result = useMemo(() => parseQuestResultParam(params.result), [params.result]);
 

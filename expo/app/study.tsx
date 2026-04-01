@@ -23,6 +23,7 @@ import { GAME_MODE } from '@/types/game';
 import { getWeaknessScore, isCardDueForReview, getLiveCardStats } from '@/utils/mastery';
 import { logger } from '@/utils/logger';
 import { DECKS_ROUTE, deckHubHref, questHref } from '@/utils/routes';
+import { maybePromptReview } from '@/utils/storeReview';
 
 type StudyCardPriority = 'lapsed' | 'due' | 'new' | 'weak' | 'remaining';
 
@@ -132,7 +133,7 @@ function getDeckStudySummary(
 export default function StudyPage() {
   const router = useRouter();
   const params = useLocalSearchParams<{ deckId?: string }>();
-  const { decks, updateFlashcard, recordSessionResult } = useFlashQuest();
+  const { decks, stats, updateFlashcard, recordSessionResult } = useFlashQuest();
   const { performance } = usePerformance();
   const { theme, isDark } = useTheme();
 
@@ -238,7 +239,12 @@ export default function StudyPage() {
     });
     logger.debug('[Study] Session complete, cards:', resolvedCount, 'xp:', xpEarned);
     setShowResults(true);
-  }, [selectedDeck, recordSessionResult]);
+    void maybePromptReview({
+      totalStudySessions: stats.totalStudySessions,
+      totalQuestSessions: stats.totalQuestSessions,
+      currentStreak: stats.currentStreak,
+    });
+  }, [recordSessionResult, selectedDeck, stats.currentStreak, stats.totalQuestSessions, stats.totalStudySessions]);
 
   const handleRestart = useCallback(() => {
     trackedStudyDeckIdRef.current = null;

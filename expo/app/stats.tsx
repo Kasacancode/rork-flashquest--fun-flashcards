@@ -1,8 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { BookOpen, Calendar, Flame, Star, Swords, Target, Zap } from 'lucide-react-native';
-import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 
 import StatsRankEmblem from '@/components/StatsRankEmblem';
 import LevelsModal from '@/components/profile/LevelsModal';
@@ -56,8 +57,19 @@ export default function StatsPage() {
     handleCloseLevels,
   } = useStatsScreenState();
 
+  const queryClient = useQueryClient();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const levelModalStyles = useMemo(() => createLevelModalStyles(theme, isDark), [theme, isDark]);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await queryClient.refetchQueries();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient]);
 
   return (
     <View style={styles.container} testID="stats-screen">
@@ -86,6 +98,14 @@ export default function StatsPage() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={isDark ? 'rgba(255,255,255,0.7)' : theme.primary}
+              colors={[theme.primary]}
+            />
+          }
           testID="stats-scroll-view"
         >
           <TouchableOpacity

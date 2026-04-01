@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, type Href } from 'expo-router';
 import { Trophy, BookOpen, Swords, Target, User } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,15 @@ import {
   ScrollView,
   Dimensions,
   Animated,
+  RefreshControl,
   type StyleProp,
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 
+import { SkeletonBox, SkeletonCard } from '@/components/SkeletonLoader';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -48,11 +51,13 @@ function AnimatedStatValue({ animValue, style }: { animValue: Animated.Value; st
 
 export default function HomePage() {
   const router = useRouter();
-  const { stats, decks } = useFlashQuest();
+  const queryClient = useQueryClient();
+  const { stats, decks, isLoading } = useFlashQuest();
   const { performance, getWeakCards } = usePerformance();
   const { theme, isDark } = useTheme();
   const streakAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
   const cardsAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
   const levelEntry = useMemo(() => getLevelEntry(level), [level]);
   const levelPalette = useMemo(() => getLevelBandPalette(level, isDark), [level, isDark]);
@@ -191,6 +196,12 @@ export default function HomePage() {
     router.push('/profile' as Href);
   }, [router]);
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.refetchQueries();
+    setRefreshing(false);
+  }, [queryClient]);
+
   const renderActionCard = ({
     route,
     colors,
@@ -276,123 +287,144 @@ export default function HomePage() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="rgba(255,255,255,0.7)"
+              colors={['#667eea']}
+            />
+          }
           testID="home-scroll-view"
         >
-          <View style={styles.header}>
-            <View>
-              <Text style={[styles.title, { color: titleColor }]}>FlashQuest</Text>
-              <Text style={[styles.subtitle, { color: subtitleColor }]}>Deck. Set. Match.</Text>
+          {isLoading && decks.length === 0 ? (
+            <View style={{ paddingHorizontal: 24, paddingTop: 20, gap: 20 }}>
+              <SkeletonBox width="50%" height={28} borderRadius={12} />
+              <SkeletonBox width="80%" height={16} />
+              <View style={{ flexDirection: 'row', gap: 14, marginTop: 8 }}>
+                <SkeletonCard style={{ flex: 1 }} />
+                <SkeletonCard style={{ flex: 1 }} />
+              </View>
+              <SkeletonCard style={{ marginTop: 8 }} />
+              <SkeletonCard />
             </View>
-            <TouchableOpacity
-              style={[
-                styles.profileButton,
-                {
-                  backgroundColor: profileSurface,
-                  borderWidth: 1,
-                  borderColor: profileBorderColor,
-                  shadowColor: actionShadowColor,
-                },
-              ]}
-              onPress={handleOpenProfile}
-              activeOpacity={0.8}
-              testID="home-profile-button"
-            >
-              <LinearGradient
-                colors={profileGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.profileGradient}
+          ) : (
+            <>
+              <View style={styles.header}>
+                <View>
+                  <Text style={[styles.title, { color: titleColor }]}>FlashQuest</Text>
+                  <Text style={[styles.subtitle, { color: subtitleColor }]}>Deck. Set. Match.</Text>
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.profileButton,
+                    {
+                      backgroundColor: profileSurface,
+                      borderWidth: 1,
+                      borderColor: profileBorderColor,
+                      shadowColor: actionShadowColor,
+                    },
+                  ]}
+                  onPress={handleOpenProfile}
+                  activeOpacity={0.8}
+                  testID="home-profile-button"
+                >
+                  <LinearGradient
+                    colors={profileGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.profileGradient}
+                  >
+                    <User color={profileIconColor} size={24} strokeWidth={2.5} />
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+
+              <View
+                style={[
+                  styles.statsCard,
+                  {
+                    backgroundColor: isDark ? '#111b2f' : 'rgba(255, 255, 255, 0.99)',
+                    borderWidth: 1,
+                    borderColor: statsBorderColor,
+                    shadowColor: statsShadowColor,
+                    shadowOpacity: isDark ? 0.26 : 0.12,
+                    shadowRadius: isDark ? 20 : 12,
+                    elevation: isDark ? 11 : 5,
+                  },
+                ]}
               >
-                <User color={profileIconColor} size={24} strokeWidth={2.5} />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <LinearGradient
+                  colors={statsCardGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View style={[styles.statsCardFrame, { borderColor: statsBorderColor }]} />
 
-          <View
-            style={[
-              styles.statsCard,
-              {
-                backgroundColor: isDark ? '#111b2f' : 'rgba(255, 255, 255, 0.99)',
-                borderWidth: 1,
-                borderColor: statsBorderColor,
-                shadowColor: statsShadowColor,
-                shadowOpacity: isDark ? 0.26 : 0.12,
-                shadowRadius: isDark ? 20 : 12,
-                elevation: isDark ? 11 : 5,
-              },
-            ]}
-          >
-            <LinearGradient
-              colors={statsCardGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={[styles.statsCardFrame, { borderColor: statsBorderColor }]} />
+                <View style={styles.statItem}>
+                  <Text
+                    style={[styles.levelText, { color: statsLevelColor }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.84}
+                  >
+                    LV {level}
+                  </Text>
+                  <Text
+                    style={[styles.statLabel, styles.rankLabel, { color: statsLabelColor }]}
+                    numberOfLines={2}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                  >
+                    {levelEntry.title}
+                  </Text>
+                </View>
+                <View style={[styles.statDivider, { backgroundColor: statsDividerColor }]} />
+                <View style={styles.statItem}>
+                  <AnimatedStatValue animValue={streakAnim} style={[styles.statValue, { color: statsValueColor }]} />
+                  <Text style={[styles.statLabel, { color: statsLabelColor }]}>Day Streak</Text>
+                </View>
+                <View style={[styles.statDivider, { backgroundColor: statsDividerColor }]} />
+                <View style={styles.statItem}>
+                  <AnimatedStatValue animValue={cardsAnim} style={[styles.statValue, { color: statsValueColor }]} />
+                  <Text style={[styles.statLabel, { color: statsLabelColor }]}>Cards Studied</Text>
+                </View>
+              </View>
 
-            <View style={styles.statItem}>
-              <Text
-                style={[styles.levelText, { color: statsLevelColor }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.84}
-              >
-                LV {level}
-              </Text>
-              <Text
-                style={[styles.statLabel, styles.rankLabel, { color: statsLabelColor }]}
-                numberOfLines={2}
-                adjustsFontSizeToFit
-                minimumFontScale={0.8}
-              >
-                {levelEntry.title}
-              </Text>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: statsDividerColor }]} />
-            <View style={styles.statItem}>
-              <AnimatedStatValue animValue={streakAnim} style={[styles.statValue, { color: statsValueColor }]} />
-              <Text style={[styles.statLabel, { color: statsLabelColor }]}>Day Streak</Text>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: statsDividerColor }]} />
-            <View style={styles.statItem}>
-              <AnimatedStatValue animValue={cardsAnim} style={[styles.statValue, { color: statsValueColor }]} />
-              <Text style={[styles.statLabel, { color: statsLabelColor }]}>Cards Studied</Text>
-            </View>
-          </View>
+              <View style={styles.actionsGrid}>
+                {renderActionCard({
+                  route: '/arena' as Href,
+                  colors: homeActionGradients.arena,
+                  title: 'Battle',
+                  icon: <Swords color="#fff" size={40} strokeWidth={2.15} />,
+                  testID: 'home-action-battle',
+                })}
+                {renderActionCard({
+                  route: '/quest' as Href,
+                  colors: homeActionGradients.quest,
+                  title: 'Quest',
+                  icon: <Target color="#fff" size={40} strokeWidth={2.15} />,
+                  testID: 'home-action-quest',
+                })}
+                {renderActionCard({
+                  route: '/stats' as Href,
+                  colors: homeActionGradients.stats,
+                  title: 'Stats',
+                  icon: <Trophy color="#fff" size={40} strokeWidth={2.15} />,
+                  testID: 'home-action-stats',
+                })}
+                {renderActionCard({
+                  route: '/decks' as Href,
+                  colors: homeActionGradients.decks,
+                  title: 'Decks',
+                  icon: <BookOpen color="#fff" size={40} strokeWidth={2.15} />,
+                  testID: 'home-action-decks',
+                })}
+              </View>
 
-          <View style={styles.actionsGrid}>
-            {renderActionCard({
-              route: '/arena' as Href,
-              colors: homeActionGradients.arena,
-              title: 'Battle',
-              icon: <Swords color="#fff" size={40} strokeWidth={2.15} />,
-              testID: 'home-action-battle',
-            })}
-            {renderActionCard({
-              route: '/quest' as Href,
-              colors: homeActionGradients.quest,
-              title: 'Quest',
-              icon: <Target color="#fff" size={40} strokeWidth={2.15} />,
-              testID: 'home-action-quest',
-            })}
-            {renderActionCard({
-              route: '/stats' as Href,
-              colors: homeActionGradients.stats,
-              title: 'Stats',
-              icon: <Trophy color="#fff" size={40} strokeWidth={2.15} />,
-              testID: 'home-action-stats',
-            })}
-            {renderActionCard({
-              route: '/decks' as Href,
-              colors: homeActionGradients.decks,
-              title: 'Decks',
-              icon: <BookOpen color="#fff" size={40} strokeWidth={2.15} />,
-              testID: 'home-action-decks',
-            })}
-          </View>
-
-          <View style={styles.decksSection}>
-            <Text style={[styles.sectionTitle, { color: sectionTitleColor }]}>
+              <View style={styles.decksSection}>
+                <Text style={[styles.sectionTitle, { color: sectionTitleColor }]}>
               {'Quick Start'}
             </Text>
             {decks.length === 0 ? (
@@ -523,7 +555,9 @@ export default function HomePage() {
                 })}
               </ScrollView>
             )}
-          </View>
+              </View>
+            </>
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>

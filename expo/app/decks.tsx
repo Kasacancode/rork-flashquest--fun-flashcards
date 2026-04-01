@@ -17,6 +17,7 @@ import {
   FlatList,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,8 +26,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 
 import CategoryManagerSheet from '@/components/CategoryManagerSheet';
+import { SkeletonCard } from '@/components/SkeletonLoader';
 import DeckCard from '@/components/decks/DeckCard';
 import {
   ALL_DECK_CATEGORIES_LABEL,
@@ -50,7 +53,8 @@ import {
 
 export default function DecksPage() {
   const router = useRouter();
-  const { decks, deleteDeck, addDeck, deckCategories } = useFlashQuest();
+  const queryClient = useQueryClient();
+  const { decks, deleteDeck, addDeck, deckCategories, isLoading } = useFlashQuest();
   const { cleanupDeck } = useArena();
   const { performance, getCardsDueForReview } = usePerformance();
   const { theme, isDark } = useTheme();
@@ -60,6 +64,7 @@ export default function DecksPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string>(ALL_DECK_CATEGORIES_LABEL);
   const [sortBy, setSortBy] = useState<'name' | 'newest' | 'cards'>('newest');
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   const categoryCounts = useMemo(() => {
     const counts = decks.reduce<Record<string, number>>((accumulator, deck) => {
@@ -168,6 +173,15 @@ export default function DecksPage() {
   const handleEditDeck = useCallback((deckId: string) => {
     router.push(editDeckHref(deckId));
   }, [router]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await queryClient.refetchQueries();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient]);
 
   const handleDeleteDeck = useCallback(async (deckId: string) => {
     try {
@@ -412,7 +426,13 @@ export default function DecksPage() {
             {filteredDeckSummaries.length} {filteredDeckSummaries.length === 1 ? 'deck' : 'decks'} {activeCategory === ALL_DECK_CATEGORIES_LABEL ? 'total' : `in ${activeCategory}`}
           </Text>
 
-          {hasNoDecks ? (
+          {isLoading && decks.length === 0 ? (
+            <View style={{ paddingHorizontal: 20, paddingTop: 12, gap: 12 }}>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </View>
+          ) : hasNoDecks ? (
             <View style={styles.emptyStateContainer}>
               <View style={[styles.emptyState, { backgroundColor: deckSurface, borderColor: surfaceBorderColor, borderWidth: 1 }]}> 
               <BookOpen color={theme.textTertiary} size={48} strokeWidth={2.2} />
@@ -457,6 +477,14 @@ export default function DecksPage() {
               style={styles.scrollView}
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  tintColor={isDark ? 'rgba(255,255,255,0.7)' : theme.primary}
+                  colors={[theme.primary]}
+                />
+              }
               testID="decks-flat-list"
               removeClippedSubviews
               initialNumToRender={6}
