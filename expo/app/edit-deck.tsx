@@ -162,19 +162,23 @@ export default function EditDeckScreen() {
   }, []);
 
   const handleDeleteDeck = useCallback(() => {
-    if (!deckId) {
+    if (!deckId || !deck) {
       return;
     }
 
     setShowDeckMenu(false);
 
+    const isBuiltIn = !deck.isCustom;
+
     Alert.alert(
-      'Delete Deck',
-      'This will permanently delete this deck and all of its cards. This cannot be undone.',
+      isBuiltIn ? 'Remove Deck' : 'Delete Deck',
+      isBuiltIn
+        ? `This will remove "${deck.name}" from your library.`
+        : 'This will permanently delete this deck and all of its cards. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete Deck',
+          text: isBuiltIn ? 'Remove' : 'Delete Deck',
           style: 'destructive',
           onPress: async () => {
             await deleteDeck(deckId);
@@ -183,7 +187,7 @@ export default function EditDeckScreen() {
         },
       ],
     );
-  }, [deckId, deleteDeck, router]);
+  }, [deck, deckId, deleteDeck, router]);
 
   if (!deck) {
     return (

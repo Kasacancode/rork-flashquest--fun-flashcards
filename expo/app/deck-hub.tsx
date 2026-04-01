@@ -216,19 +216,23 @@ export default function DeckHubScreen() {
   }, [deck, cleanupDeck]);
 
   const handleDeleteDeck = useCallback(() => {
-    if (!deck || !deck.isCustom) {
+    if (!deck) {
       return;
     }
 
     setMenuVisible(false);
 
+    const isBuiltIn = !deck.isCustom;
+
     Alert.alert(
-      'Delete Deck',
-      `This will permanently delete "${deck.name}" and all of its cards. This cannot be undone.`,
+      isBuiltIn ? 'Remove Deck' : 'Delete Deck',
+      isBuiltIn
+        ? `This will remove "${deck.name}" from your library.`
+        : `This will permanently delete "${deck.name}" and all of its cards. This cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: isBuiltIn ? 'Remove' : 'Delete',
           style: 'destructive',
           onPress: async () => {
             await deleteDeck(deck.id);
@@ -586,17 +590,15 @@ export default function DeckHubScreen() {
                 <RotateCcw color={theme.textSecondary} size={18} strokeWidth={2.2} />
                 <Text style={[styles.menuItemText, { color: theme.text }]}>Reset Progress</Text>
               </TouchableOpacity>
-              {deck.isCustom ? (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={handleDeleteDeck}
-                  activeOpacity={0.75}
-                  testID="deleteDeckButton"
-                >
-                  <Trash2 color={theme.error} size={18} strokeWidth={2.2} />
-                  <Text style={[styles.menuItemText, { color: theme.error }]}>Delete Deck</Text>
-                </TouchableOpacity>
-              ) : null}
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={handleDeleteDeck}
+                activeOpacity={0.75}
+                testID="deleteDeckButton"
+              >
+                <Trash2 color={theme.error} size={18} strokeWidth={2.2} />
+                <Text style={[styles.menuItemText, { color: theme.error }]}>Delete Deck</Text>
+              </TouchableOpacity>
             </View>
           </Pressable>
         </Modal>

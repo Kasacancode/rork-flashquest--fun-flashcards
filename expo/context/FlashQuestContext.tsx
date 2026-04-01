@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
   CUSTOM_DECK_CATEGORY_LABEL,
@@ -24,6 +24,7 @@ const STORAGE_KEYS = {
   PROGRESS: 'flashquest_progress',
   STATS: 'flashquest_stats',
   CATEGORIES: 'flashquest_categories',
+  HIDDEN_DECKS: 'flashquest_hidden_deck_ids',
 } as const;
 
 const STORAGE_BACKUP_KEYS = {
@@ -31,6 +32,7 @@ const STORAGE_BACKUP_KEYS = {
   PROGRESS: 'flashquest_progress_backup',
   STATS: 'flashquest_stats_backup',
   CATEGORIES: 'flashquest_categories_backup',
+  HIDDEN_DECKS: 'flashquest_hidden_deck_ids_backup',
 } as const;
 
 const DEFAULT_STATS: UserStats = {
@@ -301,18 +303,26 @@ function syncSampleDeck(existingDeck: Deck | undefined, sampleDeck: Deck): Deck 
 function reconcileDeckCatalog(
   decks: Deck[],
   source: FlashcardNormalizationSource = 'deck_update',
+  hiddenDeckIds: ReadonlySet<string> = new Set(),
 ): { decks: Deck[]; didChange: boolean } {
   const seenSampleDeckIds = new Set<string>();
   let didChange = false;
 
-  const syncedDecks = decks.map((deck) => {
+  const syncedDecks = decks.reduce<Deck[]>((result, deck) => {
     if (deck.isCustom) {
-      return deck;
+      result.push(deck);
+      return result;
+    }
+
+    if (hiddenDeckIds.has(deck.id)) {
+      didChange = true;
+      return result;
     }
 
     const sampleDeck = SAMPLE_DECKS_BY_ID.get(deck.id);
     if (!sampleDeck) {
-      return deck;
+      result.push(deck);
+      return result;
     }
 
     seenSampleDeckIds.add(deck.id);
@@ -322,11 +332,16 @@ function reconcileDeckCatalog(
       didChange = true;
     }
 
-    return syncedDeck;
-  });
+    result.push(syncedDeck);
+    return result;
+  }, []);
 
   SAMPLE_DECKS.forEach((sampleDeck) => {
     if (seenSampleDeckIds.has(sampleDeck.id)) {
+      return;
+    }
+
+    if (hiddenDeckIds.has(sampleDeck.id)) {
       return;
     }
 
@@ -398,7 +413,7 @@ function normalizeLoadedStats(stats: UserStats): { stats: UserStats; didChange: 
   };
 }
 
-async function loadDecksSnapshot(): Promise<Deck[]> {
+async function loadDecksSnapshot(hiddenDeckIds: ReadonlySet<string> = new Set()): Promise<Deck[]> {
   try {
     const storedDecks = await readMirroredStorage<Deck[]>({
       primaryKey: STORAGE_KEYS.DECKS,
@@ -407,7 +422,7 @@ async function loadDecksSnapshot(): Promise<Deck[]> {
       fallback: SAMPLE_DECKS,
       parse: normalizeStoredDeckPayload,
     });
-    const normalizedDecks = reconcileDeckCatalog(storedDecks, 'legacy_load_normalization');
+    const normalizedDecks = reconcileDeckCatalog(storedDecks, 'legacy_load_normalization', hiddenDeckIds);
 
     if (normalizedDecks.didChange) {
       logger.debug('[FlashQuest] Synced built-in decks with latest default content');
@@ -421,8 +436,18 @@ async function loadDecksSnapshot(): Promise<Deck[]> {
     return normalizedDecks.decks;
   } catch (error) {
     logger.error('[FlashQuest] Failed to load deck snapshot, restoring built-in decks only', error);
-    return reconcileDeckCatalog(SAMPLE_DECKS, 'legacy_load_normalization').decks;
+    return reconcileDeckCatalog(SAMPLE_DECKS, 'legacy_load_normalization', hiddenDeckIds).decks;
   }
+}
+
+async function loadHiddenDeckIdsSnapshot(): Promise<string[]> {
+  return readMirroredStorage<string[]>({
+    primaryKey: STORAGE_KEYS.HIDDEN_DECKS,
+    backupKey: STORAGE_BACKUP_KEYS.HIDDEN_DECKS,
+    label: 'hidden deck IDs',
+    fallback: [],
+    parse: (value) => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : null,
+  });
 }
 
 async function loadProgressSnapshot(): Promise<UserProgress[]> {
@@ -469,10 +494,25 @@ async function loadStatsSnapshot(): Promise<UserStats> {
 export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
   const queryClient = useQueryClient();
   const persistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const hiddenDeckIdsRef = useRef<Set<string>>(new Set());
+
+  const hiddenDeckIdsQuery = useQuery({
+    queryKey: ['hidden-deck-ids'],
+    queryFn: loadHiddenDeckIdsSnapshot,
+  });
+
+  useEffect(() => {
+    if (hiddenDeckIdsQuery.data != null) {
+      hiddenDeckIdsRef.current = new Set(hiddenDeckIdsQuery.data);
+    }
+  }, [hiddenDeckIdsQuery.data]);
 
   const decksQuery = useQuery({
     queryKey: ['decks'],
-    queryFn: loadDecksSnapshot,
+    queryFn: async () => {
+      const hiddenDeckIds = queryClient.getQueryData<string[]>(['hidden-deck-ids']) ?? await loadHiddenDeckIdsSnapshot();
+      return loadDecksSnapshot(new Set(hiddenDeckIds));
+    },
   });
 
   const progressQuery = useQuery({
@@ -492,7 +532,12 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
 
   const saveDecksMutation = useMutation({
     mutationFn: async (decks: Deck[]) => {
-      const reconciledDecks = reconcileDeckCatalog(decks, 'deck_update').decks;
+      const cachedHiddenDeckIds = queryClient.getQueryData<string[]>(['hidden-deck-ids']);
+      const reconciledDecks = reconcileDeckCatalog(
+        decks,
+        'deck_update',
+        cachedHiddenDeckIds != null ? new Set(cachedHiddenDeckIds) : hiddenDeckIdsRef.current,
+      ).decks;
       return persistMirroredStorage(STORAGE_KEYS.DECKS, STORAGE_BACKUP_KEYS.DECKS, reconciledDecks, 'decks');
     },
     onSuccess: (decks: Deck[]) => {
@@ -500,6 +545,17 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     },
   });
   const { mutateAsync: saveDecksMutateAsync } = saveDecksMutation;
+
+  const saveHiddenDeckIdsMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await persistMirroredStorage(STORAGE_KEYS.HIDDEN_DECKS, STORAGE_BACKUP_KEYS.HIDDEN_DECKS, ids, 'hidden deck IDs');
+      return ids;
+    },
+    onSuccess: (ids: string[]) => {
+      queryClient.setQueryData(['hidden-deck-ids'], ids);
+    },
+  });
+  const { mutateAsync: saveHiddenDeckIdsMutateAsync } = saveHiddenDeckIdsMutation;
 
   const saveCategoriesMutation = useMutation({
     mutationFn: async (categories: string[]) => {
@@ -549,15 +605,18 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
 
   const getHydratedDecks = useCallback(async (): Promise<Deck[]> => {
     const cachedDecks = queryClient.getQueryData<Deck[]>(['decks']);
+    const cachedHiddenDeckIds = queryClient.getQueryData<string[]>(['hidden-deck-ids']);
+    const hiddenDeckIds = cachedHiddenDeckIds != null ? new Set(cachedHiddenDeckIds) : hiddenDeckIdsRef.current;
+
     if (cachedDecks != null) {
-      const reconciledCachedDecks = reconcileDeckCatalog(cachedDecks, 'deck_update');
+      const reconciledCachedDecks = reconcileDeckCatalog(cachedDecks, 'deck_update', hiddenDeckIds);
       if (reconciledCachedDecks.didChange) {
         queryClient.setQueryData(['decks'], reconciledCachedDecks.decks);
       }
       return reconciledCachedDecks.decks;
     }
 
-    const hydratedDecks = await loadDecksSnapshot();
+    const hydratedDecks = await loadDecksSnapshot(hiddenDeckIds);
     queryClient.setQueryData(['decks'], hydratedDecks);
     return hydratedDecks;
   }, [queryClient]);
@@ -597,6 +656,18 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     const hydratedCategories = await loadCategoriesSnapshot();
     queryClient.setQueryData(['deck-categories'], hydratedCategories);
     return hydratedCategories;
+  }, [queryClient]);
+
+  const getHydratedHiddenDeckIds = useCallback(async (): Promise<string[]> => {
+    const cachedHiddenDeckIds = queryClient.getQueryData<string[]>(['hidden-deck-ids']);
+    if (cachedHiddenDeckIds != null) {
+      return cachedHiddenDeckIds;
+    }
+
+    const hydratedHiddenDeckIds = await loadHiddenDeckIdsSnapshot();
+    hiddenDeckIdsRef.current = new Set(hydratedHiddenDeckIds);
+    queryClient.setQueryData(['hidden-deck-ids'], hydratedHiddenDeckIds);
+    return hydratedHiddenDeckIds;
   }, [queryClient]);
 
   const deckCategories = useMemo(
@@ -743,7 +814,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       const currentDecks = await getHydratedDecks();
       const currentCategories = await getHydratedCategories();
       const normalizedDeck = normalizeDeck(deck);
-      const updatedDecks = reconcileDeckCatalog([...currentDecks, normalizedDeck], 'deck_update').decks;
+      const updatedDecks = reconcileDeckCatalog([...currentDecks, normalizedDeck], 'deck_update', hiddenDeckIdsRef.current).decks;
       const updatedCategories = mergeDeckCategoryLibraries(
         currentCategories,
         updatedDecks.map((item) => item.category),
@@ -774,7 +845,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       const currentCategories = await getHydratedCategories();
       const updatedDecks = reconcileDeckCatalog(currentDecks.map((deck) => (
         deck.id === deckId ? normalizeDeck({ ...deck, ...updates }) : deck
-      )), 'deck_update').decks;
+      )), 'deck_update', hiddenDeckIdsRef.current).decks;
       const updatedCategories = mergeDeckCategoryLibraries(
         currentCategories,
         updatedDecks.map((item) => item.category),
@@ -813,7 +884,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
             card.id === cardId ? mergeFlashcardUpdates(card, updates) : card
           )),
         });
-      }), 'deck_update').decks;
+      }), 'deck_update', hiddenDeckIdsRef.current).decks;
 
       queryClient.setQueryData(['decks'], updatedDecks);
 
@@ -841,7 +912,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
           ...deck,
           flashcards: deck.flashcards.filter((card) => card.id !== cardId),
         });
-      }), 'deck_update').decks;
+      }), 'deck_update', hiddenDeckIdsRef.current).decks;
 
       queryClient.setQueryData(['decks'], updatedDecks);
 
@@ -861,9 +932,34 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     return enqueuePersistenceTask('deleteDeck', async () => {
       logger.debug('[FlashQuest] Starting delete for deck:', deckId);
       const currentDecks = await getHydratedDecks();
+      const currentHiddenIds = await getHydratedHiddenDeckIds();
+      hiddenDeckIdsRef.current = new Set(currentHiddenIds);
+
       if (BUILT_IN_DECK_IDS.has(deckId)) {
-        logger.debug('[FlashQuest] Prevented delete of built-in deck:', deckId);
-        return currentDecks;
+        logger.debug('[FlashQuest] Hiding built-in deck:', deckId);
+        const updatedHiddenIds = [...new Set([...currentHiddenIds, deckId])];
+        const filteredDecks = currentDecks.filter((deck) => deck.id !== deckId);
+        const nextHiddenDeckIds = new Set(updatedHiddenIds);
+        const reconciledDecks = reconcileDeckCatalog(filteredDecks, 'deck_update', nextHiddenDeckIds).decks;
+
+        hiddenDeckIdsRef.current = nextHiddenDeckIds;
+        queryClient.setQueryData(['decks'], reconciledDecks);
+        queryClient.setQueryData(['hidden-deck-ids'], updatedHiddenIds);
+
+        try {
+          await Promise.all([
+            saveDecksMutateAsync(reconciledDecks),
+            saveHiddenDeckIdsMutateAsync(updatedHiddenIds),
+          ]);
+        } catch (error) {
+          hiddenDeckIdsRef.current = new Set(currentHiddenIds);
+          queryClient.setQueryData(['decks'], currentDecks);
+          queryClient.setQueryData(['hidden-deck-ids'], currentHiddenIds);
+          logger.error('[FlashQuest] Failed to hide built-in deck, rolled back', error);
+          throw error;
+        }
+
+        return reconciledDecks;
       }
 
       const currentProgress = await getHydratedProgress();
@@ -874,7 +970,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
         return currentDecks;
       }
 
-      const reconciledDecks = reconcileDeckCatalog(filteredDecks, 'deck_update').decks;
+      const reconciledDecks = reconcileDeckCatalog(filteredDecks, 'deck_update', hiddenDeckIdsRef.current).decks;
       const filteredProgress = currentProgress.filter((entry) => entry.deckId !== deckId);
       queryClient.setQueryData(['decks'], reconciledDecks);
       queryClient.setQueryData(['progress'], filteredProgress);
@@ -894,7 +990,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
 
       return reconciledDecks;
     });
-  }, [enqueuePersistenceTask, getHydratedDecks, getHydratedProgress, queryClient, saveDecksMutateAsync, saveProgressMutateAsync]);
+  }, [enqueuePersistenceTask, getHydratedDecks, getHydratedHiddenDeckIds, getHydratedProgress, queryClient, saveDecksMutateAsync, saveHiddenDeckIdsMutateAsync, saveProgressMutateAsync]);
 
   const createDeckCategory = useCallback(async (categoryName: string) => {
     return enqueuePersistenceTask('createDeckCategory', async () => {
@@ -953,7 +1049,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
           ...deck,
           category: normalizedNextCategory,
         });
-      }), 'deck_update').decks;
+      }), 'deck_update', hiddenDeckIdsRef.current).decks;
 
       const renamedCategories = currentCategories.map((category) => (
         category.toLowerCase() === normalizedCurrentCategory.toLowerCase() ? normalizedNextCategory : category
@@ -1001,7 +1097,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
           ...deck,
           category: CUSTOM_DECK_CATEGORY_LABEL,
         });
-      }), 'deck_update').decks;
+      }), 'deck_update', hiddenDeckIdsRef.current).decks;
 
       const updatedCategories = mergeDeckCategoryLibraries(
         currentCategories.filter((category) => category.toLowerCase() !== normalizedCategory.toLowerCase()),
@@ -1070,7 +1166,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     deckCategories,
     progress: progressQuery.data ?? [],
     stats: statsQuery.data ?? DEFAULT_STATS,
-    isLoading: decksQuery.isLoading || progressQuery.isLoading || statsQuery.isLoading || categoriesQuery.isLoading,
+    isLoading: decksQuery.isLoading || progressQuery.isLoading || statsQuery.isLoading || categoriesQuery.isLoading || hiddenDeckIdsQuery.isLoading,
     addDeck,
     updateDeck,
     createDeckCategory,
@@ -1090,6 +1186,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     progressQuery.isLoading,
     statsQuery.isLoading,
     categoriesQuery.isLoading,
+    hiddenDeckIdsQuery.isLoading,
     addDeck,
     updateDeck,
     createDeckCategory,
