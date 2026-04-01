@@ -949,6 +949,7 @@ const styles = StyleSheet.create<{
   statItem: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   levelText: {
     fontSize: 29,
