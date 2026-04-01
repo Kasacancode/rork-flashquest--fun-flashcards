@@ -1,6 +1,6 @@
-import * as Haptics from 'expo-haptics';
+import { triggerImpact, ImpactFeedbackStyle } from '@/utils/haptics';
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, Dimensions, NativeSyntheticEvent, TextLayoutEventData } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, NativeSyntheticEvent, TextLayoutEventData } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_GAP = 10;
@@ -148,9 +148,7 @@ export function AnswerCard({
   const handlePress = () => {
     if (state !== 'idle') return;
     
-    if (Platform.OS !== 'web') {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+    triggerImpact(ImpactFeedbackStyle.Medium);
     
     Animated.sequence([
       Animated.timing(scale, { toValue: 0.92, duration: 80, useNativeDriver: true }),

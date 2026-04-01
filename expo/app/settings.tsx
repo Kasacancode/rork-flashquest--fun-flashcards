@@ -33,6 +33,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
+import { setHapticsEnabled as syncHapticsPreference } from '@/utils/haptics';
 import { DATA_PRIVACY_ROUTE, FAQ_ROUTE } from '@/utils/routes';
 
 const HAPTICS_KEY = 'flashquest_haptics_enabled';
@@ -149,6 +150,7 @@ export default function SettingsScreen() {
   }, []);
 
   const handleToggleHaptics = useCallback((value: boolean) => {
+    syncHapticsPreference(value);
     setHapticsEnabled(value);
     void AsyncStorage.setItem(HAPTICS_KEY, String(value));
   }, []);

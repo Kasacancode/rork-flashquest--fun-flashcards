@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { Animated, StyleSheet, Text, View } from 'react-native';
+import { triggerNotification, NotificationFeedbackType } from '@/utils/haptics';
 
 import { Award } from 'lucide-react-native';
 
@@ -25,9 +25,7 @@ export default function AchievementToast({ achievement, onDismiss }: Achievement
       return;
     }
 
-    if (Platform.OS !== 'web') {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
+    triggerNotification(NotificationFeedbackType.Success);
 
     slideAnim.setValue(-120);
     opacityAnim.setValue(0);

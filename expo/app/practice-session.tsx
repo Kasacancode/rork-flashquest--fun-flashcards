@@ -1,9 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
+import { triggerNotification, NotificationFeedbackType } from '@/utils/haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Bot, Swords, User, X, Zap } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Keyboard, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ConfidenceChips from '@/components/ConfidenceChips';
@@ -388,9 +388,7 @@ export default function PracticeSessionPage() {
           setButtonState('incorrect');
           markCardMissed(currentCard?.id);
           triggerShake();
-          if (Platform.OS !== 'web') {
-            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          }
+          triggerNotification(NotificationFeedbackType.Error);
 
           scheduleTimeout(advanceToSecondPlayerTurn, TURN_TRANSITION_DELAY_MS);
         } else {
@@ -403,9 +401,7 @@ export default function PracticeSessionPage() {
           setButtonState('incorrect');
           markCardMissed(currentCard?.id);
           triggerShake();
-          if (Platform.OS !== 'web') {
-            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          }
+          triggerNotification(NotificationFeedbackType.Error);
 
           scheduleTimeout(revealResults, TURN_TRANSITION_DELAY_MS);
         }
@@ -429,9 +425,7 @@ export default function PracticeSessionPage() {
         setPlayerStreak(0);
         markCardMissed(currentCard?.id);
         triggerShake();
-        if (Platform.OS !== 'web') {
-          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        }
+        triggerNotification(NotificationFeedbackType.Error);
 
         scheduleTimeout(advanceToOpponentTurn, TURN_TRANSITION_DELAY_MS);
       }
@@ -508,9 +502,7 @@ export default function PracticeSessionPage() {
         });
         setButtonState(correct ? 'correct' : 'incorrect');
 
-        if (Platform.OS !== 'web') {
-          void Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
-        }
+        triggerNotification(correct ? NotificationFeedbackType.Success : NotificationFeedbackType.Error);
 
         if (!correct) {
           markCardMissed(currentCard?.id);
@@ -532,9 +524,7 @@ export default function PracticeSessionPage() {
         });
         setButtonState(correct ? 'correct' : 'incorrect');
 
-        if (Platform.OS !== 'web') {
-          void Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
-        }
+        triggerNotification(correct ? NotificationFeedbackType.Success : NotificationFeedbackType.Error);
 
         if (!correct) {
           markCardMissed(currentCard?.id);
@@ -571,9 +561,7 @@ export default function PracticeSessionPage() {
         markCardMissed(currentCard.id);
       }
 
-      if (Platform.OS !== 'web') {
-        void Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
-      }
+      triggerNotification(correct ? NotificationFeedbackType.Success : NotificationFeedbackType.Error);
 
       if (correct) {
         Animated.sequence([

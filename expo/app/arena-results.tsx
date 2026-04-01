@@ -1,9 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
+import { triggerImpact, triggerNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/utils/haptics';
 import { useRouter } from 'expo-router';
 import { Trophy, Target, Medal, RotateCcw, Home, Users, ChevronDown, ChevronUp, Save, Share2 } from 'lucide-react-native';
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { AnswerEntry, RoomQuestion } from '@/backend/arena/types';
@@ -277,8 +277,8 @@ export default function ArenaResultsScreen() {
   }, [data, playerId]);
 
   useEffect(() => {
-    if (winner && Platform.OS !== 'web') {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (winner) {
+      triggerNotification(NotificationFeedbackType.Success);
     }
   }, [winner]);
 
@@ -328,9 +328,7 @@ export default function ArenaResultsScreen() {
 
     saveMatchResult(entry);
     setSaved(true);
-    if (Platform.OS !== 'web') {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+    triggerImpact(ImpactFeedbackStyle.Medium);
   };
 
   const handleShareResults = useCallback(async () => {
@@ -351,8 +349,8 @@ export default function ArenaResultsScreen() {
 
     logger.log('[Results] Share arena results result:', shareResult);
 
-    if (shareResult !== 'failed' && shareResult !== 'cancelled' && Platform.OS !== 'web') {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (shareResult !== 'failed' && shareResult !== 'cancelled') {
+      triggerImpact(ImpactFeedbackStyle.Light);
     }
   }, [shareMessage, winner]);
 

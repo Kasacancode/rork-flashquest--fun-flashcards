@@ -1,7 +1,7 @@
-import * as Haptics from 'expo-haptics';
+import { triggerImpact } from '@/utils/haptics';
 import { Flame, Trophy, Zap } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Platform } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 
 import { useTheme } from '@/context/ThemeContext';
 import { getOptionalRenderKey } from '@/utils/listKeys';
@@ -64,9 +64,7 @@ export function TimerProgressBar({ timeRemaining, totalTime, isUrgent = false }:
         ])
       ).start();
 
-      if (Platform.OS !== 'web') {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
+      triggerImpact();
     } else {
       pulseAnim.stopAnimation();
       shakeAnim.stopAnimation();
@@ -139,9 +137,7 @@ export function DealerTimer({ timeRemaining, totalTime, size = 56 }: DealerTimer
         ])
       ).start();
 
-      if (Platform.OS !== 'web') {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
+      triggerImpact();
     } else {
       pulseAnim.stopAnimation();
       shakeAnim.stopAnimation();
@@ -227,9 +223,7 @@ export function DealerCountdownBar({ timeRemainingMs, totalTimeMs }: DealerCount
         ])
       ).start();
 
-      if (Platform.OS !== 'web') {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
+      triggerImpact();
     } else {
       pulseAnim.stopAnimation();
       chipAnim.stopAnimation();

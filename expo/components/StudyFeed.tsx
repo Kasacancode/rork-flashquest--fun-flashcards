@@ -14,7 +14,7 @@ import {
   PanResponder,
 } from 'react-native';
 import { Lightbulb, BookOpen, Lock, CheckCircle, Sparkles } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import { triggerImpact } from '@/utils/haptics';
 
 import { generateText } from '@rork-ai/toolkit-sdk';
 
@@ -139,9 +139,7 @@ export default function StudyFeed({
   }, [sourceCard]);
 
   const triggerHaptic = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    triggerImpact();
   }, []);
 
   const triggerShakeWithCooldown = useCallback(() => {

@@ -1,9 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
+import { triggerImpact, triggerNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/utils/haptics';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { X, Zap, Lightbulb, Clock } from 'lucide-react-native';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnswerCard, getSuitForIndex, AnswerCardState, CARD_GAP, CARD_HEIGHT, CARD_PADDING, CARD_WIDTH, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
@@ -350,9 +350,7 @@ export default function QuestSessionScreen() {
       explanationOpened: showExplanation,
     });
 
-    if (Platform.OS !== 'web') {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
+    triggerNotification(NotificationFeedbackType.Error);
 
     scheduleAdvance(1500);
   }, [inputLocked, currentCard, missStreak, roundStartTime, settings.deckId, logQuestAttempt, scheduleAdvance, clearAdvanceTimeout, showQuestDialogue, showHint, usedSecondChance, showExplanation]);
@@ -413,9 +411,7 @@ export default function QuestSessionScreen() {
         explanationOpened: showExplanation,
       });
 
-      if (Platform.OS !== 'web') {
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      triggerNotification(NotificationFeedbackType.Success);
 
       if (settings.explanationsEnabled && currentCard.explanation) {
         setTimeout(() => setShowExplanation(true), 600);
@@ -440,9 +436,7 @@ export default function QuestSessionScreen() {
           setTimeRemaining(Math.max(3, Math.floor(settings.timerSeconds / 2)));
         }
 
-        if (Platform.OS !== 'web') {
-          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        }
+        triggerImpact(ImpactFeedbackStyle.Medium);
         return;
       }
 
@@ -463,9 +457,7 @@ export default function QuestSessionScreen() {
         explanationOpened: showExplanation,
       });
 
-      if (Platform.OS !== 'web') {
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
+      triggerNotification(NotificationFeedbackType.Error);
 
       if (settings.explanationsEnabled && currentCard.explanation) {
         setTimeout(() => setShowExplanation(true), 600);
@@ -576,9 +568,7 @@ export default function QuestSessionScreen() {
   const handleHintPress = useCallback(() => {
     if (!settings.hintsEnabled || !currentCard?.hint1 || inputLocked) return;
     setShowHint(true);
-    if (Platform.OS !== 'web') {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    triggerImpact(ImpactFeedbackStyle.Light);
   }, [settings.hintsEnabled, currentCard, inputLocked]);
 
   const handleExplanationContinue = useCallback(() => {

@@ -1,9 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
+import { triggerNotification, NotificationFeedbackType } from '@/utils/haptics';
 import { useRouter } from 'expo-router';
 import { X, Crown, Users, Check, Clock } from 'lucide-react-native';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { REVEAL_DURATION_MS } from '@/backend/arena/types';
@@ -305,9 +305,7 @@ export default function ArenaSessionScreen() {
     if (room && game && (phase === 'finished' || room.status === 'finished') && !hasNavigatedToResults.current) {
       hasNavigatedToResults.current = true;
       logger.log('[Session] Game finished, navigating to results');
-      if (Platform.OS !== 'web') {
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      triggerNotification(NotificationFeedbackType.Success);
       setTimeout(() => {
         router.replace(ARENA_RESULTS_ROUTE);
       }, 500);
@@ -386,11 +384,7 @@ export default function ArenaSessionScreen() {
       setDealerReactionCorrect(lastAnswerCorrect);
       logger.log('[ArenaDialogue] Showing line:', { event: dialogueEvent, line, questionIndex, myStreak, lastAnswerCorrect });
 
-      if (Platform.OS !== 'web') {
-        void Haptics.notificationAsync(
-          lastAnswerCorrect ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error
-        );
-      }
+      triggerNotification(lastAnswerCorrect ? NotificationFeedbackType.Success : NotificationFeedbackType.Error);
 
       const selectedIndex = (currentQuestion?.options ?? []).findIndex((option) => option.canonicalValue === selectedOption);
       if (selectedIndex >= 0) {
