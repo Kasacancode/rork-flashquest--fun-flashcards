@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, type Href } from 'expo-router';
-import { Trophy, BookOpen, Swords, Target, User } from 'lucide-react-native';
+import { Trophy, BookOpen, RotateCcw, Swords, Target, User } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
@@ -23,7 +23,8 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { computeLevel, getLevelBandPalette, getLevelEntry } from '@/utils/levels';
-import { computeDeckMastery } from '@/utils/mastery';
+import { computeDeckMastery, getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
+import { studyHref } from '@/utils/routes';
 
 const { width } = Dimensions.get('window');
 const quickStartSectionPadding = 24;
@@ -191,6 +192,54 @@ export default function HomePage() {
 
     return recs.sort((a, b) => b.priority - a.priority).slice(0, 5);
   }, [decks, getWeakCards, performance.cardStatsById, performance.deckStatsById]);
+
+  const reviewSummary = useMemo(() => {
+    const now = Date.now();
+    const deckSummaries = decks.reduce<Array<{ deckId: string; name: string; color: string; reviewCount: number }>>((summaries, deck) => {
+      let dueCount = 0;
+      let lapsedCount = 0;
+
+      for (const card of deck.flashcards) {
+        const cardStats = performance.cardStatsById[card.id];
+        const liveCardStats = getLiveCardStats(cardStats, now);
+
+        if (liveCardStats.attempts === 0) {
+          continue;
+        }
+
+        if (isCardDueForReview(cardStats, now)) {
+          dueCount += 1;
+        }
+
+        if (liveCardStats.status === 'lapsed') {
+          lapsedCount += 1;
+        }
+      }
+
+      const reviewCount = dueCount + lapsedCount;
+
+      if (reviewCount > 0) {
+        summaries.push({
+          deckId: deck.id,
+          name: deck.name,
+          color: deck.color,
+          reviewCount,
+        });
+      }
+
+      return summaries;
+    }, []);
+
+    deckSummaries.sort((a, b) => b.reviewCount - a.reviewCount);
+
+    const totalReviewCount = deckSummaries.reduce((sum, entry) => sum + entry.reviewCount, 0);
+
+    if (totalReviewCount === 0) {
+      return null;
+    }
+
+    return { deckSummaries, totalReviewCount };
+  }, [decks, performance.cardStatsById]);
 
   const handleOpenProfile = useCallback(() => {
     router.push('/profile' as Href);
@@ -392,6 +441,69 @@ export default function HomePage() {
                 </View>
               </View>
 
+              {reviewSummary && (
+                <TouchableOpacity
+                  style={[
+                    styles.reviewBanner,
+                    {
+                      backgroundColor: isDark ? 'rgba(16, 24, 45, 0.88)' : 'rgba(255, 255, 255, 0.92)',
+                      borderWidth: 1,
+                      borderColor: isDark ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.15)',
+                    },
+                  ]}
+                  onPress={() => router.push(studyHref(reviewSummary.deckSummaries[0].deckId))}
+                  activeOpacity={0.85}
+                  testID="home-review-banner"
+                >
+                  <View style={styles.reviewBannerHeader}>
+                    <View style={styles.reviewBannerIconWrap}>
+                      <RotateCcw color={isDark ? '#a5b4fc' : '#6366f1'} size={20} strokeWidth={2.4} />
+                    </View>
+                    <View style={styles.reviewBannerText}>
+                      <Text style={[styles.reviewBannerTitle, { color: isDark ? '#e0e7ff' : '#312e81' }]}>
+                        {reviewSummary.totalReviewCount} {reviewSummary.totalReviewCount === 1 ? 'card' : 'cards'} ready for review
+                      </Text>
+                      <Text style={[styles.reviewBannerSubtitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+                        across {reviewSummary.deckSummaries.length} {reviewSummary.deckSummaries.length === 1 ? 'deck' : 'decks'}
+                      </Text>
+                    </View>
+                  </View>
+                  {reviewSummary.deckSummaries.length > 0 && (
+                    <View style={styles.reviewDeckChips}>
+                      {reviewSummary.deckSummaries.slice(0, 3).map((entry) => (
+                        <TouchableOpacity
+                          key={entry.deckId}
+                          style={[
+                            styles.reviewDeckChip,
+                            {
+                              backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                            },
+                          ]}
+                          onPress={(event) => {
+                            event.stopPropagation();
+                            router.push(studyHref(entry.deckId));
+                          }}
+                          activeOpacity={0.75}
+                          testID={`home-review-chip-${entry.deckId}`}
+                        >
+                          <View style={[styles.reviewChipDot, { backgroundColor: entry.color }]} />
+                          <Text
+                            style={[styles.reviewChipName, { color: isDark ? '#cbd5e1' : '#475569' }]}
+                            numberOfLines={1}
+                          >
+                            {entry.name}
+                          </Text>
+                          <Text style={[styles.reviewChipCount, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+                            {entry.reviewCount}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
+
               <View style={styles.actionsGrid}>
                 {renderActionCard({
                   route: '/arena' as Href,
@@ -584,6 +696,17 @@ const styles = StyleSheet.create<{
   statValue: TextStyle;
   statLabel: TextStyle;
   statDivider: ViewStyle;
+  reviewBanner: ViewStyle;
+  reviewBannerHeader: ViewStyle;
+  reviewBannerIconWrap: ViewStyle;
+  reviewBannerText: ViewStyle;
+  reviewBannerTitle: TextStyle;
+  reviewBannerSubtitle: TextStyle;
+  reviewDeckChips: ViewStyle;
+  reviewDeckChip: ViewStyle;
+  reviewChipDot: ViewStyle;
+  reviewChipName: TextStyle;
+  reviewChipCount: TextStyle;
   actionsGrid: ViewStyle;
   actionCard: ViewStyle;
   actionCardMedium: ViewStyle;
@@ -734,6 +857,69 @@ const styles = StyleSheet.create<{
     width: 1,
     height: 56,
     backgroundColor: '#e0e0e0',
+  },
+  reviewBanner: {
+    marginHorizontal: 24,
+    marginTop: 16,
+    marginBottom: 4,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  reviewBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  reviewBannerIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(99, 102, 241, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewBannerText: {
+    flex: 1,
+  },
+  reviewBannerTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  reviewBannerSubtitle: {
+    fontSize: 12,
+    fontWeight: '500' as const,
+    marginTop: 1,
+  },
+  reviewDeckChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+    paddingLeft: 48,
+  },
+  reviewDeckChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  reviewChipDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  reviewChipName: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    maxWidth: 80,
+  },
+  reviewChipCount: {
+    fontSize: 12,
+    fontWeight: '700' as const,
   },
   actionsGrid: {
     paddingHorizontal: 24,
