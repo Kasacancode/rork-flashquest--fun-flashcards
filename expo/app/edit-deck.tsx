@@ -1,10 +1,12 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Check, Pencil, Plus, Search, Trash2, X } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Check, MoreHorizontal, Pencil, Plus, Search, Trash2, X } from 'lucide-react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
+  Modal,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -48,6 +50,9 @@ export default function EditDeckScreen() {
   const [isEditingMeta, setIsEditingMeta] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showSearch, setShowSearch] = useState<boolean>(false);
+  const [showDeckMenu, setShowDeckMenu] = useState<boolean>(false);
+  const deckMenuButtonRef = useRef<View>(null);
+  const [deckMenuPosition, setDeckMenuPosition] = useState<{ top: number; right: number }>({ top: 0, right: 20 });
 
   const backgroundGradient: [string, string, string] = isDark
     ? ['#08111f', '#0c1730', '#09111d']
@@ -149,10 +154,19 @@ export default function EditDeckScreen() {
     );
   }, [deckId, deleteFlashcard]);
 
+  const openDeckMenu = useCallback(() => {
+    deckMenuButtonRef.current?.measure((_x, _y, _width, height, _pageX, pageY) => {
+      setDeckMenuPosition({ top: pageY + height + 8, right: 20 });
+    });
+    setShowDeckMenu(true);
+  }, []);
+
   const handleDeleteDeck = useCallback(() => {
     if (!deckId) {
       return;
     }
+
+    setShowDeckMenu(false);
 
     Alert.alert(
       'Delete Deck',
@@ -195,7 +209,19 @@ export default function EditDeckScreen() {
             <ArrowLeft color={theme.text} size={22} strokeWidth={2.2} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>Edit Deck</Text>
-          <View style={styles.headerSpacer} />
+          {deck.isCustom ? (
+            <View ref={deckMenuButtonRef} collapsable={false}>
+              <TouchableOpacity
+                onPress={openDeckMenu}
+                style={[styles.headerMenuButton, { borderColor: theme.border, backgroundColor: surfaceBg }]}
+                testID="edit-deck-menu-button"
+              >
+                <MoreHorizontal color={theme.text} size={20} strokeWidth={2.2} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
         </View>
 
         <FlatList
@@ -344,15 +370,6 @@ export default function EditDeckScreen() {
                   <Search color={theme.text} size={16} />
                   <Text style={[styles.secondaryActionText, { color: theme.text }]}>Search</Text>
                 </TouchableOpacity>
-                {deck.isCustom ? (
-                  <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}
-                    onPress={handleDeleteDeck}
-                    testID="edit-deck-delete-deck-button"
-                  >
-                    <Trash2 color={theme.error} size={16} />
-                  </TouchableOpacity>
-                ) : null}
               </View>
 
               {showSearch ? (
@@ -392,6 +409,33 @@ export default function EditDeckScreen() {
           ListFooterComponent={<View style={styles.footerSpacer} />}
         />
       </SafeAreaView>
+      <Modal visible={showDeckMenu} transparent animationType="fade" onRequestClose={() => setShowDeckMenu(false)}>
+        <Pressable style={styles.menuOverlay} onPress={() => setShowDeckMenu(false)}>
+          <Pressable
+            style={[
+              styles.menuDropdown,
+              {
+                top: deckMenuPosition.top,
+                right: deckMenuPosition.right,
+                backgroundColor: isDark ? 'rgba(9, 15, 28, 0.98)' : 'rgba(255, 255, 255, 0.98)',
+                borderColor: theme.border,
+              },
+            ]}
+            onPress={(event) => event.stopPropagation()}
+            testID="edit-deck-menu"
+          >
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleDeleteDeck}
+              activeOpacity={0.8}
+              testID="edit-deck-menu-delete-button"
+            >
+              <Trash2 color={theme.error} size={17} strokeWidth={2.2} />
+              <Text style={[styles.menuItemText, { color: theme.error }]}>Delete deck</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
       <CategoryManagerSheet
         visible={showCategoryManager}
         onClose={() => setShowCategoryManager(false)}
@@ -428,6 +472,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   headerSpacer: { width: 40 },
+  headerMenuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
   listContent: {
     paddingHorizontal: 20,
   },
@@ -599,5 +651,31 @@ const styles = StyleSheet.create({
   },
   footerSpacer: {
     height: 40,
+  },
+  menuOverlay: {
+    flex: 1,
+  },
+  menuDropdown: {
+    position: 'absolute',
+    minWidth: 172,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 12,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  menuItemText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
   },
 });

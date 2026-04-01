@@ -4,7 +4,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -34,23 +33,12 @@ export default function DeckCategoryPicker({
   labelColor,
   categories,
   selectedCategory,
-  showCustomCategory,
-  customCategoryInput,
   onSelectCategory,
-  onPressCustom,
-  onChangeCustomCategoryInput,
-  onSubmitCustomCategory,
   onPressManageCategories,
   theme,
-  isDark,
   testIDPrefix = 'deck-category',
 }: DeckCategoryPickerProps) {
-  const inputBackgroundColor = isDark ? 'rgba(15, 23, 42, 0.68)' : theme.cardBackground;
   const displayedCategories = categories.filter((category) => category !== CUSTOM_DECK_CATEGORY_LABEL);
-  const normalizedSelectedCategory = selectedCategory.trim();
-  const isCustomTriggerActive = showCustomCategory
-    || normalizedSelectedCategory === CUSTOM_DECK_CATEGORY_LABEL
-    || (!!normalizedSelectedCategory && !displayedCategories.includes(normalizedSelectedCategory));
 
   return (
     <View style={styles.container}>
@@ -83,47 +71,7 @@ export default function DeckCategoryPicker({
             </TouchableOpacity>
           );
         })}
-        <TouchableOpacity
-          style={[
-            styles.pill,
-            {
-              backgroundColor: isCustomTriggerActive ? theme.primary : theme.cardBackground,
-              borderColor: isCustomTriggerActive ? theme.primary : theme.border,
-            },
-          ]}
-          onPress={onPressCustom}
-          activeOpacity={0.82}
-          testID={`${testIDPrefix}-custom-trigger`}
-        >
-          <Text style={[styles.pillText, { color: isCustomTriggerActive ? '#fff' : theme.textSecondary }]}>
-            {CUSTOM_DECK_CATEGORY_LABEL}
-          </Text>
-        </TouchableOpacity>
       </ScrollView>
-
-      {showCustomCategory ? (
-        <TextInput
-          style={[
-            styles.customInput,
-            {
-              backgroundColor: inputBackgroundColor,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-          value={customCategoryInput}
-          onChangeText={onChangeCustomCategoryInput}
-          onSubmitEditing={onSubmitCustomCategory}
-          onBlur={onSubmitCustomCategory}
-          placeholder="Enter category"
-          placeholderTextColor={theme.textTertiary}
-          maxLength={30}
-          returnKeyType="done"
-          autoCapitalize="words"
-          autoCorrect={false}
-          testID={`${testIDPrefix}-custom-input`}
-        />
-      ) : null}
 
       {onPressManageCategories ? (
         <TouchableOpacity
@@ -166,14 +114,6 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 13,
     fontWeight: '600' as const,
-  },
-  customInput: {
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    fontWeight: '500' as const,
   },
   manageButton: {
     flexDirection: 'row',
