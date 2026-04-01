@@ -11,6 +11,8 @@ import {
   Dimensions,
   Animated,
   RefreshControl,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   type StyleProp,
   type TextStyle,
   type ViewStyle,
@@ -33,6 +35,7 @@ const quickStartCardWidth = Math.max(
   152,
   Math.min(166, Math.floor((width - quickStartSectionPadding * 2 - quickStartCardGap - 2) / 2)),
 );
+const statsCardInnerWidth = width - 80;
 
 function AnimatedStatValue({ animValue, style }: { animValue: Animated.Value; style: StyleProp<TextStyle> }) {
   const [display, setDisplay] = React.useState<string>('0');
@@ -59,6 +62,7 @@ export default function HomePage() {
   const streakAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
   const cardsAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [statsPage, setStatsPage] = useState<number>(0);
   const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
   const levelEntry = useMemo(() => getLevelEntry(level), [level]);
   const levelPalette = useMemo(() => getLevelBandPalette(level, isDark), [level, isDark]);
@@ -194,52 +198,35 @@ export default function HomePage() {
   }, [decks, getWeakCards, performance.cardStatsById, performance.deckStatsById]);
 
   const reviewSummary = useMemo(() => {
+    if (decks.length === 0) return null;
+
     const now = Date.now();
-    const deckSummaries = decks.reduce<Array<{ deckId: string; name: string; color: string; reviewCount: number }>>((summaries, deck) => {
-      let dueCount = 0;
-      let lapsedCount = 0;
+    const deckSummaries: { deckId: string; name: string; color: string; reviewCount: number }[] = [];
+    let totalReviewCount = 0;
 
+    for (const deck of decks) {
+      let reviewCount = 0;
       for (const card of deck.flashcards) {
-        const cardStats = performance.cardStatsById[card.id];
-        const liveCardStats = getLiveCardStats(cardStats, now);
-
-        if (liveCardStats.attempts === 0) {
-          continue;
-        }
-
-        if (isCardDueForReview(cardStats, now)) {
-          dueCount += 1;
-        }
-
-        if (liveCardStats.status === 'lapsed') {
-          lapsedCount += 1;
+        const stats = performance.cardStatsById[card.id];
+        if (!stats || stats.attempts === 0) continue;
+        const live = getLiveCardStats(stats, now);
+        if (live.status === 'lapsed' || isCardDueForReview(stats, now)) {
+          reviewCount += 1;
         }
       }
-
-      const reviewCount = dueCount + lapsedCount;
-
       if (reviewCount > 0) {
-        summaries.push({
-          deckId: deck.id,
-          name: deck.name,
-          color: deck.color,
-          reviewCount,
-        });
+        deckSummaries.push({ deckId: deck.id, name: deck.name, color: deck.color, reviewCount });
+        totalReviewCount += reviewCount;
       }
-
-      return summaries;
-    }, []);
-
-    deckSummaries.sort((a, b) => b.reviewCount - a.reviewCount);
-
-    const totalReviewCount = deckSummaries.reduce((sum, entry) => sum + entry.reviewCount, 0);
-
-    if (totalReviewCount === 0) {
-      return null;
     }
 
+    if (totalReviewCount === 0) return null;
+
+    deckSummaries.sort((a, b) => b.reviewCount - a.reviewCount);
     return { deckSummaries, totalReviewCount };
   }, [decks, performance.cardStatsById]);
+
+  const hasReviewPage = reviewSummary !== null;
 
   const handleOpenProfile = useCallback(() => {
     router.push('/profile' as Href);
@@ -250,6 +237,12 @@ export default function HomePage() {
     await queryClient.refetchQueries();
     setRefreshing(false);
   }, [queryClient]);
+
+  const handleStatsPageScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const page = Math.round(offsetX / statsCardInnerWidth);
+    setStatsPage(page);
+  }, []);
 
   const renderActionCard = ({
     route,
@@ -411,98 +404,95 @@ export default function HomePage() {
                 />
                 <View style={[styles.statsCardFrame, { borderColor: statsBorderColor }]} />
 
-                <View style={styles.statItem}>
-                  <Text
-                    style={[styles.levelText, { color: statsLevelColor }]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.84}
-                  >
-                    LV {level}
-                  </Text>
-                  <Text
-                    style={[styles.statLabel, styles.rankLabel, { color: statsLabelColor }]}
-                    numberOfLines={2}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.8}
-                  >
-                    {levelEntry.title}
-                  </Text>
-                </View>
-                <View style={[styles.statDivider, { backgroundColor: statsDividerColor }]} />
-                <View style={styles.statItem}>
-                  <AnimatedStatValue animValue={streakAnim} style={[styles.statValue, { color: statsValueColor }]} />
-                  <Text style={[styles.statLabel, { color: statsLabelColor }]}>Day Streak</Text>
-                </View>
-                <View style={[styles.statDivider, { backgroundColor: statsDividerColor }]} />
-                <View style={styles.statItem}>
-                  <AnimatedStatValue animValue={cardsAnim} style={[styles.statValue, { color: statsValueColor }]} />
-                  <Text style={[styles.statLabel, { color: statsLabelColor }]}>Cards Studied</Text>
-                </View>
-              </View>
-
-              {reviewSummary && (
-                <TouchableOpacity
-                  style={[
-                    styles.reviewBanner,
-                    {
-                      backgroundColor: isDark ? 'rgba(16, 24, 45, 0.88)' : 'rgba(255, 255, 255, 0.92)',
-                      borderWidth: 1,
-                      borderColor: isDark ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.15)',
-                    },
-                  ]}
-                  onPress={() => router.push(studyHref(reviewSummary.deckSummaries[0].deckId))}
-                  activeOpacity={0.85}
-                  testID="home-review-banner"
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onScroll={handleStatsPageScroll}
+                  scrollEventThrottle={16}
+                  bounces={false}
+                  testID="stats-card-pager"
                 >
-                  <View style={styles.reviewBannerHeader}>
-                    <View style={styles.reviewBannerIconWrap}>
-                      <RotateCcw color={isDark ? '#a5b4fc' : '#6366f1'} size={20} strokeWidth={2.4} />
+                  <View style={[styles.statsPage, { width: statsCardInnerWidth }]}>
+                    <View style={styles.statItem}>
+                      <Text
+                        style={[styles.levelText, { color: statsLevelColor }]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.84}
+                      >
+                        LV {level}
+                      </Text>
+                      <Text
+                        style={[styles.statLabel, styles.rankLabel, { color: statsLabelColor }]}
+                        numberOfLines={2}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.8}
+                      >
+                        {levelEntry.title}
+                      </Text>
                     </View>
-                    <View style={styles.reviewBannerText}>
-                      <Text style={[styles.reviewBannerTitle, { color: isDark ? '#e0e7ff' : '#312e81' }]}>
-                        {reviewSummary.totalReviewCount} {reviewSummary.totalReviewCount === 1 ? 'card' : 'cards'} ready for review
-                      </Text>
-                      <Text style={[styles.reviewBannerSubtitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-                        across {reviewSummary.deckSummaries.length} {reviewSummary.deckSummaries.length === 1 ? 'deck' : 'decks'}
-                      </Text>
+                    <View style={[styles.statDivider, { backgroundColor: statsDividerColor }]} />
+                    <View style={styles.statItem}>
+                      <AnimatedStatValue animValue={streakAnim} style={[styles.statValue, { color: statsValueColor }]} />
+                      <Text style={[styles.statLabel, { color: statsLabelColor }]}>Day Streak</Text>
+                    </View>
+                    <View style={[styles.statDivider, { backgroundColor: statsDividerColor }]} />
+                    <View style={styles.statItem}>
+                      <AnimatedStatValue animValue={cardsAnim} style={[styles.statValue, { color: statsValueColor }]} />
+                      <Text style={[styles.statLabel, { color: statsLabelColor }]}>Cards Studied</Text>
                     </View>
                   </View>
-                  {reviewSummary.deckSummaries.length > 0 && (
-                    <View style={styles.reviewDeckChips}>
-                      {reviewSummary.deckSummaries.slice(0, 3).map((entry) => (
-                        <TouchableOpacity
-                          key={entry.deckId}
-                          style={[
-                            styles.reviewDeckChip,
-                            {
-                              backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-                              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-                            },
-                          ]}
-                          onPress={(event) => {
-                            event.stopPropagation();
-                            router.push(studyHref(entry.deckId));
-                          }}
-                          activeOpacity={0.75}
-                          testID={`home-review-chip-${entry.deckId}`}
-                        >
-                          <View style={[styles.reviewChipDot, { backgroundColor: entry.color }]} />
-                          <Text
-                            style={[styles.reviewChipName, { color: isDark ? '#cbd5e1' : '#475569' }]}
-                            numberOfLines={1}
+
+                  {hasReviewPage && (
+                    <TouchableOpacity
+                      style={[styles.reviewPage, { width: statsCardInnerWidth }]}
+                      onPress={() => router.push(studyHref(reviewSummary!.deckSummaries[0].deckId))}
+                      activeOpacity={0.85}
+                      testID="stats-card-review-page"
+                    >
+                      <View style={styles.reviewPageHeader}>
+                        <View style={[styles.reviewIconWrap, { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)' }]}>
+                          <RotateCcw color={isDark ? '#a5b4fc' : '#6366f1'} size={18} strokeWidth={2.4} />
+                        </View>
+                        <View style={styles.reviewPageText}>
+                          <Text style={[styles.reviewTitle, { color: statsValueColor }]}>
+                            {reviewSummary!.totalReviewCount} {reviewSummary!.totalReviewCount === 1 ? 'card' : 'cards'} ready for review
+                          </Text>
+                          <Text style={[styles.reviewSubtitle, { color: statsLabelColor }]}> 
+                            across {reviewSummary!.deckSummaries.length} {reviewSummary!.deckSummaries.length === 1 ? 'deck' : 'decks'}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.reviewChips}>
+                        {reviewSummary!.deckSummaries.slice(0, 3).map((entry) => (
+                          <TouchableOpacity
+                            key={entry.deckId}
+                            style={[styles.reviewChip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}
+                            onPress={(event) => {
+                              event.stopPropagation();
+                              router.push(studyHref(entry.deckId));
+                            }}
+                            activeOpacity={0.75}
+                            testID={`review-chip-${entry.deckId}`}
                           >
-                            {entry.name}
-                          </Text>
-                          <Text style={[styles.reviewChipCount, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-                            {entry.reviewCount}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
+                            <View style={[styles.reviewChipDot, { backgroundColor: entry.color }]} />
+                            <Text style={[styles.reviewChipName, { color: statsValueColor }]} numberOfLines={1}>{entry.name}</Text>
+                            <Text style={[styles.reviewChipCount, { color: statsLabelColor }]}>{entry.reviewCount}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </TouchableOpacity>
                   )}
-                </TouchableOpacity>
-              )}
+                </ScrollView>
+
+                {hasReviewPage && (
+                  <View style={styles.statsPageDots}>
+                    <View style={[styles.statsPageDot, { backgroundColor: statsPage === 0 ? (isDark ? '#a5b4fc' : '#6366f1') : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)') }]} />
+                    <View style={[styles.statsPageDot, { backgroundColor: statsPage === 1 ? (isDark ? '#a5b4fc' : '#6366f1') : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)') }]} />
+                  </View>
+                )}
+              </View>
 
               <View style={styles.actionsGrid}>
                 {renderActionCard({
@@ -691,19 +681,22 @@ const styles = StyleSheet.create<{
   subtitle: TextStyle;
   statsCard: ViewStyle;
   statsCardFrame: ViewStyle;
+  statsPage: ViewStyle;
+  statsPageDots: ViewStyle;
+  statsPageDot: ViewStyle;
   statItem: ViewStyle;
   levelText: TextStyle;
   statValue: TextStyle;
   statLabel: TextStyle;
   statDivider: ViewStyle;
-  reviewBanner: ViewStyle;
-  reviewBannerHeader: ViewStyle;
-  reviewBannerIconWrap: ViewStyle;
-  reviewBannerText: ViewStyle;
-  reviewBannerTitle: TextStyle;
-  reviewBannerSubtitle: TextStyle;
-  reviewDeckChips: ViewStyle;
-  reviewDeckChip: ViewStyle;
+  reviewPage: ViewStyle;
+  reviewPageHeader: ViewStyle;
+  reviewIconWrap: ViewStyle;
+  reviewPageText: ViewStyle;
+  reviewTitle: TextStyle;
+  reviewSubtitle: TextStyle;
+  reviewChips: ViewStyle;
+  reviewChip: ViewStyle;
   reviewChipDot: ViewStyle;
   reviewChipName: TextStyle;
   reviewChipCount: TextStyle;
@@ -808,10 +801,8 @@ const styles = StyleSheet.create<{
     marginHorizontal: 24,
     borderRadius: 24,
     paddingHorizontal: 16,
-    paddingVertical: 19,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
+    paddingTop: 19,
+    paddingBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 14 },
     shadowOpacity: 0.2,
@@ -823,6 +814,25 @@ const styles = StyleSheet.create<{
     ...StyleSheet.absoluteFillObject,
     borderRadius: 24,
     borderWidth: 1,
+  },
+  statsPage: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingBottom: 4,
+  },
+  statsPageDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 10,
+    paddingBottom: 2,
+  },
+  statsPageDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   statItem: {
     flex: 1,
@@ -858,54 +868,47 @@ const styles = StyleSheet.create<{
     height: 56,
     backgroundColor: '#e0e0e0',
   },
-  reviewBanner: {
-    marginHorizontal: 24,
-    marginTop: 16,
-    marginBottom: 4,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+  reviewPage: {
+    justifyContent: 'center',
+    paddingBottom: 4,
+    gap: 12,
   },
-  reviewBannerHeader: {
+  reviewPageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  reviewBannerIconWrap: {
+  reviewIconWrap: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: 'rgba(99, 102, 241, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  reviewBannerText: {
+  reviewPageText: {
     flex: 1,
   },
-  reviewBannerTitle: {
+  reviewTitle: {
     fontSize: 15,
     fontWeight: '700' as const,
   },
-  reviewBannerSubtitle: {
+  reviewSubtitle: {
     fontSize: 12,
     fontWeight: '500' as const,
     marginTop: 1,
   },
-  reviewDeckChips: {
+  reviewChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 12,
-    paddingLeft: 48,
   },
-  reviewDeckChip: {
+  reviewChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    borderWidth: 1,
   },
   reviewChipDot: {
     width: 8,
@@ -915,7 +918,7 @@ const styles = StyleSheet.create<{
   reviewChipName: {
     fontSize: 12,
     fontWeight: '600' as const,
-    maxWidth: 80,
+    maxWidth: 90,
   },
   reviewChipCount: {
     fontSize: 12,
