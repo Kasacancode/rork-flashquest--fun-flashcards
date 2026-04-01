@@ -111,7 +111,7 @@ export function canRenameDeckCategory(category?: string | null): boolean {
   return !!normalizedCategory
     && normalizedCategory !== CUSTOM_DECK_CATEGORY_LABEL
     && normalizedCategory !== AI_DEFAULT_DECK_CATEGORY
-    && normalizedCategory !== ALL_DECK_CATEGORIES_LABEL;
+    && !isPresetDeckCategory(normalizedCategory);
 }
 
 export function canDeleteDeckCategory(category?: string | null): boolean {
@@ -119,7 +119,7 @@ export function canDeleteDeckCategory(category?: string | null): boolean {
   return !!normalizedCategory
     && normalizedCategory !== CUSTOM_DECK_CATEGORY_LABEL
     && normalizedCategory !== AI_DEFAULT_DECK_CATEGORY
-    && normalizedCategory !== ALL_DECK_CATEGORIES_LABEL;
+    && !isPresetDeckCategory(normalizedCategory);
 }
 
 export function getCustomCategoryDraft(category?: string | null): string {

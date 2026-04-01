@@ -31,7 +31,6 @@ import DeckCard from '@/components/decks/DeckCard';
 import {
   ALL_DECK_CATEGORIES_LABEL,
   canRenameDeckCategory,
-  isPresetDeckCategory,
   sanitizeDeckCategory,
 } from '@/constants/deckCategories';
 import { useArena } from '@/context/ArenaContext';
@@ -79,7 +78,7 @@ export default function DecksPage() {
   const categories = useMemo(() => {
     const visibleCategories = deckCategories.filter((category) => {
       const count = categoryCounts[category] ?? 0;
-      return count > 0 || (canRenameDeckCategory(category) && !isPresetDeckCategory(category));
+      return count > 0 || canRenameDeckCategory(category);
     });
 
     return [ALL_DECK_CATEGORIES_LABEL, ...visibleCategories];
