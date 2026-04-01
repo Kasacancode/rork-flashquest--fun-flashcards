@@ -11,8 +11,7 @@ import {
   Dimensions,
   Animated,
   RefreshControl,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
+  PanResponder,
   type StyleProp,
   type TextStyle,
   type ViewStyle,
@@ -61,6 +60,8 @@ export default function HomePage() {
   const { theme, isDark } = useTheme();
   const streakAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
   const cardsAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
+  const statsPagerTranslateX = useRef<Animated.Value>(new Animated.Value(0)).current;
+  const statsPagerDragStartX = useRef<number>(0);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [statsPage, setStatsPage] = useState<number>(0);
   const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
@@ -238,11 +239,79 @@ export default function HomePage() {
     setRefreshing(false);
   }, [queryClient]);
 
-  const handleStatsPageScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const page = Math.round(offsetX / statsCardInnerWidth);
-    setStatsPage(page);
-  }, []);
+  useEffect(() => {
+    if (!hasReviewPage && statsPage !== 0) {
+      setStatsPage(0);
+    }
+  }, [hasReviewPage, statsPage]);
+
+  useEffect(() => {
+    const nextTranslateX = hasReviewPage ? -statsPage * statsCardInnerWidth : 0;
+
+    Animated.spring(statsPagerTranslateX, {
+      toValue: nextTranslateX,
+      useNativeDriver: true,
+      tension: 90,
+      friction: 10,
+    }).start();
+  }, [hasReviewPage, statsPage, statsPagerTranslateX]);
+
+  const statsPanResponder = useMemo(
+    () => PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        if (!hasReviewPage) {
+          return false;
+        }
+
+        return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      },
+      onPanResponderGrant: () => {
+        statsPagerTranslateX.stopAnimation((value) => {
+          statsPagerDragStartX.current = value;
+        });
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const minTranslateX = -statsCardInnerWidth;
+        const maxTranslateX = 0;
+        const nextTranslateX = Math.max(
+          minTranslateX,
+          Math.min(maxTranslateX, statsPagerDragStartX.current + gestureState.dx),
+        );
+
+        statsPagerTranslateX.setValue(nextTranslateX);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const shouldAdvance = gestureState.dx < -statsCardInnerWidth * 0.2 || gestureState.vx < -0.35;
+        const shouldReturn = gestureState.dx > statsCardInnerWidth * 0.2 || gestureState.vx > 0.35;
+
+        if (shouldAdvance) {
+          setStatsPage(1);
+          return;
+        }
+
+        if (shouldReturn) {
+          setStatsPage(0);
+          return;
+        }
+
+        Animated.spring(statsPagerTranslateX, {
+          toValue: hasReviewPage ? -statsPage * statsCardInnerWidth : 0,
+          useNativeDriver: true,
+          tension: 90,
+          friction: 10,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(statsPagerTranslateX, {
+          toValue: hasReviewPage ? -statsPage * statsCardInnerWidth : 0,
+          useNativeDriver: true,
+          tension: 90,
+          friction: 10,
+        }).start();
+      },
+    }),
+    [hasReviewPage, statsPage, statsPagerTranslateX],
+  );
 
   const renderActionCard = ({
     route,
@@ -404,16 +473,22 @@ export default function HomePage() {
                 />
                 <View style={[styles.statsCardFrame, { borderColor: statsBorderColor }]} />
 
-                <ScrollView
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  onScroll={handleStatsPageScroll}
-                  scrollEventThrottle={16}
-                  bounces={false}
+                <View
+                  style={styles.statsPager}
                   testID="stats-card-pager"
+                  {...(hasReviewPage ? statsPanResponder.panHandlers : {})}
                 >
-                  <View style={[styles.statsPage, { width: statsCardInnerWidth }]}>
+                  <Animated.View
+                    style={[
+                      styles.statsPagerTrack,
+                      {
+                        width: hasReviewPage ? statsCardInnerWidth * 2 : statsCardInnerWidth,
+                        transform: [{ translateX: statsPagerTranslateX }],
+                      },
+                    ]}
+                  >
+                    <View style={[styles.statsPage, { width: statsCardInnerWidth }]}>
+
                     <View style={styles.statItem}>
                       <Text
                         style={[styles.levelText, { color: statsLevelColor }]}
@@ -484,7 +559,8 @@ export default function HomePage() {
                       </View>
                     </TouchableOpacity>
                   )}
-                </ScrollView>
+                  </Animated.View>
+                </View>
 
                 {hasReviewPage && (
                   <View style={styles.statsPageDots}>
@@ -681,6 +757,8 @@ const styles = StyleSheet.create<{
   subtitle: TextStyle;
   statsCard: ViewStyle;
   statsCardFrame: ViewStyle;
+  statsPager: ViewStyle;
+  statsPagerTrack: ViewStyle;
   statsPage: ViewStyle;
   statsPageDots: ViewStyle;
   statsPageDot: ViewStyle;
@@ -814,6 +892,12 @@ const styles = StyleSheet.create<{
     ...StyleSheet.absoluteFillObject,
     borderRadius: 24,
     borderWidth: 1,
+  },
+  statsPager: {
+    overflow: 'hidden',
+  },
+  statsPagerTrack: {
+    flexDirection: 'row',
   },
   statsPage: {
     flexDirection: 'row',
