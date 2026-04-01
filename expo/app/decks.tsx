@@ -10,10 +10,11 @@ import {
   Plus,
   Sparkles,
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import {
   Alert,
+  Animated,
   FlatList,
   Modal,
   Pressable,
@@ -52,6 +53,11 @@ import {
   TEXT_TO_DECK_ROUTE,
 } from '@/utils/routes';
 
+interface PendingDelete {
+  id: string;
+  name: string;
+}
+
 export default function DecksPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -66,6 +72,11 @@ export default function DecksPage() {
   const [activeCategory, setActiveCategory] = useState<string>(ALL_DECK_CATEGORIES_LABEL);
   const [sortBy, setSortBy] = useState<'name' | 'newest' | 'cards'>('newest');
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+
+  const pendingDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDeleteRef = useRef<PendingDelete | null>(null);
+  const undoToastAnimation = useRef(new Animated.Value(0)).current;
 
   const categoryCounts = useMemo(() => {
     const counts = decks.reduce<Record<string, number>>((accumulator, deck) => {
@@ -91,7 +102,7 @@ export default function DecksPage() {
   }, [categoryCounts, deckCategories]);
 
   const filteredDecks = useMemo(() => {
-    let result = decks;
+    let result = pendingDelete ? decks.filter((deck) => deck.id !== pendingDelete.id) : decks;
 
     if (activeCategory !== ALL_DECK_CATEGORIES_LABEL) {
       result = result.filter((deck) => sanitizeDeckCategory(deck.category) === activeCategory);
@@ -112,14 +123,15 @@ export default function DecksPage() {
     }
 
     return sorted;
-  }, [decks, activeCategory, searchQuery, sortBy]);
+  }, [decks, activeCategory, pendingDelete, searchQuery, sortBy]);
 
   const filteredDeckSummaries = useMemo(() => {
     return getDeckListSummaries(filteredDecks, performance.cardStatsById, getCardsDueForReview);
   }, [filteredDecks, getCardsDueForReview, performance.cardStatsById]);
 
-  const hasNoDecks = decks.length === 0;
-  const hasNoSearchResults = decks.length > 0 && filteredDeckSummaries.length === 0;
+  const visibleDeckCount = pendingDelete ? decks.filter((deck) => deck.id !== pendingDelete.id).length : decks.length;
+  const hasNoDecks = visibleDeckCount === 0;
+  const hasNoSearchResults = visibleDeckCount > 0 && filteredDeckSummaries.length === 0;
 
   useEffect(() => {
     if (!categories.includes(activeCategory)) {
@@ -185,7 +197,14 @@ export default function DecksPage() {
     }
   }, [queryClient]);
 
-  const handleDeleteDeck = useCallback(async (deckId: string) => {
+  const clearPendingDeleteTimer = useCallback(() => {
+    if (pendingDeleteTimerRef.current) {
+      clearTimeout(pendingDeleteTimerRef.current);
+      pendingDeleteTimerRef.current = null;
+    }
+  }, []);
+
+  const persistDeckDeletion = useCallback(async (deckId: string) => {
     try {
       await deleteDeck(deckId);
       cleanupDeck(deckId);
@@ -194,6 +213,43 @@ export default function DecksPage() {
       Alert.alert('Error', 'Failed to delete deck. Please try again.');
     }
   }, [cleanupDeck, deleteDeck]);
+
+  const commitPendingDelete = useCallback((entry: PendingDelete) => {
+    clearPendingDeleteTimer();
+
+    if (pendingDeleteRef.current?.id === entry.id) {
+      pendingDeleteRef.current = null;
+      setPendingDelete((current) => (current?.id === entry.id ? null : current));
+    }
+
+    void persistDeckDeletion(entry.id);
+  }, [clearPendingDeleteTimer, persistDeckDeletion]);
+
+  const handleDeleteDeck = useCallback((deckId: string) => {
+    const deck = decks.find((item) => item.id === deckId);
+    if (!deck) {
+      return;
+    }
+
+    const currentPendingDelete = pendingDeleteRef.current;
+    if (currentPendingDelete) {
+      commitPendingDelete(currentPendingDelete);
+    }
+
+    const nextPendingDelete: PendingDelete = { id: deck.id, name: deck.name };
+    pendingDeleteRef.current = nextPendingDelete;
+    setPendingDelete(nextPendingDelete);
+    pendingDeleteTimerRef.current = setTimeout(() => {
+      pendingDeleteTimerRef.current = null;
+      commitPendingDelete(nextPendingDelete);
+    }, 4000);
+  }, [commitPendingDelete, decks]);
+
+  const handleUndoDelete = useCallback(() => {
+    clearPendingDeleteTimer();
+    pendingDeleteRef.current = null;
+    setPendingDelete(null);
+  }, [clearPendingDeleteTimer]);
 
   const handleSelectCategory = useCallback((category: string) => {
     setActiveCategory(category);
@@ -204,6 +260,35 @@ export default function DecksPage() {
     setShowMenu(false);
     setShowCategoryManager(true);
   }, []);
+
+  useEffect(() => {
+    if (pendingDelete) {
+      undoToastAnimation.setValue(0);
+      Animated.spring(undoToastAnimation, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 18,
+        bounciness: 6,
+      }).start();
+      return;
+    }
+
+    undoToastAnimation.setValue(0);
+  }, [pendingDelete, undoToastAnimation]);
+
+  useEffect(() => {
+    return () => {
+      const currentPendingDelete = pendingDeleteRef.current;
+      if (!currentPendingDelete || !pendingDeleteTimerRef.current) {
+        return;
+      }
+
+      clearTimeout(pendingDeleteTimerRef.current);
+      pendingDeleteTimerRef.current = null;
+      pendingDeleteRef.current = null;
+      void persistDeckDeletion(currentPendingDelete.id);
+    };
+  }, [persistDeckDeletion]);
 
   const backgroundGradient = useMemo(
     () => (
@@ -498,6 +583,38 @@ export default function DecksPage() {
           )}
         </View>
       </SafeAreaView>
+
+      {pendingDelete ? (
+        <Animated.View
+          style={[
+            styles.undoToast,
+            {
+              backgroundColor: isDark ? 'rgba(15, 23, 42, 0.92)' : 'rgba(30, 41, 59, 0.95)',
+              opacity: undoToastAnimation,
+              transform: [
+                {
+                  translateY: undoToastAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [80, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+          testID="deck-delete-undo-toast"
+        >
+          <Text style={styles.undoToastText} numberOfLines={1}>
+            &quot;{pendingDelete.name}&quot; deleted
+          </Text>
+          <TouchableOpacity
+            onPress={handleUndoDelete}
+            activeOpacity={0.78}
+            testID="deck-delete-undo-button"
+          >
+            <Text style={styles.undoToastAction}>Undo</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      ) : null}
 
       <Modal
         visible={showMenu}
@@ -981,6 +1098,36 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700' as const,
     color: '#fff',
+  },
+  undoToast: {
+    position: 'absolute',
+    bottom: 32,
+    left: 20,
+    right: 20,
+    zIndex: 100,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  undoToastText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  undoToastAction: {
+    color: '#818cf8',
+    fontSize: 14,
+    fontWeight: '700' as const,
   },
   menuOverlay: {
     flex: 1,

@@ -1,6 +1,6 @@
 import { BookOpen, ChevronRight, Edit, Trash2 } from 'lucide-react-native';
 import React, { memo, useCallback } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import type { Theme } from '@/constants/colors';
 import type { DeckListSummary } from '@/utils/deckSelectors';
@@ -16,7 +16,7 @@ interface DeckCardProps {
   onOpenDeckHub: (deckId: string) => void;
   onStudyDeck: (deckId: string) => void;
   onEditDeck: (deckId: string) => void;
-  onDeleteDeck: (deckId: string) => Promise<void>;
+  onDeleteDeck: (deckId: string) => void;
 }
 
 function DeckCardComponent({
@@ -36,15 +36,8 @@ function DeckCardComponent({
   const canManageDeck = deck.isCustom;
 
   const handleDeletePress = useCallback(() => {
-    Alert.alert(
-      'Delete Deck',
-      `Are you sure you want to delete "${deck.name}"? This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => void onDeleteDeck(deck.id) },
-      ],
-    );
-  }, [deck.id, deck.name, onDeleteDeck]);
+    onDeleteDeck(deck.id);
+  }, [deck.id, onDeleteDeck]);
 
   return (
     <View
