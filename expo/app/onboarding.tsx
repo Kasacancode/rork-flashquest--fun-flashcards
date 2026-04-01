@@ -6,13 +6,9 @@ import {
   BookOpen,
   Bot,
   Camera,
-  ChartNoAxesCombined,
   ShieldCheck,
-  Sparkles,
   Swords,
   Target,
-  Trophy,
-  Zap,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -33,6 +29,7 @@ import { useArena } from '@/context/ArenaContext';
 import { useAvatar } from '@/context/AvatarContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
+import { logger } from '@/utils/logger';
 import { SCAN_NOTES_ROUTE } from '@/utils/routes';
 import { getPlayerNameValidationError } from '@/utils/playerName';
 
@@ -100,27 +97,6 @@ const LEARNING_TILES: readonly FeatureTile[] = [
     title: 'Practice',
     description: 'Warm up against an AI opponent',
     Icon: Bot,
-  },
-] as const;
-
-const TOOLKIT_TILES: readonly FeatureTile[] = [
-  {
-    key: 'ai-builder',
-    title: 'AI Deck Builder',
-    description: 'Paste notes or snap a photo — AI makes the cards',
-    Icon: Sparkles,
-  },
-  {
-    key: 'stats',
-    title: 'Stats & Streaks',
-    description: 'Track accuracy, streaks, and weekly progress',
-    Icon: ChartNoAxesCombined,
-  },
-  {
-    key: 'xp',
-    title: 'XP & Levels',
-    description: 'Earn points, unlock achievements, level up',
-    Icon: Trophy,
   },
 ] as const;
 
@@ -196,14 +172,12 @@ function TutorialStep({
         <View style={styles.screenContent}>
           <View style={styles.topRow}>
             <Text style={styles.wordmark}>FlashQuest</Text>
-            <TouchableOpacity onPress={onSkip} activeOpacity={0.8} testID="onboarding-skip-intro">
-              <Text style={styles.topTextButton}>Skip intro</Text>
-            </TouchableOpacity>
+            <View />
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.overviewScrollContent}>
             <Text style={styles.overviewTitle}>Here&apos;s how it works</Text>
-            <Text style={styles.overviewSubtitle}>Four ways to learn, plus tools to build your decks.</Text>
+            <Text style={styles.overviewSubtitle}>Four ways to learn — pick what fits your style.</Text>
 
             <View style={styles.sectionBlock}>
               <Text style={styles.sectionLabel}>Ways to learn</Text>
@@ -216,27 +190,6 @@ function TutorialStep({
                       <Icon color="#FFFFFF" size={24} strokeWidth={2.2} />
                       <Text style={styles.featureTileTitle}>{tile.title}</Text>
                       <Text style={styles.featureTileDescription}>{tile.description}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionLabel}>Your toolkit</Text>
-              <View style={styles.toolkitColumn}>
-                {TOOLKIT_TILES.map((tile) => {
-                  const Icon = tile.Icon;
-
-                  return (
-                    <View key={tile.key} style={styles.toolkitTile}>
-                      <View style={styles.toolkitIconShell}>
-                        <Icon color="#FFFFFF" size={22} strokeWidth={2.1} />
-                      </View>
-                      <View style={styles.toolkitCopy}>
-                        <Text style={styles.featureTileTitle}>{tile.title}</Text>
-                        <Text style={styles.featureTileDescription}>{tile.description}</Text>
-                      </View>
                     </View>
                   );
                 })}
@@ -352,7 +305,7 @@ function CategoriesStep({
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollStepContent}>
           <Text style={styles.stepTitle}>What do you study?</Text>
           <Text style={styles.stepSubtitle}>
-            Pick your interests to see the right decks first. You can change this anytime.
+            Pick what interests you. You can always change this later.
           </Text>
 
           <View style={styles.categoryGrid}>
@@ -423,6 +376,13 @@ function ProfileStep({
 }) {
   const shouldShowNameError = nameBlurred && playerName.trim().length === 0;
   const canContinue = playerName.trim().length > 0 && analyticsChoice !== null;
+  const missingFieldsHint = !canContinue
+    ? playerName.trim().length === 0 && analyticsChoice === null
+      ? 'Enter your name and choose an analytics preference'
+      : playerName.trim().length === 0
+        ? 'Enter your name to continue'
+        : 'Choose an analytics preference to continue'
+    : null;
 
   return (
     <GradientScreen colors={theme.arenaGradient} isDark={isDark} testID="onboarding-step-profile">
@@ -433,7 +393,12 @@ function ProfileStep({
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollStepContent}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollStepContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
           <Text style={styles.stepTitle}>Set up your profile</Text>
           <Text style={styles.stepSubtitle}>Choose your name and card identity.</Text>
 
@@ -453,34 +418,6 @@ function ProfileStep({
             testID="onboarding-name-input"
           />
           {shouldShowNameError ? <Text style={styles.nameError}>Name is required</Text> : <View style={styles.nameErrorSpacer} />}
-
-          <Text style={styles.fieldLabel}>Your card identity</Text>
-          <View style={styles.identityGrid}>
-            {PLAYER_IDENTITIES.map((identity) => {
-              const isSelected = identity.key === selectedIdentityKey;
-
-              return (
-                <TouchableOpacity
-                  key={identity.key}
-                  style={[
-                    styles.identityTile,
-                    isSelected
-                      ? {
-                          backgroundColor: `${identity.color}38`,
-                          borderColor: `${identity.color}80`,
-                        }
-                      : null,
-                  ]}
-                  onPress={() => onSelectIdentity(identity.key)}
-                  activeOpacity={0.86}
-                  testID={`onboarding-identity-${identity.key}`}
-                >
-                  {isSelected ? <Text style={styles.identityCheck}>✓</Text> : null}
-                  <Text style={[styles.identitySuit, { color: identity.color }]}>{identity.suit}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
 
           <View style={styles.analyticsCard}>
             <View style={styles.analyticsHeaderRow}>
@@ -519,10 +456,41 @@ function ProfileStep({
 
             <Text style={styles.analyticsHint}>Anonymous usage data only · change anytime in Settings</Text>
           </View>
+
+          <Text style={styles.fieldLabel}>Your card identity</Text>
+          <View style={styles.identityGrid}>
+            {PLAYER_IDENTITIES.map((identity) => {
+              const isSelected = identity.key === selectedIdentityKey;
+
+              return (
+                <TouchableOpacity
+                  key={identity.key}
+                  style={[
+                    styles.identityTile,
+                    isSelected
+                      ? {
+                          backgroundColor: `${identity.color}38`,
+                          borderColor: `${identity.color}80`,
+                        }
+                      : null,
+                  ]}
+                  onPress={() => onSelectIdentity(identity.key)}
+                  activeOpacity={0.86}
+                  testID={`onboarding-identity-${identity.key}`}
+                >
+                  {isSelected ? <Text style={styles.identityCheck}>✓</Text> : null}
+                  <Text style={[styles.identitySuit, { color: identity.color }]}>{identity.suit}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </ScrollView>
 
         <View style={styles.bottomActionWrap}>
           {errorMessage ? <Text style={styles.bottomErrorText}>{errorMessage}</Text> : null}
+          {!errorMessage && missingFieldsHint ? (
+            <Text style={styles.bottomHintText}>{missingFieldsHint}</Text>
+          ) : null}
           <TouchableOpacity
             style={[styles.primaryButton, !canContinue ? styles.primaryButtonDisabled : null]}
             onPress={onContinue}
@@ -558,6 +526,47 @@ function CelebrationStep({
   onGoBack?: () => void;
 }) {
   const selectedIdentity = PLAYER_IDENTITIES.find((identity) => identity.key === selectedIdentityKey) ?? DEFAULT_AVATAR_IDENTITY;
+  const avatarScale = useRef(new Animated.Value(0.7)).current;
+  const avatarOpacity = useRef(new Animated.Value(0)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+  const buttonOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(avatarScale, {
+        toValue: 1,
+        speed: 8,
+        bounciness: 8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(avatarOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    const contentTimer = setTimeout(() => {
+      Animated.timing(contentOpacity, {
+        toValue: 1,
+        duration: 280,
+        useNativeDriver: true,
+      }).start();
+    }, 200);
+
+    const buttonTimer = setTimeout(() => {
+      Animated.timing(buttonOpacity, {
+        toValue: 1,
+        duration: 280,
+        useNativeDriver: true,
+      }).start();
+    }, 500);
+
+    return () => {
+      clearTimeout(contentTimer);
+      clearTimeout(buttonTimer);
+    };
+  }, [avatarOpacity, avatarScale, buttonOpacity, contentOpacity]);
 
   return (
     <GradientScreen colors={theme.scoreGradient} isDark={isDark} testID="onboarding-step-celebration">
@@ -569,22 +578,27 @@ function CelebrationStep({
         </View>
 
         <View style={styles.celebrationCenter}>
-          <View style={styles.iconShell}>
+          <Animated.View
+            style={[
+              styles.iconShell,
+              {
+                opacity: avatarOpacity,
+                transform: [{ scale: avatarScale }],
+              },
+            ]}
+          >
             <View style={styles.iconInnerShell}>
               <Text style={[styles.celebrationSuit, { color: selectedIdentity.color }]}>{selectedIdentity.suit}</Text>
             </View>
-          </View>
+          </Animated.View>
 
-          <Text style={styles.celebrationTitle}>You&apos;re all set!</Text>
-          <Text style={styles.celebrationSubtitle}>Welcome, {playerName.trim() || 'Player'}!</Text>
-
-          <View style={styles.xpPill}>
-            <Zap color="#FFFFFF" size={14} strokeWidth={2.2} />
-            <Text style={styles.xpPillText}>+4 XP from your first cards</Text>
-          </View>
+          <Animated.View style={{ opacity: contentOpacity }}>
+            <Text style={styles.celebrationTitle}>You&apos;re all set!</Text>
+            <Text style={styles.celebrationSubtitle}>Welcome, {playerName.trim() || 'Player'}!</Text>
+          </Animated.View>
         </View>
 
-        <View style={styles.bottomActionWrap}>
+        <Animated.View style={[styles.bottomActionWrap, { opacity: buttonOpacity }]}>
           {errorMessage ? <Text style={styles.bottomErrorText}>{errorMessage}</Text> : null}
           <TouchableOpacity
             style={[styles.primaryButton, isSaving ? styles.primaryButtonDisabled : null]}
@@ -595,7 +609,7 @@ function CelebrationStep({
           >
             <Text style={styles.primaryButtonText}>{isSaving ? 'Starting...' : 'Start FlashQuest'}</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
     </GradientScreen>
   );
@@ -627,20 +641,20 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (savedPlayerName.trim().length > 0 && playerName.trim().length === 0) {
-      console.log('[Onboarding] Syncing saved player name into onboarding state');
+      logger.debug('[Onboarding] Syncing saved player name into onboarding state');
       setPlayerName(savedPlayerName);
     }
   }, [playerName, savedPlayerName]);
 
   useEffect(() => {
     if ((analyticsConsent === 'granted' || analyticsConsent === 'declined') && analyticsChoice === null) {
-      console.log('[Onboarding] Syncing saved analytics preference into onboarding state:', analyticsConsent);
+      logger.debug('[Onboarding] Syncing saved analytics preference into onboarding state:', analyticsConsent);
       setAnalyticsChoice(analyticsConsent);
     }
   }, [analyticsChoice, analyticsConsent]);
 
   useEffect(() => {
-    console.log('[Onboarding] Transitioning view:', { step, tutorialPart });
+    logger.debug('[Onboarding] Transitioning view:', { step, tutorialPart });
     transitionOpacity.setValue(0);
     Animated.timing(transitionOpacity, {
       toValue: 1,
@@ -678,7 +692,7 @@ export default function OnboardingPage() {
   }, [hasShownFlipHint, hintOpacity, isFlipped, tutorialPart]);
 
   const handleAdvanceStep = useCallback((nextStep: number) => {
-    console.log('[Onboarding] Advancing step:', { from: step, to: nextStep });
+    logger.debug('[Onboarding] Advancing step:', { from: step, to: nextStep });
     setSaveError(null);
     setStep(nextStep);
   }, [step]);
@@ -698,7 +712,7 @@ export default function OnboardingPage() {
       return;
     }
 
-    console.log('[Onboarding] Flipping tutorial card:', tutorialPart);
+    logger.debug('[Onboarding] Flipping tutorial card:', tutorialPart);
 
     Animated.timing(cardScale, {
       toValue: 0.96,
@@ -726,7 +740,7 @@ export default function OnboardingPage() {
   }, [cardScale, hasShownFlipHint, hintOpacity, isFlipped, tutorialPart]);
 
   const handleAdvanceTutorial = useCallback(() => {
-    console.log('[Onboarding] Advancing tutorial:', tutorialPart);
+    logger.debug('[Onboarding] Advancing tutorial:', tutorialPart);
     setSaveError(null);
 
     if (tutorialPart === 'card-1') {
@@ -747,7 +761,7 @@ export default function OnboardingPage() {
   }, [cardScale, handleAdvanceStep, tutorialPart]);
 
   const handleSkipIntro = useCallback(() => {
-    console.log('[Onboarding] Skipping tutorial intro');
+    logger.debug('[Onboarding] Skipping tutorial intro');
     setSaveError(null);
     setStep(1);
   }, []);
@@ -760,13 +774,13 @@ export default function OnboardingPage() {
             .map((item) => item.name)
             .filter((item) => current.includes(item) || item === category);
 
-      console.log('[Onboarding] Updating selected categories:', nextSelection);
+      logger.debug('[Onboarding] Updating selected categories:', nextSelection);
       return nextSelection;
     });
   }, []);
 
   const handleOpenScanNotes = useCallback(() => {
-    console.log('[Onboarding] Opening scan notes from onboarding');
+    logger.debug('[Onboarding] Opening scan notes from onboarding');
     router.push(SCAN_NOTES_ROUTE);
   }, []);
 
@@ -782,12 +796,12 @@ export default function OnboardingPage() {
   }, [saveError]);
 
   const handleBlurName = useCallback(() => {
-    console.log('[Onboarding] Name input blurred');
+    logger.debug('[Onboarding] Name input blurred');
     setNameBlurred(true);
   }, []);
 
   const handleSelectIdentity = useCallback((identityKey: string) => {
-    console.log('[Onboarding] Selecting avatar identity:', identityKey);
+    logger.debug('[Onboarding] Selecting avatar identity:', identityKey);
     setSelectedIdentityKey(identityKey);
     if (saveError) {
       setSaveError(null);
@@ -795,7 +809,7 @@ export default function OnboardingPage() {
   }, [saveError]);
 
   const handleSelectAnalytics = useCallback((choice: Exclude<AnalyticsChoice, null>) => {
-    console.log('[Onboarding] Selecting analytics preference:', choice);
+    logger.debug('[Onboarding] Selecting analytics preference:', choice);
     setAnalyticsChoice(choice);
     if (saveError) {
       setSaveError(null);
@@ -803,7 +817,7 @@ export default function OnboardingPage() {
   }, [saveError]);
 
   const handleContinueProfile = useCallback(() => {
-    console.log('[Onboarding] Attempting to continue from profile step');
+    logger.debug('[Onboarding] Attempting to continue from profile step');
 
     if (playerName.trim().length === 0) {
       setNameBlurred(true);
@@ -822,7 +836,7 @@ export default function OnboardingPage() {
     const trimmedName = playerName.trim();
 
     if (!trimmedName || analyticsChoice === null) {
-      console.log('[Onboarding] Completion blocked because required profile values are missing');
+      logger.debug('[Onboarding] Completion blocked because required profile values are missing');
       setStep(2);
       setNameBlurred(true);
       return;
@@ -830,14 +844,14 @@ export default function OnboardingPage() {
 
     const validationError = getPlayerNameValidationError(trimmedName);
     if (validationError) {
-      console.warn('[Onboarding] Player name validation failed:', validationError);
+      logger.warn('[Onboarding] Player name validation failed:', validationError);
       setSaveError(validationError);
       setNameBlurred(true);
       setStep(2);
       return;
     }
 
-    console.log('[Onboarding] Completing onboarding', {
+    logger.debug('[Onboarding] Completing onboarding', {
       selectedIdentityKey,
       analyticsChoice,
       playerName: trimmedName,
@@ -858,7 +872,7 @@ export default function OnboardingPage() {
       await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, 'true');
       router.replace('/' as Href);
     } catch (error) {
-      console.warn('[Onboarding] Failed to complete onboarding:', error);
+      logger.warn('[Onboarding] Failed to complete onboarding:', error);
       const message = error instanceof Error && error.message
         ? error.message
         : 'Could not finish setup. Please try again.';
@@ -1130,30 +1144,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '500' as const,
   },
-  toolkitColumn: {
-    gap: 12,
-  },
-  toolkitTile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    padding: 14,
-    gap: 12,
-  },
-  toolkitIconShell: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  toolkitCopy: {
-    flex: 1,
-  },
   scrollStepContent: {
     paddingTop: 8,
     paddingBottom: 24,
@@ -1411,21 +1401,6 @@ const styles = StyleSheet.create({
     textAlign: 'center' as const,
     marginBottom: 18,
   },
-  xpPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginBottom: 16,
-  },
-  xpPillText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700' as const,
-  },
   primaryButton: {
     minHeight: 60,
     borderRadius: 20,
@@ -1446,6 +1421,13 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800' as const,
     letterSpacing: -0.2,
+  },
+  bottomHintText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    fontWeight: '500' as const,
+    textAlign: 'center' as const,
+    marginBottom: 10,
   },
   bottomErrorText: {
     color: 'rgba(255,235,238,0.96)',
