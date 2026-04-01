@@ -531,7 +531,7 @@ export default function HomePage() {
                     >
                       <View style={styles.reviewPageHeader}>
                         <View style={[styles.reviewIconWrap, { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)' }]}>
-                          <RotateCcw color={isDark ? '#a5b4fc' : '#6366f1'} size={18} strokeWidth={2.4} />
+                          <RotateCcw color={isDark ? '#a5b4fc' : '#6366f1'} size={16} strokeWidth={2.4} />
                         </View>
                         <View style={styles.reviewPageText}>
                           <Text style={[styles.reviewTitle, { color: statsValueColor }]}>
@@ -899,8 +899,8 @@ const styles = StyleSheet.create<{
     marginHorizontal: 24,
     borderRadius: 24,
     paddingHorizontal: 16,
-    paddingTop: 19,
-    paddingBottom: 12,
+    paddingTop: 16,
+    paddingBottom: 9,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 14 },
     shadowOpacity: 0.2,
@@ -925,19 +925,19 @@ const styles = StyleSheet.create<{
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingBottom: 4,
+    paddingBottom: 2,
   },
   statsPageDots: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
-    paddingTop: 10,
-    paddingBottom: 2,
+    gap: 5,
+    paddingTop: 7,
+    paddingBottom: 0,
   },
   statsPageDotButton: {
-    paddingHorizontal: 6,
-    paddingVertical: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -982,18 +982,18 @@ const styles = StyleSheet.create<{
   },
   reviewPage: {
     justifyContent: 'center',
-    paddingBottom: 4,
-    gap: 12,
+    paddingBottom: 2,
+    gap: 9,
   },
   reviewPageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   reviewIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1001,39 +1001,39 @@ const styles = StyleSheet.create<{
     flex: 1,
   },
   reviewTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700' as const,
   },
   reviewSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500' as const,
     marginTop: 1,
   },
   reviewChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   reviewChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 7,
   },
   reviewChipDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
   reviewChipName: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600' as const,
-    maxWidth: 90,
+    maxWidth: 72,
   },
   reviewChipCount: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700' as const,
   },
   actionsGrid: {
