@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, MoreHorizontal, Pencil } from 'lucide-react-native';
+import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, MoreHorizontal, Pencil, RotateCcw, Trash2 } from 'lucide-react-native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -73,8 +73,8 @@ function blendColors(baseColor: string, accentColor: string, accentStrength: num
 export default function DeckHubScreen() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
-  const { decks, addDeck } = useFlashQuest();
-  const { performance, getDeckAccuracy, getWeakCards, getCardsDueForReview, getLapsedCards } = usePerformance();
+  const { decks, addDeck, deleteDeck } = useFlashQuest();
+  const { performance, getDeckAccuracy, getWeakCards, getCardsDueForReview, getLapsedCards, cleanupDeck } = usePerformance();
   const { theme, isDark } = useTheme();
   const [menuVisible, setMenuVisible] = useState<boolean>(false);
   const menuBtnRef = useRef<View>(null);
@@ -191,6 +191,53 @@ export default function DeckHubScreen() {
     setMenuVisible(false);
     Alert.alert('Deck Duplicated', `"${deck.name} (Copy)" has been created with ${flashcards.length} cards.`);
   }, [addDeck, deck]);
+
+  const handleResetProgress = useCallback(() => {
+    if (!deck) {
+      return;
+    }
+
+    setMenuVisible(false);
+
+    Alert.alert(
+      'Reset Progress',
+      `This will erase all study history, mastery data, and spaced repetition schedules for "${deck.name}". The cards themselves won't change.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: () => {
+            cleanupDeck(deck.id, deck.flashcards.map((card) => card.id));
+          },
+        },
+      ],
+    );
+  }, [deck, cleanupDeck]);
+
+  const handleDeleteDeck = useCallback(() => {
+    if (!deck || !deck.isCustom) {
+      return;
+    }
+
+    setMenuVisible(false);
+
+    Alert.alert(
+      'Delete Deck',
+      `This will permanently delete "${deck.name}" and all of its cards. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteDeck(deck.id);
+            router.back();
+          },
+        },
+      ],
+    );
+  }, [deck, deleteDeck, router]);
 
   if (!deck) {
     return (
@@ -529,6 +576,27 @@ export default function DeckHubScreen() {
                 <Copy color={theme.primary} size={18} strokeWidth={2.2} />
                 <Text style={[styles.menuItemText, { color: theme.text }]}>Duplicate Deck</Text>
               </TouchableOpacity>
+              <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={handleResetProgress}
+                activeOpacity={0.75}
+                testID="resetProgressButton"
+              >
+                <RotateCcw color={theme.textSecondary} size={18} strokeWidth={2.2} />
+                <Text style={[styles.menuItemText, { color: theme.text }]}>Reset Progress</Text>
+              </TouchableOpacity>
+              {deck.isCustom ? (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={handleDeleteDeck}
+                  activeOpacity={0.75}
+                  testID="deleteDeckButton"
+                >
+                  <Trash2 color={theme.error} size={18} strokeWidth={2.2} />
+                  <Text style={[styles.menuItemText, { color: theme.error }]}>Delete Deck</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           </Pressable>
         </Modal>
@@ -592,6 +660,10 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 12,
+  },
   menuItemText: { fontSize: 15, fontWeight: '600' as const },
   headerCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 12 },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' },
