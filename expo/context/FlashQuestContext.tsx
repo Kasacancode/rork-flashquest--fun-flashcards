@@ -42,7 +42,7 @@ const DEFAULT_STATS: UserStats = {
   totalCardsStudied: 0,
   totalDecksCompleted: 0,
   achievements: [],
-  lastActiveDate: new Date().toISOString().split('T')[0],
+  lastActiveDate: '',
   totalCorrectAnswers: 0,
   totalQuestionsAttempted: 0,
   studyDates: [],
@@ -61,6 +61,7 @@ const BUILT_IN_DECK_IDS = new Set<string>(SAMPLE_DECKS.map((deck) => deck.id));
 function cloneDefaultStats(): UserStats {
   return {
     ...DEFAULT_STATS,
+    lastActiveDate: new Date().toISOString().split('T')[0],
     achievements: [...DEFAULT_STATS.achievements],
     studyDates: [...DEFAULT_STATS.studyDates],
     weeklyAccuracy: [...DEFAULT_STATS.weeklyAccuracy],
