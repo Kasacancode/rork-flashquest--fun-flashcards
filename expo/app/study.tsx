@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Clock, RefreshCw, RotateCcw, Sparkles, Target, Zap } from 'lucide-react-native';
+import { ArrowLeft, ArrowLeftRight, Clock, RefreshCw, RotateCcw, Sparkles, Target, Zap } from 'lucide-react-native';
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
@@ -24,6 +24,7 @@ import { getWeaknessScore, isCardDueForReview, getLiveCardStats } from '@/utils/
 import { logger } from '@/utils/logger';
 import { DECKS_ROUTE, deckHubHref, questHref } from '@/utils/routes';
 import { maybePromptReview } from '@/utils/storeReview';
+import { triggerImpact } from '@/utils/haptics';
 
 type StudyCardPriority = 'lapsed' | 'due' | 'new' | 'weak' | 'remaining';
 
@@ -142,6 +143,7 @@ export default function StudyPage() {
   const [sessionResolved, setSessionResolved] = useState<number>(0);
   const [showResults, setShowResults] = useState<boolean>(false);
   const [sessionXp, setSessionXp] = useState<number>(0);
+  const [reversed, setReversed] = useState<boolean>(false);
   const trackedStudyDeckIdRef = useRef<string | null>(null);
   const sessionStartRef = useRef<number>(Date.now());
   const sessionResolvedRef = useRef<number>(0);
@@ -260,6 +262,11 @@ export default function StudyPage() {
       updateFlashcard(selectedDeck.id, cardId, updates);
     }
   }, [selectedDeck, updateFlashcard]);
+
+  const handleToggleReversed = useCallback(() => {
+    triggerImpact();
+    setReversed((prev) => !prev);
+  }, []);
 
   if (showResults && selectedDeck) {
     const needsReviewCount = studySummary.lapsedCount + studySummary.dueCount;
@@ -473,14 +480,23 @@ export default function StudyPage() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <ArrowLeft color="#fff" size={28} strokeWidth={2.5} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{selectedDeck.name}</Text>
-          <View style={styles.placeholder} />
+          <Text style={[styles.headerTitle, { flex: 1, textAlign: 'center' }]} numberOfLines={1}>{selectedDeck.name}</Text>
+          <TouchableOpacity
+            onPress={handleToggleReversed}
+            style={styles.reverseToggle}
+            activeOpacity={0.75}
+            testID="study-reverse-toggle"
+          >
+            <ArrowLeftRight color="#fff" size={14} strokeWidth={2.2} />
+            <Text style={styles.reverseToggleText}>{reversed ? 'A → Q' : 'Q → A'}</Text>
+          </TouchableOpacity>
         </View>
 
         <StudyFeed
           flashcards={orderedFlashcards}
           theme={theme}
           isDark={isDark}
+          reversed={reversed}
           onComplete={handleComplete}
           onCardResolved={handleCardResolved}
           onUpdateCard={handleUpdateCard}
@@ -586,6 +602,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700' as const,
     color: '#fff',
+  },
+  reverseToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  reverseToggleText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700' as const,
+    letterSpacing: 0.3,
   },
   placeholder: {
     width: 40,

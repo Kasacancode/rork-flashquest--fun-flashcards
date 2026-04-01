@@ -47,6 +47,7 @@ interface StudyFeedProps {
   flashcards: Flashcard[];
   theme: Theme;
   isDark: boolean;
+  reversed?: boolean;
   onComplete: () => void;
   onCardResolved?: (cardId: string) => void;
   onUpdateCard?: (cardId: string, updates: Partial<Flashcard>) => void;
@@ -58,6 +59,7 @@ export default function StudyFeed({
   flashcards,
   theme,
   isDark,
+  reversed = false,
   onComplete,
   onCardResolved,
   onUpdateCard,
@@ -94,6 +96,12 @@ export default function StudyFeed({
   const currentCard = displayCard ?? sourceCard;
   const displayQuestion = currentCard ? getCardQuestionForSurface(currentCard, 'study') : '';
   const displayAnswer = currentCard ? getCardAnswerForSurface(currentCard, 'study') : '';
+  const frontText = reversed ? displayAnswer : displayQuestion;
+  const backText = reversed ? displayQuestion : displayAnswer;
+  const frontLabel = reversed ? 'ANSWER' : 'QUESTION';
+  const backLabel = reversed ? 'QUESTION' : 'ANSWER';
+  const frontLabelColor = reversed ? '#4CAF50' : (theme.primary || '#667eea');
+  const backLabelColor = reversed ? (theme.primary || '#667eea') : '#4CAF50';
 
   const clearHintDismissTimer = useCallback(() => {
     if (hintDismissTimer.current) {
@@ -364,8 +372,10 @@ export default function StudyFeed({
       deckId: currentCard.deckId,
       cardId: currentCard.id,
       isCorrect: quality !== 1,
-      selectedOption: quality === 1 ? 'study-forgot' : 'study-self-rated',
-      correctAnswer: getCanonicalAnswer(currentCard),
+      selectedOption: quality === 1
+        ? (reversed ? 'study-reverse-forgot' : 'study-forgot')
+        : (reversed ? 'study-reverse-self-rated' : 'study-self-rated'),
+      correctAnswer: reversed ? getCanonicalQuestion(currentCard) : getCanonicalAnswer(currentCard),
       timeToAnswerMs: Math.max(0, Date.now() - cardStartedAtRef.current),
       quality,
       mode: 'study',
@@ -373,7 +383,7 @@ export default function StudyFeed({
       explanationOpened: showFeedbackOverlay,
     });
     setReviewSaved(true);
-  }, [currentCard, resolved, reviewSaved, selectedQuality, logQuestAttempt, hintShown, showFeedbackOverlay]);
+  }, [currentCard, resolved, reviewSaved, selectedQuality, logQuestAttempt, hintShown, showFeedbackOverlay, reversed]);
 
   const handleNextCard = useCallback(() => {
     if (!resolved) {
@@ -707,8 +717,8 @@ export default function StudyFeed({
         >
           <View style={[styles.card, { backgroundColor: isDark ? theme.card : '#fff' }]}>
             <View style={styles.cardLabelContainer}>
-              <Text style={[styles.cardLabel, { color: isRevealed ? '#4CAF50' : theme.primary || '#667eea' }]}>
-                {isRevealed ? 'ANSWER' : 'QUESTION'}
+              <Text style={[styles.cardLabel, { color: isRevealed ? backLabelColor : frontLabelColor }]}>
+                {isRevealed ? backLabel : frontLabel}
               </Text>
               <View style={styles.cardLabelActions}>
                 {hintShown && !isRevealed ? (
@@ -727,10 +737,14 @@ export default function StudyFeed({
               </View>
             </View>
             <Text style={[styles.cardText, { color: isDark ? theme.text : '#333' }]}>
-              {isRevealed ? displayAnswer : displayQuestion}
+              {isRevealed ? backText : frontText}
             </Text>
             <Text style={[styles.cardHint, { color: isDark ? theme.textSecondary : '#999' }]}>
-              {isRevealed ? 'Swipe up for the next card or right for explanation' : 'Tap to reveal answer'}
+              {isRevealed
+                ? 'Swipe up for the next card or right for explanation'
+                : reversed
+                  ? 'Tap to reveal question'
+                  : 'Tap to reveal answer'}
             </Text>
           </View>
         </Animated.View>
