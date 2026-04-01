@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, RotateCcw, Target, Zap } from 'lucide-react-native';
+import { ArrowLeft, Clock, RefreshCw, RotateCcw, Sparkles, Target, Zap } from 'lucide-react-native';
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
@@ -14,17 +14,126 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import StudyFeed from '@/components/StudyFeed';
 import { useFlashQuest } from '@/context/FlashQuestContext';
+import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import type { Flashcard } from '@/types/flashcard';
+import type { CardMemoryStatus } from '@/types/performance';
 import { GAME_MODE } from '@/types/game';
+import { getWeaknessScore, isCardDueForReview, getLiveCardStats } from '@/utils/mastery';
 import { logger } from '@/utils/logger';
 import { DECKS_ROUTE, deckHubHref, questHref } from '@/utils/routes';
+
+type StudyCardPriority = 'lapsed' | 'due' | 'new' | 'weak' | 'remaining';
+
+interface StudyOrderSummary {
+  lapsedCount: number;
+  dueCount: number;
+  newCount: number;
+  weakCount: number;
+}
+
+function buildStudyOrder(
+  flashcards: Flashcard[],
+  cardStatsById: Record<string, import('@/types/performance').CardStats>,
+): { ordered: Flashcard[]; summary: StudyOrderSummary } {
+  const now = Date.now();
+  const WEAK_THRESHOLD = 5;
+
+  const buckets: Record<StudyCardPriority, { card: Flashcard; sortKey: number }[]> = {
+    lapsed: [],
+    due: [],
+    new: [],
+    weak: [],
+    remaining: [],
+  };
+
+  for (const card of flashcards) {
+    const stats = cardStatsById[card.id];
+    const live = getLiveCardStats(stats, now);
+
+    if (live.attempts === 0) {
+      buckets.new.push({ card, sortKey: 0 });
+      continue;
+    }
+
+    if (live.status === 'lapsed') {
+      buckets.lapsed.push({ card, sortKey: -live.lapses });
+      continue;
+    }
+
+    if (isCardDueForReview(stats, now)) {
+      const overdue = live.nextReviewAt ? now - live.nextReviewAt : 0;
+      buckets.due.push({ card, sortKey: -overdue });
+      continue;
+    }
+
+    const weakness = getWeaknessScore(stats, now);
+    if (weakness >= WEAK_THRESHOLD) {
+      buckets.weak.push({ card, sortKey: -weakness });
+      continue;
+    }
+
+    buckets.remaining.push({ card, sortKey: live.retrievability });
+  }
+
+  for (const bucket of Object.values(buckets)) {
+    bucket.sort((a, b) => a.sortKey - b.sortKey);
+  }
+
+  const ordered = [
+    ...buckets.lapsed,
+    ...buckets.due,
+    ...buckets.new,
+    ...buckets.weak,
+    ...buckets.remaining,
+  ].map((entry) => entry.card);
+
+  const summary: StudyOrderSummary = {
+    lapsedCount: buckets.lapsed.length,
+    dueCount: buckets.due.length,
+    newCount: buckets.new.length,
+    weakCount: buckets.weak.length,
+  };
+
+  return { ordered, summary };
+}
+
+function getDeckStudySummary(
+  flashcards: Flashcard[],
+  cardStatsById: Record<string, import('@/types/performance').CardStats>,
+): { dueCount: number; newCount: number; lapsedCount: number; status: CardMemoryStatus | 'mixed' } {
+  const now = Date.now();
+  let dueCount = 0;
+  let newCount = 0;
+  let lapsedCount = 0;
+
+  for (const card of flashcards) {
+    const stats = cardStatsById[card.id];
+    const live = getLiveCardStats(stats, now);
+
+    if (live.attempts === 0) {
+      newCount++;
+    } else if (live.status === 'lapsed') {
+      lapsedCount++;
+    } else if (isCardDueForReview(stats, now)) {
+      dueCount++;
+    }
+  }
+
+  const status = lapsedCount > 0 ? 'lapsed'
+    : dueCount > 0 ? 'mixed'
+    : newCount === flashcards.length ? 'new'
+    : 'mixed';
+
+  return { dueCount, newCount, lapsedCount, status };
+}
 
 export default function StudyPage() {
   const router = useRouter();
   const params = useLocalSearchParams<{ deckId?: string }>();
   const { decks, updateFlashcard, recordSessionResult } = useFlashQuest();
+  const { performance } = usePerformance();
   const { theme, isDark } = useTheme();
 
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(!params.deckId);
@@ -40,6 +149,23 @@ export default function StudyPage() {
     () => decks.find((d) => d.id === selectedDeckId),
     [decks, selectedDeckId]
   );
+
+  const { orderedFlashcards, studySummary } = useMemo(() => {
+    if (!selectedDeck) {
+      return { orderedFlashcards: [], studySummary: { lapsedCount: 0, dueCount: 0, newCount: 0, weakCount: 0 } };
+    }
+
+    const { ordered, summary } = buildStudyOrder(selectedDeck.flashcards, performance.cardStatsById);
+    return { orderedFlashcards: ordered, studySummary: summary };
+  }, [selectedDeck, performance.cardStatsById]);
+
+  const deckSummaries = useMemo(() => {
+    const entries = new Map<string, { dueCount: number; newCount: number; lapsedCount: number }>();
+    for (const deck of decks) {
+      entries.set(deck.id, getDeckStudySummary(deck.flashcards, performance.cardStatsById));
+    }
+    return entries;
+  }, [decks, performance.cardStatsById]);
 
   const handleDeckSelect = useCallback((deckId: string) => {
     trackedStudyDeckIdRef.current = null;
@@ -130,6 +256,7 @@ export default function StudyPage() {
   }, [selectedDeck, updateFlashcard]);
 
   if (showResults && selectedDeck) {
+    const needsReviewCount = studySummary.lapsedCount + studySummary.dueCount;
     return (
       <View style={styles.container}>
         <LinearGradient
@@ -147,7 +274,7 @@ export default function StudyPage() {
             <View style={styles.resultsCard}>
               <View style={styles.resultStat}>
                 <Text style={styles.resultStatValue}>{sessionResolved}</Text>
-                <Text style={styles.resultStatLabel}>Cards</Text>
+                <Text style={styles.resultStatLabel}>Reviewed</Text>
               </View>
               <View style={styles.resultStatDivider} />
               <View style={styles.resultStat}>
@@ -160,6 +287,23 @@ export default function StudyPage() {
                 <Text style={styles.resultStatLabel}>XP Earned</Text>
               </View>
             </View>
+
+            {(needsReviewCount > 0 || studySummary.newCount > 0) ? (
+              <View style={styles.srsResultBanner}>
+                {needsReviewCount > 0 ? (
+                  <View style={styles.srsResultRow}>
+                    <RefreshCw color="#F59E0B" size={14} strokeWidth={2.2} />
+                    <Text style={styles.srsResultText}>{needsReviewCount} card{needsReviewCount !== 1 ? 's' : ''} needed review — scheduled by spaced repetition</Text>
+                  </View>
+                ) : null}
+                {studySummary.newCount > 0 ? (
+                  <View style={styles.srsResultRow}>
+                    <Sparkles color="#60A5FA" size={14} strokeWidth={2.2} />
+                    <Text style={styles.srsResultText}>{studySummary.newCount} new card{studySummary.newCount !== 1 ? 's' : ''} introduced this session</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
 
             <TouchableOpacity style={styles.restartButton} onPress={handleRestart}>
               <RotateCcw color="#667eea" size={20} strokeWidth={2} />
@@ -267,20 +411,39 @@ export default function StudyPage() {
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  decks.map((deck) => (
-                    <TouchableOpacity
-                      key={deck.id}
-                      style={[styles.deckOption, { backgroundColor: theme.deckOption }]}
-                      onPress={() => handleDeckSelect(deck.id)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
-                      <View style={styles.deckOptionInfo}>
-                        <Text style={[styles.deckOptionName, { color: isDark ? '#f1f5f9' : '#333' }]}>{deck.name}</Text>
-                        <Text style={[styles.deckOptionCards, { color: isDark ? '#cbd5e1' : '#666' }]}>{deck.flashcards.length} cards</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))
+                  decks.map((deck) => {
+                    const summary = deckSummaries.get(deck.id);
+                    const actionCount = (summary?.dueCount ?? 0) + (summary?.lapsedCount ?? 0);
+                    const hasAction = actionCount > 0;
+                    const allNew = (summary?.newCount ?? 0) === deck.flashcards.length;
+                    return (
+                      <TouchableOpacity
+                        key={deck.id}
+                        style={[styles.deckOption, { backgroundColor: theme.deckOption }]}
+                        onPress={() => handleDeckSelect(deck.id)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
+                        <View style={styles.deckOptionInfo}>
+                          <Text style={[styles.deckOptionName, { color: isDark ? '#f1f5f9' : '#333' }]}>{deck.name}</Text>
+                          <View style={styles.deckOptionMeta}>
+                            <Text style={[styles.deckOptionCards, { color: isDark ? '#cbd5e1' : '#666' }]}>{deck.flashcards.length} cards</Text>
+                            {hasAction ? (
+                              <View style={styles.deckDueBadge}>
+                                <Clock color="#F59E0B" size={11} strokeWidth={2.5} />
+                                <Text style={styles.deckDueBadgeText}>{actionCount} due</Text>
+                              </View>
+                            ) : allNew ? (
+                              <View style={[styles.deckDueBadge, styles.deckNewBadge]}>
+                                <Sparkles color="#60A5FA" size={11} strokeWidth={2.5} />
+                                <Text style={[styles.deckDueBadgeText, styles.deckNewBadgeText]}>New</Text>
+                              </View>
+                            ) : null}
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })
                 )}
               </ScrollView>
             </View>
@@ -309,7 +472,7 @@ export default function StudyPage() {
         </View>
 
         <StudyFeed
-          flashcards={selectedDeck.flashcards}
+          flashcards={orderedFlashcards}
           theme={theme}
           isDark={isDark}
           onComplete={handleComplete}
@@ -350,20 +513,39 @@ export default function StudyPage() {
                   </TouchableOpacity>
                 </View>
               ) : (
-                decks.map((deck) => (
-                  <TouchableOpacity
-                    key={deck.id}
-                    style={[styles.deckOption, { backgroundColor: theme.deckOption }]}
-                    onPress={() => handleDeckSelect(deck.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
-                    <View style={styles.deckOptionInfo}>
-                      <Text style={[styles.deckOptionName, { color: isDark ? '#f1f5f9' : '#333' }]}>{deck.name}</Text>
-                      <Text style={[styles.deckOptionCards, { color: isDark ? '#cbd5e1' : '#666' }]}>{deck.flashcards.length} cards</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))
+                decks.map((deck) => {
+                  const summary = deckSummaries.get(deck.id);
+                  const actionCount = (summary?.dueCount ?? 0) + (summary?.lapsedCount ?? 0);
+                  const hasAction = actionCount > 0;
+                  const allNew = (summary?.newCount ?? 0) === deck.flashcards.length;
+                  return (
+                    <TouchableOpacity
+                      key={deck.id}
+                      style={[styles.deckOption, { backgroundColor: theme.deckOption }]}
+                      onPress={() => handleDeckSelect(deck.id)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
+                      <View style={styles.deckOptionInfo}>
+                        <Text style={[styles.deckOptionName, { color: isDark ? '#f1f5f9' : '#333' }]}>{deck.name}</Text>
+                        <View style={styles.deckOptionMeta}>
+                          <Text style={[styles.deckOptionCards, { color: isDark ? '#cbd5e1' : '#666' }]}>{deck.flashcards.length} cards</Text>
+                          {hasAction ? (
+                            <View style={styles.deckDueBadge}>
+                              <Clock color="#F59E0B" size={11} strokeWidth={2.5} />
+                              <Text style={styles.deckDueBadgeText}>{actionCount} due</Text>
+                            </View>
+                          ) : allNew ? (
+                            <View style={[styles.deckDueBadge, styles.deckNewBadge]}>
+                              <Sparkles color="#60A5FA" size={11} strokeWidth={2.5} />
+                              <Text style={[styles.deckDueBadgeText, styles.deckNewBadgeText]}>New</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
               )}
             </ScrollView>
           </View>
@@ -486,6 +668,52 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     fontWeight: '500' as const,
+  },
+  deckOptionMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 1,
+  },
+  deckDueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(245, 158, 11, 0.14)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  deckDueBadgeText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: '#D97706',
+  },
+  deckNewBadge: {
+    backgroundColor: 'rgba(96, 165, 250, 0.14)',
+  },
+  deckNewBadgeText: {
+    color: '#2563EB',
+  },
+  srsResultBanner: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+    gap: 8,
+  },
+  srsResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  srsResultText: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    color: 'rgba(255, 255, 255, 0.78)',
+    flex: 1,
   },
   resultsContainer: {
     flex: 1,
