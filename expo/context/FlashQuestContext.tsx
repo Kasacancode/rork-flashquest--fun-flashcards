@@ -286,6 +286,7 @@ function syncSampleDeck(existingDeck: Deck | undefined, sampleDeck: Deck): Deck 
 
   return {
     ...sampleDeck,
+    category: existingDeck?.category ?? sampleDeck.category,
     createdAt: existingDeck?.createdAt ?? sampleDeck.createdAt,
     flashcards: sampleDeck.flashcards.map((card) => {
       const existingCard = existingCardsById.get(card.id);
@@ -600,8 +601,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
 
   const deckCategories = useMemo(
     () => mergeDeckCategoryLibraries(
-      DEFAULT_DECK_CATEGORY_LIBRARY,
-      categoriesQuery.data ?? [],
+      categoriesQuery.data ?? DEFAULT_DECK_CATEGORY_LIBRARY,
       (decksQuery.data ?? []).map((deck) => deck.category),
     ),
     [categoriesQuery.data, decksQuery.data],

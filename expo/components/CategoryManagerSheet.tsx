@@ -16,6 +16,7 @@ import {
   CUSTOM_DECK_CATEGORY_LABEL,
   canDeleteDeckCategory,
   canRenameDeckCategory,
+  isPresetDeckCategory,
   sanitizeDeckCategory,
 } from '@/constants/deckCategories';
 import { useFlashQuest } from '@/context/FlashQuestContext';
@@ -192,7 +193,7 @@ export default function CategoryManagerSheet({
           <View style={styles.headerRow}>
             <View style={styles.titleWrap}>
               <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
-              <Text style={[styles.subtitle, { color: mutedTextColor }]}>Add, rename, or delete your custom categories.</Text>
+              <Text style={[styles.subtitle, { color: mutedTextColor }]}>Add, rename, or delete built-in and custom categories.</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={[styles.closeButton, { borderColor: subtleBorderColor }]} activeOpacity={0.8} testID={`${testID}-close`}>
               <X color={theme.textSecondary} size={18} strokeWidth={2.4} />
@@ -249,6 +250,7 @@ export default function CategoryManagerSheet({
               const isEditing = editingCategory === category;
               const isRenameable = canRenameDeckCategory(category);
               const isDeletable = canDeleteDeckCategory(category);
+              const isBuiltInPreset = isPresetDeckCategory(category);
               const deckCount = categoryCounts[category] ?? 0;
               const isBusy = activeOperation === `rename:${category}` || activeOperation === `delete:${category}`;
 
@@ -328,7 +330,7 @@ export default function CategoryManagerSheet({
                           </View>
                           <Text style={[styles.categoryMeta, { color: mutedTextColor }]}>
                             {deckCount} deck{deckCount === 1 ? '' : 's'}
-                            {isRenameable ? '' : ' · Built-in'}
+                            {isBuiltInPreset ? ' · Built-in' : ''}
                           </Text>
                         </View>
                       </TouchableOpacity>
