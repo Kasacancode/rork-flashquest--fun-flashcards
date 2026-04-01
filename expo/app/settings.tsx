@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Bell,
@@ -34,6 +35,7 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { setHapticsEnabled as syncHapticsPreference } from '@/utils/haptics';
+import { logger } from '@/utils/logger';
 import { DATA_PRIVACY_ROUTE, FAQ_ROUTE } from '@/utils/routes';
 
 const HAPTICS_KEY = 'flashquest_haptics_enabled';
@@ -97,6 +99,7 @@ function SettingsRow({
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { theme, isDark, toggleTheme } = useTheme();
   const { analyticsEnabled, setAnalyticsConsent } = usePrivacy();
   const { decks, stats } = useFlashQuest();
@@ -176,15 +179,17 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               await AsyncStorage.clear();
-              Alert.alert('All Data Cleared', 'FlashQuest cleared all local data. Restart the app to begin fresh.');
-            } catch {
+              queryClient.clear();
+              router.replace('/onboarding');
+            } catch (error) {
+              logger.error('[Settings] Failed to clear data:', error);
               Alert.alert('Clear Failed', 'FlashQuest could not clear local data. Please try again.');
             }
           },
         },
       ],
     );
-  }, []);
+  }, [queryClient, router]);
 
   const customDeckCount = useMemo<number>(() => decks.filter((deck) => deck.isCustom).length, [decks]);
   const totalCards = useMemo<number>(() => decks.reduce((sum, deck) => sum + deck.flashcards.length, 0), [decks]);
