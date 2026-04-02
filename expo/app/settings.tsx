@@ -13,6 +13,8 @@ import {
   Download,
   HelpCircle,
   Info,
+  LogIn,
+  LogOut,
   Moon,
   ShieldCheck,
   SmartphoneNfc,
@@ -20,9 +22,11 @@ import {
   Target,
   Trash2,
   Upload,
+  User,
   Vibrate,
   Volume2,
   VolumeX,
+  Cloud,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
@@ -38,6 +42,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ResponsiveContainer from '@/components/ResponsiveContainer';
+import { useAuth } from '@/context/AuthContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -125,6 +130,7 @@ export default function SettingsScreen() {
   const queryClient = useQueryClient();
   const { theme, isDark, toggleTheme } = useTheme();
   const { analyticsEnabled, setAnalyticsConsent } = usePrivacy();
+  const { isSignedIn, displayName, user, signOut } = useAuth();
   const { decks, stats } = useFlashQuest();
   const [hapticsEnabled, setHapticsEnabled] = useState<boolean>(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
@@ -216,6 +222,23 @@ export default function SettingsScreen() {
   const handleToggleAnalytics = useCallback((value: boolean) => {
     setAnalyticsConsent(value ? 'granted' : 'declined');
   }, [setAnalyticsConsent]);
+
+  const handleSignOut = useCallback(() => {
+    Alert.alert(
+      'Sign Out',
+      'Your data will stay on this device. Cloud sync is not enabled yet.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+          },
+        },
+      ],
+    );
+  }, [signOut]);
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -364,6 +387,49 @@ export default function SettingsScreen() {
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} testID="settings-screen">
           <ResponsiveContainer>
+            <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Account</Text>
+            <View style={[styles.card, { backgroundColor: surfaceBg }]}> 
+              {isSignedIn ? (
+                <>
+                  <SettingsRow
+                    icon={<User color={theme.primary} size={20} strokeWidth={2.2} />}
+                    label={displayName || 'Account'}
+                    subtitle={user?.email ?? 'Signed in'}
+                    theme={theme}
+                    testID="settings-account-row"
+                  />
+                  <Divider color={theme.border} />
+                  <SettingsRow
+                    icon={<Cloud color="#10B981" size={20} strokeWidth={2.2} />}
+                    label="Cloud sync"
+                    subtitle="Account connected. Sync coming in Phase 1B"
+                    theme={theme}
+                    testID="settings-sync-row"
+                  />
+                  <Divider color={theme.border} />
+                  <SettingsRow
+                    icon={<LogOut color={theme.error} size={20} strokeWidth={2.2} />}
+                    label="Sign out"
+                    labelColor={theme.error}
+                    onPress={handleSignOut}
+                    right={<ChevronRight color={theme.error} size={18} />}
+                    theme={theme}
+                    testID="settings-signout-row"
+                  />
+                </>
+              ) : (
+                <SettingsRow
+                  icon={<LogIn color={theme.primary} size={20} strokeWidth={2.2} />}
+                  label="Sign in"
+                  subtitle="Sync your data across devices"
+                  onPress={() => router.push('/auth')}
+                  right={<ChevronRight color={theme.textTertiary} size={18} />}
+                  theme={theme}
+                  testID="settings-signin-row"
+                />
+              )}
+            </View>
+
             <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Appearance</Text>
           <View style={[styles.card, { backgroundColor: surfaceBg }]}> 
             <SettingsRow

@@ -13,6 +13,7 @@ import LevelUpMonitor from '@/components/LevelUpMonitor';
 import OfflineBanner from '@/components/OfflineBanner';
 import ConsentSheet from '@/components/privacy/ConsentSheet';
 import { ArenaProvider } from '@/context/ArenaContext';
+import { AuthProvider } from '@/context/AuthContext';
 import { AvatarProvider } from '@/context/AvatarContext';
 import { FlashQuestProvider, useFlashQuest } from '@/context/FlashQuestContext';
 import { PerformanceProvider, usePerformance } from '@/context/PerformanceContext';
@@ -90,6 +91,7 @@ function RootLayoutNav() {
       <Stack.Screen name="text-to-deck" options={{ headerShown: false }} />
       <Stack.Screen name="deck-hub" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
+      <Stack.Screen name="auth" options={{ headerShown: false, gestureEnabled: true }} />
       <Stack.Screen name="edit-deck" options={{ headerShown: false }} />
       <Stack.Screen name="edit-flashcard" options={{ headerShown: false }} />
       <Stack.Protected guard={canAccessDebugRoute('flashcard-debug')}>
@@ -309,15 +311,17 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
             <PrivacyProvider>
-              <AvatarProvider>
-                <FlashQuestProvider>
-                  <PerformanceProvider>
-                    <ArenaProvider>
-                      <AppShell />
-                    </ArenaProvider>
-                  </PerformanceProvider>
-                </FlashQuestProvider>
-              </AvatarProvider>
+              <AuthProvider>
+                <AvatarProvider>
+                  <FlashQuestProvider>
+                    <PerformanceProvider>
+                      <ArenaProvider>
+                        <AppShell />
+                      </ArenaProvider>
+                    </PerformanceProvider>
+                  </FlashQuestProvider>
+                </AvatarProvider>
+              </AuthProvider>
             </PrivacyProvider>
           </ThemeProvider>
         </QueryClientProvider>
