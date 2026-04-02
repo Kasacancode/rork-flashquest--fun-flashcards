@@ -1,0 +1,27 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": [
+          "YOUR_APPLE_TEAM_ID.net.flashquest.app"
+        ],
+        "paths": [
+          "/join/*",
+          "/--/join/*"
+        ],
+        "components": [
+          {
+            "/": "/join/*",
+            "comment": "Arena invite deep links"
+          }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": [
+      "YOUR_APPLE_TEAM_ID.net.flashquest.app"
+    ]
+  }
+}
