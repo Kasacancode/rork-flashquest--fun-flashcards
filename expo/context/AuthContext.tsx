@@ -1,6 +1,5 @@
 import createContextHook from '@nkzw/create-context-hook';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { makeRedirectUri } from 'expo-auth-session';
 import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
 import { AppState, Alert, Platform } from 'react-native';
@@ -33,12 +32,14 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
 }
 
-function getAuthRedirectUrl(): string {
-  if (Platform.OS === 'web') {
-    return makeRedirectUri({ path: 'auth/callback' });
-  }
+function getWebOrigin(): string {
+  const scopedGlobal = globalThis as typeof globalThis & {
+    location?: {
+      origin?: string;
+    };
+  };
 
-  return 'flashquest://auth/callback';
+  return scopedGlobal.location?.origin ?? 'http://localhost:3000';
 }
 
 function getCallbackParams(url: string): URLSearchParams {
@@ -189,8 +190,27 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
 
   const signInWithGoogle = useCallback(async (): Promise<void> => {
     try {
-      const redirectTo = getAuthRedirectUrl();
-      logger.log('[Auth] Starting Google sign in', { redirectTo });
+      if (Platform.OS === 'web') {
+        logger.log('[Auth] Starting Google sign in (web redirect)');
+
+        const currentOrigin = getWebOrigin();
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: currentOrigin,
+          },
+        });
+
+        if (error) {
+          logger.warn('[Auth] Google sign-in failed:', error.message);
+          Alert.alert('Sign In Failed', error.message);
+        }
+
+        return;
+      }
+
+      const redirectTo = 'flashquest://auth/callback';
+      logger.log('[Auth] Starting Google sign in (native)', { redirectTo });
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -277,7 +297,9 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
 
   const signUpWithEmail = useCallback(async (email: string, password: string, displayName: string): Promise<AuthResult> => {
     try {
-      const redirectTo = getAuthRedirectUrl();
+      const redirectTo = Platform.OS === 'web'
+        ? getWebOrigin()
+        : 'flashquest://auth/callback';
       logger.log('[Auth] Signing up with email', { email, redirectTo });
 
       const { error } = await supabase.auth.signUp({
