@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { Redirect, Stack, router, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -20,7 +20,9 @@ import { PerformanceProvider, usePerformance } from '@/context/PerformanceContex
 import { PrivacyProvider, usePrivacy } from '@/context/PrivacyContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { setAnalyticsCollectionEnabled, trackEvent } from '@/lib/analytics';
+import { supabase } from '@/lib/supabase';
 import { trpc, trpcClient } from '@/lib/trpc';
+import { syncWithCloud } from '@/utils/cloudSync';
 import { canAccessDebugRoute } from '@/utils/debugTooling';
 import { logger } from '@/utils/logger';
 import { getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
@@ -139,6 +141,7 @@ function RootLayoutContent({ isOnboardingComplete }: { isOnboardingComplete: boo
 
 function AppShell() {
   const pathname = usePathname();
+  const reactQueryClient = useQueryClient();
   const { analyticsEnabled, setAnalyticsConsent, shouldAskForAnalyticsConsent } = usePrivacy();
   const { decks, stats } = useFlashQuest();
   const { performance } = usePerformance();
@@ -227,6 +230,30 @@ function AppShell() {
   useEffect(() => {
     latestDueCardCountRef.current = dueReviewSummary.dueCardCount;
   }, [dueReviewSummary.dueCardCount]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    supabase.auth.getSession()
+      .then(async ({ data: { session: currentSession } }) => {
+        if (!isMounted || !currentSession?.user?.id) {
+          return;
+        }
+
+        await syncWithCloud(currentSession.user.id);
+
+        if (isMounted) {
+          void reactQueryClient.invalidateQueries();
+        }
+      })
+      .catch((error) => {
+        logger.warn('[Layout] Initial cloud sync failed:', error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [reactQueryClient]);
 
   useEffect(() => {
     if (isOnboardingComplete !== true) {

@@ -13,8 +13,11 @@ import {
   sanitizeDeckCategory,
 } from '@/constants/deckCategories';
 import { SAMPLE_DECKS } from '@/data/sampleDecks';
+import { useAvatar } from '@/context/AvatarContext';
+import { supabase } from '@/lib/supabase';
 import type { Achievement, Deck, Flashcard, FlashcardNormalizationSource, UserProgress, UserStats } from '@/types/flashcard';
 import type { GameResultParams } from '@/types/game';
+import { uploadToCloud, updateLeaderboard } from '@/utils/cloudSync';
 import { mergeFlashcardUpdates, normalizeDeck, normalizeDeckCollection } from '@/utils/flashcardContent';
 import { incrementDailyProgress } from '@/utils/dailyGoal';
 import { computeLevel } from '@/utils/levels';
@@ -497,6 +500,7 @@ async function loadStatsSnapshot(): Promise<UserStats> {
 
 export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
   const queryClient = useQueryClient();
+  const { selectedIdentityKey } = useAvatar();
   const persistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
   const hiddenDeckIdsRef = useRef<Set<string>>(new Set());
 
@@ -823,10 +827,37 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       }
 
       scheduleStreakReminder({ requestPermissionIfNeeded: true }).catch(() => {});
+
+      supabase.auth.getSession()
+        .then(({ data: { session: currentSession } }) => {
+          if (!currentSession?.user?.id) {
+            return;
+          }
+
+          const displayName = typeof currentSession.user.user_metadata?.full_name === 'string' && currentSession.user.user_metadata.full_name.trim().length > 0
+            ? currentSession.user.user_metadata.full_name.trim()
+            : typeof currentSession.user.user_metadata?.name === 'string' && currentSession.user.user_metadata.name.trim().length > 0
+              ? currentSession.user.user_metadata.name.trim()
+              : currentSession.user.email?.split('@')[0] ?? 'Player';
+
+          void uploadToCloud(currentSession.user.id);
+          void updateLeaderboard(currentSession.user.id, {
+            displayName,
+            avatarKey: selectedIdentityKey,
+            totalScore: updatedStats.totalScore,
+            level: computeLevel(updatedStats.totalScore),
+            currentStreak: newStreak,
+            longestStreak: newLongest,
+            totalCardsStudied: updatedStats.totalCardsStudied,
+          });
+        })
+        .catch((error) => {
+          logger.warn('[FlashQuest] Cloud sync after session failed:', error);
+        });
     }).catch((error) => {
       logger.error('[FlashQuest] recordSessionResult task failed', error);
     });
-  }, [enqueuePersistenceTask, getHydratedProgress, getHydratedStats, queryClient, saveProgressMutateAsync, saveStatsMutateAsync]);
+  }, [enqueuePersistenceTask, getHydratedProgress, getHydratedStats, queryClient, saveProgressMutateAsync, saveStatsMutateAsync, selectedIdentityKey]);
 
   const addDeck = useCallback((deck: Deck) => {
     void enqueuePersistenceTask('addDeck', async () => {

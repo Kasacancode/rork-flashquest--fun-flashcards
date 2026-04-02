@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { uploadToCloud } from '@/utils/cloudSync';
 
 type AuthMode = 'options' | 'email-signin' | 'email-signup';
 
@@ -32,6 +33,7 @@ export default function AuthScreen() {
     signUpWithEmail,
     isSignedIn,
     isLoading,
+    user,
   } = useAuth();
   const [mode, setMode] = useState<AuthMode>('options');
   const [email, setEmail] = useState<string>('');
@@ -40,10 +42,11 @@ export default function AuthScreen() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
-    if (isSignedIn && !isLoading) {
+    if (isSignedIn && user && !isLoading) {
+      void uploadToCloud(user.id);
       router.replace('/settings');
     }
-  }, [isLoading, isSignedIn, router]);
+  }, [isLoading, isSignedIn, router, user]);
 
   const handleGoBack = useCallback(() => {
     router.replace('/settings');
