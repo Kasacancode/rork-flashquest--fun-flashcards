@@ -105,7 +105,7 @@ const LEARNING_JOURNEY: readonly LearningJourneyItem[] = [
     step: 4,
     title: 'Arena',
     tagline: 'Compete with friends',
-    description: 'Create a room, share the code, and battle a friend in real time. Same questions, same timer, fastest and most accurate wins.',
+    description: 'Create a room, share the code, and battle a friend in real time. Same questions, same timer. Fastest and most accurate wins.',
     Icon: Swords,
   },
 ] as const;
