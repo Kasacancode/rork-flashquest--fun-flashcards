@@ -531,7 +531,7 @@ export default function StudyPage() {
   const modeCardBg = isDark ? 'rgba(15, 23, 42, 0.88)' : 'rgba(255, 255, 255, 0.92)';
   const modeCardBorder = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(255, 255, 255, 0.5)';
   const modeCardShadow = isDark ? '#000' : 'rgba(80, 50, 120, 0.25)';
-  const breakdownBg = isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.25)';
+  const breakdownBg = isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.85)';
   const modeTextColor = isDark ? '#F8FAFC' : '#FFFFFF';
   const modeSubtextColor = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.75)';
 
@@ -572,15 +572,15 @@ export default function StudyPage() {
                 </Text>
               ) : null}
               {studySummary.dueCount > 0 ? (
-                <Text style={[styles.breakdownItem, { color: '#F59E0B' }]}>
+                <Text style={[styles.breakdownItem, { color: isDark ? '#F59E0B' : '#D97706' }]}>
                   {studySummary.dueCount} due
                 </Text>
               ) : null}
-              <Text style={[styles.breakdownItem, { color: modeSubtextColor }]}>
+              <Text style={[styles.breakdownItem, { color: isDark ? modeSubtextColor : '#64748B' }]}>
                 {studySummary.newCount} new
               </Text>
               {studySummary.weakCount > 0 ? (
-                <Text style={[styles.breakdownItem, { color: '#F97316' }]}>
+                <Text style={[styles.breakdownItem, { color: isDark ? '#F97316' : '#EA580C' }]}>
                   {studySummary.weakCount} weak
                 </Text>
               ) : null}
