@@ -10,6 +10,7 @@ import {
   BellOff,
   BookOpen,
   ChevronRight,
+  Download,
   HelpCircle,
   Info,
   Moon,
@@ -18,6 +19,7 @@ import {
   Sun,
   Target,
   Trash2,
+  Upload,
   Vibrate,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -39,6 +41,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { getDailyGoalTarget, setDailyGoalTarget, DAILY_GOAL_OPTIONS } from '@/utils/dailyGoal';
 import { setHapticsEnabled as syncHapticsPreference } from '@/utils/haptics';
 import { logger } from '@/utils/logger';
+import { exportBackup, importBackup } from '@/utils/dataBackup';
 import { clearScheduledStreakReminders, NOTIFICATIONS_ENABLED_KEY } from '@/utils/notifications';
 import { DATA_PRIVACY_ROUTE, FAQ_ROUTE } from '@/utils/routes';
 import { getUserInterests } from '@/utils/userInterests';
@@ -124,6 +127,8 @@ export default function SettingsScreen() {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(null);
   const [userInterests, setUserInterestsState] = useState<string[]>([]);
   const [dailyGoal, setDailyGoal] = useState<number>(15);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [isImporting, setIsImporting] = useState<boolean>(false);
 
   useEffect(() => {
     getUserInterests().then(setUserInterestsState).catch(() => {});
@@ -196,6 +201,8 @@ export default function SettingsScreen() {
     setAnalyticsConsent(value ? 'granted' : 'declined');
   }, [setAnalyticsConsent]);
 
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+
   const handleChangeDailyGoal = useCallback(() => {
     Alert.alert(
       'Daily Study Goal',
@@ -209,6 +216,81 @@ export default function SettingsScreen() {
       })),
     );
   }, [dailyGoal]);
+
+  const handleExportData = useCallback(async () => {
+    if (isExporting) {
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      const result = await exportBackup(appVersion);
+      if (!result.success && result.error) {
+        Alert.alert('Export Failed', result.error);
+      }
+    } catch (error) {
+      logger.error('[Settings] Export failed unexpectedly:', error);
+      Alert.alert('Export Failed', 'Could not create the backup file. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [appVersion, isExporting]);
+
+  const handleImportData = useCallback(() => {
+    Alert.alert(
+      'Restore from Backup',
+      'This will replace ALL your current data (decks, stats, and progress) with the data from the backup file. This cannot be undone.\n\nAre you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Choose Backup File',
+          onPress: async () => {
+            if (isImporting) {
+              return;
+            }
+
+            setIsImporting(true);
+
+            try {
+              const result = await importBackup();
+
+              if (result.success) {
+                await Promise.all([
+                  queryClient.invalidateQueries({ queryKey: ['decks'] }),
+                  queryClient.invalidateQueries({ queryKey: ['progress'] }),
+                  queryClient.invalidateQueries({ queryKey: ['stats'] }),
+                  queryClient.invalidateQueries({ queryKey: ['deck-categories'] }),
+                  queryClient.invalidateQueries({ queryKey: ['hidden-deck-ids'] }),
+                  queryClient.invalidateQueries({ queryKey: ['performance'] }),
+                  queryClient.invalidateQueries({ queryKey: ['avatar-identity'] }),
+                  queryClient.invalidateQueries({ queryKey: ['arena-player-name'] }),
+                ]);
+
+                Alert.alert(
+                  'Restore Complete',
+                  `Successfully restored ${result.keysRestored} data entries from backup.\n\nThe app will now reload.`,
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => router.replace('/'),
+                    },
+                  ],
+                );
+              } else if (result.error && result.error !== 'No file selected.') {
+                Alert.alert('Restore Failed', result.error);
+              }
+            } catch (error) {
+              logger.error('[Settings] Import failed unexpectedly:', error);
+              Alert.alert('Restore Failed', 'Could not read the backup file. Please try again.');
+            } finally {
+              setIsImporting(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [isImporting, queryClient, router]);
 
   const handleClearAllData = useCallback(() => {
     Alert.alert(
@@ -241,7 +323,6 @@ export default function SettingsScreen() {
     : ['#E0E7FF', '#EDE9FE', '#E0E7FF'];
   const surfaceBg = isDark ? 'rgba(30, 41, 59, 0.72)' : 'rgba(255, 255, 255, 0.88)';
   const sectionLabelColor = isDark ? theme.textTertiary : theme.textSecondary;
-  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
   const notificationSubtitle = notificationPermission === 'denied'
     ? 'Blocked in system settings'
     : notificationsEnabled
@@ -421,6 +502,29 @@ export default function SettingsScreen() {
               <Text style={[styles.dataLabel, { color: theme.textSecondary }]}>Total Score</Text>
               <Text style={[styles.dataValue, { color: theme.text }]}>{stats.totalScore.toLocaleString()}</Text>
             </View>
+          </View>
+
+          <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Backup</Text>
+          <View style={[styles.card, { backgroundColor: surfaceBg }]}> 
+            <SettingsRow
+              icon={<Download color={theme.primary} size={20} strokeWidth={2.2} />}
+              label="Export My Data"
+              subtitle={isExporting ? 'Creating backup...' : 'Save decks, stats, and progress as a file'}
+              onPress={handleExportData}
+              right={<ChevronRight color={theme.textTertiary} size={18} />}
+              theme={theme}
+              testID="settings-export-data"
+            />
+            <Divider color={theme.border} />
+            <SettingsRow
+              icon={<Upload color={theme.primary} size={20} strokeWidth={2.2} />}
+              label="Restore from Backup"
+              subtitle={isImporting ? 'Restoring...' : 'Load a previously exported backup file'}
+              onPress={handleImportData}
+              right={<ChevronRight color={theme.textTertiary} size={18} />}
+              theme={theme}
+              testID="settings-import-data"
+            />
           </View>
 
           <Text style={[styles.sectionLabel, { color: theme.error }]} accessibilityRole="header">Danger Zone</Text>

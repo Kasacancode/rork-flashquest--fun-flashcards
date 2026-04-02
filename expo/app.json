@@ -51,6 +51,9 @@
           "photosPermission": "FlashQuest uses your photo library so you can choose images of notes, textbook pages, or study materials and turn them into flashcards.",
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-document-picker"
       ]
     ],
     "experiments": {
