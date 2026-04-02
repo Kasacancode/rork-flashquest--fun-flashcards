@@ -2,12 +2,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { triggerImpact, triggerNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/utils/haptics';
 import { useRouter } from 'expo-router';
 import { Trophy, Target, Medal, RotateCcw, Home, Users, ChevronDown, ChevronUp, Save, Share2 } from 'lucide-react-native';
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { AnswerEntry, RoomQuestion } from '@/backend/arena/types';
 import { DealerReaction } from '@/components/AnswerCard';
+import ShareableResultCard, { type ResultCardData } from '@/components/ShareableResultCard';
 import { trackEvent } from '@/lib/analytics';
 import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
@@ -17,7 +18,7 @@ import { GAME_MODE } from '@/types/game';
 import { selectAssistantDialogue } from '@/utils/dialogue';
 import { getIndexedRenderKey, getOptionalRenderKey } from '@/utils/listKeys';
 import { logger } from '@/utils/logger';
-import { shareTextWithFallback } from '@/utils/share';
+import { captureAndShareImage, shareTextWithFallback } from '@/utils/share';
 import { ARENA_LOBBY_ROUTE, HOME_ROUTE, focusedQuestSessionHref, questHref } from '@/utils/routes';
 
 interface ResultPlayer {
@@ -86,7 +87,9 @@ export default function ArenaResultsScreen() {
 
   const [showMissedCards, setShowMissedCards] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showShareCard, setShowShareCard] = useState<boolean>(false);
   const cachedRef = useRef<CachedResults | null>(null);
+  const shareCardRef = useRef<View>(null);
   const xpRecordedRef = useRef(false);
 
   useEffect(() => {
@@ -245,6 +248,34 @@ export default function ArenaResultsScreen() {
     return `🏆 FlashQuest Arena Winner\n${winnerDisplayName}\n\n${winnerStatsText}\n\nI took the crown in FlashQuest Arena.\nThink you can beat this?\nPlay FlashQuest.${roomCodeLine}`;
   }, [data?.roomCode, winner, winnerDisplayName, winnerStatsText]);
 
+  const shareCardData = useMemo<ResultCardData | null>(() => {
+    if (!data || !winner) {
+      return null;
+    }
+
+    const winningScore = data.scores[winner.id];
+    const opponent = sortedPlayers.find((player) => player.id !== winner.id);
+    const opponentScore = opponent ? data.scores[opponent.id] : undefined;
+    const accuracy = winningScore && (winningScore.correct + winningScore.incorrect) > 0
+      ? winningScore.correct / (winningScore.correct + winningScore.incorrect)
+      : 0;
+
+    return {
+      mode: 'arena',
+      title: playerId === winner.id ? 'Victory!' : 'Defeated',
+      playerName: winner.name,
+      deckName: data.deckName ?? 'Unknown Deck',
+      score: winningScore?.points ?? 0,
+      accuracy,
+      correctCount: winningScore?.correct ?? 0,
+      totalRounds: data.totalQuestions ?? 0,
+      streakBest: winningScore?.bestStreak,
+      opponentName: opponent?.name,
+      opponentScore: opponentScore?.points,
+      isWinner: playerId === winner.id,
+    };
+  }, [data, playerId, sortedPlayers, winner]);
+
   const missedQuestions = useMemo(() => {
     if (!data?.allQuestions || !data.allAnswers) {
       return [] as { cardId: string; question: string; correctAnswer: string; correctAnswerDisplay: string; questionIndex: number }[];
@@ -353,6 +384,14 @@ export default function ArenaResultsScreen() {
       triggerImpact(ImpactFeedbackStyle.Light);
     }
   }, [shareMessage, winner]);
+
+  const handleShareAsImage = useCallback(async () => {
+    const shareResult = await captureAndShareImage(shareCardRef, 'flashquest-arena-result');
+
+    if (shareResult !== 'failed') {
+      setShowShareCard(false);
+    }
+  }, []);
 
   const handleRetryMissed = useCallback(() => {
     if (!data?.deckId || missedQuestions.length === 0) {
@@ -745,6 +784,20 @@ export default function ArenaResultsScreen() {
               <Text style={[styles.shareButtonText, { color: theme.primary }]}>Share Results</Text>
             </TouchableOpacity>
 
+            {shareCardData ? (
+              <TouchableOpacity
+                style={[styles.secondaryButton, { borderColor: theme.primary }]}
+                onPress={() => setShowShareCard(true)}
+                activeOpacity={0.7}
+                accessibilityLabel="Share results as image"
+                accessibilityRole="button"
+                testID="arena-results-share-image"
+              >
+                <Share2 color={theme.primary} size={20} strokeWidth={2.2} />
+                <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>Share as Image</Text>
+              </TouchableOpacity>
+            ) : null}
+
             {data?.deckId && (
               <TouchableOpacity
                 style={[styles.secondaryButton, { borderColor: theme.border }]}
@@ -813,6 +866,44 @@ export default function ArenaResultsScreen() {
             </TouchableOpacity>
           </View>
         </ScrollView>
+
+        {shareCardData ? (
+          <Modal
+            visible={showShareCard}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowShareCard(false)}
+            testID="arena-share-modal"
+          >
+            <View style={styles.shareModalBackdrop}>
+              <View style={styles.shareModalContent}>
+                <ShareableResultCard ref={shareCardRef} data={shareCardData} />
+                <View style={styles.shareModalActions}>
+                  <TouchableOpacity
+                    style={styles.shareModalButton}
+                    onPress={() => {
+                      void handleShareAsImage();
+                    }}
+                    activeOpacity={0.8}
+                    accessibilityLabel="Share image"
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.shareModalButtonText}>Share</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.shareModalCancelButton}
+                    onPress={() => setShowShareCard(false)}
+                    activeOpacity={0.8}
+                    accessibilityLabel="Cancel"
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.shareModalCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        ) : null}
       </SafeAreaView>
     </View>
   );
@@ -1331,5 +1422,43 @@ const styles = StyleSheet.create({
   tertiaryButtonText: {
     fontSize: 15,
     fontWeight: '500' as const,
+  },
+  shareModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shareModalContent: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  shareModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  shareModalButton: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  shareModalButtonText: {
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '800' as const,
+  },
+  shareModalCancelButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  shareModalCancelText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700' as const,
   },
 });

@@ -1,5 +1,8 @@
 import * as Clipboard from 'expo-clipboard';
-import { Alert, Share } from 'react-native';
+import * as Sharing from 'expo-sharing';
+import type { RefObject } from 'react';
+import { Alert, Platform, Share, View } from 'react-native';
+import { captureRef } from 'react-native-view-shot';
 
 import { logger } from '@/utils/logger';
 
@@ -123,4 +126,48 @@ export async function shareTextWithFallback({
 
   Alert.alert(fallbackTitle, fallbackMessage);
   return 'failed';
+}
+
+export async function captureAndShareImage(
+  viewRef: RefObject<View | null>,
+  filename: string,
+): Promise<ShareResult> {
+  if (Platform.OS === 'web') {
+    Alert.alert('Sharing Unavailable', 'Image sharing is not available on web.');
+    return 'failed';
+  }
+
+  if (!viewRef.current) {
+    Alert.alert('Share Failed', 'Could not create the image. Please try again.');
+    return 'failed';
+  }
+
+  try {
+    logger.log('[Share] Capturing image for share', { filename });
+
+    const uri = await captureRef(viewRef.current, {
+      format: 'png',
+      quality: 1,
+      result: 'tmpfile',
+    });
+
+    const isSharingAvailable = await Sharing.isAvailableAsync();
+    if (!isSharingAvailable) {
+      Alert.alert('Sharing Unavailable', 'Image sharing is not available on this device.');
+      return 'failed';
+    }
+
+    await Sharing.shareAsync(uri, {
+      mimeType: 'image/png',
+      dialogTitle: 'Share Results',
+      UTI: 'public.png',
+    });
+
+    logger.log('[Share] Shared captured image successfully', { filename });
+    return 'shared';
+  } catch (error) {
+    logger.warn('[Share] Image capture/share failed:', error);
+    Alert.alert('Share Failed', 'Could not create the image. Please try again.');
+    return 'failed';
+  }
 }

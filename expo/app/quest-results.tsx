@@ -1,17 +1,19 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Trophy, Target, Zap, Clock, RotateCcw, BookOpen, Home, ChevronDown, ChevronUp } from 'lucide-react-native';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { Trophy, Target, Zap, Clock, RotateCcw, BookOpen, Home, ChevronDown, ChevronUp, Share2 } from 'lucide-react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import DealerPlaceholder from '@/components/DealerPlaceholder';
+import ShareableResultCard, { type ResultCardData } from '@/components/ShareableResultCard';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getQuestCompletionDialogueEvent, selectAssistantDialogue } from '@/utils/dialogue';
 import { logger } from '@/utils/logger';
 import { parseQuestResultParam, serializeQuestSettings } from '@/utils/questParams';
 import { HOME_ROUTE, QUEST_ROUTE, focusedQuestSessionHref, questSessionHref, studyHref } from '@/utils/routes';
+import { captureAndShareImage } from '@/utils/share';
 import { maybePromptReview } from '@/utils/storeReview';
 
 export default function QuestResultsScreen() {
@@ -21,6 +23,8 @@ export default function QuestResultsScreen() {
   const { decks, stats } = useFlashQuest();
 
   const [showMissedCards, setShowMissedCards] = useState(false);
+  const [showShareCard, setShowShareCard] = useState<boolean>(false);
+  const shareCardRef = useRef<View>(null);
   const reviewPromptStatsRef = useRef({
     totalStudySessions: stats.totalStudySessions,
     totalQuestSessions: stats.totalQuestSessions,
@@ -79,6 +83,23 @@ export default function QuestResultsScreen() {
     event: resultDialogueEvent,
   }), [resultDialogueEvent]);
 
+  const shareCardData = useMemo<ResultCardData | null>(() => {
+    if (!result || !deck) {
+      return null;
+    }
+
+    return {
+      mode: 'quest',
+      title: result.accuracy >= 0.9 ? 'Outstanding!' : result.accuracy >= 0.7 ? 'Great Job!' : 'Keep Practicing!',
+      deckName: deck.name,
+      score: result.totalScore ?? 0,
+      accuracy: result.accuracy ?? 0,
+      correctCount: result.correctCount ?? 0,
+      totalRounds: result.totalRounds ?? 0,
+      streakBest: result.bestStreak,
+    };
+  }, [deck, result]);
+
   const handlePlayAgain = () => {
     if (!result) {
       router.replace(QUEST_ROUTE);
@@ -108,6 +129,14 @@ export default function QuestResultsScreen() {
   const handleGoHome = () => {
     router.replace(HOME_ROUTE);
   };
+
+  const handleShareAsImage = useCallback(async () => {
+    const shareResult = await captureAndShareImage(shareCardRef, 'flashquest-quest-result');
+
+    if (shareResult !== 'failed') {
+      setShowShareCard(false);
+    }
+  }, []);
 
   if (!result) {
     return (
@@ -294,15 +323,27 @@ export default function QuestResultsScreen() {
               </TouchableOpacity>
             )}
 
+            {shareCardData ? (
+              <TouchableOpacity
+                style={[styles.secondaryButton, { borderColor: theme.primary }]}
+                onPress={() => setShowShareCard(true)}
+                activeOpacity={0.7}
+                accessibilityLabel="Share results as image"
+                accessibilityRole="button"
+                testID="quest-results-share-image"
+              >
+                <Share2 color={theme.primary} size={20} strokeWidth={2.2} />
+                <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>Share as Image</Text>
+              </TouchableOpacity>
+            ) : null}
+
             <TouchableOpacity
               style={[styles.secondaryButton, { borderColor: theme.primary }]}
               onPress={handleBackToMenu}
               activeOpacity={0.7}
             >
               <BookOpen color={theme.primary} size={20} />
-              <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>
-                Quest Menu
-              </Text>
+              <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>Quest Menu</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -317,6 +358,44 @@ export default function QuestResultsScreen() {
             </TouchableOpacity>
           </View>
         </ScrollView>
+
+        {shareCardData ? (
+          <Modal
+            visible={showShareCard}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowShareCard(false)}
+            testID="quest-share-modal"
+          >
+            <View style={styles.shareModalBackdrop}>
+              <View style={styles.shareModalContent}>
+                <ShareableResultCard ref={shareCardRef} data={shareCardData} />
+                <View style={styles.shareModalActions}>
+                  <TouchableOpacity
+                    style={styles.shareModalButton}
+                    onPress={() => {
+                      void handleShareAsImage();
+                    }}
+                    activeOpacity={0.8}
+                    accessibilityLabel="Share image"
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.shareModalButtonText}>Share</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.shareModalCancelButton}
+                    onPress={() => setShowShareCard(false)}
+                    activeOpacity={0.8}
+                    accessibilityLabel="Cancel"
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.shareModalCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        ) : null}
       </SafeAreaView>
     </View>
   );
@@ -548,5 +627,43 @@ const styles = StyleSheet.create({
   tertiaryButtonText: {
     fontSize: 15,
     fontWeight: '500' as const,
+  },
+  shareModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shareModalContent: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  shareModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  shareModalButton: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  shareModalButtonText: {
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '800' as const,
+  },
+  shareModalCancelButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  shareModalCancelText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700' as const,
   },
 });

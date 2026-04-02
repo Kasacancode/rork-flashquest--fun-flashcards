@@ -1,10 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, MoreHorizontal, Pencil, RotateCcw, Trash2, Upload } from 'lucide-react-native';
+import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, MoreHorizontal, Pencil, QrCode, RotateCcw, Trash2, Upload } from 'lucide-react-native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import DeckQRSheet from '@/components/DeckQRSheet';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -79,6 +80,7 @@ export default function DeckHubScreen() {
   const { performance, getDeckAccuracy, getWeakCards, getCardsDueForReview, getLapsedCards, cleanupDeck } = usePerformance();
   const { theme, isDark } = useTheme();
   const [menuVisible, setMenuVisible] = useState<boolean>(false);
+  const [showQR, setShowQR] = useState<boolean>(false);
   const menuBtnRef = useRef<View>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
 
@@ -141,6 +143,24 @@ export default function DeckHubScreen() {
     }
     return `${days} days ago`;
   }, [deckId, performance.deckStatsById]);
+
+  const qrPayload = useMemo(() => {
+    if (!deck) {
+      return '';
+    }
+
+    return JSON.stringify({
+      _type: 'flashquest_deck',
+      name: deck.name,
+      description: deck.description,
+      color: deck.color,
+      category: deck.category,
+      flashcards: deck.flashcards.map((card) => ({
+        question: card.question,
+        answer: card.answer,
+      })),
+    });
+  }, [deck]);
 
   const openMenu = useCallback(() => {
     menuBtnRef.current?.measure((_x, _y, _w, height, _px, py) => {
@@ -210,6 +230,11 @@ export default function DeckHubScreen() {
       copiedMessage: `"${deck.name}" has been copied to your clipboard. Paste it in a message to share with friends.`,
     });
   }, [deck]);
+
+  const handleShowQR = useCallback(() => {
+    setMenuVisible(false);
+    setShowQR(true);
+  }, []);
 
   const handleResetProgress = useCallback(() => {
     if (!deck) {
@@ -608,6 +633,15 @@ export default function DeckHubScreen() {
                 <Upload color={theme.primary} size={18} strokeWidth={2.2} />
                 <Text style={[styles.menuItemText, { color: theme.text }]}>Share Deck</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={handleShowQR}
+                activeOpacity={0.75}
+                testID="deckHubQRButton"
+              >
+                <QrCode color={theme.primary} size={18} strokeWidth={2.2} />
+                <Text style={[styles.menuItemText, { color: theme.text }]}>Share as QR Code</Text>
+              </TouchableOpacity>
               <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
               <TouchableOpacity
                 style={styles.menuItem}
@@ -630,6 +664,13 @@ export default function DeckHubScreen() {
             </View>
           </Pressable>
         </Modal>
+
+        <DeckQRSheet
+          visible={showQR}
+          onClose={() => setShowQR(false)}
+          deckName={deck.name}
+          payload={qrPayload}
+        />
       </SafeAreaView>
     </View>
   );
