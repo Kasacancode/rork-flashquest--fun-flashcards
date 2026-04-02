@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, MoreHorizontal, Pencil, QrCode, RotateCcw, Trash2, Upload } from 'lucide-react-native';
+import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, Globe, MoreHorizontal, Pencil, QrCode, RotateCcw, Trash2, Upload } from 'lucide-react-native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,11 +8,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CardScheduleList from '@/components/CardScheduleList';
 import DeckQRSheet from '@/components/DeckQRSheet';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
+import { useAuth } from '@/context/AuthContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { exportDeckToSharePayload } from '@/utils/deckImport';
 import { computeDeckMastery } from '@/utils/mastery';
+import { publishDeck } from '@/utils/marketplaceService';
 import { DECKS_ROUTE, editDeckHref, focusedQuestSessionHref } from '@/utils/routes';
 import { shareTextWithFallback } from '@/utils/share';
 import { generateUUID } from '@/utils/uuid';
@@ -81,8 +83,10 @@ export default function DeckHubScreen() {
   const { decks, addDeck, deleteDeck } = useFlashQuest();
   const { performance, getDeckAccuracy, getWeakCards, getCardsDueForReview, getLapsedCards, cleanupDeck } = usePerformance();
   const { theme, isDark } = useTheme();
+  const { isSignedIn, user, displayName } = useAuth();
   const [menuVisible, setMenuVisible] = useState<boolean>(false);
   const [showQR, setShowQR] = useState<boolean>(false);
+  const [isPublishing, setIsPublishing] = useState<boolean>(false);
   const menuBtnRef = useRef<View>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
 
@@ -237,6 +241,80 @@ export default function DeckHubScreen() {
     setMenuVisible(false);
     setShowQR(true);
   }, []);
+
+  const handlePublishDeck = useCallback(() => {
+    if (!deck) {
+      return;
+    }
+
+    setMenuVisible(false);
+
+    if (!isSignedIn || !user?.id) {
+      Alert.alert(
+        'Sign In Required',
+        'You need to sign in to publish decks to the community.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Sign In', onPress: () => router.push('/auth') },
+        ],
+      );
+      return;
+    }
+
+    if (deck.flashcards.length < 3) {
+      Alert.alert('Too Few Cards', 'Decks need at least 3 cards to be published.');
+      return;
+    }
+
+    Alert.alert(
+      'Publish to Community',
+      `Share "${deck.name}" (${deck.flashcards.length} cards) with the FlashQuest community?\n\nAnyone will be able to download and study this deck. Your name will appear as the publisher.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Publish',
+          onPress: async () => {
+            if (isPublishing) {
+              return;
+            }
+
+            setIsPublishing(true);
+
+            const publisherName = displayName || user.email?.split('@')[0] || 'Anonymous';
+
+            const result = await publishDeck(user.id, publisherName, {
+              name: deck.name,
+              description: deck.description,
+              category: deck.category,
+              color: deck.color,
+              icon: deck.icon,
+              flashcards: deck.flashcards.map((card) => ({
+                question: card.question,
+                answer: card.answer,
+                hint1: card.hint1,
+                hint2: card.hint2,
+                explanation: card.explanation,
+                difficulty: card.difficulty,
+              })),
+            });
+
+            setIsPublishing(false);
+
+            if (result.success) {
+              Alert.alert(
+                result.isUpdate ? 'Deck Updated!' : 'Deck Published!',
+                result.isUpdate
+                  ? `"${deck.name}" has been updated in the community marketplace.`
+                  : `"${deck.name}" is now available for anyone to download on the Explore screen.`,
+              );
+            } else {
+              Alert.alert('Publish Failed', result.error ?? 'Could not publish the deck. Please try again.');
+            }
+          },
+        },
+      ],
+    );
+  }, [deck, displayName, isPublishing, isSignedIn, router, user]);
 
   const handleResetProgress = useCallback(() => {
     if (!deck) {
@@ -650,6 +728,17 @@ export default function DeckHubScreen() {
               >
                 <QrCode color={theme.primary} size={18} strokeWidth={2.2} />
                 <Text style={[styles.menuItemText, { color: theme.text }]}>Share as QR Code</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={handlePublishDeck}
+                activeOpacity={0.75}
+                testID="publishDeckButton"
+              >
+                <Globe color={isPublishing ? theme.textTertiary : '#6366F1'} size={18} strokeWidth={2.2} />
+                <Text style={[styles.menuItemText, { color: isPublishing ? theme.textTertiary : theme.text }]}>
+                  {isPublishing ? 'Publishing...' : 'Publish to Community'}
+                </Text>
               </TouchableOpacity>
               <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
               <TouchableOpacity

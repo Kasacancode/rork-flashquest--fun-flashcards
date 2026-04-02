@@ -216,3 +216,82 @@ export async function getUserVotes(userId: string): Promise<Record<string, 1 | -
     return {};
   }
 }
+
+export async function publishDeck(
+  userId: string,
+  publisherName: string,
+  deck: {
+    name: string;
+    description: string;
+    category: string;
+    color: string;
+    icon: string;
+    flashcards: { question: string; answer: string; hint1?: string; hint2?: string; explanation?: string; difficulty?: string }[];
+  },
+): Promise<{ success: boolean; error?: string; isUpdate?: boolean }> {
+  try {
+    const deckData = deck.flashcards.map((card) => ({
+      question: card.question,
+      answer: card.answer,
+      hint1: card.hint1 || undefined,
+      hint2: card.hint2 || undefined,
+      explanation: card.explanation || undefined,
+    }));
+
+    const { data: existing } = await supabase
+      .from('public_decks')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('name', deck.name)
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await supabase
+        .from('public_decks')
+        .update({
+          description: deck.description,
+          category: deck.category,
+          color: deck.color,
+          icon: deck.icon,
+          card_count: deckData.length,
+          deck_data: deckData,
+          publisher_name: publisherName,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id);
+
+      if (error) {
+        logger.warn('[Marketplace] Update failed:', error.message);
+        return { success: false, error: error.message };
+      }
+
+      logger.log('[Marketplace] Updated existing published deck:', deck.name);
+      return { success: true, isUpdate: true };
+    }
+
+    const { error } = await supabase
+      .from('public_decks')
+      .insert({
+        user_id: userId,
+        publisher_name: publisherName,
+        name: deck.name,
+        description: deck.description,
+        category: deck.category,
+        color: deck.color,
+        icon: deck.icon,
+        card_count: deckData.length,
+        deck_data: deckData,
+      });
+
+    if (error) {
+      logger.warn('[Marketplace] Publish failed:', error.message);
+      return { success: false, error: error.message };
+    }
+
+    logger.log('[Marketplace] Published deck:', deck.name);
+    return { success: true, isUpdate: false };
+  } catch (error) {
+    logger.warn('[Marketplace] Publish error:', error);
+    return { success: false, error: 'An unexpected error occurred.' };
+  }
+}
