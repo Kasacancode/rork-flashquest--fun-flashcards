@@ -501,14 +501,16 @@ export default function HomePage() {
                       >
                         LV {level}
                       </Text>
-                      <Text
-                        style={[styles.statLabel, styles.rankLabel, { color: statsLabelColor }]}
-                        numberOfLines={2}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.8}
-                      >
-                        {levelEntry.title}
-                      </Text>
+                      <View style={styles.rankLabelWrap}>
+                        <Text
+                          style={[styles.statLabel, styles.rankLabel, { color: statsLabelColor }]}
+                          numberOfLines={2}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.8}
+                        >
+                          {levelEntry.title}
+                        </Text>
+                      </View>
                     </View>
                     <View style={[styles.statDivider, { backgroundColor: statsDividerColor }]} />
                     <View style={styles.statItem}>
@@ -972,8 +974,11 @@ const styles = StyleSheet.create<{
     textAlign: 'center',
     letterSpacing: 0.08,
   },
-  rankLabel: {
+  rankLabelWrap: {
     minHeight: 30,
+    justifyContent: 'center',
+  },
+  rankLabel: {
     paddingHorizontal: 4,
     lineHeight: 15,
   },
