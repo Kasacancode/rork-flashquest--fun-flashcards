@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 import { Redirect, Stack, router, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useRef, useState } from 'react';
-import { LogBox, Platform } from 'react-native';
+import { ActivityIndicator, Image, LogBox, Platform, StyleSheet as LayoutStyles, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import AchievementMonitor from '@/components/AchievementMonitor';
@@ -17,7 +17,7 @@ import { AvatarProvider } from '@/context/AvatarContext';
 import { FlashQuestProvider } from '@/context/FlashQuestContext';
 import { PerformanceProvider } from '@/context/PerformanceContext';
 import { PrivacyProvider, usePrivacy } from '@/context/PrivacyContext';
-import { ThemeProvider } from '@/context/ThemeContext';
+import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { setAnalyticsCollectionEnabled, trackEvent } from '@/lib/analytics';
 import { trpc, trpcClient } from '@/lib/trpc';
 import { canAccessDebugRoute } from '@/utils/debugTooling';
@@ -46,6 +46,20 @@ const queryClient = new QueryClient({
       retry: 2,
       staleTime: 1000 * 60,
     },
+  },
+});
+
+const layoutStyles = LayoutStyles.create({
+  startupLoadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  startupLogo: {
+    width: 72,
+    height: 72,
+    marginBottom: 24,
+    opacity: 0.85,
   },
 });
 
@@ -85,6 +99,7 @@ function RootLayoutNav() {
 }
 
 function RootLayoutContent({ isOnboardingComplete }: { isOnboardingComplete: boolean | null }) {
+  const { theme, isDark } = useTheme();
   const pathname = usePathname();
   const previousPathnameRef = useRef<string | null>(null);
   const isReturningFromOnboarding = previousPathnameRef.current === '/onboarding' && pathname === '/';
@@ -94,7 +109,16 @@ function RootLayoutContent({ isOnboardingComplete }: { isOnboardingComplete: boo
   }, [pathname]);
 
   if (isOnboardingComplete === null) {
-    return null;
+    return (
+      <View style={[layoutStyles.startupLoadingContainer, { backgroundColor: theme.background }]}>
+        <Image
+          source={require('../assets/images/flashquest-q-logo.png')}
+          style={layoutStyles.startupLogo}
+          resizeMode="contain"
+        />
+        <ActivityIndicator size="small" color={isDark ? '#8b5cf6' : '#667eea'} />
+      </View>
+    );
   }
 
   if (!isOnboardingComplete && pathname !== '/onboarding' && !isReturningFromOnboarding) {
