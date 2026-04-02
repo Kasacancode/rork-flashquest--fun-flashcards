@@ -2,36 +2,37 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 
 import { useTheme } from '@/context/ThemeContext';
+import { useReduceMotion } from '@/utils/reduceMotion';
 
 const IDLE_LINES = [
-  "Pick a card, any card.",
+  'Pick a card, any card.',
   "Let's see what you've got.",
-  "Ready when you are.",
-  "Make your choice.",
-  "Trust your instincts.",
-  "The cards await.",
+  'Ready when you are.',
+  'Make your choice.',
+  'Trust your instincts.',
+  'The cards await.',
 ];
 
 const CORRECT_LINES = [
-  "Sharp.",
-  "Lucky pull.",
+  'Sharp.',
+  'Lucky pull.',
   "You're learning fast.",
-  "Impressive.",
-  "Well played.",
-  "Nicely done.",
-  "Correct!",
+  'Impressive.',
+  'Well played.',
+  'Nicely done.',
+  'Correct!',
   "You've got skill.",
 ];
 
 const WRONG_LINES = [
-  "Not this one.",
-  "Bad draw.",
-  "Try again.",
-  "Close, but no.",
-  "Better luck next time.",
+  'Not this one.',
+  'Bad draw.',
+  'Try again.',
+  'Close, but no.',
+  'Better luck next time.',
   "That's not it.",
-  "Wrong card.",
-  "Keep practicing.",
+  'Wrong card.',
+  'Keep practicing.',
 ];
 
 type DialogueType = 'idle' | 'correct' | 'wrong';
@@ -44,12 +45,12 @@ interface DealerPlaceholderProps {
 }
 
 function getRandomLine(lines: string[], lastLine?: string): string {
-  const available = lines.filter(l => l !== lastLine);
+  const available = lines.filter((line) => line !== lastLine);
   const pool = available.length > 0 ? available : lines;
-  return pool[Math.floor(Math.random() * pool.length)];
+  return pool[Math.floor(Math.random() * pool.length)] ?? lines[0] ?? '';
 }
 
-export default function DealerPlaceholder({ 
+export default function DealerPlaceholder({
   dialogueType = 'idle',
   customDialogue,
   size = 'normal',
@@ -57,13 +58,16 @@ export default function DealerPlaceholder({
 }: DealerPlaceholderProps) {
   const isSmall = size === 'small';
   const { theme } = useTheme();
+  const reduceMotion = useReduceMotion();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const lastLineRef = useRef<string>('');
 
   const getDialogue = (): string => {
-    if (typeof customDialogue === 'string') return customDialogue;
-    
+    if (typeof customDialogue === 'string') {
+      return customDialogue;
+    }
+
     let lines: string[];
     switch (dialogueType) {
       case 'correct':
@@ -75,7 +79,7 @@ export default function DealerPlaceholder({
       default:
         lines = IDLE_LINES;
     }
-    
+
     const line = getRandomLine(lines, lastLineRef.current);
     lastLineRef.current = line;
     return line;
@@ -84,9 +88,15 @@ export default function DealerPlaceholder({
   const dialogue = getDialogue();
 
   useEffect(() => {
+    if (reduceMotion) {
+      fadeAnim.setValue(1);
+      scaleAnim.setValue(1);
+      return;
+    }
+
     fadeAnim.setValue(0.7);
     scaleAnim.setValue(0.95);
-    
+
     Animated.parallel([
       Animated.spring(scaleAnim, {
         toValue: 1,
@@ -100,49 +110,49 @@ export default function DealerPlaceholder({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [dialogueType, customDialogue, fadeAnim, scaleAnim]);
+  }, [customDialogue, dialogueType, fadeAnim, reduceMotion, scaleAnim]);
 
-  const avatarBgColor = dialogueType === 'correct' 
-    ? theme.success 
-    : dialogueType === 'wrong' 
-      ? theme.error 
+  const avatarBgColor = dialogueType === 'correct'
+    ? theme.success
+    : dialogueType === 'wrong'
+      ? theme.error
       : theme.primary;
 
   return (
     <View style={[styles.container, isSmall && styles.containerSmall]}>
-      <Animated.View 
+      <Animated.View
         style={[
           styles.avatarContainer,
           isSmall && styles.avatarSmall,
-          { 
+          {
             backgroundColor: avatarBgColor,
             transform: [{ scale: scaleAnim }],
             opacity: fadeAnim,
-          }
+          },
         ]}
       >
-        <Text style={[styles.emoji, isSmall && styles.emojiSmall]}>🃏</Text>
-        {!isSmall && <Text style={[styles.label, { color: theme.white }]}>Dealer</Text>}
+        <Text maxFontSizeMultiplier={1.3} style={[styles.emoji, isSmall && styles.emojiSmall]}>🃏</Text>
+        {!isSmall ? <Text maxFontSizeMultiplier={1.3} style={[styles.label, { color: theme.white }]}>Dealer</Text> : null}
       </Animated.View>
-      
-      <Animated.View 
+
+      <Animated.View
         style={[
           styles.speechBubble,
           isSmall && styles.speechBubbleSmall,
-          { 
+          {
             backgroundColor: theme.cardBackground,
             opacity: fadeAnim,
             transform: [{ scale: scaleAnim }],
-          }
+          },
         ]}
       >
         <View style={[styles.speechTail, isSmall && styles.speechTailSmall, { backgroundColor: theme.cardBackground }]} />
-        {!!title && (
-          <Text style={[styles.titleText, isSmall && styles.titleTextSmall, { color: theme.textSecondary }]}>
+        {title ? (
+          <Text maxFontSizeMultiplier={1.3} style={[styles.titleText, isSmall && styles.titleTextSmall, { color: theme.textSecondary }]}>
             {title}
           </Text>
-        )}
-        <Text style={[styles.dialogue, isSmall && styles.dialogueSmall, { color: theme.text }]}>{dialogue}</Text>
+        ) : null}
+        <Text maxFontSizeMultiplier={1.3} style={[styles.dialogue, isSmall && styles.dialogueSmall, { color: theme.text }]}>{dialogue}</Text>
       </Animated.View>
     </View>
   );

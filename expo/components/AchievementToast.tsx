@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
-import { triggerNotification, NotificationFeedbackType } from '@/utils/haptics';
-import { playSound } from '@/utils/sounds';
-
 import { Award } from 'lucide-react-native';
+
+import { triggerNotification, NotificationFeedbackType } from '@/utils/haptics';
+import { useReduceMotion } from '@/utils/reduceMotion';
+import { playSound } from '@/utils/sounds';
 
 interface AchievementToastProps {
   achievement: { name: string; xp: number; color: string; description?: string } | null;
@@ -11,15 +12,23 @@ interface AchievementToastProps {
 }
 
 export default function AchievementToast({ achievement, onDismiss }: AchievementToastProps) {
+  const reduceMotion = useReduceMotion();
   const slideAnim = useRef(new Animated.Value(-120)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   const dismiss = useCallback(() => {
+    if (reduceMotion) {
+      slideAnim.setValue(-120);
+      opacityAnim.setValue(0);
+      onDismiss();
+      return;
+    }
+
     Animated.parallel([
       Animated.timing(slideAnim, { toValue: -120, duration: 300, useNativeDriver: true }),
       Animated.timing(opacityAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
     ]).start(() => onDismiss());
-  }, [onDismiss, opacityAnim, slideAnim]);
+  }, [onDismiss, opacityAnim, reduceMotion, slideAnim]);
 
   useEffect(() => {
     if (!achievement) {
@@ -29,17 +38,21 @@ export default function AchievementToast({ achievement, onDismiss }: Achievement
     triggerNotification(NotificationFeedbackType.Success);
     void playSound('achievement');
 
-    slideAnim.setValue(-120);
-    opacityAnim.setValue(0);
-
-    Animated.parallel([
-      Animated.spring(slideAnim, { toValue: 60, friction: 8, tension: 60, useNativeDriver: true }),
-      Animated.timing(opacityAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-    ]).start();
+    if (reduceMotion) {
+      slideAnim.setValue(60);
+      opacityAnim.setValue(1);
+    } else {
+      slideAnim.setValue(-120);
+      opacityAnim.setValue(0);
+      Animated.parallel([
+        Animated.spring(slideAnim, { toValue: 60, friction: 8, tension: 60, useNativeDriver: true }),
+        Animated.timing(opacityAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      ]).start();
+    }
 
     const timer = setTimeout(dismiss, 3000);
     return () => clearTimeout(timer);
-  }, [achievement, dismiss, opacityAnim, slideAnim]);
+  }, [achievement, dismiss, opacityAnim, reduceMotion, slideAnim]);
 
   if (!achievement) {
     return null;

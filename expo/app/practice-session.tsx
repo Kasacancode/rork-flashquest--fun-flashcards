@@ -724,7 +724,7 @@ export default function PracticeSessionPage() {
             <X color="#fff" size={24} />
           </TouchableOpacity>
           <View style={styles.roundBadge}>
-            <Text style={styles.roundText}>
+            <Text maxFontSizeMultiplier={1.2} style={styles.roundText}>
               {currentBattle.currentRound + 1}/{currentBattle.totalRounds}
             </Text>
           </View>
@@ -737,8 +737,8 @@ export default function PracticeSessionPage() {
             <View style={[styles.scoreAvatar, { backgroundColor: '#10b981' }]}>
               <User color="#fff" size={20} />
             </View>
-            <Text style={styles.scorePlayerLabel}>You</Text>
-            <Animated.Text style={[styles.scorePlayerValue, { transform: [{ scale: scorePopAnim }] }]}>
+            <Text maxFontSizeMultiplier={1.2} style={styles.scorePlayerLabel}>You</Text>
+            <Animated.Text maxFontSizeMultiplier={1.2} style={[styles.scorePlayerValue, { transform: [{ scale: scorePopAnim }] }]}>
               {currentBattle.playerScore}
             </Animated.Text>
           </View>
@@ -749,8 +749,8 @@ export default function PracticeSessionPage() {
             <View style={[styles.scoreAvatar, { backgroundColor: '#ef4444' }]}>
               <Bot color="#fff" size={20} />
             </View>
-            <Text style={styles.scorePlayerLabel}>{currentBattle.opponentName}</Text>
-            <Text style={styles.scorePlayerValue}>{currentBattle.opponentScore}</Text>
+            <Text maxFontSizeMultiplier={1.2} style={styles.scorePlayerLabel}>{currentBattle.opponentName}</Text>
+            <Text maxFontSizeMultiplier={1.2} style={styles.scorePlayerValue}>{currentBattle.opponentScore}</Text>
           </View>
         </View>
 
@@ -774,7 +774,7 @@ export default function PracticeSessionPage() {
                 testID="practice-flashcard-debug-button"
               />
             </View>
-            <Text style={[styles.questionText, { color: isDark ? theme.text : '#1a1a1a' }]}>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.questionText, { color: isDark ? theme.text : '#1a1a1a' }]}>
               {displayQuestion}
             </Text>
           </View>
@@ -784,7 +784,7 @@ export default function PracticeSessionPage() {
               <View style={[styles.answerGridContainer, { maxWidth: gameAreaMaxWidth }]}> 
                 <View style={styles.turnIndicator}>
                   <View style={[styles.turnDot, { backgroundColor: '#10b981' }]} />
-                  <Text style={styles.turnText}>
+                  <Text maxFontSizeMultiplier={1.3} style={styles.turnText}>
                     {currentBattle?.mode === 'multiplayer' ? `Player ${currentPlayer}'s Turn` : 'Your Turn'}
                   </Text>
                 </View>
@@ -814,7 +814,7 @@ export default function PracticeSessionPage() {
                   disabled={userAnswer.trim() === '' || (currentBattle?.mode === 'multiplayer' ? (currentPlayer === 1 ? player1Result !== null : player2Result !== null) : playerResult !== null)}
                   activeOpacity={0.85}
                 >
-                  <Text style={[
+                  <Text maxFontSizeMultiplier={1.3} style={[
                     styles.submitButtonText,
                     buttonState !== 'idle' && styles.submitButtonTextWhite,
                   ]}>
@@ -830,13 +830,13 @@ export default function PracticeSessionPage() {
               <View style={[styles.answerGridContainer, { maxWidth: gameAreaMaxWidth }]}> 
                 <View style={styles.turnIndicator}>
                   <View style={[styles.turnDot, { backgroundColor: '#ef4444' }]} />
-                  <Text style={styles.turnText}>{`${currentBattle.opponentName}'s Turn`}</Text>
+                  <Text maxFontSizeMultiplier={1.3} style={styles.turnText}>{`${currentBattle.opponentName}'s Turn`}</Text>
                 </View>
                 <View style={styles.waitingCard}>
                   <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
                     <Bot color="rgba(255,255,255,0.8)" size={48} />
                   </Animated.View>
-                  <Text style={styles.waitingText}>Thinking...</Text>
+                  <Text maxFontSizeMultiplier={1.3} style={styles.waitingText}>Thinking...</Text>
                 </View>
               </View>
             </View>
@@ -844,17 +844,17 @@ export default function PracticeSessionPage() {
 
           {gamePhase === 'reveal-results' && (
             <Animated.View style={[styles.resultsContainer, { opacity: feedbackOpacity, transform: [{ scale: feedbackScale }] }]}>
-              <Text style={styles.resultsTitle}>Round Results</Text>
+              <Text maxFontSizeMultiplier={1.3} style={styles.resultsTitle}>Round Results</Text>
               
               {currentBattle?.mode === 'multiplayer' ? (
                 <>
                   <View style={[styles.resultCard, player1Result?.isCorrect && styles.resultCardCorrect]}>
                     <View style={styles.resultHeader}>
                       <User color="#fff" size={18} />
-                      <Text style={styles.resultPlayerName}>Player 1</Text>
+                      <Text maxFontSizeMultiplier={1.3} style={styles.resultPlayerName}>Player 1</Text>
                     </View>
                     <View style={[styles.resultBadge, player1Result?.isCorrect ? styles.resultBadgeCorrect : styles.resultBadgeIncorrect]}>
-                      <Text style={styles.resultBadgeText}>
+                      <Text maxFontSizeMultiplier={1.3} style={styles.resultBadgeText}>
                         {player1Result?.isCorrect ? '✓ Correct' : '✗ Wrong'}
                       </Text>
                     </View>
@@ -863,10 +863,10 @@ export default function PracticeSessionPage() {
                   <View style={[styles.resultCard, player2Result?.isCorrect && styles.resultCardCorrect]}>
                     <View style={styles.resultHeader}>
                       <User color="#fff" size={18} />
-                      <Text style={styles.resultPlayerName}>Player 2</Text>
+                      <Text maxFontSizeMultiplier={1.3} style={styles.resultPlayerName}>Player 2</Text>
                     </View>
                     <View style={[styles.resultBadge, player2Result?.isCorrect ? styles.resultBadgeCorrect : styles.resultBadgeIncorrect]}>
-                      <Text style={styles.resultBadgeText}>
+                      <Text maxFontSizeMultiplier={1.3} style={styles.resultBadgeText}>
                         {player2Result?.isCorrect ? '✓ Correct' : '✗ Wrong'}
                       </Text>
                     </View>
@@ -877,10 +877,10 @@ export default function PracticeSessionPage() {
                   <View style={[styles.resultCard, playerResult?.isCorrect && styles.resultCardCorrect]}>
                     <View style={styles.resultHeader}>
                       <User color="#fff" size={18} />
-                      <Text style={styles.resultPlayerName}>You</Text>
+                      <Text maxFontSizeMultiplier={1.3} style={styles.resultPlayerName}>You</Text>
                     </View>
                     <View style={[styles.resultBadge, playerResult?.isCorrect ? styles.resultBadgeCorrect : styles.resultBadgeIncorrect]}>
-                      <Text style={styles.resultBadgeText}>
+                      <Text maxFontSizeMultiplier={1.3} style={styles.resultBadgeText}>
                         {playerResult?.isCorrect ? '✓ Correct' : '✗ Wrong'}
                       </Text>
                     </View>
@@ -889,10 +889,10 @@ export default function PracticeSessionPage() {
                   <View style={[styles.resultCard, opponentResult?.isCorrect && styles.resultCardCorrect]}>
                     <View style={styles.resultHeader}>
                       <Bot color="#fff" size={18} />
-                      <Text style={styles.resultPlayerName}>{currentBattle.opponentName}</Text>
+                      <Text maxFontSizeMultiplier={1.3} style={styles.resultPlayerName}>{currentBattle.opponentName}</Text>
                     </View>
                     <View style={[styles.resultBadge, opponentResult?.isCorrect ? styles.resultBadgeCorrect : styles.resultBadgeIncorrect]}>
-                      <Text style={styles.resultBadgeText}>
+                      <Text maxFontSizeMultiplier={1.3} style={styles.resultBadgeText}>
                         {opponentResult?.isCorrect ? '✓ Correct' : '✗ Wrong'}
                       </Text>
                     </View>
@@ -901,10 +901,10 @@ export default function PracticeSessionPage() {
               )}
 
               <View style={[styles.correctAnswerCard, { backgroundColor: isDark ? theme.card : 'rgba(255, 255, 255, 0.97)' }]}>
-                <Text style={[styles.correctAnswerLabel, { color: isDark ? theme.textSecondary : '#666' }]}>
+                <Text maxFontSizeMultiplier={1.3} style={[styles.correctAnswerLabel, { color: isDark ? theme.textSecondary : '#666' }]}>
                   Correct Answer
                 </Text>
-                <Text style={[styles.correctAnswerText, { color: isDark ? theme.text : '#1a1a1a' }]}>
+                <Text maxFontSizeMultiplier={1.3} style={[styles.correctAnswerText, { color: isDark ? theme.text : '#1a1a1a' }]}>
                   {displayAnswer}
                 </Text>
               </View>
@@ -921,14 +921,14 @@ export default function PracticeSessionPage() {
                       testIDPrefix="practice-review"
                     />
                   ) : (
-                    <Text style={styles.reviewStatusText}>Marked as forgot</Text>
+                    <Text maxFontSizeMultiplier={1.3} style={styles.reviewStatusText}>Marked as forgot</Text>
                   )}
                 </View>
               ) : null}
 
               <TouchableOpacity style={styles.nextButton} onPress={handleNext} activeOpacity={0.85}>
                 <Zap color="#4338ca" size={20} />
-                <Text style={styles.nextButtonText}>Next Question</Text>
+                <Text maxFontSizeMultiplier={1.3} style={styles.nextButtonText}>Next Question</Text>
               </TouchableOpacity>
             </Animated.View>
           )}

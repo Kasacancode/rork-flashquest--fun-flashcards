@@ -30,6 +30,7 @@ import type { Flashcard } from '@/types/flashcard';
 import type { RecallQuality } from '@/types/performance';
 import { getCanonicalAnswer, getCanonicalQuestion, getCardAnswerForSurface, getCardQuestionForSurface } from '@/utils/flashcardContent';
 import { logger } from '@/utils/logger';
+import { useReduceMotion } from '@/utils/reduceMotion';
 import { DATA_PRIVACY_ROUTE } from '@/utils/routes';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -68,6 +69,7 @@ export default function StudyFeed({
   onUpdateCard,
 }: StudyFeedProps) {
   const router = useRouter();
+  const reduceMotion = useReduceMotion();
   const { logQuestAttempt } = usePerformance();
   const { hasAcknowledgedAIDisclosure, acknowledgeAIDisclosure } = usePrivacy();
   const [currentIndex, setCurrentIndex] = useState<number>(0);
@@ -163,6 +165,12 @@ export default function StudyFeed({
 
     lastBlockedShakeRef.current = now;
     triggerHaptic();
+
+    if (reduceMotion) {
+      shakeAnim.setValue(0);
+      return;
+    }
+
     Animated.sequence([
       Animated.timing(shakeAnim, { toValue: 12, duration: 40, useNativeDriver: ANIMATION_USE_NATIVE_DRIVER }),
       Animated.timing(shakeAnim, { toValue: -12, duration: 40, useNativeDriver: ANIMATION_USE_NATIVE_DRIVER }),
@@ -170,7 +178,7 @@ export default function StudyFeed({
       Animated.timing(shakeAnim, { toValue: -8, duration: 40, useNativeDriver: ANIMATION_USE_NATIVE_DRIVER }),
       Animated.timing(shakeAnim, { toValue: 0, duration: 40, useNativeDriver: ANIMATION_USE_NATIVE_DRIVER }),
     ]).start();
-  }, [shakeAnim, triggerHaptic]);
+  }, [reduceMotion, shakeAnim, triggerHaptic]);
 
   const resetAnimatedValues = useCallback((options?: { translateY?: number; opacity?: number; scale?: number }) => {
     shakeAnim.stopAnimation();
@@ -204,6 +212,14 @@ export default function StudyFeed({
   }, [clearHintDismissTimer, resetAnimatedValues]);
 
   const animateCardSwap = useCallback((onMidpoint: () => void, onComplete?: () => void) => {
+    if (reduceMotion) {
+      resetAnimatedValues();
+      onMidpoint();
+      isProcessingRef.current = false;
+      onComplete?.();
+      return;
+    }
+
     Animated.parallel([
       Animated.timing(cardOpacity, {
         toValue: CARD_SWAP_MIN_OPACITY,
@@ -253,7 +269,7 @@ export default function StudyFeed({
         onComplete?.();
       });
     });
-  }, [cardOpacity, cardScale, cardTranslateY, resetAnimatedValues]);
+  }, [cardOpacity, cardScale, cardTranslateY, reduceMotion, resetAnimatedValues]);
 
   const handleFlipCard = useCallback(() => {
     if (isProcessingRef.current || showHintOverlay || showFeedbackOverlay) {
@@ -283,6 +299,13 @@ export default function StudyFeed({
 
   const dismissHintOverlay = useCallback(() => {
     clearHintDismissTimer();
+
+    if (reduceMotion) {
+      hintOpacity.setValue(0);
+      setShowHintOverlay(false);
+      return;
+    }
+
     Animated.timing(hintOpacity, {
       toValue: 0,
       duration: 300,
@@ -290,7 +313,7 @@ export default function StudyFeed({
     }).start(() => {
       setShowHintOverlay(false);
     });
-  }, [clearHintDismissTimer, hintOpacity]);
+  }, [clearHintDismissTimer, hintOpacity, reduceMotion]);
 
   const handleShowHint = useCallback(() => {
     if (isProcessingRef.current) {
@@ -318,13 +341,18 @@ export default function StudyFeed({
       setHintShown(true);
     }
 
-    Animated.timing(hintOpacity, {
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
-    }).start(() => {
+    if (reduceMotion) {
+      hintOpacity.setValue(1);
       isProcessingRef.current = false;
-    });
+    } else {
+      Animated.timing(hintOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: ANIMATION_USE_NATIVE_DRIVER,
+      }).start(() => {
+        isProcessingRef.current = false;
+      });
+    }
 
     if (currentCard?.hint1) {
       clearHintDismissTimer();
@@ -339,6 +367,7 @@ export default function StudyFeed({
     showHintOverlay,
     currentCard,
     hintOpacity,
+    reduceMotion,
     triggerHaptic,
     triggerShakeWithCooldown,
     dismissHintOverlay,
@@ -363,6 +392,12 @@ export default function StudyFeed({
     triggerHaptic();
     setShowFeedbackOverlay(true);
 
+    if (reduceMotion) {
+      feedbackOpacity.setValue(1);
+      isProcessingRef.current = false;
+      return;
+    }
+
     Animated.timing(feedbackOpacity, {
       toValue: 1,
       duration: 200,
@@ -370,7 +405,7 @@ export default function StudyFeed({
     }).start(() => {
       isProcessingRef.current = false;
     });
-  }, [isRevealed, showFeedbackOverlay, feedbackOpacity, triggerHaptic, triggerShakeWithCooldown]);
+  }, [feedbackOpacity, isRevealed, reduceMotion, showFeedbackOverlay, triggerHaptic, triggerShakeWithCooldown]);
 
   const handleSpeak = useCallback(() => {
     if (isSpeaking) {
@@ -436,6 +471,30 @@ export default function StudyFeed({
     triggerHaptic();
     clearCardIntroTimer();
 
+    const nextIndex = currentIndex + 1;
+    if (reduceMotion) {
+      if (nextIndex >= flashcards.length) {
+        resetAnimatedValues();
+        isProcessingRef.current = false;
+        onComplete();
+        return;
+      }
+
+      const nextCard = flashcards[nextIndex] ?? null;
+      if (!nextCard) {
+        resetAnimatedValues();
+        isProcessingRef.current = false;
+        onComplete();
+        return;
+      }
+
+      resetForNextCard();
+      setDisplayCard(nextCard);
+      setCurrentIndex(nextIndex);
+      isProcessingRef.current = false;
+      return;
+    }
+
     Animated.parallel([
       Animated.timing(cardTranslateY, {
         toValue: -CARD_EXIT_DISTANCE,
@@ -459,7 +518,6 @@ export default function StudyFeed({
         return;
       }
 
-      const nextIndex = currentIndex + 1;
       if (nextIndex >= flashcards.length) {
         resetAnimatedValues();
         isProcessingRef.current = false;
@@ -513,6 +571,7 @@ export default function StudyFeed({
     currentIndex,
     flashcards,
     onComplete,
+    reduceMotion,
     resetAnimatedValues,
     resetForNextCard,
     triggerHaptic,
@@ -526,6 +585,12 @@ export default function StudyFeed({
       return;
     }
 
+    if (reduceMotion) {
+      feedbackOpacity.setValue(0);
+      setShowFeedbackOverlay(false);
+      return;
+    }
+
     Animated.timing(feedbackOpacity, {
       toValue: 0,
       duration: 200,
@@ -533,7 +598,7 @@ export default function StudyFeed({
     }).start(() => {
       setShowFeedbackOverlay(false);
     });
-  }, [feedbackOpacity]);
+  }, [feedbackOpacity, reduceMotion]);
 
   const handleGenerateHint = useCallback(async () => {
     if (!currentCard || isGeneratingHint) {
@@ -713,7 +778,7 @@ export default function StudyFeed({
   if (!currentCard) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <Text style={[styles.emptyText, { color: theme.text }]}>No cards available</Text>
+        <Text maxFontSizeMultiplier={1.3} style={[styles.emptyText, { color: theme.text }]}>No cards available</Text>
       </View>
     );
   }
@@ -721,7 +786,7 @@ export default function StudyFeed({
   return (
     <View style={styles.container}>
       <View style={styles.progressContainer}>
-        <Text style={styles.progressText}>
+        <Text maxFontSizeMultiplier={1.3} style={styles.progressText}>
           {currentIndex + 1} / {flashcards.length}
         </Text>
         <View style={styles.progressBar}>
@@ -732,11 +797,11 @@ export default function StudyFeed({
       <View style={styles.statusIndicators}>
         <View style={[styles.statusBadge, isRevealed && styles.statusBadgeActive]}>
           <CheckCircle size={14} color={isRevealed ? '#fff' : 'rgba(255,255,255,0.5)'} />
-          <Text style={[styles.statusText, isRevealed && styles.statusTextActive]}>Revealed</Text>
+          <Text maxFontSizeMultiplier={1.3} style={[styles.statusText, isRevealed && styles.statusTextActive]}>Revealed</Text>
         </View>
         <View style={[styles.statusBadge, resolved && styles.statusBadgeActive]}>
           {resolved ? <CheckCircle size={14} color="#fff" /> : <Lock size={14} color="rgba(255,255,255,0.5)" />}
-          <Text style={[styles.statusText, resolved && styles.statusTextActive]}>Resolved</Text>
+          <Text maxFontSizeMultiplier={1.3} style={[styles.statusText, resolved && styles.statusTextActive]}>Resolved</Text>
         </View>
       </View>
 
@@ -762,14 +827,14 @@ export default function StudyFeed({
         >
           <View style={[styles.card, { backgroundColor: isDark ? theme.card : '#fff' }]}>
             <View style={styles.cardLabelContainer}>
-              <Text style={[styles.cardLabel, { color: isRevealed ? backLabelColor : frontLabelColor }]}>
+              <Text maxFontSizeMultiplier={1.3} style={[styles.cardLabel, { color: isRevealed ? backLabelColor : frontLabelColor }]}>
                 {isRevealed ? backLabel : frontLabel}
               </Text>
               <View style={styles.cardLabelActions}>
                 {hintShown && !isRevealed ? (
                   <View style={styles.hintBadge}>
                     <Lightbulb size={12} color="#FFD700" />
-                    <Text style={styles.hintBadgeText}>Hint used</Text>
+                    <Text maxFontSizeMultiplier={1.3} style={styles.hintBadgeText}>Hint used</Text>
                   </View>
                 ) : null}
                 {isRevealed ? (
@@ -805,10 +870,10 @@ export default function StudyFeed({
                 accessibilityLabel="Card image"
               />
             ) : null}
-            <Text style={[styles.cardText, { color: isDark ? theme.text : '#333' }]}>
+            <Text maxFontSizeMultiplier={1.4} style={[styles.cardText, { color: isDark ? theme.text : '#333' }]}>
               {isRevealed ? backText : frontText}
             </Text>
-            <Text style={[styles.cardHint, { color: isDark ? theme.textSecondary : '#999' }]}>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.cardHint, { color: isDark ? theme.textSecondary : '#999' }]}>
               {isRevealed
                 ? 'Swipe up for the next card or right for explanation'
                 : reversed
@@ -835,15 +900,15 @@ export default function StudyFeed({
       <View style={styles.gestureGuide}>
         <TouchableOpacity style={styles.gestureItem} onPress={handleShowHint} activeOpacity={0.6}>
           <View style={[styles.gestureArrow, styles.arrowLeft]} />
-          <Text style={styles.gestureText}>Hint</Text>
+          <Text maxFontSizeMultiplier={1.3} style={styles.gestureText}>Hint</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.gestureItem} onPress={handleNextCard} activeOpacity={0.6}>
           <View style={[styles.gestureArrow, styles.arrowUp]} />
-          <Text style={styles.gestureText}>Next Card</Text>
+          <Text maxFontSizeMultiplier={1.3} style={styles.gestureText}>Next Card</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.gestureItem} onPress={handleShowFeedback} activeOpacity={0.6}>
           <View style={[styles.gestureArrow, styles.arrowRight]} />
-          <Text style={styles.gestureText}>Explain</Text>
+          <Text maxFontSizeMultiplier={1.3} style={styles.gestureText}>Explain</Text>
         </TouchableOpacity>
       </View>
 
@@ -859,13 +924,13 @@ export default function StudyFeed({
               <View style={styles.overlayHandleYellow} />
               <View style={styles.overlayHeader}>
                 <Lightbulb size={28} color="#FFD700" />
-                <Text style={styles.overlayTitle}>Hint</Text>
+                <Text maxFontSizeMultiplier={1.3} style={styles.overlayTitle}>Hint</Text>
               </View>
               {currentCard?.hint1 ? (
-                <Text style={styles.overlayText}>{currentCard.hint1}</Text>
+                <Text maxFontSizeMultiplier={1.3} style={styles.overlayText}>{currentCard.hint1}</Text>
               ) : (
                 <>
-                  <Text style={styles.overlayText}>No hint available for this card.</Text>
+                  <Text maxFontSizeMultiplier={1.3} style={styles.overlayText}>No hint available for this card.</Text>
                   <TouchableOpacity
                     style={styles.generateButton}
                     onPress={handlePressGenerateHint}
@@ -877,13 +942,13 @@ export default function StudyFeed({
                     ) : (
                       <Sparkles size={18} color="#fff" />
                     )}
-                    <Text style={styles.generateButtonText}>
+                    <Text maxFontSizeMultiplier={1.3} style={styles.generateButtonText}>
                       {isGeneratingHint ? 'Generating...' : 'Generate AI Hint'}
                     </Text>
                   </TouchableOpacity>
                 </>
               )}
-              <Text style={styles.tapHintText}>tap anywhere to dismiss</Text>
+              <Text maxFontSizeMultiplier={1.3} style={styles.tapHintText}>tap anywhere to dismiss</Text>
             </View>
           </Pressable>
         </Animated.View>
@@ -901,18 +966,18 @@ export default function StudyFeed({
               <View style={styles.overlayHandleGreen} />
               <View style={styles.overlayHeader}>
                 <BookOpen size={28} color="#4CAF50" />
-                <Text style={styles.overlayTitle}>Explanation</Text>
+                <Text maxFontSizeMultiplier={1.3} style={styles.overlayTitle}>Explanation</Text>
               </View>
               {currentCard?.explanation ? (
-                <Text style={styles.overlayText}>{currentCard.explanation}</Text>
+                <Text maxFontSizeMultiplier={1.3} style={styles.overlayText}>{currentCard.explanation}</Text>
               ) : isGeneratingExplanation ? (
                 <View style={styles.generatingContainer}>
                   <ActivityIndicator size="large" color="#fff" />
-                  <Text style={styles.generatingText}>Generating explanation...</Text>
+                  <Text maxFontSizeMultiplier={1.3} style={styles.generatingText}>Generating explanation...</Text>
                 </View>
               ) : (
                 <>
-                  <Text style={styles.overlayText}>No explanation available for this card.</Text>
+                  <Text maxFontSizeMultiplier={1.3} style={styles.overlayText}>No explanation available for this card.</Text>
                   <TouchableOpacity
                     style={[styles.generateButton, styles.generateButtonGreen]}
                     onPress={handlePressGenerateExplanation}
@@ -920,14 +985,14 @@ export default function StudyFeed({
                     activeOpacity={0.8}
                   >
                     <Sparkles size={18} color="#fff" />
-                    <Text style={styles.generateButtonText}>Generate AI Explanation</Text>
+                    <Text maxFontSizeMultiplier={1.3} style={styles.generateButtonText}>Generate AI Explanation</Text>
                   </TouchableOpacity>
                 </>
               )}
               <TouchableOpacity style={styles.continueButton} onPress={dismissFeedbackOverlay} activeOpacity={0.8}>
-                <Text style={styles.continueButtonText}>Continue</Text>
+                <Text maxFontSizeMultiplier={1.3} style={styles.continueButtonText}>Continue</Text>
               </TouchableOpacity>
-              <Text style={styles.tapHintText}>or tap anywhere to dismiss</Text>
+              <Text maxFontSizeMultiplier={1.3} style={styles.tapHintText}>or tap anywhere to dismiss</Text>
             </View>
           </Pressable>
         </Animated.View>
@@ -1014,12 +1079,12 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     width: '100%',
-    height: 420,
+    minHeight: 420,
     maxWidth: 400,
   },
   card: {
     width: '100%',
-    height: '100%',
+    minHeight: 420,
     borderRadius: 28,
     padding: 32,
     justifyContent: 'center',

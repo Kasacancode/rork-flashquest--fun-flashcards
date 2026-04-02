@@ -45,7 +45,7 @@ export default function ConfidenceChips({
 
   return (
     <View style={[styles.container, compact && styles.containerCompact]}>
-      <Text style={[styles.prompt, { color: promptColor ?? theme.textSecondary }]} accessibilityRole="header">{prompt}</Text>
+      <Text maxFontSizeMultiplier={1.3} style={[styles.prompt, { color: promptColor ?? theme.textSecondary }]} accessibilityRole="header">{prompt}</Text>
       <View style={[styles.row, compact && styles.rowCompact]}>
         {chips.map((chip) => {
           const isSelected = selectedQuality === chip.quality;
@@ -67,6 +67,7 @@ export default function ConfidenceChips({
               testID={`${testIDPrefix}-${chip.label.toLowerCase()}`}
             >
               <Text
+                maxFontSizeMultiplier={1.2}
                 style={[
                   styles.chipLabel,
                   compact && styles.chipLabelCompact,
@@ -107,6 +108,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     minWidth: 68,
+    minHeight: 38,
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 14,
@@ -116,6 +118,7 @@ const styles = StyleSheet.create({
   },
   chipCompact: {
     minWidth: 60,
+    minHeight: 34,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },

@@ -2,6 +2,8 @@ import { triggerImpact, ImpactFeedbackStyle } from '@/utils/haptics';
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, NativeSyntheticEvent, TextLayoutEventData } from 'react-native';
 
+import { useReduceMotion } from '@/utils/reduceMotion';
+
 const { width: RAW_SCREEN_WIDTH } = Dimensions.get('window');
 const ANSWER_GRID_MAX_WIDTH = 500;
 const EFFECTIVE_WIDTH = Math.min(RAW_SCREEN_WIDTH, ANSWER_GRID_MAX_WIDTH);
@@ -247,15 +249,16 @@ export function AnswerCard({
         <View style={[styles.cardTexture, { backgroundColor: cardColors.accent }]} />
 
         <View style={styles.suitCornerTop}>
-          <Text style={[styles.suitText, { color: suitColor }]}>{suit}</Text>
+          <Text maxFontSizeMultiplier={1.3} style={[styles.suitText, { color: suitColor }]}>{suit}</Text>
         </View>
         
         <View style={styles.suitCornerBottom}>
-          <Text style={[styles.suitText, styles.suitRotated, { color: suitColor }]}>{suit}</Text>
+          <Text maxFontSizeMultiplier={1.3} style={[styles.suitText, styles.suitRotated, { color: suitColor }]}>{suit}</Text>
         </View>
         
         <View style={styles.cardContent}>
           <Text
+            maxFontSizeMultiplier={1.3}
             style={[
               styles.optionText,
               { fontSize: optionSizing.fontSize, lineHeight: optionSizing.lineHeight },
@@ -274,13 +277,13 @@ export function AnswerCard({
 
         {state === 'correct' && (
           <View style={styles.feedbackBadge}>
-            <Text style={styles.feedbackIcon}>✓</Text>
+            <Text maxFontSizeMultiplier={1.3} style={styles.feedbackIcon}>✓</Text>
           </View>
         )}
 
         {state === 'wrong' && (
           <View style={[styles.feedbackBadge, styles.feedbackBadgeWrong]}>
-            <Text style={styles.feedbackIcon}>✗</Text>
+            <Text maxFontSizeMultiplier={1.3} style={styles.feedbackIcon}>✗</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -294,15 +297,24 @@ interface DealerReactionProps {
 }
 
 export function DealerReaction({ text, isCorrect }: DealerReactionProps) {
+  const reduceMotion = useReduceMotion();
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (reduceMotion) {
+      scaleAnim.setValue(1);
+      opacityAnim.setValue(1);
+      return;
+    }
+
+    scaleAnim.setValue(0);
+    opacityAnim.setValue(0);
     Animated.parallel([
       Animated.spring(scaleAnim, { toValue: 1, friction: 5, useNativeDriver: true }),
       Animated.timing(opacityAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
     ]).start();
-  }, [text, scaleAnim, opacityAnim]);
+  }, [opacityAnim, reduceMotion, scaleAnim, text]);
 
   return (
     <Animated.View
@@ -312,7 +324,7 @@ export function DealerReaction({ text, isCorrect }: DealerReactionProps) {
       ]}
     >
       <View style={styles.dealerAvatar}>
-        <Text style={styles.dealerEmoji}>🎩</Text>
+        <Text maxFontSizeMultiplier={1.3} style={styles.dealerEmoji}>🎩</Text>
       </View>
       <View
         style={[
@@ -321,7 +333,7 @@ export function DealerReaction({ text, isCorrect }: DealerReactionProps) {
           isCorrect === false && styles.dealerBubbleWrong,
         ]}
       >
-        <Text style={styles.dealerText}>{text}</Text>
+        <Text maxFontSizeMultiplier={1.3} style={styles.dealerText}>{text}</Text>
       </View>
     </Animated.View>
   );
@@ -367,11 +379,11 @@ export { CARD_WIDTH, CARD_HEIGHT, CARD_GAP, CARD_PADDING, GRID_HORIZONTAL_MARGIN
 const styles = StyleSheet.create({
   cardWrapper: {
     width: CARD_WIDTH,
-    height: CARD_HEIGHT,
+    minHeight: CARD_HEIGHT,
   },
   card: {
     width: '100%',
-    height: '100%',
+    minHeight: CARD_HEIGHT,
     borderRadius: 16,
     borderWidth: 1.5,
     paddingHorizontal: 12,

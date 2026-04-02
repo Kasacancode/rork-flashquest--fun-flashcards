@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, StyleSheet, View } from 'react-native';
 
+import { useReduceMotion } from '@/utils/reduceMotion';
+
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const CONFETTI_COLORS = [
@@ -33,11 +35,18 @@ interface ConfettiCelebrationProps {
 }
 
 export default function ConfettiCelebration({ trigger }: ConfettiCelebrationProps) {
+  const reduceMotion = useReduceMotion();
   const [particles, setParticles] = useState<Particle[]>([]);
   const previousTriggerRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (trigger && !previousTriggerRef.current) {
+      if (reduceMotion) {
+        setParticles([]);
+        previousTriggerRef.current = trigger;
+        return;
+      }
+
       const nextParticles: Particle[] = Array.from({ length: PARTICLE_COUNT }, (_, index) => ({
         id: index,
         x: Math.random() * SCREEN_WIDTH,
@@ -63,7 +72,7 @@ export default function ConfettiCelebration({ trigger }: ConfettiCelebrationProp
     }
 
     previousTriggerRef.current = trigger;
-  }, [trigger]);
+  }, [reduceMotion, trigger]);
 
   if (particles.length === 0) {
     return null;

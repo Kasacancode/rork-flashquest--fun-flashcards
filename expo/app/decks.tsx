@@ -5,6 +5,7 @@ import {
   ArrowUpDown,
   BookOpen,
   Download,
+  FileSpreadsheet,
   FileText,
   PenLine,
   Plus,
@@ -42,8 +43,11 @@ import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
+import type { Deck } from '@/types/flashcard';
+import { importFromCSVFile } from '@/utils/csvImport';
 import { importDeckFromClipboardText } from '@/utils/deckImport';
 import { getDeckListSummaries } from '@/utils/deckSelectors';
+import { createNormalizedFlashcard, normalizeDeck } from '@/utils/flashcardContent';
 import { logger } from '@/utils/logger';
 import { useResponsiveLayout } from '@/utils/responsive';
 import {
@@ -186,6 +190,67 @@ export default function DecksPage() {
       Alert.alert('Import Failed', 'Could not import the deck. Make sure you copied a valid FlashQuest deck.');
     }
   }, [addDeck]);
+
+  const handleImportCSV = useCallback(async () => {
+    setShowMenu(false);
+
+    try {
+      const result = await importFromCSVFile();
+
+      if (!result.success) {
+        if (result.error && result.error !== 'cancelled') {
+          Alert.alert('Import Failed', result.error);
+        }
+        return;
+      }
+
+      Alert.alert(
+        'Import Deck from File',
+        `Create "${result.deckName}" with ${result.cards.length} cards?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Import',
+            onPress: () => {
+              const newDeckId = `deck_${Date.now()}`;
+              const createdAt = Date.now();
+              const flashcards = result.cards.map((card, index) => createNormalizedFlashcard({
+                id: `csv_${newDeckId}_${index}`,
+                question: card.question.slice(0, 500),
+                answer: card.answer.slice(0, 200),
+                deckId: newDeckId,
+                difficulty: 'medium',
+                tags: [],
+                createdAt,
+                imageUrl: undefined,
+              }));
+
+              const importedDeck = normalizeDeck({
+                id: newDeckId,
+                name: result.deckName.slice(0, 100),
+                description: `Imported from file with ${flashcards.length} cards`,
+                color: '#6366F1',
+                icon: 'file-text',
+                category: deckCategories[0] ?? 'Imported',
+                isCustom: true,
+                createdAt,
+                flashcards,
+              } satisfies Deck, {
+                source: 'import',
+                trackDiagnostics: true,
+              });
+
+              addDeck(importedDeck);
+              Alert.alert('Deck Imported!', `"${importedDeck.name}" with ${importedDeck.flashcards.length} cards has been created.`);
+            },
+          },
+        ],
+      );
+    } catch (error) {
+      logger.warn('[Decks] CSV import failed:', error);
+      Alert.alert('Import Failed', 'Could not import the file. Please try again.');
+    }
+  }, [addDeck, deckCategories]);
 
   const handleEditDeck = useCallback((deckId: string) => {
     router.push(editDeckHref(deckId));
@@ -740,6 +805,23 @@ export default function DecksPage() {
               <View style={styles.menuOptionText}>
                 <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Import from Clipboard</Text>
                 <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Paste a deck shared by a friend</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(139,92,246,0.1)' : 'rgba(139,92,246,0.08)' }]}
+              onPress={() => {
+                void handleImportCSV();
+              }}
+              activeOpacity={0.8}
+              testID="menuImportCSV"
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.15)' }]}> 
+                <FileSpreadsheet color={isDark ? '#a78bfa' : '#7c3aed'} size={24} strokeWidth={2} />
+              </View>
+              <View style={styles.menuOptionText}>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Import from CSV File</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Load flashcards from a spreadsheet</Text>
               </View>
             </TouchableOpacity>
 

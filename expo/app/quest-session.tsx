@@ -613,10 +613,10 @@ export default function QuestSessionScreen() {
           style={StyleSheet.absoluteFill}
         />
         <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }} edges={['top', 'bottom']}>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 8 }}>Unable to start Quest</Text>
-          <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', marginBottom: 24, textAlign: 'center' }}>The deck or settings could not be loaded.</Text>
+          <Text maxFontSizeMultiplier={1.3} style={{ fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 8 }}>Unable to start Quest</Text>
+          <Text maxFontSizeMultiplier={1.3} style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', marginBottom: 24, textAlign: 'center' }}>The deck or settings could not be loaded.</Text>
           <TouchableOpacity onPress={() => router.replace(QUEST_ROUTE)} style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 24 }}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Back to Quest Menu</Text>
+            <Text maxFontSizeMultiplier={1.3} style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Back to Quest Menu</Text>
           </TouchableOpacity>
         </SafeAreaView>
       </View>
@@ -645,20 +645,20 @@ export default function QuestSessionScreen() {
           </TouchableOpacity>
 
           <View style={styles.hudContainer} accessible={true} accessibilityLabel={`Question ${currentRound + 1} of ${effectiveRunLength}. Score: ${score} points.`}>
-            <Text style={styles.hudValue}>{currentRound + 1}/{effectiveRunLength}</Text>
+            <Text maxFontSizeMultiplier={1.2} style={styles.hudValue}>{currentRound + 1}/{effectiveRunLength}</Text>
             <View style={styles.hudDivider} />
-            <Text style={styles.hudValue}>{score} pts</Text>
+            <Text maxFontSizeMultiplier={1.2} style={styles.hudValue}>{score} pts</Text>
             <View style={styles.hudDivider} />
             <View style={styles.hudItem}>
               <Zap color="#FFD700" size={12} />
-              <Text style={styles.hudValue}>{streak}</Text>
+              <Text maxFontSizeMultiplier={1.2} style={styles.hudValue}>{streak}</Text>
             </View>
           </View>
 
           {settings.timerSeconds > 0 && timeRemaining !== null && (
             <View style={[styles.timerContainer, timeRemaining <= 3 && styles.timerWarning]}>
               <Clock color={timeRemaining <= 3 ? theme.error : '#fff'} size={14} />
-              <Text style={[styles.timerText, timeRemaining <= 3 && { color: theme.error }]}>
+              <Text maxFontSizeMultiplier={1.2} style={[styles.timerText, timeRemaining <= 3 && { color: theme.error }]}>
                 {timeRemaining}s
               </Text>
             </View>
@@ -674,8 +674,8 @@ export default function QuestSessionScreen() {
             testID="questAssistantRow"
           >
             <View style={styles.assistantMetaRow}>
-              <Text style={styles.assistantEyebrow}>FLASHQUEST AI</Text>
-              <Text style={styles.assistantMode}>{settings.mode === 'learn' ? 'Learn round' : 'Battle round'}</Text>
+              <Text maxFontSizeMultiplier={1.3} style={styles.assistantEyebrow}>FLASHQUEST AI</Text>
+              <Text maxFontSizeMultiplier={1.3} style={styles.assistantMode}>{settings.mode === 'learn' ? 'Learn round' : 'Battle round'}</Text>
             </View>
             <DealerPlaceholder dialogueType={assistantTone} customDialogue={assistantLine} size="small" title="Round assistant" />
           </View>
@@ -683,7 +683,7 @@ export default function QuestSessionScreen() {
           <View style={[styles.questionCard, { backgroundColor: theme.cardBackground }]} testID="questQuestionCard">
             <View style={styles.questionMetaRow}>
               <View style={[styles.questionPill, { backgroundColor: `${theme.primary}22` }]}>
-                <Text style={[styles.questionPillText, { color: theme.primary }]} numberOfLines={1}>
+                <Text maxFontSizeMultiplier={1.3} style={[styles.questionPillText, { color: theme.primary }]} numberOfLines={1}>
                   {deck.name}
                 </Text>
               </View>
@@ -695,11 +695,11 @@ export default function QuestSessionScreen() {
                 testID="quest-flashcard-debug-button"
               />
             </View>
-            <Text style={[styles.questionText, { color: theme.text }]} numberOfLines={4} accessibilityRole="header">
+            <Text maxFontSizeMultiplier={1.3} style={[styles.questionText, { color: theme.text }]} numberOfLines={4} accessibilityRole="header">
               {displayQuestion}
             </Text>
             <View style={styles.questionFooter}>
-              <Text style={[styles.questionFooterText, { color: theme.textSecondary }]} numberOfLines={1}>
+              <Text maxFontSizeMultiplier={1.3} style={[styles.questionFooterText, { color: theme.textSecondary }]} numberOfLines={1}>
                 {questionFooterText}
               </Text>
             </View>
@@ -713,14 +713,14 @@ export default function QuestSessionScreen() {
               accessibilityRole="button"
             >
               <Lightbulb color={theme.warning} size={14} />
-              <Text style={[styles.hintButtonText, { color: theme.warning }]}>Hint</Text>
+              <Text maxFontSizeMultiplier={1.3} style={[styles.hintButtonText, { color: theme.warning }]}>Hint</Text>
             </TouchableOpacity>
           )}
           
           {showHint && !!currentCard.hint1 && (
             <View style={[styles.hintContainer, { backgroundColor: theme.warning + '15' }]}>
               <Lightbulb color={theme.warning} size={12} />
-              <Text style={[styles.hintText, { color: theme.warning }]}>{displayHint}</Text>
+              <Text maxFontSizeMultiplier={1.3} style={[styles.hintText, { color: theme.warning }]}>{displayHint}</Text>
             </View>
           )}
           </View>
@@ -764,13 +764,13 @@ export default function QuestSessionScreen() {
         {showExplanation && !!currentCard.explanation && (
           <View style={styles.explanationOverlay}>
             <View style={[styles.explanationCard, { backgroundColor: theme.cardBackground }]}>
-              <Text style={[styles.explanationTitle, { color: isCorrect ? theme.success : theme.error }]}>
+              <Text maxFontSizeMultiplier={1.3} style={[styles.explanationTitle, { color: isCorrect ? theme.success : theme.error }]}>
                 {isCorrect ? 'Correct!' : 'Incorrect'}
               </Text>
-              <Text style={[styles.explanationAnswer, { color: theme.text }]}>
+              <Text maxFontSizeMultiplier={1.3} style={[styles.explanationAnswer, { color: theme.text }]}>
                 Answer: {getCardAnswerForSurface(currentCard, 'study')}
               </Text>
-              <Text style={[styles.explanationText, { color: theme.textSecondary }]} numberOfLines={6}>
+              <Text maxFontSizeMultiplier={1.3} style={[styles.explanationText, { color: theme.textSecondary }]} numberOfLines={6}>
                 {currentCard.explanation}
               </Text>
               <TouchableOpacity
@@ -780,7 +780,7 @@ export default function QuestSessionScreen() {
                 accessibilityLabel="Continue"
                 accessibilityRole="button"
               >
-                <Text style={styles.continueButtonText}>Continue</Text>
+                <Text maxFontSizeMultiplier={1.3} style={styles.continueButtonText}>Continue</Text>
               </TouchableOpacity>
             </View>
           </View>

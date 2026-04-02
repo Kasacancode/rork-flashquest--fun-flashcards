@@ -528,7 +528,7 @@ export default function ArenaSessionScreen() {
           style={StyleSheet.absoluteFill}
         />
         <SafeAreaView style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>
+          <Text maxFontSizeMultiplier={1.3} style={styles.loadingText}>
             {(phase === 'finished' || room?.status === 'finished') ? 'Loading results...' : 'Connecting...'}
           </Text>
         </SafeAreaView>
@@ -555,7 +555,7 @@ export default function ArenaSessionScreen() {
           </TouchableOpacity>
 
           <View style={styles.questionBadge}>
-            <Text style={styles.questionBadgeText}>{questionIndex + 1}/{totalQuestions}</Text>
+            <Text maxFontSizeMultiplier={1.2} style={styles.questionBadgeText}>{questionIndex + 1}/{totalQuestions}</Text>
           </View>
 
           {myStreak > 0 && (
@@ -565,7 +565,7 @@ export default function ArenaSessionScreen() {
           {leader != null && (
             <View style={styles.leaderBadge}>
               <Crown color="#f59e0b" size={12} />
-              <Text style={styles.leaderBadgeText}>
+              <Text maxFontSizeMultiplier={1.2} style={styles.leaderBadgeText}>
                 {leader.name.slice(0, 6)}: {scores[leader.id]?.points ?? 0}
               </Text>
             </View>
@@ -575,7 +575,7 @@ export default function ArenaSessionScreen() {
         {phase === 'question' && hasAnsweredCurrent && (
           <Animated.View style={[styles.waitingBanner, { transform: [{ scale: waitingPulse }] }]}>
             <Clock color="rgba(255,255,255,0.8)" size={16} />
-            <Text style={styles.waitingBannerText}>
+            <Text maxFontSizeMultiplier={1.3} style={styles.waitingBannerText}>
               Waiting for others... ({answeredCount}/{totalPlayers})
             </Text>
           </Animated.View>
@@ -584,13 +584,13 @@ export default function ArenaSessionScreen() {
         {phase === 'question' && !hasAnsweredCurrent && (
           <View style={styles.answeredIndicator}>
             <Users color="rgba(255,255,255,0.6)" size={14} />
-            <Text style={styles.answeredText}>{answeredCount}/{totalPlayers} answered</Text>
+            <Text maxFontSizeMultiplier={1.3} style={styles.answeredText}>{answeredCount}/{totalPlayers} answered</Text>
           </View>
         )}
 
         {phase === 'reveal' && (
           <Animated.View style={[styles.revealBanner, { opacity: revealOpacity }]}> 
-            <Text style={styles.revealBannerEyebrow}>
+            <Text maxFontSizeMultiplier={1.3} style={styles.revealBannerEyebrow}>
               {revealBeat === 'lock'
                 ? 'Round locked'
                 : revealBeat === 'answer'
@@ -599,7 +599,7 @@ export default function ArenaSessionScreen() {
                     ? 'Leaderboard update'
                     : 'Next deal'}
             </Text>
-            <Text style={styles.revealBannerText}>
+            <Text maxFontSizeMultiplier={1.3} style={styles.revealBannerText}>
               {revealBeat === 'lock'
                 ? 'Cards are in. Resolving the round...'
                 : revealBeat === 'answer'
@@ -608,7 +608,7 @@ export default function ArenaSessionScreen() {
                     ? leadShiftCallout
                     : 'Next question incoming'}
             </Text>
-            <Text style={styles.revealBannerSubtext}>
+            <Text maxFontSizeMultiplier={1.3} style={styles.revealBannerSubtext}>
               {revealBeat === 'answer'
                 ? (myPointsGain > 0 ? `+${myPointsGain} pts banked` : 'Check the correct card and round result')
                 : revealBeat === 'leaderboard'
@@ -628,8 +628,8 @@ export default function ArenaSessionScreen() {
               testID="arenaAssistantRow"
             >
               <View style={styles.assistantMetaRow}>
-                <Text style={styles.assistantEyebrow}>FLASHQUEST AI</Text>
-                <Text style={styles.assistantMode}>
+                <Text maxFontSizeMultiplier={1.3} style={styles.assistantEyebrow}>FLASHQUEST AI</Text>
+                <Text maxFontSizeMultiplier={1.3} style={styles.assistantMode}>
                   {phase === 'reveal'
                     ? (revealBeat === 'leaderboard' || revealBeat === 'next' ? 'Standings update' : 'Round reveal')
                     : hasAnsweredCurrent
@@ -646,7 +646,7 @@ export default function ArenaSessionScreen() {
           <View style={[styles.questionCard, { backgroundColor: isDark ? theme.cardBackground : 'rgba(255,255,255,0.95)' }]} testID="arenaQuestionCard">
             <View style={styles.questionMetaRow}>
               <View style={styles.questionPill}>
-                <Text style={styles.questionPillText} numberOfLines={1}>
+                <Text maxFontSizeMultiplier={1.3} style={styles.questionPillText} numberOfLines={1}>
                   {room?.code ? `ROOM ${room.code}` : 'ARENA BATTLE'}
                 </Text>
               </View>
@@ -666,11 +666,11 @@ export default function ArenaSessionScreen() {
                 />
               </View>
             )}
-            <Text style={[styles.questionText, { color: theme.text }]} numberOfLines={4}>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.questionText, { color: theme.text }]} numberOfLines={4}>
               {displayQuestion}
             </Text>
             <View style={styles.questionFooter}>
-              <Text style={[styles.questionFooterText, { color: isDark ? 'rgba(255,255,255,0.72)' : theme.textSecondary }]} numberOfLines={1}>
+              <Text maxFontSizeMultiplier={1.3} style={[styles.questionFooterText, { color: isDark ? 'rgba(255,255,255,0.72)' : theme.textSecondary }]} numberOfLines={1}>
                 {questionFooterText}
               </Text>
             </View>
@@ -715,8 +715,8 @@ export default function ArenaSessionScreen() {
             <Animated.View style={[styles.playerAnswers, { opacity: revealOpacity }]}>
               <View style={styles.playerAnswersHeader}>
                 <View>
-                  <Text style={styles.playerAnswersEyebrow}>Correct answer</Text>
-                  <Text style={styles.playerAnswersTitle}>{currentQuestion?.correctAnswerDisplay ?? currentQuestion?.correctAnswer ?? '—'}</Text>
+                  <Text maxFontSizeMultiplier={1.3} style={styles.playerAnswersEyebrow}>Correct answer</Text>
+                  <Text maxFontSizeMultiplier={1.3} style={styles.playerAnswersTitle}>{currentQuestion?.correctAnswerDisplay ?? currentQuestion?.correctAnswer ?? '—'}</Text>
                 </View>
                 <View
                   style={[
@@ -727,14 +727,14 @@ export default function ArenaSessionScreen() {
                     },
                   ]}
                 >
-                  <Text style={styles.playerAnswersOutcomeText}>
+                  <Text maxFontSizeMultiplier={1.3} style={styles.playerAnswersOutcomeText}>
                     {lastAnswerCorrect ? 'You were right' : selectedOption ? 'Your pick missed' : 'Timed out'}
                   </Text>
                 </View>
               </View>
               {myPointsGain > 0 && (
                 <View style={styles.pointsPill}>
-                  <Text style={styles.pointsPillText}>+{myPointsGain} pts</Text>
+                  <Text maxFontSizeMultiplier={1.2} style={styles.pointsPillText}>+{myPointsGain} pts</Text>
                 </View>
               )}
               {players.map((player: any, index: number) => {
@@ -744,10 +744,10 @@ export default function ArenaSessionScreen() {
                 return (
                   <View key={getOptionalRenderKey(player.id, 'arena-answer-player', index)} style={styles.playerAnswerRow}>
                     <View style={[styles.playerAnswerDot, { backgroundColor: player.color }]} />
-                    <Text style={styles.playerAnswerName} numberOfLines={1}>{player.name}</Text>
+                    <Text maxFontSizeMultiplier={1.3} style={styles.playerAnswerName} numberOfLines={1}>{player.name}</Text>
                     {pointsDelta > 0 && (
                       <View style={styles.playerAnswerPointsBadge}>
-                        <Text style={styles.playerAnswerPointsText}>+{pointsDelta}</Text>
+                        <Text maxFontSizeMultiplier={1.2} style={styles.playerAnswerPointsText}>+{pointsDelta}</Text>
                       </View>
                     )}
                     <View style={[
@@ -759,7 +759,7 @@ export default function ArenaSessionScreen() {
                       ) : (
                         <X color="#ef4444" size={14} />
                       )}
-                      <Text style={[
+                      <Text maxFontSizeMultiplier={1.3} style={[
                         styles.playerAnswerStatus,
                         { color: answer.isCorrect ? '#10b981' : '#ef4444' },
                       ]}>
@@ -781,13 +781,13 @@ export default function ArenaSessionScreen() {
                   player.id === playerId && styles.compactScoreItemActive,
                 ]}
               >
-                <Text style={styles.compactRank}>{player.rank === 1 ? '👑' : `#${player.rank}`}</Text>
+                <Text maxFontSizeMultiplier={1.2} style={styles.compactRank}>{player.rank === 1 ? '👑' : `#${player.rank}`}</Text>
                 <View style={[styles.compactDot, { backgroundColor: player.color }]} />
-                <Text style={styles.compactName} numberOfLines={1}>{player.name}</Text>
+                <Text maxFontSizeMultiplier={1.3} style={styles.compactName} numberOfLines={1}>{player.name}</Text>
                 {phase === 'reveal' && player.pointsDelta > 0 ? (
-                  <Text style={styles.compactDelta}>+{player.pointsDelta}</Text>
+                  <Text maxFontSizeMultiplier={1.2} style={styles.compactDelta}>+{player.pointsDelta}</Text>
                 ) : null}
-                <Text style={styles.compactPoints}>{player.points}</Text>
+                <Text maxFontSizeMultiplier={1.2} style={styles.compactPoints}>{player.points}</Text>
               </View>
             ))}
           </View>

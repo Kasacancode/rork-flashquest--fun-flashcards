@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Animated, Text, View, StyleSheet } from 'react-native';
-import { triggerNotification, NotificationFeedbackType } from '@/utils/haptics';
 import { Star } from 'lucide-react-native';
 
 import ConfettiCelebration from '@/components/ConfettiCelebration';
+import { triggerNotification, NotificationFeedbackType } from '@/utils/haptics';
+import { useReduceMotion } from '@/utils/reduceMotion';
 import { playSound } from '@/utils/sounds';
 
 interface Props {
@@ -12,33 +13,56 @@ interface Props {
 }
 
 export default function LevelUpToast({ levelUp, onDismiss }: Props) {
+  const reduceMotion = useReduceMotion();
   const slide = useRef(new Animated.Value(-120)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const [showConfetti, setShowConfetti] = useState<boolean>(false);
+
   const dismiss = useCallback(() => {
     setShowConfetti(false);
+
+    if (reduceMotion) {
+      slide.setValue(-120);
+      opacity.setValue(0);
+      onDismiss();
+      return;
+    }
+
     Animated.parallel([
       Animated.timing(slide, { toValue: -120, duration: 300, useNativeDriver: true }),
       Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
     ]).start(() => onDismiss());
-  }, [slide, opacity, onDismiss]);
+  }, [opacity, onDismiss, reduceMotion, slide]);
 
   useEffect(() => {
-    if (!levelUp) return;
+    if (!levelUp) {
+      return;
+    }
+
     triggerNotification(NotificationFeedbackType.Success);
     void playSound('levelUp');
-    setShowConfetti(true);
-    slide.setValue(-120);
-    opacity.setValue(0);
-    Animated.parallel([
-      Animated.spring(slide, { toValue: 60, friction: 8, tension: 60, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-    ]).start();
+    setShowConfetti(!reduceMotion);
+
+    if (reduceMotion) {
+      slide.setValue(60);
+      opacity.setValue(1);
+    } else {
+      slide.setValue(-120);
+      opacity.setValue(0);
+      Animated.parallel([
+        Animated.spring(slide, { toValue: 60, friction: 8, tension: 60, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      ]).start();
+    }
+
     const timer = setTimeout(dismiss, 4000);
     return () => clearTimeout(timer);
-  }, [levelUp, slide, opacity, dismiss]);
+  }, [dismiss, levelUp, opacity, reduceMotion, slide]);
 
-  if (!levelUp) return null;
+  if (!levelUp) {
+    return null;
+  }
+
   return (
     <>
       <ConfettiCelebration trigger={showConfetti} />
@@ -59,6 +83,7 @@ export default function LevelUpToast({ levelUp, onDismiss }: Props) {
     </>
   );
 }
+
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', top: 0, left: 16, right: 16, zIndex: 9998 },
   toast: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, borderLeftWidth: 4, borderLeftColor: '#F59E0B', paddingVertical: 14, paddingHorizontal: 14, gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 10, backgroundColor: 'rgba(15,23,42,0.95)' },
