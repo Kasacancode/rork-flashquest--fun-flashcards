@@ -88,15 +88,27 @@ function SettingsRow({
     </View>
   );
 
+  const accessibilityLabel = subtitle ? `${label}. ${subtitle}` : label;
+
   if (onPress) {
     return (
-      <TouchableOpacity onPress={onPress} activeOpacity={0.7} testID={testID}>
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.7}
+        testID={testID}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+      >
         {content}
       </TouchableOpacity>
     );
   }
 
-  return <View testID={testID}>{content}</View>;
+  return (
+    <View testID={testID} accessible={true} accessibilityRole="text" accessibilityLabel={accessibilityLabel}>
+      {content}
+    </View>
+  );
 }
 
 export default function SettingsScreen() {
@@ -222,15 +234,21 @@ export default function SettingsScreen() {
     <LinearGradient colors={backgroundGradient} style={styles.root}>
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} testID="settings-back-button">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+            testID="settings-back-button"
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+          >
             <ArrowLeft color={theme.text} size={22} strokeWidth={2.2} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>Settings</Text>
+          <Text style={[styles.headerTitle, { color: theme.text }]} accessibilityRole="header">Settings</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} testID="settings-screen">
-          <Text style={[styles.sectionLabel, { color: sectionLabelColor }]}>Appearance</Text>
+          <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Appearance</Text>
           <View style={[styles.card, { backgroundColor: surfaceBg }]}> 
             <SettingsRow
               icon={isDark ? <Moon color={theme.primary} size={20} /> : <Sun color={theme.primary} size={20} />}
@@ -242,6 +260,8 @@ export default function SettingsScreen() {
                   onValueChange={toggleTheme}
                   trackColor={{ false: theme.border, true: theme.primary }}
                   thumbColor="#fff"
+                  accessibilityLabel="Dark mode"
+                  accessibilityRole="switch"
                   testID="settings-dark-mode-switch"
                 />
               }
@@ -250,7 +270,7 @@ export default function SettingsScreen() {
             />
           </View>
 
-          <Text style={[styles.sectionLabel, { color: sectionLabelColor }]}>Feedback</Text>
+          <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Feedback</Text>
           <View style={[styles.card, { backgroundColor: surfaceBg }]}> 
             <SettingsRow
               icon={notificationsEnabled ? <Bell color={theme.primary} size={20} /> : <BellOff color={theme.textTertiary} size={20} />}
@@ -263,6 +283,8 @@ export default function SettingsScreen() {
                   disabled={notificationPermission === 'denied'}
                   trackColor={{ false: theme.border, true: theme.primary }}
                   thumbColor="#fff"
+                  accessibilityLabel="Notifications"
+                  accessibilityRole="switch"
                   testID="settings-notifications-switch"
                 />
               }
@@ -280,6 +302,8 @@ export default function SettingsScreen() {
                   onValueChange={handleToggleHaptics}
                   trackColor={{ false: theme.border, true: theme.primary }}
                   thumbColor="#fff"
+                  accessibilityLabel="Haptic feedback"
+                  accessibilityRole="switch"
                   testID="settings-haptics-switch"
                 />
               }
@@ -288,7 +312,7 @@ export default function SettingsScreen() {
             />
           </View>
 
-          <Text style={[styles.sectionLabel, { color: sectionLabelColor }]}>Privacy</Text>
+          <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Privacy</Text>
           <View style={[styles.card, { backgroundColor: surfaceBg }]}> 
             <SettingsRow
               icon={<SmartphoneNfc color={theme.primary} size={20} />}
@@ -300,6 +324,8 @@ export default function SettingsScreen() {
                   onValueChange={handleToggleAnalytics}
                   trackColor={{ false: theme.border, true: theme.primary }}
                   thumbColor="#fff"
+                  accessibilityLabel="Usage analytics"
+                  accessibilityRole="switch"
                   testID="settings-analytics-switch"
                 />
               }
@@ -333,7 +359,7 @@ export default function SettingsScreen() {
             />
           </View>
 
-          <Text style={[styles.sectionLabel, { color: sectionLabelColor }]}>Support</Text>
+          <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Support</Text>
           <View style={[styles.card, { backgroundColor: surfaceBg }]}> 
             <SettingsRow
               icon={<HelpCircle color={theme.primary} size={20} />}
@@ -346,7 +372,7 @@ export default function SettingsScreen() {
             />
           </View>
 
-          <Text style={[styles.sectionLabel, { color: sectionLabelColor }]}>Data</Text>
+          <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Data</Text>
           <View style={[styles.card, { backgroundColor: surfaceBg }]}> 
             <View style={styles.dataRow}>
               <Text style={[styles.dataLabel, { color: theme.textSecondary }]}>Custom Decks</Text>
@@ -369,7 +395,7 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          <Text style={[styles.sectionLabel, { color: theme.error }]}>Danger Zone</Text>
+          <Text style={[styles.sectionLabel, { color: theme.error }]} accessibilityRole="header">Danger Zone</Text>
           <View style={[styles.card, { backgroundColor: surfaceBg }]}> 
             <SettingsRow
               icon={<Trash2 color={theme.error} size={20} />}
@@ -383,7 +409,7 @@ export default function SettingsScreen() {
             />
           </View>
 
-          <View style={styles.aboutSection}>
+          <View style={styles.aboutSection} accessible={true} accessibilityLabel={`FlashQuest version ${appVersion}`}>
             <Info color={theme.textTertiary} size={16} />
             <Text style={[styles.aboutText, { color: theme.textTertiary }]}>FlashQuest v{appVersion}</Text>
           </View>

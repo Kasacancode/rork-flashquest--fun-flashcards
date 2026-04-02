@@ -65,6 +65,8 @@ function DeckCardComponent({
             style={styles.deckInfo}
             onPress={() => onOpenDeckHub(deck.id)}
             activeOpacity={0.72}
+            accessibilityLabel={`${deck.name}, ${deck.flashcards.length} cards, ${Math.round(masteredPercent)}% mastered. Open deck hub.`}
+            accessibilityRole="button"
             testID={`deck-hub-open-${deck.id}`}
           >
             <View style={styles.deckNameRow}>
@@ -89,6 +91,8 @@ function DeckCardComponent({
               ]}
               onPress={handleDeletePress}
               activeOpacity={0.8}
+              accessibilityLabel={`Delete ${deck.name}`}
+              accessibilityRole="button"
               testID={`deck-delete-button-${deck.id}`}
             >
               <Trash2 color={theme.textSecondary} size={16} strokeWidth={2.3} />
@@ -97,19 +101,31 @@ function DeckCardComponent({
         </View>
 
         <View style={styles.deckStats}>
-          <View style={[styles.statBadge, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
+          <View
+            style={[styles.statBadge, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}
+            accessible={true}
+            accessibilityLabel={`${deck.flashcards.length} cards in this deck`}
+          >
             <BookOpen color={theme.textSecondary} size={16} strokeWidth={2} />
             <Text style={[styles.statText, { color: theme.textSecondary }]}> 
               {deck.flashcards.length} cards
             </Text>
           </View>
-          <View style={[styles.categoryBadge, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
+          <View
+            style={[styles.categoryBadge, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}
+            accessible={true}
+            accessibilityLabel={`Category: ${deck.category}`}
+          >
             <Text style={[styles.categoryText, { color: theme.text }]}>{deck.category}</Text>
           </View>
         </View>
 
         {mastery.total > 0 ? (
-          <View style={styles.masterySection}>
+          <View
+            style={styles.masterySection}
+            accessible={true}
+            accessibilityLabel={`${mastery.mastered} of ${mastery.total} cards mastered`}
+          >
             <View style={styles.masteryHeaderRow}>
               <Text style={[styles.masteryLabel, { color: theme.textSecondary }]}> 
                 {mastery.mastered}/{mastery.total} mastered
@@ -130,7 +146,11 @@ function DeckCardComponent({
         {dueCount > 0 || mastery.lapsed > 0 || isFullyMastered ? (
           <View style={styles.deckStatusRow}>
             {dueCount > 0 ? (
-              <View style={[styles.statusPill, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
+              <View
+                style={[styles.statusPill, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}
+                accessible={true}
+                accessibilityLabel={`${dueCount} cards due for review`}
+              >
                 <View style={[styles.statusDot, { backgroundColor: '#3B82F6' }]} />
                 <Text style={[styles.statusText, { color: '#3B82F6' }]}>
                   {dueCount} due for review
@@ -139,14 +159,22 @@ function DeckCardComponent({
             ) : null}
 
             {mastery.lapsed > 0 ? (
-              <View style={[styles.statusPill, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
+              <View
+                style={[styles.statusPill, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}
+                accessible={true}
+                accessibilityLabel={`${mastery.lapsed} lapsed cards`}
+              >
                 <View style={[styles.statusDot, { backgroundColor: '#F43F5E' }]} />
                 <Text style={[styles.statusText, { color: '#F43F5E' }]}>{mastery.lapsed} lapsed</Text>
               </View>
             ) : null}
 
             {isFullyMastered ? (
-              <View style={[styles.statusPill, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
+              <View
+                style={[styles.statusPill, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}
+                accessible={true}
+                accessibilityLabel="Fully mastered deck"
+              >
                 <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
                 <Text style={[styles.statusText, { color: '#10B981' }]}>Fully Mastered</Text>
               </View>
@@ -168,6 +196,8 @@ function DeckCardComponent({
             ]}
             onPress={() => onStudyDeck(deck.id)}
             activeOpacity={0.8}
+            accessibilityLabel={`Study ${deck.name}`}
+            accessibilityRole="button"
             testID={`deck-study-button-${deck.id}`}
           >
             <BookOpen color="#fff" size={20} strokeWidth={2.5} />
@@ -179,6 +209,8 @@ function DeckCardComponent({
               style={[styles.actionButton, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}
               onPress={() => onEditDeck(deck.id)}
               activeOpacity={0.8}
+              accessibilityLabel={`Edit ${deck.name}`}
+              accessibilityRole="button"
               testID={`deck-edit-button-${deck.id}`}
             >
               <Edit color={theme.text} size={20} strokeWidth={2.5} />

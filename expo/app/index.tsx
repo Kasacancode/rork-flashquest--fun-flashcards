@@ -353,6 +353,8 @@ export default function HomePage() {
         ]}
         onPress={() => router.push(route)}
         activeOpacity={0.9}
+        accessibilityLabel={`Open ${title}`}
+        accessibilityRole="button"
         testID={testID}
       >
         <LinearGradient
@@ -448,6 +450,8 @@ export default function HomePage() {
                   ]}
                   onPress={handleOpenProfile}
                   activeOpacity={0.8}
+                  accessibilityLabel="Open profile"
+                  accessibilityRole="button"
                   testID="home-profile-button"
                 >
                   <LinearGradient
@@ -497,7 +501,7 @@ export default function HomePage() {
                       },
                     ]}
                   >
-                    <View style={[styles.statsPage, { width: statsCardInnerWidth }]}>
+                    <View style={[styles.statsPage, { width: statsCardInnerWidth }]} accessible={true} accessibilityLabel={`Level ${level}: ${levelEntry.title}. ${stats.totalScore} XP. Current streak: ${stats.currentStreak} days. ${stats.totalCardsStudied} cards studied.`}>
 
                     <View style={[styles.statItem, { transform: [{ translateY: 4 }] }]}>
                       <Text
@@ -536,6 +540,8 @@ export default function HomePage() {
                       style={[styles.reviewPage, { width: statsCardInnerWidth }]}
                       onPress={() => router.push(studyHref(reviewSummary!.deckSummaries[0].deckId))}
                       activeOpacity={0.85}
+                      accessibilityLabel={`${reviewSummary!.totalReviewCount} cards ready for review across ${reviewSummary!.deckSummaries.length} decks`}
+                      accessibilityRole="button"
                       testID="stats-card-review-page"
                     >
                       <View style={styles.reviewPageHeader}>
@@ -561,6 +567,8 @@ export default function HomePage() {
                               router.push(studyHref(entry.deckId));
                             }}
                             activeOpacity={0.75}
+                            accessibilityLabel={`${entry.name}: ${entry.reviewCount} cards due for review`}
+                            accessibilityRole="button"
                             testID={`review-chip-${entry.deckId}`}
                           >
                             <View style={[styles.reviewChipDot, { backgroundColor: entry.color }]} />
@@ -630,7 +638,7 @@ export default function HomePage() {
               </View>
 
               <View style={styles.decksSection}>
-                <Text style={[styles.sectionTitle, { color: sectionTitleColor }]}>
+                <Text style={[styles.sectionTitle, { color: sectionTitleColor }]} accessibilityRole="header">
               {'Quick Start'}
             </Text>
             {!hasCustomDecks ? (
@@ -654,6 +662,8 @@ export default function HomePage() {
                   style={[styles.quickStartEmptyButton, { backgroundColor: theme.primary }]}
                   onPress={() => router.push('/decks' as Href)}
                   activeOpacity={0.8}
+                  accessibilityLabel="Create deck"
+                  accessibilityRole="button"
                   testID="home-empty-create-deck"
                 >
                   <Text style={styles.quickStartEmptyButtonText}>Create Deck</Text>
@@ -688,6 +698,8 @@ export default function HomePage() {
                       ]}
                       onPress={() => router.push({ pathname: '/deck-hub', params: { deckId: rec.deckId } } as Href)}
                       activeOpacity={0.9}
+                      accessibilityLabel={`${rec.name}: ${rec.message}`}
+                      accessibilityRole="button"
                       testID={`home-recommendation-${rec.deckId}`}
                     >
                       <LinearGradient

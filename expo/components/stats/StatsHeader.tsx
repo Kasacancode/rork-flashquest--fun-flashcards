@@ -26,6 +26,8 @@ function StatsHeaderComponent({
     <View style={styles.header}>
       <TouchableOpacity
         onPress={onBack}
+        accessibilityLabel="Go back"
+        accessibilityRole="button"
         style={[
           styles.backButton,
           {

@@ -86,6 +86,9 @@ export function TimerProgressBar({ timeRemaining, totalTime, isUrgent = false }:
         styles.timerBarContainer,
         { transform: [{ translateX: shakeAnim }, { scale: pulseAnim }] }
       ]}
+      accessible={true}
+      accessibilityLabel={`${timeRemaining} seconds remaining`}
+      accessibilityRole="timer"
     >
       <View style={[styles.timerBarBackground, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
         <Animated.View 
@@ -290,6 +293,8 @@ export function MiniScoreboard({ players, currentPlayerId, maxDisplay = 4 }: Min
               styles.scoreboardItem,
               isCurrentPlayer && styles.scoreboardItemActive,
             ]}
+            accessible={true}
+            accessibilityLabel={`${player.name}: ${player.points} points`}
           >
             <View style={styles.scoreboardRank}>
               <Text style={[styles.scoreboardRankText, index === 0 && styles.scoreboardRankFirst]}>
@@ -353,6 +358,8 @@ export function StreakIndicator({ streak, multiplier = 1, showMultiplier = true 
         styles.streakContainer, 
         { backgroundColor: getStreakColor(), transform: [{ scale: scaleAnim }] }
       ]}
+      accessible={true}
+      accessibilityLabel={`${streak} answer streak${showMultiplier && multiplier > 1 ? `, ${multiplier}x multiplier` : ''}`}
     >
       <Flame color="#fff" size={16} />
       <Text style={styles.streakText}>{streak}</Text>
@@ -408,6 +415,9 @@ export function AnswerFeedback({ isCorrect, visible }: AnswerFeedbackProps) {
           backgroundColor: isCorrect ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
         }
       ]}
+      accessible={true}
+      accessibilityLabel={isCorrect ? 'Correct!' : 'Incorrect'}
+      accessibilityRole="alert"
     >
       <View style={[styles.feedbackIcon, { backgroundColor: isCorrect ? '#10b981' : '#ef4444' }]}>
         <Text style={styles.feedbackIconText}>{isCorrect ? '✓' : '✗'}</Text>
@@ -481,7 +491,7 @@ export function MatchHeader({
   const isLeading = currentPlayer?.id === leader?.id;
 
   return (
-    <View style={styles.matchHeader}>
+    <View style={styles.matchHeader} accessible={true} accessibilityLabel={`Round ${questionNumber} of ${totalQuestions}`}>
       <View style={styles.matchHeaderTop}>
         <View style={styles.questionProgress}>
           <Text style={styles.questionProgressText}>

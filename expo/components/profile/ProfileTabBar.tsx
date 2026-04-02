@@ -31,6 +31,9 @@ function ProfileTabBarComponent({ activeTab, onSelectTab, tabActiveGradient, sty
             style={styles.tab}
             onPress={() => onSelectTab(tab.id)}
             activeOpacity={0.84}
+            accessibilityLabel={tab.label}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isActive }}
             testID={`profile-tab-${tab.id}`}
           >
             {isActive ? (

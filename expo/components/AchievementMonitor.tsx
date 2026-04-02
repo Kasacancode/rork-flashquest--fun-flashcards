@@ -16,6 +16,7 @@ type ToastAchievement = {
   name: string;
   xp: number;
   color: string;
+  description?: string;
 };
 
 export default function AchievementMonitor() {
@@ -130,6 +131,7 @@ export default function AchievementMonitor() {
           name: achievement.name,
           xp: achievement.xp,
           color: achievement.color,
+          description: achievement.description,
         });
       });
     });

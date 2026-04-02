@@ -632,11 +632,13 @@ export default function QuestSessionScreen() {
             style={styles.quitButton}
             onPress={handleQuit}
             activeOpacity={0.7}
+            accessibilityLabel="Close quest"
+            accessibilityRole="button"
           >
             <X color="#fff" size={20} />
           </TouchableOpacity>
 
-          <View style={styles.hudContainer}>
+          <View style={styles.hudContainer} accessible={true} accessibilityLabel={`Question ${currentRound + 1} of ${effectiveRunLength}. Score: ${score} points.`}>
             <Text style={styles.hudValue}>{currentRound + 1}/{effectiveRunLength}</Text>
             <View style={styles.hudDivider} />
             <Text style={styles.hudValue}>{score} pts</Text>
@@ -687,7 +689,7 @@ export default function QuestSessionScreen() {
                 testID="quest-flashcard-debug-button"
               />
             </View>
-            <Text style={[styles.questionText, { color: theme.text }]} numberOfLines={4}>
+            <Text style={[styles.questionText, { color: theme.text }]} numberOfLines={4} accessibilityRole="header">
               {displayQuestion}
             </Text>
             <View style={styles.questionFooter}>
@@ -701,6 +703,8 @@ export default function QuestSessionScreen() {
               style={[styles.hintButton, { backgroundColor: theme.warning + '20' }]}
               onPress={handleHintPress}
               activeOpacity={0.7}
+              accessibilityLabel="Hint"
+              accessibilityRole="button"
             >
               <Lightbulb color={theme.warning} size={14} />
               <Text style={[styles.hintButtonText, { color: theme.warning }]}>Hint</Text>
@@ -765,6 +769,8 @@ export default function QuestSessionScreen() {
                 style={[styles.continueButton, { backgroundColor: theme.primary }]}
                 onPress={handleExplanationContinue}
                 activeOpacity={0.8}
+                accessibilityLabel="Continue"
+                accessibilityRole="button"
               >
                 <Text style={styles.continueButtonText}>Continue</Text>
               </TouchableOpacity>

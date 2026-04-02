@@ -21,7 +21,12 @@ interface StatsDeckProgressRowProps {
 
 const StatsDeckProgressRow = memo(function StatsDeckProgressRow({ item, textColor, secondaryTextColor, trackColor }: StatsDeckProgressRowProps) {
   return (
-    <View style={styles.deckProgressCard} testID={`progress-card-${item.id}`}>
+    <View
+      style={styles.deckProgressCard}
+      testID={`progress-card-${item.id}`}
+      accessible={true}
+      accessibilityLabel={`${item.name}: ${item.pct}% mastered, ${item.mastered} of ${item.total} cards mastered`}
+    >
       <View style={[styles.deckIndicator, { backgroundColor: item.color }]} />
       <View style={styles.deckProgressInfo}>
         <View style={styles.deckProgressHeader}>

@@ -316,7 +316,7 @@ export default function ArenaLobbyScreen() {
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7} testID="battle-lobby-back-button">
+          <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7} accessibilityLabel="Go back" accessibilityRole="button" testID="battle-lobby-back-button">
             <ArrowLeft color="#fff" size={24} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
@@ -329,6 +329,7 @@ export default function ArenaLobbyScreen() {
               onPress={() => setShowSettingsModal(true)}
               activeOpacity={0.7}
               accessibilityLabel="Open battle settings"
+              accessibilityRole="button"
               testID="battle-lobby-settings-button"
             >
               <Settings color="#fff" size={22} />
@@ -355,6 +356,8 @@ export default function ArenaLobbyScreen() {
             ]}
             onPress={handleCopyCode}
             activeOpacity={0.7}
+            accessibilityLabel={`Room code: ${room.code}. Tap to copy.`}
+            accessibilityRole="button"
             testID="battle-lobby-room-code-card"
           >
             <Text style={[styles.codeLabel, { color: theme.textSecondary }]}>Room Code</Text>
@@ -416,7 +419,7 @@ export default function ArenaLobbyScreen() {
             <View style={styles.playersSectionHeader}>
               <Animated.View style={[styles.playersHeaderLeft, { transform: [{ scale: playerCountPulse }] }]}> 
                 <Users color={arenaAccent} size={20} />
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                <Text style={[styles.sectionTitle, { color: theme.text }]} accessibilityRole="header">
                   Players ({lobbyPlayers.length} / {MAX_LOBBY_SLOTS})
                 </Text>
               </Animated.View>
@@ -528,7 +531,7 @@ export default function ArenaLobbyScreen() {
               },
             ]}
           >
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Battle Settings</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]} accessibilityRole="header">Battle Settings</Text>
             <View style={styles.settingsGrid}>
               <View style={styles.settingItem}>
                 <Target color={theme.textSecondary} size={16} />
@@ -557,6 +560,8 @@ export default function ArenaLobbyScreen() {
               onPress={handleStartGame}
               activeOpacity={0.85}
               disabled={!canStartGame || isStartingGame || isSelectingDeck}
+              accessibilityLabel="Start battle"
+              accessibilityRole="button"
             >
               <LinearGradient
                 colors={canStartGame && !isStartingGame && !isSelectingDeck ? ['#10b981', '#059669'] : ['#9ca3af', '#6b7280']}
@@ -656,6 +661,8 @@ export default function ArenaLobbyScreen() {
                 style={styles.closeButton}
                 onPress={() => setShowSettingsModal(false)}
                 activeOpacity={0.7}
+                accessibilityLabel="Close"
+                accessibilityRole="button"
                 testID="battle-settings-close-button"
               >
                 <X color={theme.textSecondary} size={24} />
@@ -683,6 +690,9 @@ export default function ArenaLobbyScreen() {
                       ]}
                       onPress={() => handleRoundsChange(option.value)}
                       activeOpacity={0.7}
+                      accessibilityLabel={`${option.value} questions per round`}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: room.settings.rounds === option.value }}
                       testID={`battle-settings-rounds-${option.value}`}
                     >
                       <Text style={[styles.optionText, { color: room.settings.rounds === option.value ? '#fff' : theme.text }]}> 
@@ -709,6 +719,9 @@ export default function ArenaLobbyScreen() {
                       ]}
                       onPress={() => handleTimerChange(option.value)}
                       activeOpacity={0.7}
+                      accessibilityLabel={option.value === 0 ? 'No timer' : `${option.value} second timer`}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: room.settings.timerSeconds === option.value }}
                       testID={`battle-settings-timer-${option.value}`}
                     >
                       <Text style={[styles.optionText, { color: room.settings.timerSeconds === option.value ? '#fff' : theme.text }]}>
@@ -741,6 +754,8 @@ export default function ArenaLobbyScreen() {
               style={[styles.doneButton, { backgroundColor: arenaAccent }]}
               onPress={() => setShowSettingsModal(false)}
               activeOpacity={0.8}
+              accessibilityLabel="Done"
+              accessibilityRole="button"
               testID="battle-settings-done-button"
             >
               <Text style={styles.doneButtonText}>Done</Text>

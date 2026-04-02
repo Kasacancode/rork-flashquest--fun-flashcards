@@ -29,6 +29,7 @@ interface OptionChipGroupProps<T extends string | number> {
   values: readonly T[];
   selectedValue: T;
   getLabel?: (value: T) => string;
+  getAccessibilityLabel?: (value: T) => string;
   onSelect: (value: T) => void;
   theme: Theme;
   insetSurface: string;
@@ -49,6 +50,7 @@ function OptionChipGroup<T extends string | number>({
   values,
   selectedValue,
   getLabel,
+  getAccessibilityLabel,
   onSelect,
   theme,
   insetSurface,
@@ -72,6 +74,9 @@ function OptionChipGroup<T extends string | number>({
             ]}
             onPress={handlePress}
             activeOpacity={0.7}
+            accessibilityLabel={getAccessibilityLabel ? getAccessibilityLabel(value) : (getLabel ? getLabel(value) : String(value))}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isSelected }}
             testID={`${testIDPrefix}-${String(value)}`}
           >
             <Text style={[styles.optionText, { color: isSelected ? '#fff' : theme.text }]}>
@@ -96,7 +101,15 @@ const ToggleSettingRow = memo(function ToggleSettingRow({
   testID,
 }: ToggleSettingRowProps) {
   return (
-    <TouchableOpacity style={styles.toggleRow} onPress={onToggle} activeOpacity={0.7} testID={testID}>
+    <TouchableOpacity
+      style={styles.toggleRow}
+      onPress={onToggle}
+      activeOpacity={0.7}
+      accessibilityLabel={label === 'Focus Weak Cards' ? 'Focus on weak cards' : label}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      testID={testID}
+    >
       <View style={styles.settingLabel}>
         <Icon color={theme.textSecondary} size={18} />
         <Text style={[styles.settingText, { color: theme.text }]}>{label}</Text>
@@ -157,6 +170,7 @@ function QuestSettingsOptions({
           values={[5, 10, 20] as const}
           selectedValue={runLength}
           onSelect={setRunLength}
+          getAccessibilityLabel={(value) => `${value} questions per round`}
           theme={theme}
           insetSurface={insetSurface}
           testIDPrefix="quest-settings-run-length"
@@ -173,6 +187,7 @@ function QuestSettingsOptions({
           selectedValue={timerSeconds}
           onSelect={setTimerSeconds}
           getLabel={(value) => (value === 0 ? 'Off' : String(value))}
+          getAccessibilityLabel={(value) => value === 0 ? 'No timer' : `${value} second timer`}
           theme={theme}
           insetSurface={insetSurface}
           testIDPrefix="quest-settings-timer"

@@ -339,7 +339,13 @@ export default function StudyPage() {
               <Text style={styles.hubButtonText}>View Deck Progress</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.homeButton} onPress={() => router.back()} testID="study-results-back-button">
+            <TouchableOpacity
+              style={styles.homeButton}
+              onPress={() => router.back()}
+              accessibilityLabel="Go back"
+              accessibilityRole="button"
+              testID="study-results-back-button"
+            >
               <Text style={styles.homeButtonText}>Back to Decks</Text>
             </TouchableOpacity>
           </View>
@@ -360,10 +366,10 @@ export default function StudyPage() {
 
         <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton} accessibilityLabel="Go back" accessibilityRole="button">
               <ArrowLeft color="#fff" size={28} strokeWidth={2.5} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Study Mode</Text>
+            <Text style={styles.headerTitle} accessibilityRole="header">Study Mode</Text>
             <View style={styles.placeholder} />
           </View>
 
@@ -435,6 +441,8 @@ export default function StudyPage() {
                         style={[styles.deckOption, { backgroundColor: theme.deckOption }]}
                         onPress={() => handleDeckSelect(deck.id)}
                         activeOpacity={0.7}
+                        accessibilityLabel={`${deck.name}. ${deck.flashcards.length} cards`}
+                        accessibilityRole="button"
                       >
                         <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
                         <View style={styles.deckOptionInfo}>
@@ -485,6 +493,8 @@ export default function StudyPage() {
             onPress={handleToggleReversed}
             style={styles.reverseToggle}
             activeOpacity={0.75}
+            accessibilityLabel="Reverse question and answer"
+            accessibilityRole="button"
             testID="study-reverse-toggle"
           >
             <ArrowLeftRight color="#fff" size={14} strokeWidth={2.2} />

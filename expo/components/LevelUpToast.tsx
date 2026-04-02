@@ -34,7 +34,12 @@ export default function LevelUpToast({ levelUp, onDismiss }: Props) {
   if (!levelUp) return null;
   return (
     <Animated.View style={[styles.wrap, { transform: [{ translateY: slide }], opacity }]} pointerEvents="none">
-      <View style={styles.toast}>
+      <View
+        style={styles.toast}
+        accessible={true}
+        accessibilityLabel={`Level up! You are now level ${levelUp.level}.`}
+        accessibilityRole="alert"
+      >
         <View style={styles.icon}><Star color="#fff" size={20} fill="#fff" /></View>
         <View style={styles.text}>
           <Text style={styles.label}>Level Up!</Text>

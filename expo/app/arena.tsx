@@ -307,6 +307,8 @@ export default function ArenaMenuScreen() {
             ]}
             onPress={() => router.back()}
             activeOpacity={0.7}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
             testID="battle-back-button"
           >
             <ArrowLeft color={headerContentColor} size={24} />
@@ -339,6 +341,7 @@ export default function ArenaMenuScreen() {
             onPress={handleOpenSettings}
             activeOpacity={0.7}
             accessibilityLabel="Open settings"
+            accessibilityRole="button"
             testID="battle-settings-button"
           >
             <Settings color={headerContentColor} size={22} />
@@ -374,6 +377,8 @@ export default function ArenaMenuScreen() {
                 elevation: isDark ? 8 : 4,
               },
             ]}
+            accessible={true}
+            accessibilityLabel={`${statItems[0]?.value ?? 0} wins, ${statItems[1]?.value ?? '0%'} win rate, best streak ${statItems[2]?.value ?? 0}`}
             testID="battle-stat-strip"
           >
             {statItems.map((item, index) => (
@@ -410,6 +415,8 @@ export default function ArenaMenuScreen() {
             onPress={handleCreateRoom}
             activeOpacity={0.9}
             disabled={isArenaActionDisabled}
+            accessibilityLabel="Create a new battle room"
+            accessibilityRole="button"
             testID="battle-start-card"
           >
             <LinearGradient
@@ -455,6 +462,8 @@ export default function ArenaMenuScreen() {
             onPress={handleJoinRoom}
             activeOpacity={0.85}
             disabled={isArenaActionDisabled}
+            accessibilityLabel="Join a room with code"
+            accessibilityRole="button"
             testID="battle-join-card"
           >
             <View style={[styles.secondaryAccentBar, { backgroundColor: arenaAccent }]} />
@@ -556,7 +565,7 @@ export default function ArenaMenuScreen() {
             <View style={styles.recentHeader}>
               <View style={styles.recentHeaderTitleRow}>
                 <Trophy color={arenaAccent} size={20} strokeWidth={2.4} />
-                <Text style={[styles.recentTitle, { color: theme.text }]}>Recent Battles</Text>
+                <Text style={[styles.recentTitle, { color: theme.text }]} accessibilityRole="header">Recent Battles</Text>
               </View>
               <Text style={[styles.recentHeaderCaption, { color: theme.textTertiary }]}>Latest saved matches</Text>
             </View>
@@ -619,6 +628,7 @@ export default function ArenaMenuScreen() {
               ]}
               placeholder="Enter your name"
               placeholderTextColor={theme.textTertiary}
+              accessibilityLabel="Enter your name"
               value={nameInput}
               onChangeText={setNameInput}
               autoFocus
@@ -713,6 +723,7 @@ export default function ArenaMenuScreen() {
                 ]}
                 placeholder="Your name"
                 placeholderTextColor={theme.textTertiary}
+                accessibilityLabel="Enter your name"
                 value={nameInput}
                 onChangeText={setNameInput}
                 maxLength={PLAYER_NAME_MAX_LENGTH}
@@ -733,6 +744,7 @@ export default function ArenaMenuScreen() {
               ]}
               placeholder="M4X9"
               placeholderTextColor={theme.textTertiary}
+              accessibilityLabel="Room code"
               value={codeInput}
               onChangeText={(text) => setCodeInput(normalizeRoomCodeInput(text))}
               autoCapitalize="characters"

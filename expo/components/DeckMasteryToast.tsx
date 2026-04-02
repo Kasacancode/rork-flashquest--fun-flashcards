@@ -34,7 +34,12 @@ export default function DeckMasteryToast({ deck, onDismiss }: Props) {
   if (!deck) return null;
   return (
     <Animated.View style={[styles.wrap, { transform: [{ translateY: slide }], opacity }]} pointerEvents="none">
-      <View style={styles.toast}>
+      <View
+        style={styles.toast}
+        accessible={true}
+        accessibilityLabel={`Deck mastered: ${deck.name}. All cards complete.`}
+        accessibilityRole="alert"
+      >
         <View style={styles.icon}><Crown color="#fff" size={20} fill="#fff" /></View>
         <View style={styles.text}>
           <Text style={styles.label}>Deck Mastered!</Text>

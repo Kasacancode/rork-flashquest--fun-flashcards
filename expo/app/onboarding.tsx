@@ -186,7 +186,7 @@ function TutorialStep({
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.overviewScrollContent}>
-            <Text style={styles.overviewTitle}>Your learning journey</Text>
+            <Text style={styles.overviewTitle} accessibilityRole="header">Your learning journey</Text>
             <Text style={styles.overviewSubtitle}>
               Four modes, one goal: actually remember what you study.
             </Text>
@@ -196,7 +196,7 @@ function TutorialStep({
               const isLast = index === LEARNING_JOURNEY.length - 1;
 
               return (
-                <View key={item.key} style={styles.journeyRow}>
+                <View key={item.key} style={styles.journeyRow} accessible={true} accessibilityLabel={`Step ${item.step}: ${item.title}. ${item.tagline}. ${item.description}`}>
                   <View style={styles.journeyTimeline}>
                     <View style={styles.journeyDot}>
                       <Text style={styles.journeyStepNumber}>{item.step}</Text>
@@ -216,7 +216,7 @@ function TutorialStep({
               );
             })}
 
-            <TouchableOpacity style={styles.primaryButton} onPress={onAdvance} activeOpacity={0.86} testID="onboarding-overview-continue">
+            <TouchableOpacity style={styles.primaryButton} onPress={onAdvance} activeOpacity={0.86} accessibilityLabel="Continue" accessibilityRole="button" testID="onboarding-overview-continue">
               <Text style={styles.primaryButtonText}>Continue</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -234,13 +234,13 @@ function TutorialStep({
       <View style={[styles.screenContent, styles.tutorialScreenContent]}>
         <View style={styles.topRow}>
           <Text style={styles.wordmark}>FlashQuest</Text>
-          <TouchableOpacity onPress={onSkip} activeOpacity={0.8} testID="onboarding-skip-intro">
+          <TouchableOpacity onPress={onSkip} activeOpacity={0.8} accessibilityLabel="Skip introduction" accessibilityRole="button" testID="onboarding-skip-intro">
             <Text style={styles.topTextButton}>Skip intro</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.tutorialStage}>
-          <View style={styles.tutorialProgressWrap} testID="onboarding-tutorial-progress">
+          <View style={styles.tutorialProgressWrap} accessibilityLabel={`Step ${tutorialPart === 'card-1' ? 1 : 2} of 4`} testID="onboarding-tutorial-progress">
             <Text style={styles.progressText}>{currentCard.progressLabel}</Text>
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: progressWidth }]} />
@@ -260,6 +260,8 @@ function TutorialStep({
                 onPress={onFlip}
                 activeOpacity={1}
                 disabled={isFlipped}
+                accessibilityLabel={isFlipped ? `Answer: ${currentCard.answer}` : `Question: ${currentCard.question}. Tap to flip.`}
+                accessibilityRole="button"
                 testID={`onboarding-demo-card-${tutorialPart}`}
               >
                 {isFlipped ? (
@@ -279,7 +281,7 @@ function TutorialStep({
 
             <View style={styles.tutorialActionSlot}>
               {isFlipped ? (
-                <TouchableOpacity style={styles.primaryButton} onPress={onAdvance} activeOpacity={0.86} testID="onboarding-tutorial-next">
+                <TouchableOpacity style={styles.primaryButton} onPress={onAdvance} activeOpacity={0.86} accessibilityLabel={currentCard.buttonLabel} accessibilityRole="button" testID="onboarding-tutorial-next">
                   <Text style={styles.primaryButtonText}>{currentCard.buttonLabel}</Text>
                 </TouchableOpacity>
               ) : null}
@@ -314,7 +316,7 @@ function CategoriesStep({
     <GradientScreen colors={theme.deckGradient} isDark={isDark} testID="onboarding-step-categories">
       <View style={styles.screenContent}>
         <View style={styles.topRow}>
-          <TouchableOpacity onPress={onGoBack} activeOpacity={0.8} testID="onboarding-back">
+          <TouchableOpacity onPress={onGoBack} activeOpacity={0.8} accessibilityLabel="Go back" accessibilityRole="button" testID="onboarding-back">
             <ArrowLeft color="rgba(255,255,255,0.7)" size={22} strokeWidth={2.2} />
           </TouchableOpacity>
           <TouchableOpacity onPress={onSkip} activeOpacity={0.8} testID="onboarding-categories-skip">
@@ -323,7 +325,7 @@ function CategoriesStep({
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollStepContent}>
-          <Text style={styles.stepTitle}>What do you study?</Text>
+          <Text style={styles.stepTitle} accessibilityRole="header">What do you study?</Text>
           <Text style={styles.stepSubtitle}>
             Pick what interests you. You can always change this later.
           </Text>
@@ -338,6 +340,9 @@ function CategoriesStep({
                   style={[styles.categoryTile, isSelected ? styles.categoryTileSelected : null]}
                   onPress={() => onToggleCategory(tile.name)}
                   activeOpacity={0.86}
+                  accessibilityLabel={`${tile.name} category`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
                   testID={`onboarding-category-${tile.name}`}
                 >
                   <Text style={styles.categoryEmoji}>{tile.emoji}</Text>
@@ -347,7 +352,7 @@ function CategoriesStep({
             })}
           </View>
 
-          <TouchableOpacity style={styles.scanNotesCard} onPress={onScanNotes} activeOpacity={0.86} testID="onboarding-scan-notes">
+          <TouchableOpacity style={styles.scanNotesCard} onPress={onScanNotes} activeOpacity={0.86} accessibilityLabel="Take a photo of your notes" accessibilityRole="button" testID="onboarding-scan-notes">
             <View style={styles.scanNotesIconShell}>
               <Camera color="#FFFFFF" size={18} strokeWidth={2.1} />
             </View>
@@ -356,7 +361,7 @@ function CategoriesStep({
         </ScrollView>
 
         <View style={styles.bottomActionWrap}>
-          <TouchableOpacity style={styles.primaryButton} onPress={onContinue} activeOpacity={0.86} testID="onboarding-categories-continue">
+          <TouchableOpacity style={styles.primaryButton} onPress={onContinue} activeOpacity={0.86} accessibilityLabel="Continue" accessibilityRole="button" testID="onboarding-categories-continue">
             <Text style={styles.primaryButtonText}>Continue</Text>
           </TouchableOpacity>
         </View>
@@ -408,7 +413,7 @@ function ProfileStep({
     <GradientScreen colors={theme.arenaGradient} isDark={isDark} testID="onboarding-step-profile">
       <View style={styles.screenContent}>
         <View style={styles.topRow}>
-          <TouchableOpacity onPress={onGoBack} activeOpacity={0.8} testID="onboarding-back">
+          <TouchableOpacity onPress={onGoBack} activeOpacity={0.8} accessibilityLabel="Go back" accessibilityRole="button" testID="onboarding-back">
             <ArrowLeft color="rgba(255,255,255,0.7)" size={22} strokeWidth={2.2} />
           </TouchableOpacity>
         </View>
@@ -419,7 +424,7 @@ function ProfileStep({
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
-          <Text style={styles.stepTitle}>Set up your profile</Text>
+          <Text style={styles.stepTitle} accessibilityRole="header">Set up your profile</Text>
           <Text style={styles.stepSubtitle}>Choose your name and card identity.</Text>
 
           <Text style={styles.fieldLabel}>Your name</Text>
@@ -435,6 +440,7 @@ function ProfileStep({
             returnKeyType="done"
             onSubmitEditing={onContinue}
             style={styles.nameInput}
+            accessibilityLabel="Enter your name"
             testID="onboarding-name-input"
           />
           {shouldShowNameError ? <Text style={styles.nameError}>Name is required</Text> : <View style={styles.nameErrorSpacer} />}
@@ -456,6 +462,9 @@ function ProfileStep({
                   ]}
                   onPress={() => onSelectAnalytics('granted')}
                   activeOpacity={0.86}
+                  accessibilityLabel="Allow analytics"
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: analyticsChoice === 'granted' }}
                   testID="onboarding-allow-analytics"
                 >
                   <Text style={styles.analyticsPillText}>Allow</Text>
@@ -467,6 +476,9 @@ function ProfileStep({
                   ]}
                   onPress={() => onSelectAnalytics('declined')}
                   activeOpacity={0.86}
+                  accessibilityLabel="Decline analytics"
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: analyticsChoice === 'declined' }}
                   testID="onboarding-decline-analytics"
                 >
                   <Text style={styles.analyticsPillText}>Not now</Text>
@@ -496,6 +508,9 @@ function ProfileStep({
                   ]}
                   onPress={() => onSelectIdentity(identity.key)}
                   activeOpacity={0.86}
+                  accessibilityLabel={`${identity.suitName} card suit`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
                   testID={`onboarding-identity-${identity.key}`}
                 >
                   {isSelected ? <Text style={styles.identityCheck}>✓</Text> : null}
@@ -516,6 +531,8 @@ function ProfileStep({
             onPress={onContinue}
             activeOpacity={0.86}
             disabled={!canContinue}
+            accessibilityLabel="Continue"
+            accessibilityRole="button"
             testID="onboarding-profile-continue"
           >
             <Text style={styles.primaryButtonText}>Continue</Text>
@@ -592,7 +609,7 @@ function CelebrationStep({
     <GradientScreen colors={theme.scoreGradient} isDark={isDark} testID="onboarding-step-celebration">
       <View style={[styles.screenContent, styles.celebrationScreenContent]}>
         <View style={styles.topRow}>
-          <TouchableOpacity onPress={onGoBack} activeOpacity={0.8} testID="onboarding-back">
+          <TouchableOpacity onPress={onGoBack} activeOpacity={0.8} accessibilityLabel="Go back" accessibilityRole="button" testID="onboarding-back">
             <ArrowLeft color="rgba(255,255,255,0.7)" size={22} strokeWidth={2.2} />
           </TouchableOpacity>
         </View>
@@ -625,6 +642,8 @@ function CelebrationStep({
             onPress={onComplete}
             activeOpacity={0.86}
             disabled={isSaving}
+            accessibilityLabel={isSaving ? 'Starting...' : 'Start FlashQuest'}
+            accessibilityRole="button"
             testID="onboarding-start-button"
           >
             <Text style={styles.primaryButtonText}>{isSaving ? 'Starting...' : 'Start FlashQuest'}</Text>

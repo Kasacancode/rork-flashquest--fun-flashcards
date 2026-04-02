@@ -71,7 +71,11 @@ export default function ProfileHeroCard({
   const progressWidth = `${Math.max(0, Math.min(progress.percent, 1)) * 100}%` as `${number}%`;
 
   return (
-    <View style={styles.heroCard}>
+    <View
+      style={styles.heroCard}
+      accessible={true}
+      accessibilityLabel={`Level ${level}, ${levelEntry.title} rank. ${profileDisplayName}. ${progress.current} of ${progress.required} XP to next level.`}
+    >
       <LinearGradient
         colors={heroGradient}
         start={{ x: 0, y: 0 }}
@@ -86,12 +90,14 @@ export default function ProfileHeroCard({
 
             <View style={styles.heroIdentityText}>
               <View style={styles.heroNameRow}>
-                <Text style={styles.heroName} numberOfLines={1}>{profileDisplayName}</Text>
+                <Text style={styles.heroName} numberOfLines={1} accessibilityRole="header">{profileDisplayName}</Text>
                 <TouchableOpacity
                   onPress={onEditPlayerName}
                   style={styles.heroNameEditButton}
                   activeOpacity={0.84}
                   disabled={!isPlayerNameReady}
+                  accessibilityLabel="Edit"
+                  accessibilityRole="button"
                   testID="profile-player-name-edit"
                 >
                   <Pencil color="rgba(255, 255, 255, 0.96)" size={14} strokeWidth={2.4} />
@@ -112,6 +118,8 @@ export default function ProfileHeroCard({
             style={styles.heroLevelBadge}
             onPress={onOpenLevels}
             activeOpacity={0.86}
+            accessibilityLabel={`Level ${level}, ${levelEntry.title} rank`}
+            accessibilityRole="button"
             testID="profile-open-levels"
           >
             <Text style={styles.heroLevelBadgeText}>Lv {level}</Text>

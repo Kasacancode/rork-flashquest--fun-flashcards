@@ -237,6 +237,10 @@ export function AnswerCard({
         onPressOut={handlePressOut}
         activeOpacity={1}
         disabled={state !== 'idle'}
+        accessibilityLabel={`Answer option ${index + 1}: ${optionText}`}
+        accessibilityRole="button"
+        accessibilityState={{ selected: state === 'selected', disabled: state === 'disabled' }}
+        accessibilityValue={state === 'correct' ? { text: 'Correct answer' } : state === 'wrong' ? { text: 'Wrong answer' } : undefined}
       >
         <View style={[styles.cardTexture, { backgroundColor: cardColors.accent }]} />
 

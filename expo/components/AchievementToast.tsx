@@ -5,7 +5,7 @@ import { triggerNotification, NotificationFeedbackType } from '@/utils/haptics';
 import { Award } from 'lucide-react-native';
 
 interface AchievementToastProps {
-  achievement: { name: string; xp: number; color: string } | null;
+  achievement: { name: string; xp: number; color: string; description?: string } | null;
   onDismiss: () => void;
 }
 
@@ -54,7 +54,12 @@ export default function AchievementToast({ achievement, onDismiss }: Achievement
       ]}
       pointerEvents="none"
     >
-      <View style={[styles.toast, { borderLeftColor: achievement.color }]}> 
+      <View
+        style={[styles.toast, { borderLeftColor: achievement.color }]}
+        accessible={true}
+        accessibilityLabel={`Achievement unlocked: ${achievement.name}. ${achievement.description ?? `Earned ${achievement.xp} XP.`}`}
+        accessibilityRole="alert"
+      >
         <View style={[styles.iconWrap, { backgroundColor: achievement.color }]}> 
           <Award color="#fff" size={18} />
         </View>

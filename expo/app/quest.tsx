@@ -268,6 +268,8 @@ export default function QuestMenuScreen() {
             ]}
             onPress={() => router.back()}
             activeOpacity={0.7}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
           >
             <ArrowLeft color={headerContentColor} size={24} />
           </TouchableOpacity>
@@ -289,6 +291,8 @@ export default function QuestMenuScreen() {
             ]}
             onPress={openSheet}
             activeOpacity={0.7}
+            accessibilityLabel="Open settings"
+            accessibilityRole="button"
           >
             <Settings color={headerContentColor} size={22} />
           </TouchableOpacity>
@@ -393,7 +397,7 @@ export default function QuestMenuScreen() {
               },
             ]}
           >
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Select Deck</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]} accessibilityRole="header">Select Deck</Text>
             <QuestDeckSelector
               decks={decks}
               selectedDeckId={selectedDeckId}
@@ -424,7 +428,7 @@ export default function QuestMenuScreen() {
               },
             ]}
           >
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Mode</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]} accessibilityRole="header">Mode</Text>
             <View style={styles.modeSelector}>
               <TouchableOpacity
                 style={[
@@ -440,6 +444,9 @@ export default function QuestMenuScreen() {
                 ]}
                 onPress={() => handleModeChange('learn')}
                 activeOpacity={0.7}
+                accessibilityLabel="Learn mode"
+                accessibilityRole="button"
+                accessibilityState={{ selected: mode === 'learn' }}
               >
                 <BookOpen
                   color={mode === 'learn' ? theme.primary : theme.textSecondary}
@@ -466,6 +473,9 @@ export default function QuestMenuScreen() {
                 ]}
                 onPress={() => handleModeChange('test')}
                 activeOpacity={0.7}
+                accessibilityLabel="Test mode"
+                accessibilityRole="button"
+                accessibilityState={{ selected: mode === 'test' }}
               >
                 <Zap
                   color={mode === 'test' ? theme.primary : theme.textSecondary}
@@ -518,6 +528,8 @@ export default function QuestMenuScreen() {
               onPress={handleStartQuest}
               activeOpacity={0.8}
               disabled={!selectedDeckId}
+              accessibilityLabel="Start quest"
+              accessibilityRole="button"
             >
               <LinearGradient
                 colors={theme.questGradient}
@@ -589,7 +601,7 @@ export default function QuestMenuScreen() {
 
             <View style={styles.sheetHeader}>
               <Text style={[styles.sheetTitle, { color: theme.text }]}>Settings</Text>
-              <TouchableOpacity onPress={closeSheet} activeOpacity={0.7} style={styles.sheetClose}>
+              <TouchableOpacity onPress={closeSheet} activeOpacity={0.7} style={styles.sheetClose} accessibilityLabel="Close" accessibilityRole="button">
                 <X color={theme.textSecondary} size={22} />
               </TouchableOpacity>
             </View>
@@ -617,6 +629,8 @@ export default function QuestMenuScreen() {
                 style={[styles.doneButton, { backgroundColor: theme.primary }]}
                 onPress={closeSheet}
                 activeOpacity={0.8}
+                accessibilityLabel="Done"
+                accessibilityRole="button"
               >
                 <Text style={styles.doneButtonText}>Done</Text>
               </TouchableOpacity>

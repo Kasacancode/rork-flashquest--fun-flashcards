@@ -706,6 +706,10 @@ export default function StudyFeed({
         <Animated.View
           testID="study-card-surface"
           {...panResponder.panHandlers}
+          accessible={true}
+          accessibilityLabel={isRevealed ? `Answer: ${currentCard.answer}${currentCard.explanation ? `. Explanation: ${currentCard.explanation}` : ''}` : `Question: ${currentCard.question}. Tap to flip.`}
+          accessibilityHint={isRevealed ? 'Swipe up to go to next card' : 'Double tap to reveal the answer'}
+          accessibilityRole="button"
           style={[
             styles.cardWrapper,
             {
@@ -784,7 +788,12 @@ export default function StudyFeed({
       {showHintOverlay ? (
         <Animated.View style={[styles.overlay, styles.hintOverlay, { opacity: hintOpacity }]}>
           <Pressable style={styles.hintPressable} onPress={dismissHintOverlay}>
-            <View style={styles.overlayContent}>
+            <View
+              style={styles.overlayContent}
+              accessible={true}
+              accessibilityLabel={`Hint: ${currentCard?.hint1 ?? 'No hint available for this card.'}`}
+              accessibilityRole="alert"
+            >
               <View style={styles.overlayHandleYellow} />
               <View style={styles.overlayHeader}>
                 <Lightbulb size={28} color="#FFD700" />
@@ -821,7 +830,12 @@ export default function StudyFeed({
       {showFeedbackOverlay ? (
         <Animated.View style={[styles.overlay, styles.feedbackOverlay, { opacity: feedbackOpacity }]}>
           <Pressable style={styles.feedbackPressable} onPress={dismissFeedbackOverlay}>
-            <View style={styles.overlayContent}>
+            <View
+              style={styles.overlayContent}
+              accessible={true}
+              accessibilityLabel={`Explanation: ${currentCard?.explanation ?? (isGeneratingExplanation ? 'Generating explanation, please wait.' : 'No explanation available for this card.')}`}
+              accessibilityRole="alert"
+            >
               <View style={styles.overlayHandleGreen} />
               <View style={styles.overlayHeader}>
                 <BookOpen size={28} color="#4CAF50" />

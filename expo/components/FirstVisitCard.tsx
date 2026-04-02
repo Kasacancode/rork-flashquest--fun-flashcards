@@ -66,6 +66,9 @@ export default function FirstVisitCard({ screen, title, lines, accentColor }: Fi
           borderLeftColor: accentColor,
         },
       ]}
+      accessible={true}
+      accessibilityRole="alert"
+      accessibilityLabel={`${title}. ${lines.join(' ')}`}
       testID={`first-visit-card-${screen}`}
     >
       <View style={styles.header}>
@@ -73,6 +76,8 @@ export default function FirstVisitCard({ screen, title, lines, accentColor }: Fi
         <TouchableOpacity
           onPress={handleDismiss}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityLabel="Dismiss tip"
+          accessibilityRole="button"
           testID={`first-visit-card-dismiss-${screen}`}
         >
           <X color={theme.textSecondary} size={16} strokeWidth={2.4} />

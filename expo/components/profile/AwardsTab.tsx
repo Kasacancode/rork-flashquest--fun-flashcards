@@ -125,6 +125,9 @@ export default function AwardsTab({
               key={category.id}
               onPress={() => onSelectAchievementCategory(category.id)}
               activeOpacity={0.84}
+              accessibilityLabel={category.label}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
               style={[styles.achievementCategoryPill, isActive && styles.achievementCategoryPillActive]}
             >
               <Text style={[styles.achievementCategoryPillText, isActive && styles.achievementCategoryPillTextActive]}>
@@ -148,7 +151,12 @@ export default function AwardsTab({
           const AchievementIcon = achievement.icon;
 
           return (
-            <View key={achievement.id} style={styles.achievementCard}>
+            <View
+              key={achievement.id}
+              style={styles.achievementCard}
+              accessible={true}
+              accessibilityLabel={`${achievement.name}: ${achievement.description}. ${achievement.progress} of ${achievement.total}${isCompleted ? ', unlocked' : ''}`}
+            >
               <LinearGradient
                 colors={
                   isCompleted

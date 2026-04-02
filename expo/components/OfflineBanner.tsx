@@ -92,7 +92,12 @@ export default function OfflineBanner() {
   }
 
   return (
-    <Animated.View style={[styles.banner, { opacity, paddingTop: insets.top, paddingBottom: 6 }]}>
+    <Animated.View
+      style={[styles.banner, { opacity, paddingTop: insets.top, paddingBottom: 6 }]}
+      accessible={true}
+      accessibilityLabel="You are offline. Some features may be unavailable."
+      accessibilityRole="alert"
+    >
       <View style={styles.content}>
         <WifiOff color="#FFFFFF" size={14} strokeWidth={2.2} />
         <Text style={styles.text}>No internet connection</Text>

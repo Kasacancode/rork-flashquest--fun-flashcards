@@ -92,6 +92,8 @@ const LobbyPlayerRow = memo(function LobbyPlayerRow({
           },
         ]}
         testID={`battle-lobby-player-row-${player.id}`}
+        accessible={true}
+        accessibilityLabel={`Player: ${player.name}, ${player.connected ? 'ready' : 'not ready'}`}
       >
         <Animated.View style={[styles.playerAvatarGlow, { borderColor: player.color, opacity: recentlyJoinedGlow }]} />
         <View style={[styles.playerAvatar, { backgroundColor: player.color }]}>
@@ -120,7 +122,13 @@ const LobbyPlayerRow = memo(function LobbyPlayerRow({
           </View>
         </View>
         {isHost && !player.isHost ? (
-          <TouchableOpacity style={styles.removeButton} onPress={handleRemove} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.removeButton}
+            onPress={handleRemove}
+            activeOpacity={0.7}
+            accessibilityLabel={`Remove ${player.name}`}
+            accessibilityRole="button"
+          >
             <X color={theme.textTertiary} size={18} />
           </TouchableOpacity>
         ) : null}
@@ -150,6 +158,8 @@ const InviteRow = memo(function InviteRow({ theme, isDark, arenaAccent, codeCopi
       ]}
       onPress={onCopyCode}
       activeOpacity={0.8}
+      accessibilityLabel={`Room code: ${roomCode}. Tap to copy.`}
+      accessibilityRole="button"
       testID="battle-lobby-empty-slot-0"
     >
       <View style={[styles.emptySlotAvatar, { borderColor: arenaAccent }]}>

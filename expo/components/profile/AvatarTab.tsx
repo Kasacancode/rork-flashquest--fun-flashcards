@@ -98,7 +98,7 @@ export default function AvatarTab({
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Choose a suit</Text>
+        <Text style={styles.sectionTitle} accessibilityRole="header">Choose a suit</Text>
         <Text style={styles.sectionSubtitle}>Select the symbol shown on your player badge.</Text>
       </View>
 
@@ -112,6 +112,9 @@ export default function AvatarTab({
               key={suit.id}
               style={styles.optionPressable}
               onPress={() => onSelectSuit(suit.id)}
+              accessibilityLabel={`${suit.name} card identity`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
               testID={`profile-avatar-suit-${suit.id}`}
             >
               {({ pressed }) => (
@@ -132,7 +135,7 @@ export default function AvatarTab({
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Choose a color</Text>
+        <Text style={styles.sectionTitle} accessibilityRole="header">Choose a color</Text>
         <Text style={styles.sectionSubtitle}>Your hero card adapts to the color you equip.</Text>
       </View>
 
@@ -146,6 +149,9 @@ export default function AvatarTab({
               key={color.id}
               style={styles.optionPressable}
               onPress={() => onSelectColor(color.id)}
+              accessibilityLabel={`${color.name} color theme`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
               testID={`profile-avatar-color-${color.id}`}
             >
               {({ pressed }) => (

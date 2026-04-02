@@ -151,6 +151,8 @@ export default function JoinBattleFromLinkScreen() {
             style={styles.backButton}
             onPress={handleBackToArena}
             activeOpacity={0.75}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
             testID="join-link-back-button"
           >
             <ArrowLeft color="#fff" size={22} />
@@ -198,6 +200,7 @@ export default function JoinBattleFromLinkScreen() {
                   onChangeText={setNicknameInput}
                   placeholder="Your nickname"
                   placeholderTextColor={theme.textTertiary}
+                  accessibilityLabel="Enter your name"
                   maxLength={20}
                   autoFocus
                   autoCapitalize="words"
@@ -209,6 +212,8 @@ export default function JoinBattleFromLinkScreen() {
                   onPress={handleSubmitNickname}
                   activeOpacity={0.85}
                   disabled={!nicknameInput.trim() || isConnecting}
+                  accessibilityLabel="Join battle"
+                  accessibilityRole="button"
                   testID="join-link-submit-button"
                 >
                   <Text style={styles.primaryButtonText}>{isConnecting ? 'Joining…' : 'Join Battle'}</Text>

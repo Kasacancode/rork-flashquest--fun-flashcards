@@ -45,7 +45,7 @@ export default function ConfidenceChips({
 
   return (
     <View style={[styles.container, compact && styles.containerCompact]}>
-      <Text style={[styles.prompt, { color: promptColor ?? theme.textSecondary }]}>{prompt}</Text>
+      <Text style={[styles.prompt, { color: promptColor ?? theme.textSecondary }]} accessibilityRole="header">{prompt}</Text>
       <View style={[styles.row, compact && styles.rowCompact]}>
         {chips.map((chip) => {
           const isSelected = selectedQuality === chip.quality;
@@ -61,6 +61,9 @@ export default function ConfidenceChips({
                 },
               ]}
               onPress={() => onSelect(chip.quality)}
+              accessibilityLabel={`Rate as ${chip.label}`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
               testID={`${testIDPrefix}-${chip.label.toLowerCase()}`}
             >
               <Text

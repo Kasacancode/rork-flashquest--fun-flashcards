@@ -369,6 +369,8 @@ export default function DecksPage() {
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => router.back()}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
             style={[
               styles.backButton,
               {
@@ -405,6 +407,8 @@ export default function DecksPage() {
             onPress={() => setShowMenu(true)}
             testID="decksAddButton"
             activeOpacity={0.78}
+            accessibilityLabel="Add new"
+            accessibilityRole="button"
           >
             <Plus color={headerContentColor} size={24} strokeWidth={2.5} />
           </TouchableOpacity>
@@ -414,6 +418,7 @@ export default function DecksPage() {
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Search decks..."
+          accessibilityLabel="Search decks"
           placeholderTextColor={theme.textTertiary}
           style={[
             styles.searchInput,
@@ -448,6 +453,9 @@ export default function DecksPage() {
                 key={category}
                 onPress={() => handleSelectCategory(category)}
                 activeOpacity={0.84}
+                accessibilityLabel={`Filter by ${category}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
                 style={[
                   styles.categoryPill,
                   {
@@ -488,6 +496,9 @@ export default function DecksPage() {
                 key={option.key}
                 onPress={() => setSortBy(option.key as 'name' | 'newest' | 'cards')}
                 activeOpacity={0.84}
+                accessibilityLabel={`Sort by ${option.label}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
                 style={[
                   styles.sortChip,
                   {
@@ -530,6 +541,8 @@ export default function DecksPage() {
                 style={[styles.emptyStateButton, { backgroundColor: theme.primary }]}
                 onPress={() => setShowMenu(true)}
                 activeOpacity={0.85}
+                accessibilityLabel="Create deck manually"
+                accessibilityRole="button"
                 testID="decks-empty-create-button"
               >
                 <Text style={styles.emptyStateButtonText}>Create Deck</Text>
@@ -634,12 +647,14 @@ export default function DecksPage() {
             ]}
           >
             <View style={[styles.menuHandle, { backgroundColor: theme.sheetHandle }]} />
-            <Text style={[styles.menuTitle, { color: theme.text }]}>Deck Actions</Text>
+            <Text style={[styles.menuTitle, { color: theme.text }]} accessibilityRole="header">Deck Actions</Text>
 
             <TouchableOpacity
               style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(139,92,246,0.1)' : 'rgba(102,126,234,0.08)' }]}
               onPress={handleScanNotes}
               activeOpacity={0.8}
+              accessibilityLabel="Scan notes to create deck"
+              accessibilityRole="button"
               testID="menuScanNotes"
             >
               <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(139,92,246,0.2)' : 'rgba(102,126,234,0.15)' }]}> 
@@ -655,6 +670,8 @@ export default function DecksPage() {
               style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : 'rgba(59,130,246,0.08)' }]}
               onPress={handleTextToDeck}
               activeOpacity={0.8}
+              accessibilityLabel="Import deck from text"
+              accessibilityRole="button"
               testID="menuTextToDeck"
             >
               <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.15)' }]}> 
@@ -670,6 +687,8 @@ export default function DecksPage() {
               style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.08)' }]}
               onPress={handleCreateManual}
               activeOpacity={0.8}
+              accessibilityLabel="Create deck manually"
+              accessibilityRole="button"
               testID="menuCreateManual"
             >
               <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.15)' }]}> 
