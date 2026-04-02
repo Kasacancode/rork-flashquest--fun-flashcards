@@ -40,7 +40,6 @@ import { logger } from '@/utils/logger';
 import { focusedQuestSessionHref, questHref, studyHref } from '@/utils/routes';
 import { playSound } from '@/utils/sounds';
 import { useResponsiveLayout } from '@/utils/responsive';
-import { useResponsiveLayout } from '@/utils/responsive';
 
 const FEEDBACK_REVEAL_DELAY_MS = 850;
 const TURN_TRANSITION_DELAY_MS = 850;
@@ -53,7 +52,6 @@ export default function PracticeSessionPage() {
   const { decks, recordSessionResult } = useFlashQuest();
   const { logQuestAttempt } = usePerformance();
   const { theme, isDark } = useTheme();
-  const { gameAreaMaxWidth } = useResponsiveLayout();
   const { gameAreaMaxWidth } = useResponsiveLayout();
   const deckId = useMemo(() => (Array.isArray(params.deckId) ? params.deckId[0] : params.deckId), [params.deckId]);
   const practiceMode = useMemo<PracticeMode>(() => {
