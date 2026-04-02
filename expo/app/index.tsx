@@ -492,7 +492,7 @@ export default function HomePage() {
                   >
                     <View style={[styles.statsPage, { width: statsCardInnerWidth }]}>
 
-                    <View style={[styles.statItem, { transform: [{ translateY: 6 }] }]}>
+                    <View style={[styles.statItem, { transform: [{ translateY: 4 }] }]}>
                       <Text
                         style={[styles.levelText, { color: statsLevelColor }]}
                         numberOfLines={1}
