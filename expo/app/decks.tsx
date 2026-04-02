@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowUpDown,
   BookOpen,
+  Compass,
   Download,
   FileSpreadsheet,
   FileText,
@@ -54,6 +55,7 @@ import {
   createFlashcardHref,
   deckHubHref,
   editDeckHref,
+  EXPLORE_ROUTE,
   SCAN_NOTES_ROUTE,
   studyHref,
   TEXT_TO_DECK_ROUTE,
@@ -822,6 +824,24 @@ export default function DecksPage() {
               <View style={styles.menuOptionText}>
                 <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Import from CSV File</Text>
                 <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Load flashcards from a spreadsheet</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.08)' }]}
+              onPress={() => {
+                setShowMenu(false);
+                router.push(EXPLORE_ROUTE);
+              }}
+              activeOpacity={0.8}
+              testID="menuExploreDecks"
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.15)' }]}> 
+                <Compass color={isDark ? '#818CF8' : '#6366F1'} size={24} strokeWidth={2} />
+              </View>
+              <View style={styles.menuOptionText}>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Explore Community</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Browse and download decks from other users</Text>
               </View>
             </TouchableOpacity>
 

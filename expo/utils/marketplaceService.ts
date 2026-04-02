@@ -1,0 +1,218 @@
+import { supabase } from '@/lib/supabase';
+import { logger } from '@/utils/logger';
+
+export type MarketplaceSortOption = 'popular' | 'top_rated' | 'newest';
+
+export interface MarketplaceDeckCardData {
+  question: string;
+  answer: string;
+  hint1?: string;
+  hint2?: string;
+  explanation?: string;
+}
+
+export interface MarketplaceDeck {
+  id: string;
+  userId: string;
+  publisherName: string;
+  name: string;
+  description: string;
+  category: string;
+  color: string;
+  icon: string;
+  cardCount: number;
+  downloads: number;
+  upVotes: number;
+  downVotes: number;
+  createdAt: string;
+}
+
+export interface MarketplaceDeckDetail extends MarketplaceDeck {
+  deckData: MarketplaceDeckCardData[];
+}
+
+interface PublicDeckRow {
+  id: string;
+  user_id: string;
+  publisher_name: string | null;
+  name: string;
+  description: string | null;
+  category: string | null;
+  color: string | null;
+  icon: string | null;
+  card_count: number | null;
+  downloads: number | null;
+  up_votes: number | null;
+  down_votes: number | null;
+  created_at: string | null;
+  deck_data?: unknown;
+}
+
+interface DeckVoteRow {
+  deck_id: string;
+  vote: number;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function mapMarketplaceRow(row: PublicDeckRow): MarketplaceDeck {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    publisherName: row.publisher_name?.trim() || 'Anonymous',
+    name: row.name,
+    description: row.description?.trim() ?? '',
+    category: row.category?.trim() || 'General',
+    color: row.color?.trim() || '#6366F1',
+    icon: row.icon?.trim() || 'book-open',
+    cardCount: row.card_count ?? 0,
+    downloads: row.downloads ?? 0,
+    upVotes: row.up_votes ?? 0,
+    downVotes: row.down_votes ?? 0,
+    createdAt: row.created_at ?? '',
+  };
+}
+
+function parseDeckData(rawDeckData: unknown): MarketplaceDeckCardData[] {
+  if (!Array.isArray(rawDeckData)) {
+    return [];
+  }
+
+  return rawDeckData
+    .filter((card): card is Record<string, unknown> => isRecord(card))
+    .map((card) => ({
+      question: typeof card.question === 'string' ? card.question.trim() : '',
+      answer: typeof card.answer === 'string' ? card.answer.trim() : '',
+      hint1: typeof card.hint1 === 'string' && card.hint1.trim().length > 0 ? card.hint1.trim() : undefined,
+      hint2: typeof card.hint2 === 'string' && card.hint2.trim().length > 0 ? card.hint2.trim() : undefined,
+      explanation: typeof card.explanation === 'string' && card.explanation.trim().length > 0 ? card.explanation.trim() : undefined,
+    }))
+    .filter((card) => card.question.length > 0 && card.answer.length > 0);
+}
+
+export async function fetchMarketplaceDecks(options: {
+  sort: MarketplaceSortOption;
+  category?: string;
+  limit?: number;
+}): Promise<MarketplaceDeck[]> {
+  try {
+    const { sort, category, limit = 50 } = options;
+
+    let query = supabase
+      .from('public_decks')
+      .select('id, user_id, publisher_name, name, description, category, color, icon, card_count, downloads, up_votes, down_votes, created_at');
+
+    if (category && category.trim().length > 0) {
+      query = query.eq('category', category);
+    }
+
+    switch (sort) {
+      case 'top_rated':
+        query = query.order('up_votes', { ascending: false }).order('downloads', { ascending: false });
+        break;
+      case 'newest':
+        query = query.order('created_at', { ascending: false });
+        break;
+      case 'popular':
+      default:
+        query = query.order('downloads', { ascending: false }).order('up_votes', { ascending: false });
+        break;
+    }
+
+    const { data, error } = await query.limit(limit);
+
+    if (error) {
+      logger.warn('[Marketplace] Failed to fetch deck list:', error.message);
+      return [];
+    }
+
+    return ((data ?? []) as PublicDeckRow[]).map((row) => mapMarketplaceRow(row));
+  } catch (error) {
+    logger.warn('[Marketplace] Unexpected deck list error:', error);
+    return [];
+  }
+}
+
+export async function fetchDeckDetail(deckId: string): Promise<MarketplaceDeckDetail | null> {
+  try {
+    const { data, error } = await supabase
+      .from('public_decks')
+      .select('*')
+      .eq('id', deckId)
+      .maybeSingle();
+
+    if (error || !data) {
+      logger.warn('[Marketplace] Failed to fetch deck detail:', error?.message ?? 'missing row');
+      return null;
+    }
+
+    const row = data as PublicDeckRow;
+    return {
+      ...mapMarketplaceRow(row),
+      deckData: parseDeckData(row.deck_data),
+    };
+  } catch (error) {
+    logger.warn('[Marketplace] Unexpected deck detail error:', error);
+    return null;
+  }
+}
+
+export async function downloadMarketplaceDeck(deckId: string): Promise<void> {
+  try {
+    const { error } = await supabase.rpc('increment_deck_downloads', { target_deck_id: deckId });
+
+    if (error) {
+      logger.warn('[Marketplace] Failed to increment download count:', error.message);
+    }
+  } catch (error) {
+    logger.warn('[Marketplace] Unexpected download count error:', error);
+  }
+}
+
+export async function voteDeck(userId: string, deckId: string, vote: 1 | -1): Promise<boolean> {
+  try {
+    const { error } = await supabase.rpc('cast_deck_vote', {
+      p_user_id: userId,
+      p_deck_id: deckId,
+      p_vote: vote,
+    });
+
+    if (error) {
+      logger.warn('[Marketplace] Failed to cast vote:', error.message);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    logger.warn('[Marketplace] Unexpected vote error:', error);
+    return false;
+  }
+}
+
+export async function getUserVotes(userId: string): Promise<Record<string, 1 | -1>> {
+  try {
+    const { data, error } = await supabase
+      .from('deck_votes')
+      .select('deck_id, vote')
+      .eq('user_id', userId);
+
+    if (error) {
+      logger.warn('[Marketplace] Failed to fetch user votes:', error.message);
+      return {};
+    }
+
+    const votes: Record<string, 1 | -1> = {};
+    for (const row of (data ?? []) as DeckVoteRow[]) {
+      if (row.vote === 1 || row.vote === -1) {
+        votes[row.deck_id] = row.vote;
+      }
+    }
+
+    return votes;
+  } catch (error) {
+    logger.warn('[Marketplace] Unexpected user vote error:', error);
+    return {};
+  }
+}

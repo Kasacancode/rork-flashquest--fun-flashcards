@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, type Href } from 'expo-router';
-import { Trophy, BookOpen, RotateCcw, Swords, Target, User } from 'lucide-react-native';
+import { Trophy, BookOpen, Compass, RotateCcw, Swords, Target, User } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
@@ -25,7 +25,7 @@ import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { computeLevel, getLevelBandPalette, getLevelEntry } from '@/utils/levels';
 import { computeDeckMastery, getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
-import { studyHref } from '@/utils/routes';
+import { EXPLORE_ROUTE, studyHref } from '@/utils/routes';
 import { getUserInterests } from '@/utils/userInterests';
 import { useResponsiveLayout } from '@/utils/responsive';
 
@@ -153,6 +153,13 @@ export default function HomePage() {
     }),
     [isDark],
   );
+  const exploreBannerGradient = isDark
+    ? ['rgba(99,102,241,0.26)', 'rgba(14,165,233,0.18)'] as const
+    : ['rgba(255,255,255,0.92)', 'rgba(237,242,255,0.96)'] as const;
+  const exploreBannerSurface = isDark ? 'rgba(11, 20, 37, 0.84)' : 'rgba(255, 255, 255, 0.94)';
+  const exploreBannerBorder = isDark ? 'rgba(129, 140, 248, 0.22)' : 'rgba(129, 140, 248, 0.2)';
+  const exploreBannerTitleColor = isDark ? '#F8FAFC' : '#1E293B';
+  const exploreBannerTextColor = isDark ? 'rgba(226,232,240,0.82)' : '#64748B';
 
   useEffect(() => {
     streakAnim.setValue(0);
@@ -643,6 +650,42 @@ export default function HomePage() {
                 })}
               </View>
 
+              <TouchableOpacity
+                style={[
+                  styles.exploreBanner,
+                  {
+                    backgroundColor: exploreBannerSurface,
+                    borderColor: exploreBannerBorder,
+                    shadowColor: deckCardShadowColor,
+                    shadowOpacity: isDark ? 0.2 : 0.12,
+                    shadowRadius: isDark ? 18 : 14,
+                    elevation: isDark ? 6 : 4,
+                  },
+                ]}
+                onPress={() => router.push(EXPLORE_ROUTE)}
+                activeOpacity={0.9}
+                accessibilityLabel="Explore community decks"
+                accessibilityRole="button"
+                testID="home-explore-banner"
+              >
+                <LinearGradient
+                  colors={exploreBannerGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View style={[styles.exploreBannerOrb, { backgroundColor: isDark ? 'rgba(129,140,248,0.18)' : 'rgba(99,102,241,0.1)' }]} />
+                <View style={styles.exploreBannerContent}>
+                  <View style={[styles.exploreBannerIconWrap, { backgroundColor: isDark ? 'rgba(99,102,241,0.16)' : 'rgba(99,102,241,0.1)' }]}>
+                    <Compass color={isDark ? '#A5B4FC' : '#6366F1'} size={22} strokeWidth={2.3} />
+                  </View>
+                  <View style={styles.exploreBannerTextWrap}>
+                    <Text style={[styles.exploreBannerTitle, { color: exploreBannerTitleColor }]}>Explore Community Decks</Text>
+                    <Text style={[styles.exploreBannerSubtitle, { color: exploreBannerTextColor }]}>Discover decks from other FlashQuest players and save them offline.</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
               <View style={styles.decksSection}>
                 <Text style={[styles.sectionTitle, { color: sectionTitleColor }]} accessibilityRole="header">
               {'Quick Start'}
@@ -840,6 +883,13 @@ const styles = StyleSheet.create<{
   actionContent: ViewStyle;
   actionIconSlot: ViewStyle;
   actionTitleMedium: TextStyle;
+  exploreBanner: ViewStyle;
+  exploreBannerOrb: ViewStyle;
+  exploreBannerContent: ViewStyle;
+  exploreBannerIconWrap: ViewStyle;
+  exploreBannerTextWrap: ViewStyle;
+  exploreBannerTitle: TextStyle;
+  exploreBannerSubtitle: TextStyle;
   decksSection: ViewStyle;
   sectionTitle: TextStyle;
   decksScroll: ViewStyle;
@@ -1121,6 +1171,52 @@ const styles = StyleSheet.create<{
     marginTop: 0,
     textAlign: 'center',
     letterSpacing: -0.42,
+  },
+  exploreBanner: {
+    marginTop: 26,
+    marginHorizontal: 24,
+    minHeight: 108,
+    borderRadius: 24,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+  },
+  exploreBannerOrb: {
+    position: 'absolute',
+    right: -22,
+    top: -26,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
+  exploreBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+  },
+  exploreBannerIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exploreBannerTextWrap: {
+    flex: 1,
+    gap: 4,
+  },
+  exploreBannerTitle: {
+    fontSize: 18,
+    fontWeight: '800' as const,
+    letterSpacing: -0.3,
+  },
+  exploreBannerSubtitle: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    lineHeight: 18,
   },
   decksSection: {
     marginTop: 38,

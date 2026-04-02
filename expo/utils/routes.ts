@@ -9,6 +9,7 @@ import { serializeQuestSettings } from '@/utils/questParams';
 export const HOME_ROUTE = '/' as const satisfies Href;
 export const ONBOARDING_ROUTE = '/onboarding' as const satisfies Href;
 export const DECKS_ROUTE = '/decks' as const satisfies Href;
+export const EXPLORE_ROUTE = '/explore' as const satisfies Href;
 export const PROFILE_ROUTE = '/profile' as const satisfies Href;
 export const LEADERBOARD_ROUTE = '/leaderboard' as const satisfies Href;
 export const DATA_PRIVACY_ROUTE = '/data-privacy' as const satisfies Href;
