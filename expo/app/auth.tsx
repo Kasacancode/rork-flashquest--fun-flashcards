@@ -150,7 +150,7 @@ export default function AuthScreen() {
                 {mode === 'email-signup' ? 'Create Account' : 'Sign In'}
               </Text>
               <Text style={styles.subtitle}>
-                Save your account now. Cloud sync arrives in the next phase.
+                Sync your decks, stats, and progress across devices
               </Text>
 
               {mode === 'options' ? (
@@ -176,7 +176,7 @@ export default function AuthScreen() {
                     testID="auth-google-button"
                   >
                     <Text style={styles.googleIcon}>G</Text>
-                    <Text style={[styles.socialButtonText, { color: formTextColor }]}>Continue with Google</Text>
+                    <Text style={[styles.socialButtonText, { color: formTextColor }]}>Sign in with Google</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -187,7 +187,23 @@ export default function AuthScreen() {
                     testID="auth-email-option-button"
                   >
                     <Mail color={formMutedTextColor} size={20} strokeWidth={2.2} />
-                    <Text style={[styles.socialButtonText, { color: formTextColor }]}>Continue with Email</Text>
+                    <Text style={[styles.socialButtonText, { color: formTextColor }]}>Sign in with Email</Text>
+                  </TouchableOpacity>
+
+                  <View style={styles.dividerRow}>
+                    <View style={[styles.dividerLine, { backgroundColor: 'rgba(255,255,255,0.15)' }]} />
+                    <Text style={styles.dividerText}>or</Text>
+                    <View style={[styles.dividerLine, { backgroundColor: 'rgba(255,255,255,0.15)' }]} />
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.signUpButton, { borderColor: 'rgba(255,255,255,0.25)' }]}
+                    onPress={() => setMode('email-signup')}
+                    activeOpacity={0.85}
+                    accessibilityLabel="Create a new account"
+                    testID="auth-signup-option-button"
+                  >
+                    <Text style={styles.signUpButtonText}>New here? Create an account</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -309,6 +325,33 @@ const styles = StyleSheet.create({
   },
   optionsContainer: {
     gap: 12,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+  },
+  dividerText: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  signUpButton: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  signUpButtonText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 15,
+    fontWeight: '700',
   },
   appleButton: {
     height: 52,

@@ -31,10 +31,11 @@ interface AuthContextValue {
 }
 
 function getAuthRedirectUrl(): string {
-  return makeRedirectUri({
-    scheme: 'flashquest',
-    path: 'auth',
-  });
+  if (Platform.OS === 'web') {
+    return makeRedirectUri({ path: 'auth/callback' });
+  }
+
+  return 'flashquest://auth/callback';
 }
 
 function getCallbackParams(url: string): URLSearchParams {

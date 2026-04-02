@@ -226,7 +226,7 @@ export default function SettingsScreen() {
   const handleSignOut = useCallback(() => {
     Alert.alert(
       'Sign Out',
-      'Your data will stay on this device. Cloud sync is not enabled yet.',
+      'Your data will stay on this device but will no longer sync to the cloud.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
