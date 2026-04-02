@@ -402,7 +402,7 @@ export default function SettingsScreen() {
                   <SettingsRow
                     icon={<Cloud color="#10B981" size={20} strokeWidth={2.2} />}
                     label="Cloud sync"
-                    subtitle="Account connected. Sync coming in Phase 1B"
+                    subtitle="Your data syncs automatically"
                     theme={theme}
                     testID="settings-sync-row"
                   />
