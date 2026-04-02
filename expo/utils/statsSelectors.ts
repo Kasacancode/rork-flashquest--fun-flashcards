@@ -245,7 +245,7 @@ export function getDisplaySessions(stats: UserStats): {
 export function formatStudyTime(totalStudyTimeMs: number | undefined): string {
   const ms = totalStudyTimeMs ?? 0;
   if (ms < 30000) {
-    return '—';
+    return '';
   }
 
   const minutes = Math.floor(ms / 60000);

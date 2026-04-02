@@ -185,11 +185,11 @@ export default function HomePage() {
       const weakCards = getWeakCards(deck.id, deck.flashcards, 5);
 
       if (!deckStats || deckStats.attempts === 0) {
-        recs.push({ deckId: deck.id, name: deck.name, color: deck.color, message: 'Not started yet — try it!', priority: 10 });
+        recs.push({ deckId: deck.id, name: deck.name, color: deck.color, message: 'Not started yet. Try it!', priority: 10 });
         continue;
       }
       if (accuracy !== null && accuracy < 0.6) {
-        recs.push({ deckId: deck.id, name: deck.name, color: deck.color, message: `${Math.round(accuracy * 100)}% accuracy — needs practice`, priority: 8 });
+        recs.push({ deckId: deck.id, name: deck.name, color: deck.color, message: `${Math.round(accuracy * 100)}% accuracy. Needs practice`, priority: 8 });
         continue;
       }
       if (weakCards.length >= 3) {
@@ -201,7 +201,7 @@ export default function HomePage() {
         continue;
       }
       if (accuracy !== null && accuracy < 0.85) {
-        recs.push({ deckId: deck.id, name: deck.name, color: deck.color, message: `${Math.round(accuracy * 100)}% — keep improving`, priority: 3 });
+        recs.push({ deckId: deck.id, name: deck.name, color: deck.color, message: `${Math.round(accuracy * 100)}%. Keep improving`, priority: 3 });
       }
     }
 

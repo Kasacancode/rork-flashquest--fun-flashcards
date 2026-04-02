@@ -1,6 +1,6 @@
 // --- Arena Game Engine ---
 // Pure game logic. Functions take a Room, apply rules, return modified Room or null.
-// No persistence concerns here — the TRPC router handles load/save via repository.
+// No persistence concerns here - the TRPC router handles load/save via repository.
 //
 // Phase progression model:
 //   - deriveEffectivePhase() is the SINGLE SOURCE OF TRUTH for phase computation.
@@ -357,7 +357,7 @@ export function resetRoom(room: Room, playerId: string): Room | null {
 
 // --- Tick: advance persisted game state to match real time ---
 // Called on mutation paths (submitAnswer, nextQuestion) to catch up the persisted room.
-// Delegates ALL phase computation to deriveEffectivePhase — the same function used by
+// Delegates ALL phase computation to deriveEffectivePhase - the same function used by
 // sanitizeRoom for reads. This guarantees tick and the read path can never diverge.
 //
 // tick() does two things deriveEffectivePhase doesn't:

@@ -188,7 +188,7 @@ export default function ArenaMenuScreen() {
   );
 
   const valueProp = roomCode
-    ? 'Your room is live — jump back in and keep control of the match.'
+    ? 'Your room is live. Jump back in and keep control of the match.'
     : 'Head-to-head flashcard rounds for quick calls, clean wins, and real pressure.';
 
   const setupCopy = roomCode

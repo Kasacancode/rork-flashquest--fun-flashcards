@@ -1,8 +1,8 @@
 // --- Redis-backed Arena Room Repository ---
 //
 // Key structure:
-//   flashquest:arena:room:{code}  — JSON-serialized Room, with TTL
-//   flashquest:arena:codes        — Redis SET of active room codes (for count + unique code gen)
+//   flashquest:arena:room:{code}  - JSON-serialized Room, with TTL
+//   flashquest:arena:codes        - Redis SET of active room codes (for count + unique code gen)
 //
 // All methods are async. Upstash Redis (HTTP-based) is used as the sole source of truth.
 // No in-memory Map fallback exists.

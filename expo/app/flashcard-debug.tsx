@@ -60,7 +60,7 @@ function CodeBlock({ label, value }: { label: string; value?: string }) {
     <View style={styles.blockWrap}>
       <Text style={styles.blockLabel}>{label}</Text>
       <View style={styles.codeBlock}>
-        <Text style={styles.codeText}>{value && value.length > 0 ? value : '—'}</Text>
+        <Text style={styles.codeText}>{value && value.length > 0 ? value : '-'}</Text>
       </View>
     </View>
   );

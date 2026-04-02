@@ -98,7 +98,7 @@ function StatsSummaryCardsComponent({
         <Text style={styles.sectionLabel}>PERFORMANCE</Text>
         <PerformanceRow
           label="Study"
-          value={`${displaySessions.study} sessions${formattedStudyTime !== '—' ? ` · ${formattedStudyTime} total` : ''}`}
+          value={`${displaySessions.study} sessions${formattedStudyTime !== '' ? ` · ${formattedStudyTime} total` : ''}`}
           icon={<BookOpen color={statsAccent} size={18} strokeWidth={2.2} />}
           styles={styles}
         />

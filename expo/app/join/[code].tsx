@@ -170,7 +170,7 @@ export default function JoinBattleFromLinkScreen() {
             <Text style={[styles.title, { color: theme.text }]}>
               {errorMessage ? errorMessage : 'Joining FlashQuest battle…'}
             </Text>
-            <Text style={[styles.roomLabel, { color: theme.textSecondary }]}>Room: {inviteCode || '—'}</Text>
+            <Text style={[styles.roomLabel, { color: theme.textSecondary }]}>Room: {inviteCode || '-'}</Text>
 
             {errorMessage ? (
               <>

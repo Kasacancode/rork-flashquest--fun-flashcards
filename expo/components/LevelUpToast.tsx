@@ -76,7 +76,7 @@ export default function LevelUpToast({ levelUp, onDismiss }: Props) {
           <View style={styles.icon}><Star color="#fff" size={20} fill="#fff" /></View>
           <View style={styles.text}>
             <Text style={styles.label}>Level Up!</Text>
-            <Text style={styles.title}>Level {levelUp.level} — {levelUp.title}</Text>
+            <Text style={styles.title}>Level {levelUp.level}: {levelUp.title}</Text>
           </View>
         </View>
       </Animated.View>

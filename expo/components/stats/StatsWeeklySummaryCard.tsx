@@ -41,7 +41,7 @@ function StatsWeeklySummaryCardComponent({
           <Text style={[styles.weeklyStatValue, { color: statsAccent }]}>{currentStreak}</Text>
           <Text style={styles.weeklyStatLabel}>Day Streak</Text>
         </View>
-        {formattedStudyTime !== '—' ? (
+        {formattedStudyTime !== '' ? (
           <>
             <View style={[styles.weeklyDivider, { backgroundColor: isDark ? 'rgba(148,163,184,0.14)' : '#e0e0e0' }]} />
             <View style={styles.weeklyStat}>

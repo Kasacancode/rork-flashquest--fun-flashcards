@@ -716,7 +716,7 @@ export default function ArenaSessionScreen() {
               <View style={styles.playerAnswersHeader}>
                 <View>
                   <Text maxFontSizeMultiplier={1.3} style={styles.playerAnswersEyebrow}>Correct answer</Text>
-                  <Text maxFontSizeMultiplier={1.3} style={styles.playerAnswersTitle}>{currentQuestion?.correctAnswerDisplay ?? currentQuestion?.correctAnswer ?? '—'}</Text>
+                  <Text maxFontSizeMultiplier={1.3} style={styles.playerAnswersTitle}>{currentQuestion?.correctAnswerDisplay ?? currentQuestion?.correctAnswer ?? '-'}</Text>
                 </View>
                 <View
                   style={[

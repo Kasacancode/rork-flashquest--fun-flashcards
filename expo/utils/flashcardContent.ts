@@ -21,7 +21,7 @@ import { logger } from '@/utils/logger';
 const CARD_CONTENT_VERSION = 3;
 const MARKDOWN_DECORATION_REGEX = /[*_`>#~]+/g;
 const MARKDOWN_ARTIFACT_TEST_REGEX = /[*_`>#~]|\[(.*?)\]\((.*?)\)|\||_{2,}/;
-const BULLET_PREFIX_REGEX = /^\s*(?:[-•–—*]|\d+[.)]|[A-Za-z][.)])\s+/;
+const BULLET_PREFIX_REGEX = /^\s*(?:[-•–\u2014*]|\d+[.)]|[A-Za-z][.)])\s+/;
 const QUESTION_PREFIX_REGEX = /^\s*(?:q(?:uestion)?|prompt|front)\s*[:.-]\s*/i;
 const ANSWER_PREFIX_REGEX = /^\s*(?:a(?:nswer)?|back|response|correct answer)\s*[:.-]\s*/i;
 const LEADING_FILLER_REGEX = /^\s*(?:the answer is|it is|it's|this is|these are|they are|it refers to|refers to|defined as)\s+/i;
@@ -41,7 +41,7 @@ function hasControlCharacters(value: string): boolean {
   return false;
 }
 const EXPLANATION_SPLIT_REGEXES = [
-  /\s+[—-]\s+/,
+  /\s+[\u2014-]\s+/,
   /\s*[:;]\s+/,
   /\.\s+/,
   /\s+because\s+/i,
@@ -418,7 +418,7 @@ function compactPhraseAnswer(value: string): string {
     .replace(/\s+(?:used to|known for|defined by|characterized by)\s+.*$/i, '')
     .trim();
 
-  concise = takeEarlierClause(concise, ['; ', ' — ', ' - ', ': ', ', ', '. '], 10);
+  concise = takeEarlierClause(concise, ['; ', ' \u2014 ', ' - ', ': ', ', ', '. '], 10);
   return concise;
 }
 
@@ -438,7 +438,7 @@ function compactAnswerForType(value: string, answerType: FlashcardAnswerType, ma
   concise = concise.replace(TRAILING_PUNCTUATION_REGEX, '').trim();
 
   if (concise.length > maxChars) {
-    concise = takeEarlierClause(concise, ['; ', ' — ', ' - ', ': ', ', ', '. '], 10);
+    concise = takeEarlierClause(concise, ['; ', ' \u2014 ', ' - ', ': ', ', ', '. '], 10);
   }
 
   if (concise.length > maxChars) {
@@ -459,7 +459,7 @@ function compactQuestionForSurface(question: string, maxChars: number): string {
     .replace(/^from these notes[,:]?\s*/i, '')
     .trim();
 
-  concise = takeEarlierClause(concise, ['. ', '; ', ' — ', ' - ', ': '], 18);
+  concise = takeEarlierClause(concise, ['. ', '; ', ' \u2014 ', ' - ', ': '], 18);
   concise = trimAtWordBoundary(concise, maxChars).replace(TRAILING_PUNCTUATION_REGEX, '').trim();
   return ensureQuestionPunctuation(sentenceCaseFirstLetter(concise));
 }

@@ -167,7 +167,7 @@ export default function ArenaResultsScreen() {
         accuracy,
         points,
         bestStreak,
-        summary: `${correct} correct — ${totalTimeSeconds}s`,
+        summary: `${correct} correct in ${totalTimeSeconds}s`,
         statLine: `${correct} correct • ${totalTimeSeconds}s • ${points} pts`,
       };
 
@@ -505,7 +505,7 @@ export default function ArenaResultsScreen() {
             <Text style={[styles.resultHeroSubtitle, { color: theme.textSecondary }]}>{resultSubtitle}</Text>
             <View style={styles.resultHeroStatsRow}>
               <View style={[styles.resultHeroStat, { backgroundColor: theme.background }]}> 
-                <Text style={[styles.resultHeroStatValue, { color: theme.primary }]}>{currentPlayerPlacement > 0 ? getPlacementLabel(currentPlayerPlacement) : '—'}</Text>
+                <Text style={[styles.resultHeroStatValue, { color: theme.primary }]}>{currentPlayerPlacement > 0 ? getPlacementLabel(currentPlayerPlacement) : '-'}</Text>
                 <Text style={[styles.resultHeroStatLabel, { color: theme.textSecondary }]}>Place</Text>
               </View>
               <View style={[styles.resultHeroStat, { backgroundColor: theme.background }]}> 
@@ -621,7 +621,7 @@ export default function ArenaResultsScreen() {
                 const score = data.scores[player.id];
                 const totalQ = data.totalQuestions;
                 const accuracy = totalQ > 0 ? ((score?.correct ?? 0) / totalQ) : 0;
-                const performanceSummary = playerPerformance[player.id]?.summary ?? '0 correct — 0s';
+                const performanceSummary = playerPerformance[player.id]?.summary ?? '0 correct in 0s';
 
                 return (
                   <View

@@ -282,7 +282,7 @@ export default function StatsPage() {
                 </Text>
                 <Text style={styles.weeklyStatLabel}>Day Streak</Text>
               </View>
-              {formattedStudyTime !== '—' ? (
+              {formattedStudyTime !== '' ? (
                 <>
                   <View
                     style={[
@@ -531,7 +531,7 @@ export default function StatsPage() {
               <View style={styles.perfContent}>
                 <Text style={styles.perfLabel}>Study</Text>
                 <Text style={styles.perfValue}>
-                  {displaySessions.study} sessions{formattedStudyTime !== '—' ? ` · ${formattedStudyTime} total` : ''}
+                  {displaySessions.study} sessions{formattedStudyTime !== '' ? ` · ${formattedStudyTime} total` : ''}
                 </Text>
               </View>
             </View>

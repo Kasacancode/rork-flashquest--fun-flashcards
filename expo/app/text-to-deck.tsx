@@ -370,7 +370,7 @@ ${sourceText}`,
               </View>
               <Text style={[styles.heroTitle, { color: theme.text }]}>Paste Your Notes</Text>
               <Text style={[styles.heroSubtitle, { color: theme.textSecondary }]}>
-                Paste any text — lecture notes, textbook passages, articles — and AI will turn it into study-ready flashcards.
+                Paste any text (lecture notes, textbook passages, articles) and AI will turn it into study-ready flashcards.
               </Text>
             </View>
 

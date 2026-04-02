@@ -167,7 +167,7 @@ export default function PracticePage() {
             <Text style={[styles.title, { color: isDark ? '#F8FAFC' : '#2D2A61' }]}>Choose Your Practice</Text>
             <Text style={[styles.subtitle, { color: mutedTextColor }]}>
               {preselectedDeck
-                ? `Using ${preselectedDeck.name} — pick solo or local versus.`
+                ? `Using ${preselectedDeck.name}. Pick solo or local versus.`
                 : 'Quick head-to-head rounds with a sharper, cleaner setup.'}
             </Text>
           </View>

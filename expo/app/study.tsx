@@ -359,7 +359,7 @@ export default function StudyPage() {
                 {needsReviewCount > 0 ? (
                   <View style={styles.srsResultRow}>
                     <RefreshCw color="#F59E0B" size={14} strokeWidth={2.2} />
-                    <Text style={styles.srsResultText}>{needsReviewCount} card{needsReviewCount !== 1 ? 's' : ''} needed review — scheduled by spaced repetition</Text>
+                    <Text style={styles.srsResultText}>{needsReviewCount} card{needsReviewCount !== 1 ? 's' : ''} needed review, scheduled by spaced repetition</Text>
                   </View>
                 ) : null}
                 {studySummary.newCount > 0 ? (
