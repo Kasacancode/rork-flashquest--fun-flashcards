@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { AnswerEntry, RoomQuestion } from '@/backend/arena/types';
 import { DealerReaction } from '@/components/AnswerCard';
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 import ConfettiCelebration from '@/components/ConfettiCelebration';
 import ShareableResultCard, { type ResultCardData } from '@/components/ShareableResultCard';
 import { trackEvent } from '@/lib/analytics';
@@ -481,7 +482,8 @@ export default function ArenaResultsScreen() {
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
+          <ResponsiveContainer>
+            <View style={styles.header}>
             <Trophy color="#FFD700" size={56} />
             <Text style={styles.title}>{resultHeadline}</Text>
             <Text style={styles.subtitle}>{isDuel ? 'The table settles and the result is in.' : 'Placements lock in before the next rematch.'}</Text>
@@ -872,6 +874,7 @@ export default function ArenaResultsScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+          </ResponsiveContainer>
         </ScrollView>
 
         {shareCardData ? (

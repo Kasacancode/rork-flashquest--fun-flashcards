@@ -17,6 +17,7 @@ import { getOptionalRenderKey } from '@/utils/listKeys';
 import { logger } from '@/utils/logger';
 import { ARENA_RESULTS_ROUTE, ARENA_ROUTE } from '@/utils/routes';
 import { playSound } from '@/utils/sounds';
+import { useResponsiveLayout } from '@/utils/responsive';
 
 type ArenaRevealBeat = 'question' | 'lock' | 'answer' | 'leaderboard' | 'next';
 
@@ -78,6 +79,7 @@ function getPlacementLabel(rank: number): string {
 export default function ArenaSessionScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
+  const { gameAreaMaxWidth } = useResponsiveLayout();
   const {
     room,
     playerId,
@@ -676,8 +678,9 @@ export default function ArenaSessionScreen() {
         </View>
 
         <View style={styles.gameArea}>
-          <View style={[styles.tableSurface, { backgroundColor: theme.arenaTableSurface }]}>
-            <View style={styles.optionsGrid} testID="arenaAnswerGrid">
+          <View style={[styles.answerGridContainer, { maxWidth: gameAreaMaxWidth }]}> 
+            <View style={[styles.tableSurface, { backgroundColor: theme.arenaTableSurface }]}>
+              <View style={styles.optionsGrid} testID="arenaAnswerGrid">
               {displayOptionRows.map((row, rowIndex) => {
                 const isLastRow = rowIndex === displayOptionRows.length - 1;
 
@@ -704,6 +707,7 @@ export default function ArenaSessionScreen() {
                   </View>
                 );
               })}
+              </View>
             </View>
           </View>
 
@@ -1008,6 +1012,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     paddingBottom: 20,
+  },
+  answerGridContainer: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    width: '100%',
   },
   tableSurface: {
     marginHorizontal: GRID_HORIZONTAL_MARGIN,

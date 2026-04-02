@@ -2,11 +2,13 @@ import { triggerImpact, ImpactFeedbackStyle } from '@/utils/haptics';
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, NativeSyntheticEvent, TextLayoutEventData } from 'react-native';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: RAW_SCREEN_WIDTH } = Dimensions.get('window');
+const ANSWER_GRID_MAX_WIDTH = 500;
+const EFFECTIVE_WIDTH = Math.min(RAW_SCREEN_WIDTH, ANSWER_GRID_MAX_WIDTH);
 const CARD_GAP = 10;
 const CARD_PADDING = 12;
 const GRID_HORIZONTAL_MARGIN = 12;
-const AVAILABLE_WIDTH = SCREEN_WIDTH - (GRID_HORIZONTAL_MARGIN * 2) - (CARD_PADDING * 2) - CARD_GAP;
+const AVAILABLE_WIDTH = EFFECTIVE_WIDTH - (GRID_HORIZONTAL_MARGIN * 2) - (CARD_PADDING * 2) - CARD_GAP;
 const CARD_WIDTH = Math.floor(AVAILABLE_WIDTH / 2);
 const CARD_HEIGHT = Math.min(Math.max(CARD_WIDTH * 1.05, 130), 152);
 

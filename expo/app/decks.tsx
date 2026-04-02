@@ -30,6 +30,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 
 import CategoryManagerSheet from '@/components/CategoryManagerSheet';
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { SkeletonCard } from '@/components/SkeletonLoader';
 import DeckCard from '@/components/decks/DeckCard';
 import {
@@ -44,6 +45,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { importDeckFromClipboardText } from '@/utils/deckImport';
 import { getDeckListSummaries } from '@/utils/deckSelectors';
 import { logger } from '@/utils/logger';
+import { useResponsiveLayout } from '@/utils/responsive';
 import {
   createFlashcardHref,
   deckHubHref,
@@ -65,6 +67,7 @@ export default function DecksPage() {
   const { cleanupDeck } = useArena();
   const { performance, getCardsDueForReview } = usePerformance();
   const { theme, isDark } = useTheme();
+  const { deckListColumns } = useResponsiveLayout();
 
   const [showMenu, setShowMenu] = useState<boolean>(false);
   const [showCategoryManager, setShowCategoryManager] = useState<boolean>(false);
@@ -414,6 +417,7 @@ export default function DecksPage() {
           </TouchableOpacity>
         </View>
 
+        <ResponsiveContainer>
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -558,22 +562,27 @@ export default function DecksPage() {
             </View>
           ) : (
             <FlatList
+              key={`deck-list-${deckListColumns}`}
+              numColumns={deckListColumns}
+              columnWrapperStyle={deckListColumns > 1 ? styles.deckListColumnWrapper : undefined}
               data={filteredDeckSummaries}
               keyExtractor={(item) => item.deck.id}
               renderItem={({ item }) => (
-                <DeckCard
-                  summary={item}
-                  theme={theme}
-                  isDark={isDark}
-                  deckSurface={deckSurface}
-                  quietSurface={quietSurface}
-                  subtleBorderColor={subtleBorderColor}
-                  surfaceBorderColor={surfaceBorderColor}
-                  onOpenDeckHub={handleOpenDeckHub}
-                  onStudyDeck={handleStudyDeck}
-                  onEditDeck={handleEditDeck}
-                  onDeleteDeck={handleDeleteDeck}
-                />
+                <View style={deckListColumns > 1 ? styles.deckListColumnItem : undefined}>
+                  <DeckCard
+                    summary={item}
+                    theme={theme}
+                    isDark={isDark}
+                    deckSurface={deckSurface}
+                    quietSurface={quietSurface}
+                    subtleBorderColor={subtleBorderColor}
+                    surfaceBorderColor={surfaceBorderColor}
+                    onOpenDeckHub={handleOpenDeckHub}
+                    onStudyDeck={handleStudyDeck}
+                    onEditDeck={handleEditDeck}
+                    onDeleteDeck={handleDeleteDeck}
+                  />
+                </View>
               )}
               style={styles.scrollView}
               contentContainerStyle={styles.scrollContent}
@@ -595,6 +604,7 @@ export default function DecksPage() {
             />
           )}
         </View>
+        </ResponsiveContainer>
       </SafeAreaView>
 
       {pendingDelete ? (
@@ -889,6 +899,12 @@ const styles = StyleSheet.create({
   },
   listSeparator: {
     height: 16,
+  },
+  deckListColumnWrapper: {
+    gap: 12,
+  },
+  deckListColumnItem: {
+    flex: 1,
   },
   deckCount: {
     fontSize: 13,

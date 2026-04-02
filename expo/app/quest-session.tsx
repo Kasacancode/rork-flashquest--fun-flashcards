@@ -22,6 +22,7 @@ import { createFlashcardOptionFromCard, getCanonicalAnswer, getCardAnswerForSurf
 import { logger } from '@/utils/logger';
 import { parseDrillCardIdsParam, parseQuestSettingsParam, serializeQuestResult } from '@/utils/questParams';
 import { playSound } from '@/utils/sounds';
+import { useResponsiveLayout } from '@/utils/responsive';
 import { QUEST_ROUTE, questResultsHref } from '@/utils/routes';
 import { selectNextCard, generateAIDistractors, generateOptions, checkAnswer, calculateScore } from '@/utils/questUtils';
 
@@ -40,6 +41,7 @@ export default function QuestSessionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ settings?: string | string[]; drillCardIds?: string | string[] }>();
   const { theme } = useTheme();
+  const { gameAreaMaxWidth } = useResponsiveLayout();
   const { decks, recordSessionResult } = useFlashQuest();
   const { performance, logQuestAttempt, updateBestStreak } = usePerformance();
 
@@ -725,8 +727,9 @@ export default function QuestSessionScreen() {
         </View>
 
         <View style={styles.gameArea}>
-          <View style={styles.tableSurface}>
-            <View key={`${currentCard.id}-${optionsRenderKey}`} style={styles.optionsGrid} testID="questAnswerGrid">
+          <View style={[styles.answerGridContainer, { maxWidth: gameAreaMaxWidth }]}> 
+            <View style={styles.tableSurface}>
+              <View key={`${currentCard.id}-${optionsRenderKey}`} style={styles.optionsGrid} testID="questAnswerGrid">
               {displayOptionRows.map((row, rowIndex) => {
                 const isLastRow = rowIndex === displayOptionRows.length - 1;
 
@@ -753,6 +756,7 @@ export default function QuestSessionScreen() {
                   </View>
                 );
               })}
+              </View>
             </View>
           </View>
         </View>
@@ -975,6 +979,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 18,
+  },
+  answerGridContainer: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    width: '100%',
   },
   tableSurface: {
     backgroundColor: 'rgba(0, 50, 35, 0.34)',

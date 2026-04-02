@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { useQueryClient } from '@tanstack/react-query';
 
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 import StatsRankEmblem from '@/components/StatsRankEmblem';
 import LevelsModal from '@/components/profile/LevelsModal';
 import StatsDeckProgressList from '@/components/stats/StatsDeckProgressList';
@@ -140,7 +141,8 @@ export default function StatsPage() {
           }
           testID="stats-scroll-view"
         >
-          <TouchableOpacity
+          <ResponsiveContainer>
+            <TouchableOpacity
             style={[
               styles.levelCard,
               {
@@ -616,6 +618,7 @@ export default function StatsPage() {
               trackColor={isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}
             />
           </View>
+          </ResponsiveContainer>
         </ScrollView>
       </SafeAreaView>
 

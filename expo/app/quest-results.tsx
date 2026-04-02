@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ConfettiCelebration from '@/components/ConfettiCelebration';
 import DealerPlaceholder from '@/components/DealerPlaceholder';
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 import ShareableResultCard, { type ResultCardData } from '@/components/ShareableResultCard';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -182,7 +183,8 @@ export default function QuestResultsScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
+          <ResponsiveContainer>
+            <View style={styles.header}>
             <Trophy color="#FFD700" size={48} />
             <Text style={styles.title}>Quest Complete!</Text>
             <Text style={[styles.performanceMessage, { color: getPerformanceColor() }]}>
@@ -370,6 +372,7 @@ export default function QuestResultsScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+          </ResponsiveContainer>
         </ScrollView>
 
         {shareCardData ? (

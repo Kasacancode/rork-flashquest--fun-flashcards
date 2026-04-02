@@ -37,6 +37,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -362,7 +363,8 @@ export default function SettingsScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} testID="settings-screen">
-          <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Appearance</Text>
+          <ResponsiveContainer>
+            <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Appearance</Text>
           <View style={[styles.card, { backgroundColor: surfaceBg }]}> 
             <SettingsRow
               icon={isDark ? <Moon color={theme.primary} size={20} /> : <Sun color={theme.primary} size={20} />}
@@ -580,7 +582,8 @@ export default function SettingsScreen() {
             <Text style={[styles.aboutText, { color: theme.textTertiary }]}>FlashQuest v{appVersion}</Text>
           </View>
           <Text style={[styles.aboutCredit, { color: theme.textTertiary }]}>Built by Caleb Mukasa</Text>
-          <View style={styles.bottomSpacer} />
+            <View style={styles.bottomSpacer} />
+          </ResponsiveContainer>
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>

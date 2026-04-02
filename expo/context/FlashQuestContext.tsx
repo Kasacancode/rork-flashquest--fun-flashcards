@@ -17,8 +17,10 @@ import type { Achievement, Deck, Flashcard, FlashcardNormalizationSource, UserPr
 import type { GameResultParams } from '@/types/game';
 import { mergeFlashcardUpdates, normalizeDeck, normalizeDeckCollection } from '@/utils/flashcardContent';
 import { incrementDailyProgress } from '@/utils/dailyGoal';
+import { computeLevel } from '@/utils/levels';
 import { logger } from '@/utils/logger';
 import { scheduleStreakReminder } from '@/utils/notifications';
+import { updateWidgetData } from '@/utils/widgetBridge';
 
 const STORAGE_KEYS = {
   DECKS: 'flashquest_decks',
@@ -804,6 +806,17 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
         logger.error('[FlashQuest] Failed to persist session result, rolled back cache', error);
         throw error;
       }
+
+      void updateWidgetData({
+        currentStreak: newStreak,
+        longestStreak: newLongest,
+        totalCardsStudied: updatedStats.totalCardsStudied,
+        totalScore: updatedStats.totalScore,
+        level: computeLevel(updatedStats.totalScore),
+        dueCardCount: 0,
+        lastStudiedDate: today,
+        updatedAt: new Date().toISOString(),
+      });
 
       if (params.cardsAttempted > 0) {
         void incrementDailyProgress(params.cardsAttempted);

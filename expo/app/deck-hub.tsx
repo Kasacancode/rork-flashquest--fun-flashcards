@@ -6,6 +6,7 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import DeckQRSheet from '@/components/DeckQRSheet';
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -428,7 +429,8 @@ export default function DeckHubScreen() {
         <View style={[styles.accentBar, { backgroundColor: deck.color }]} />
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View
+          <ResponsiveContainer>
+            <View
             style={[
               styles.card,
               {
@@ -601,6 +603,7 @@ export default function DeckHubScreen() {
               </View>
             </TouchableOpacity>
           ) : null}
+          </ResponsiveContainer>
         </ScrollView>
 
         <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>

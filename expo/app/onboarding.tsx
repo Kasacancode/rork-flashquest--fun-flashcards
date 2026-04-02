@@ -1029,6 +1029,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 10,
+    maxWidth: 640,
+    alignSelf: 'center',
+    width: '100%',
   },
   tutorialScreenContent: {
     paddingBottom: 72,

@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 import AvatarTab from '@/components/profile/AvatarTab';
 import AwardsTab from '@/components/profile/AwardsTab';
 import LevelsModal from '@/components/profile/LevelsModal';
@@ -160,7 +161,8 @@ export default function ProfilePage() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <ProfileHeroCard
+          <ResponsiveContainer>
+            <ProfileHeroCard
             profileDisplayName={profileDisplayName}
             selectedSuitData={selectedSuitData}
             selectedColorData={selectedColorData}
@@ -231,6 +233,7 @@ export default function ProfilePage() {
               theme={theme}
             />
           )}
+          </ResponsiveContainer>
         </ScrollView>
       </SafeAreaView>
 

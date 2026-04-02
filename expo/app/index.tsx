@@ -8,7 +8,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
   Animated,
   RefreshControl,
   PanResponder,
@@ -19,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { SkeletonBox, SkeletonCard } from '@/components/SkeletonLoader';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
@@ -27,15 +27,10 @@ import { computeLevel, getLevelBandPalette, getLevelEntry } from '@/utils/levels
 import { computeDeckMastery, getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
 import { studyHref } from '@/utils/routes';
 import { getUserInterests } from '@/utils/userInterests';
+import { useResponsiveLayout } from '@/utils/responsive';
 
-const { width } = Dimensions.get('window');
 const quickStartSectionPadding = 24;
 const quickStartCardGap = 14;
-const quickStartCardWidth = Math.max(
-  152,
-  Math.min(166, Math.floor((width - quickStartSectionPadding * 2 - quickStartCardGap - 2) / 2)),
-);
-const statsCardInnerWidth = width - 80;
 
 function AnimatedStatValue({ animValue, style }: { animValue: Animated.Value; style: StyleProp<TextStyle> }) {
   const [display, setDisplay] = React.useState<string>('0');
@@ -59,6 +54,7 @@ export default function HomePage() {
   const { stats, decks, isLoading } = useFlashQuest();
   const { performance, getWeakCards } = usePerformance();
   const { theme, isDark } = useTheme();
+  const { contentMaxWidth, screenWidth } = useResponsiveLayout();
   const streakAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
   const cardsAnim = useRef<Animated.Value>(new Animated.Value(0)).current;
   const statsPagerTranslateX = useRef<Animated.Value>(new Animated.Value(0)).current;
@@ -67,6 +63,13 @@ export default function HomePage() {
   const [statsPage, setStatsPage] = useState<number>(0);
   const [userInterests, setUserInterests] = useState<string[]>([]);
   const hasCustomDecks = useMemo<boolean>(() => decks.some((deck) => deck.isCustom), [decks]);
+  const availableContentWidth = contentMaxWidth ?? screenWidth;
+  const quickStartCardWidth = Math.max(
+    152,
+    Math.min(166, Math.floor((availableContentWidth - quickStartSectionPadding * 2 - quickStartCardGap - 2) / 2)),
+  );
+  const statsCardInnerWidth = Math.max(260, availableContentWidth - 80);
+  const actionCardWidth = Math.max(140, Math.floor((availableContentWidth - 64) / 2));
   const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
   const levelEntry = useMemo(() => getLevelEntry(level), [level]);
   const levelPalette = useMemo(() => getLevelBandPalette(level, isDark), [level, isDark]);
@@ -253,7 +256,7 @@ export default function HomePage() {
       tension: 90,
       friction: 10,
     }).start();
-  }, [hasReviewPage, statsPagerTranslateX]);
+  }, [hasReviewPage, statsCardInnerWidth, statsPagerTranslateX]);
 
   const handleSetStatsPage = useCallback((page: number) => {
     const nextPage = hasReviewPage ? Math.max(0, Math.min(1, page)) : 0;
@@ -320,7 +323,7 @@ export default function HomePage() {
         animateStatsPagerTo(statsPage);
       },
     }),
-    [animateStatsPagerTo, handleSetStatsPage, hasReviewPage, statsPage, statsPagerTranslateX],
+    [animateStatsPagerTo, handleSetStatsPage, hasReviewPage, statsCardInnerWidth, statsPage, statsPagerTranslateX],
   );
 
   const renderActionCard = ({
@@ -342,6 +345,7 @@ export default function HomePage() {
           styles.actionCard,
           styles.actionCardMedium,
           {
+            width: actionCardWidth,
             backgroundColor: colors[1],
             shadowColor: actionShadowColor,
             shadowOpacity: isDark ? 0.24 : 0.12,
@@ -420,7 +424,8 @@ export default function HomePage() {
           }
           testID="home-scroll-view"
         >
-          {isLoading && decks.length === 0 ? (
+          <ResponsiveContainer>
+            {isLoading && decks.length === 0 ? (
             <View style={{ paddingHorizontal: 24, paddingTop: 20, gap: 20 }}>
               <SkeletonBox width="50%" height={28} borderRadius={12} />
               <SkeletonBox width="80%" height={16} />
@@ -488,7 +493,7 @@ export default function HomePage() {
                 <View style={[styles.statsCardFrame, { borderColor: statsBorderColor }]} />
 
                 <View
-                  style={styles.statsPager}
+                  style={[styles.statsPager, { width: statsCardInnerWidth }]}
                   testID="stats-card-pager"
                   {...(hasReviewPage ? statsPanResponder.panHandlers : {})}
                 >
@@ -688,6 +693,7 @@ export default function HomePage() {
                       style={[
                         styles.deckCard,
                         {
+                          width: quickStartCardWidth,
                           backgroundColor: deckCardSurface,
                           borderWidth: 1,
                           borderColor: deckCardBorderColor,
@@ -741,6 +747,7 @@ export default function HomePage() {
                       style={[
                         styles.deckCard,
                         {
+                          width: quickStartCardWidth,
                           backgroundColor: deckCardSurface,
                           borderWidth: 1,
                           borderColor: deckCardBorderColor,
@@ -781,6 +788,7 @@ export default function HomePage() {
               </View>
             </>
           )}
+          </ResponsiveContainer>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -942,7 +950,6 @@ const styles = StyleSheet.create<{
   },
   statsPager: {
     overflow: 'hidden',
-    width: statsCardInnerWidth,
     alignSelf: 'center',
   },
   statsPagerTrack: {
@@ -1088,7 +1095,6 @@ const styles = StyleSheet.create<{
     elevation: 9,
   },
   actionCardMedium: {
-    width: (width - 64) / 2,
     height: 148,
   },
   actionGradient: {
@@ -1170,7 +1176,6 @@ const styles = StyleSheet.create<{
     color: '#fff',
   },
   deckCard: {
-    width: quickStartCardWidth,
     height: 124,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 20,

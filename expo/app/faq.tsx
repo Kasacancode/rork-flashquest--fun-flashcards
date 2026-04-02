@@ -5,6 +5,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { LayoutAnimation, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { PRIVACY_LINKS } from '@/constants/privacy';
 import { useTheme } from '@/context/ThemeContext';
 import { logger } from '@/utils/logger';
@@ -280,7 +281,8 @@ export default function FAQScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <LinearGradient
+          <ResponsiveContainer>
+            <LinearGradient
             colors={isDark ? ['rgba(15,23,42,0.56)', 'rgba(15,23,42,0.82)'] : ['rgba(67,56,202,0.34)', 'rgba(79,70,229,0.44)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -416,9 +418,10 @@ export default function FAQScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.footer}>
-            <Text style={[styles.footerText, { color: isDark ? 'rgba(226,232,240,0.72)' : 'rgba(255,255,255,0.86)' }]}>FlashQuest guide</Text>
-          </View>
+            <View style={styles.footer}>
+              <Text style={[styles.footerText, { color: isDark ? 'rgba(226,232,240,0.72)' : 'rgba(255,255,255,0.86)' }]}>FlashQuest guide</Text>
+            </View>
+          </ResponsiveContainer>
         </ScrollView>
       </SafeAreaView>
     </View>

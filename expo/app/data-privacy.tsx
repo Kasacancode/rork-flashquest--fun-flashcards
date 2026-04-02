@@ -5,6 +5,7 @@ import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { PRIVACY_COPY, PRIVACY_LINKS } from '@/constants/privacy';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -80,13 +81,14 @@ export default function DataPrivacyScreen() {
         </View>
 
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={[styles.heroCard, { backgroundColor: surface, borderColor: subtleBorder }]}>
+          <ResponsiveContainer>
+            <View style={[styles.heroCard, { backgroundColor: surface, borderColor: subtleBorder }]}>
             <Text style={[styles.eyebrow, { color: theme.primary }]}>Trust & transparency</Text>
             <Text style={[styles.heroTitle, { color: theme.text }]}>Privacy controls, data use, and legal details.</Text>
             <Text style={[styles.heroBody, { color: muted }]}>FlashQuest keeps most study data local, but some features need remote services to work. This is the single place for analytics controls, privacy context, and legal documents.</Text>
           </View>
 
-          <View style={[styles.sectionCard, { backgroundColor: surface, borderColor: subtleBorder }]}>
+            <View style={[styles.sectionCard, { backgroundColor: surface, borderColor: subtleBorder }]}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>What stays on this device</Text>
             <InfoCard
               icon={<Database color="#10B981" size={18} strokeWidth={2.2} />}
@@ -96,7 +98,7 @@ export default function DataPrivacyScreen() {
             />
           </View>
 
-          <View style={[styles.sectionCard, { backgroundColor: surface, borderColor: subtleBorder }]}>
+            <View style={[styles.sectionCard, { backgroundColor: surface, borderColor: subtleBorder }]}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>What uses remote services</Text>
             <InfoCard
               icon={<ChartNoAxesCombined color="#F59E0B" size={18} strokeWidth={2.2} />}
@@ -118,7 +120,7 @@ export default function DataPrivacyScreen() {
             />
           </View>
 
-          <View style={[styles.sectionCard, { backgroundColor: surface, borderColor: subtleBorder }]}>
+            <View style={[styles.sectionCard, { backgroundColor: surface, borderColor: subtleBorder }]}>
             <View style={styles.toggleHeader}>
               <View style={styles.toggleCopy}>
                 <Text style={[styles.sectionTitle, { color: theme.text }]}>{PRIVACY_COPY.analyticsTitle}</Text>
@@ -141,7 +143,7 @@ export default function DataPrivacyScreen() {
             </View>
           </View>
 
-          <View style={[styles.sectionCard, { backgroundColor: surface, borderColor: subtleBorder }]}>
+            <View style={[styles.sectionCard, { backgroundColor: surface, borderColor: subtleBorder }]}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Privacy contact & legal</Text>
             <TouchableOpacity style={[styles.linkRow, { borderColor: subtleBorder }]} onPress={() => void openPrivacyContact()} activeOpacity={0.8} testID="privacy-contact-button">
               <View style={[styles.linkIconWrap, { backgroundColor: 'rgba(16,185,129,0.12)' }]}>
@@ -166,7 +168,8 @@ export default function DataPrivacyScreen() {
                 <ChevronRight color={theme.textSecondary} size={20} strokeWidth={2.2} />
               </TouchableOpacity>
             ))}
-          </View>
+            </View>
+          </ResponsiveContainer>
         </ScrollView>
       </SafeAreaView>
     </View>

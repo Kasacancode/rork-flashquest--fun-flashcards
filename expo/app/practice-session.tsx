@@ -39,6 +39,8 @@ import { clearAIDistractorCache as clearDistractorCache, generateOptionsWithAI }
 import { logger } from '@/utils/logger';
 import { focusedQuestSessionHref, questHref, studyHref } from '@/utils/routes';
 import { playSound } from '@/utils/sounds';
+import { useResponsiveLayout } from '@/utils/responsive';
+import { useResponsiveLayout } from '@/utils/responsive';
 
 const FEEDBACK_REVEAL_DELAY_MS = 850;
 const TURN_TRANSITION_DELAY_MS = 850;
@@ -51,6 +53,8 @@ export default function PracticeSessionPage() {
   const { decks, recordSessionResult } = useFlashQuest();
   const { logQuestAttempt } = usePerformance();
   const { theme, isDark } = useTheme();
+  const { gameAreaMaxWidth } = useResponsiveLayout();
+  const { gameAreaMaxWidth } = useResponsiveLayout();
   const deckId = useMemo(() => (Array.isArray(params.deckId) ? params.deckId[0] : params.deckId), [params.deckId]);
   const practiceMode = useMemo<PracticeMode>(() => {
     const rawMode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
@@ -779,13 +783,14 @@ export default function PracticeSessionPage() {
 
           {gamePhase === 'player-turn' && (
             <Animated.View style={[styles.answerSection, { transform: [{ translateX: shakeAnim }] }]}>
-              <View style={styles.turnIndicator}>
-                <View style={[styles.turnDot, { backgroundColor: '#10b981' }]} />
-                <Text style={styles.turnText}>
-                  {currentBattle?.mode === 'multiplayer' ? `Player ${currentPlayer}'s Turn` : 'Your Turn'}
-                </Text>
-              </View>
-              <TextInput
+              <View style={[styles.answerGridContainer, { maxWidth: gameAreaMaxWidth }]}> 
+                <View style={styles.turnIndicator}>
+                  <View style={[styles.turnDot, { backgroundColor: '#10b981' }]} />
+                  <Text style={styles.turnText}>
+                    {currentBattle?.mode === 'multiplayer' ? `Player ${currentPlayer}'s Turn` : 'Your Turn'}
+                  </Text>
+                </View>
+                <TextInput
                 style={[styles.answerInput, { 
                   backgroundColor: 'rgba(255, 255, 255, 0.12)',
                   borderColor: buttonState === 'correct' ? '#10b981' : buttonState === 'incorrect' ? '#ef4444' : 'rgba(255, 255, 255, 0.25)'
@@ -800,38 +805,41 @@ export default function PracticeSessionPage() {
                 onSubmitEditing={handleSubmitAnswer}
                 returnKeyType="done"
               />
-              <TouchableOpacity
-                style={[
-                  styles.submitButton,
-                  userAnswer.trim() === '' && styles.submitButtonDisabled,
-                  buttonState === 'correct' && styles.submitButtonCorrect,
-                  buttonState === 'incorrect' && styles.submitButtonIncorrect,
-                ]}
-                onPress={handleSubmitAnswer}
-                disabled={userAnswer.trim() === '' || (currentBattle?.mode === 'multiplayer' ? (currentPlayer === 1 ? player1Result !== null : player2Result !== null) : playerResult !== null)}
-                activeOpacity={0.85}
-              >
-                <Text style={[
-                  styles.submitButtonText,
-                  buttonState !== 'idle' && styles.submitButtonTextWhite,
-                ]}>
-                  {buttonState === 'idle' ? 'Submit' : buttonState === 'correct' ? '✓ Correct!' : '✗ Wrong'}
-                </Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.submitButton,
+                    userAnswer.trim() === '' && styles.submitButtonDisabled,
+                    buttonState === 'correct' && styles.submitButtonCorrect,
+                    buttonState === 'incorrect' && styles.submitButtonIncorrect,
+                  ]}
+                  onPress={handleSubmitAnswer}
+                  disabled={userAnswer.trim() === '' || (currentBattle?.mode === 'multiplayer' ? (currentPlayer === 1 ? player1Result !== null : player2Result !== null) : playerResult !== null)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[
+                    styles.submitButtonText,
+                    buttonState !== 'idle' && styles.submitButtonTextWhite,
+                  ]}>
+                    {buttonState === 'idle' ? 'Submit' : buttonState === 'correct' ? '✓ Correct!' : '✗ Wrong'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </Animated.View>
           )}
 
           {gamePhase === 'opponent-turn' && (
             <View style={styles.answerSection}>
-              <View style={styles.turnIndicator}>
-                <View style={[styles.turnDot, { backgroundColor: '#ef4444' }]} />
-                <Text style={styles.turnText}>{`${currentBattle.opponentName}'s Turn`}</Text>
-              </View>
-              <View style={styles.waitingCard}>
-                <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                  <Bot color="rgba(255,255,255,0.8)" size={48} />
-                </Animated.View>
-                <Text style={styles.waitingText}>Thinking...</Text>
+              <View style={[styles.answerGridContainer, { maxWidth: gameAreaMaxWidth }]}> 
+                <View style={styles.turnIndicator}>
+                  <View style={[styles.turnDot, { backgroundColor: '#ef4444' }]} />
+                  <Text style={styles.turnText}>{`${currentBattle.opponentName}'s Turn`}</Text>
+                </View>
+                <View style={styles.waitingCard}>
+                  <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                    <Bot color="rgba(255,255,255,0.8)" size={48} />
+                  </Animated.View>
+                  <Text style={styles.waitingText}>Thinking...</Text>
+                </View>
               </View>
             </View>
           )}
@@ -1046,6 +1054,10 @@ const styles = StyleSheet.create({
   },
   answerSection: {
     flex: 1,
+  },
+  answerGridContainer: {
+    alignSelf: 'center',
+    width: '100%',
   },
   turnIndicator: {
     flexDirection: 'row',
