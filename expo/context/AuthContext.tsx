@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
 import { logger } from '@/utils/logger';
+import { fetchUsername } from '@/utils/usernameService';
 
 import type { AuthError, Session, User } from '@supabase/supabase-js';
 
@@ -22,7 +23,9 @@ interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   isSignedIn: boolean;
+  username: string | null;
   displayName: string;
+  refreshUsername: () => Promise<string | null>;
   signInWithApple: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<AuthResult>;
@@ -66,6 +69,7 @@ function getReadableAuthError(error: unknown): string {
 export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [username, setUsername] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -114,6 +118,24 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
       void supabase.auth.stopAutoRefresh();
     };
   }, []);
+
+  const refreshUsername = useCallback(async (): Promise<string | null> => {
+    if (!session?.user?.id) {
+      setUsername(null);
+      return null;
+    }
+
+    const nextUsername = await fetchUsername(session.user.id);
+    setUsername(nextUsername);
+    return nextUsername;
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    void refreshUsername().catch((error: unknown) => {
+      logger.warn('[Auth] Failed to refresh username:', error);
+      setUsername(null);
+    });
+  }, [refreshUsername]);
 
   const signInWithApple = useCallback(async (): Promise<void> => {
     try {
@@ -291,7 +313,8 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
   }, []);
 
   const user = session?.user ?? null;
-  const displayName = user?.user_metadata?.full_name
+  const displayName = username
+    ?? user?.user_metadata?.full_name
     ?? user?.user_metadata?.name
     ?? user?.email?.split('@')[0]
     ?? '';
@@ -301,11 +324,13 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
     user,
     isLoading,
     isSignedIn: Boolean(session),
+    username,
     displayName,
+    refreshUsername,
     signInWithApple,
     signInWithGoogle,
     signInWithEmail,
     signUpWithEmail,
     signOut,
-  }), [displayName, isLoading, session, signInWithApple, signInWithEmail, signInWithGoogle, signOut, signUpWithEmail, user]);
+  }), [displayName, isLoading, refreshUsername, session, signInWithApple, signInWithEmail, signInWithGoogle, signOut, signUpWithEmail, user, username]);
 });

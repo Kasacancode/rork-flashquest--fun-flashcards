@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 
 import { ARENA_BACKEND_ERROR_CODES, type ArenaDeckSourceCard, type ArenaDeckSelectionResult, type ArenaGameStartResult, type RoomSettings, type SanitizedRoom } from '@/backend/arena/types';
+import { useAuth } from '@/context/AuthContext';
 import { useAvatar } from '@/context/AvatarContext';
 import { trackEvent, trackEvents } from '@/lib/analytics';
 import { trpc } from '@/lib/trpc';
@@ -164,6 +165,7 @@ function normalizeArenaConnectionError(error: unknown): string {
 
 export const [ArenaProvider, useArena] = createContextHook(() => {
   const queryClient = useQueryClient();
+  const { username } = useAuth();
   const { selectedIdentityKey } = useAvatar();
 
   const [roomCode, setRoomCode] = useState<string | null>(null);
@@ -185,8 +187,13 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   const GRACE_PERIOD_MS = 20000;
 
   const playerNameQuery = useQuery({
-    queryKey: ['arena-player-name'],
+    queryKey: ['arena-player-name', username ?? 'guest'],
     queryFn: async () => {
+      if (username) {
+        setPlayerName(username);
+        return username;
+      }
+
       const storedName = (await AsyncStorage.getItem(PLAYER_NAME_KEY)) ?? '';
       const sanitizedStoredName = sanitizePlayerName(storedName);
 
@@ -235,7 +242,7 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
       return name;
     },
     onSuccess: (name: string) => {
-      queryClient.setQueryData(['arena-player-name'], name);
+      queryClient.setQueryData(['arena-player-name', 'guest'], name);
     },
     onError: (error: unknown) => {
       logger.warn('[Arena] Failed to persist player name:', error);
@@ -617,6 +624,13 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
   });
 
   const updatePlayerName = useCallback((name: string): string => {
+    if (username) {
+      logger.debug('[Arena] Ignoring local player name override because username is active:', username);
+      setPlayerName(username);
+      queryClient.setQueryData(['arena-player-name', username], username);
+      return username;
+    }
+
     const validationError = getPlayerNameValidationError(name);
     if (validationError) {
       return '';
@@ -625,10 +639,10 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     const sanitizedName = sanitizePlayerName(name);
     logger.debug('[Arena] Updating player name:', sanitizedName);
     setPlayerName(sanitizedName);
-    queryClient.setQueryData(['arena-player-name'], sanitizedName);
+    queryClient.setQueryData(['arena-player-name', 'guest'], sanitizedName);
     savePlayerNameMut.mutate(sanitizedName);
     return sanitizedName;
-  }, [queryClient, savePlayerNameMut]);
+  }, [queryClient, savePlayerNameMut, username]);
 
   const createRoom = useCallback((name: string) => {
     const validationError = getPlayerNameValidationError(name);

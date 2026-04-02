@@ -96,6 +96,7 @@ function RootLayoutNav() {
       <Stack.Screen name="deck-hub" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen name="auth" options={{ headerShown: false, gestureEnabled: true }} />
+      <Stack.Screen name="choose-username" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="edit-deck" options={{ headerShown: false }} />
       <Stack.Screen name="edit-flashcard" options={{ headerShown: false }} />
       <Stack.Protected guard={canAccessDebugRoute('flashcard-debug')}>

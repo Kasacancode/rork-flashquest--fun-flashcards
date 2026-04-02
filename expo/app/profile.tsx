@@ -43,6 +43,8 @@ export default function ProfilePage() {
     selectedSuitData,
     selectedColorData,
     profileDisplayName,
+    usernameLabel,
+    canEditPlayerName,
     achievements,
     completedAchievements,
     nextAchievement,
@@ -166,20 +168,22 @@ export default function ProfilePage() {
         >
           <ResponsiveContainer>
             <ProfileHeroCard
-            profileDisplayName={profileDisplayName}
-            selectedSuitData={selectedSuitData}
-            selectedColorData={selectedColorData}
-            heroGradient={heroGradient}
-            level={level}
-            levelEntry={levelEntry}
-            progress={levelProgress}
-            isPlayerNameReady={isPlayerNameReady}
-            onEditPlayerName={handleEditPlayerName}
-            onOpenLevels={handleOpenLevels}
-            selectedColorValue={selectedColorValue}
-            styles={styles}
-            theme={theme}
-          />
+              profileDisplayName={profileDisplayName}
+              usernameLabel={usernameLabel}
+              selectedSuitData={selectedSuitData}
+              selectedColorData={selectedColorData}
+              heroGradient={heroGradient}
+              level={level}
+              levelEntry={levelEntry}
+              progress={levelProgress}
+              isPlayerNameReady={isPlayerNameReady}
+              canEditPlayerName={canEditPlayerName}
+              onEditPlayerName={handleEditPlayerName}
+              onOpenLevels={handleOpenLevels}
+              selectedColorValue={selectedColorValue}
+              styles={styles}
+              theme={theme}
+            />
 
           <TouchableOpacity
             onPress={() => router.push(LEADERBOARD_ROUTE)}

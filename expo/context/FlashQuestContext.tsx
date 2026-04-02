@@ -23,6 +23,7 @@ import { incrementDailyProgress } from '@/utils/dailyGoal';
 import { computeLevel } from '@/utils/levels';
 import { logger } from '@/utils/logger';
 import { scheduleStreakReminder } from '@/utils/notifications';
+import { fetchUsername } from '@/utils/usernameService';
 import { updateWidgetData } from '@/utils/widgetBridge';
 
 const STORAGE_KEYS = {
@@ -829,16 +830,18 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
       scheduleStreakReminder({ requestPermissionIfNeeded: true }).catch(() => {});
 
       supabase.auth.getSession()
-        .then(({ data: { session: currentSession } }) => {
+        .then(async ({ data: { session: currentSession } }) => {
           if (!currentSession?.user?.id) {
             return;
           }
 
-          const displayName = typeof currentSession.user.user_metadata?.full_name === 'string' && currentSession.user.user_metadata.full_name.trim().length > 0
-            ? currentSession.user.user_metadata.full_name.trim()
-            : typeof currentSession.user.user_metadata?.name === 'string' && currentSession.user.user_metadata.name.trim().length > 0
-              ? currentSession.user.user_metadata.name.trim()
-              : currentSession.user.email?.split('@')[0] ?? 'Player';
+          const claimedUsername = await fetchUsername(currentSession.user.id);
+          const displayName = claimedUsername
+            ?? (typeof currentSession.user.user_metadata?.full_name === 'string' && currentSession.user.user_metadata.full_name.trim().length > 0
+              ? currentSession.user.user_metadata.full_name.trim()
+              : typeof currentSession.user.user_metadata?.name === 'string' && currentSession.user.user_metadata.name.trim().length > 0
+                ? currentSession.user.user_metadata.name.trim()
+                : currentSession.user.email?.split('@')[0] ?? 'Player');
 
           void uploadToCloud(currentSession.user.id);
           void updateLeaderboard(currentSession.user.id, {

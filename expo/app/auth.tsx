@@ -20,6 +20,8 @@ import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { uploadToCloud } from '@/utils/cloudSync';
+import { CHOOSE_USERNAME_ROUTE, SETTINGS_ROUTE } from '@/utils/routes';
+import { fetchUsername } from '@/utils/usernameService';
 
 type AuthMode = 'options' | 'email-signin' | 'email-signup';
 
@@ -42,14 +44,27 @@ export default function AuthScreen() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
-    if (isSignedIn && user && !isLoading) {
-      void uploadToCloud(user.id);
-      router.replace('/settings');
+    if (!isSignedIn || !user || isLoading) {
+      return;
     }
+
+    void uploadToCloud(user.id);
+    void fetchUsername(user.id)
+      .then((existingUsername) => {
+        if (existingUsername) {
+          router.replace(SETTINGS_ROUTE);
+          return;
+        }
+
+        router.replace(CHOOSE_USERNAME_ROUTE);
+      })
+      .catch(() => {
+        router.replace(SETTINGS_ROUTE);
+      });
   }, [isLoading, isSignedIn, router, user]);
 
   const handleGoBack = useCallback(() => {
-    router.replace('/settings');
+    router.replace(SETTINGS_ROUTE);
   }, [router]);
 
   const handleApple = useCallback(async () => {

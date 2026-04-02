@@ -6,6 +6,7 @@ import { HERO_GRADIENTS } from '@/components/profile/profileScreen.constants';
 import type { GradientTriplet, TabType } from '@/components/profile/profileScreen.types';
 import { AVATAR_COLORS, AVATAR_SUITS } from '@/constants/avatar';
 import { useArena } from '@/context/ArenaContext';
+import { useAuth } from '@/context/AuthContext';
 import { useAvatar } from '@/context/AvatarContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
@@ -26,6 +27,7 @@ export function useProfileScreenState() {
   const { stats, decks } = useFlashQuest();
   const { performance } = usePerformance();
   const { playerName, updatePlayerName, isPlayerNameReady, leaderboard } = useArena();
+  const { isSignedIn, username, user } = useAuth();
   const { theme, isDark, toggleTheme } = useTheme();
   const { selectedSuit, selectedColor, setSelectedSuit, setSelectedColor } = useAvatar();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -47,7 +49,16 @@ export function useProfileScreenState() {
     [selectedColor],
   );
   const currentPlayerName = playerName.trim();
-  const profileDisplayName = currentPlayerName || 'FlashQuest Player';
+  const accountDisplayName = typeof user?.user_metadata?.full_name === 'string' && user.user_metadata.full_name.trim().length > 0
+    ? user.user_metadata.full_name.trim()
+    : typeof user?.user_metadata?.name === 'string' && user.user_metadata.name.trim().length > 0
+      ? user.user_metadata.name.trim()
+      : user?.email?.split('@')[0] ?? '';
+  const profileDisplayName = isSignedIn
+    ? accountDisplayName || currentPlayerName || 'FlashQuest Player'
+    : currentPlayerName || 'FlashQuest Player';
+  const usernameLabel = isSignedIn && username ? `@${username}` : null;
+  const canEditPlayerName = !isSignedIn || !username;
   const totalCardsOwned = useMemo(() => decks.flatMap((deck) => deck.flashcards).length, [decks]);
   const customDeckCount = useMemo(() => decks.filter((deck) => deck.isCustom).length, [decks]);
   const achievements: AchievementItem[] = useMemo(
@@ -182,10 +193,14 @@ export function useProfileScreenState() {
   }, [setSelectedColor]);
 
   const handleEditPlayerName = useCallback(() => {
+    if (!canEditPlayerName) {
+      return;
+    }
+
     setPlayerNameInput(playerName);
     setPlayerNameError(null);
     setIsEditingPlayerName(true);
-  }, [playerName]);
+  }, [canEditPlayerName, playerName]);
 
   const handleCancelPlayerNameEdit = useCallback(() => {
     setPlayerNameInput(playerName);
@@ -237,6 +252,8 @@ export function useProfileScreenState() {
     selectedSuitData,
     selectedColorData,
     profileDisplayName,
+    usernameLabel,
+    canEditPlayerName,
     achievements,
     completedAchievements,
     nextAchievement,

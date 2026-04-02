@@ -13,6 +13,7 @@ type TextStyles<K extends string> = { [P in K]: StyleProp<TextStyle> };
 
 interface ProfileHeroCardProps {
   profileDisplayName: string;
+  usernameLabel?: string | null;
   selectedSuitData: AvatarSuitOption;
   selectedColorData: AvatarColorOption;
   heroGradient: GradientTriplet;
@@ -20,6 +21,7 @@ interface ProfileHeroCardProps {
   levelEntry: { title: string };
   progress: { current: number; required: number; percent: number };
   isPlayerNameReady: boolean;
+  canEditPlayerName?: boolean;
   onEditPlayerName: () => void;
   onOpenLevels: () => void;
   selectedColorValue: string;
@@ -55,6 +57,7 @@ interface ProfileHeroCardProps {
 
 export default function ProfileHeroCard({
   profileDisplayName,
+  usernameLabel,
   selectedSuitData,
   selectedColorData,
   heroGradient,
@@ -62,6 +65,7 @@ export default function ProfileHeroCard({
   levelEntry,
   progress,
   isPlayerNameReady,
+  canEditPlayerName = true,
   onEditPlayerName,
   onOpenLevels,
   selectedColorValue,
@@ -89,19 +93,24 @@ export default function ProfileHeroCard({
             </View>
 
             <View style={styles.heroIdentityText}>
+              {usernameLabel ? (
+                <Text style={styles.heroEyebrow} numberOfLines={1}>{usernameLabel}</Text>
+              ) : null}
               <View style={styles.heroNameRow}>
                 <Text style={styles.heroName} numberOfLines={1} accessibilityRole="header">{profileDisplayName}</Text>
-                <TouchableOpacity
-                  onPress={onEditPlayerName}
-                  style={styles.heroNameEditButton}
-                  activeOpacity={0.84}
-                  disabled={!isPlayerNameReady}
-                  accessibilityLabel="Edit"
-                  accessibilityRole="button"
-                  testID="profile-player-name-edit"
-                >
-                  <Pencil color="rgba(255, 255, 255, 0.96)" size={14} strokeWidth={2.4} />
-                </TouchableOpacity>
+                {canEditPlayerName ? (
+                  <TouchableOpacity
+                    onPress={onEditPlayerName}
+                    style={styles.heroNameEditButton}
+                    activeOpacity={0.84}
+                    disabled={!isPlayerNameReady}
+                    accessibilityLabel="Edit"
+                    accessibilityRole="button"
+                    testID="profile-player-name-edit"
+                  >
+                    <Pencil color="rgba(255, 255, 255, 0.96)" size={14} strokeWidth={2.4} />
+                  </TouchableOpacity>
+                ) : null}
               </View>
               <Text
                 style={styles.heroSubtitle}

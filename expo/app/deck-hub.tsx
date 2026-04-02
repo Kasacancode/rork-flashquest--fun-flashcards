@@ -83,7 +83,7 @@ export default function DeckHubScreen() {
   const { decks, addDeck, deleteDeck } = useFlashQuest();
   const { performance, getDeckAccuracy, getWeakCards, getCardsDueForReview, getLapsedCards, cleanupDeck } = usePerformance();
   const { theme, isDark } = useTheme();
-  const { isSignedIn, user, displayName } = useAuth();
+  const { isSignedIn, user, displayName, username } = useAuth();
   const [menuVisible, setMenuVisible] = useState<boolean>(false);
   const [showQR, setShowQR] = useState<boolean>(false);
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
@@ -280,7 +280,7 @@ export default function DeckHubScreen() {
 
             setIsPublishing(true);
 
-            const publisherName = displayName || user.email?.split('@')[0] || 'Anonymous';
+            const publisherName = username || displayName || user.email?.split('@')[0] || 'Anonymous';
 
             const result = await publishDeck(user.id, publisherName, {
               name: deck.name,
@@ -314,7 +314,7 @@ export default function DeckHubScreen() {
         },
       ],
     );
-  }, [deck, displayName, isPublishing, isSignedIn, router, user]);
+  }, [deck, displayName, isPublishing, isSignedIn, router, user, username]);
 
   const handleResetProgress = useCallback(() => {
     if (!deck) {
