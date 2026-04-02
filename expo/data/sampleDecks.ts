@@ -275,7 +275,7 @@ export const SAMPLE_DECKS: Deck[] = [
         difficulty: 'medium',
         tags: ['algorithms', 'functions'],
         createdAt: Date.now(),
-        hint1: 'Think of Russian nesting dolls — the same pattern repeated inside itself.',
+        hint1: 'Think of Russian nesting dolls: the same pattern repeated inside itself.',
         explanation: 'Recursion solves problems by breaking them into smaller instances of the same problem. It always needs a base case to stop.',
       },
       {
@@ -352,7 +352,7 @@ export const SAMPLE_DECKS: Deck[] = [
         difficulty: 'easy',
         tags: ['algorithms', 'basics'],
         createdAt: Date.now(),
-        hint1: 'Like a recipe — a defined sequence of steps with a clear goal.',
+        hint1: 'Like a recipe: a defined sequence of steps with a clear goal.',
         explanation: 'Algorithms are evaluated by time complexity (how fast) and space complexity (how much memory). Common examples include sorting and searching.',
       },
       {
@@ -512,7 +512,7 @@ export const SAMPLE_DECKS: Deck[] = [
         difficulty: 'easy',
         tags: ['colors', 'basics'],
         createdAt: Date.now(),
-        hint1: 'Think of "Colorado Rojo" — it\'s a color.',
+        hint1: 'Think of "Colorado Rojo." It\'s a color.',
         explanation: 'Common colors: rojo (red), azul (blue), verde (green), amarillo (yellow), blanco (white), negro (black).',
       },
       {
@@ -695,7 +695,7 @@ export const SAMPLE_DECKS: Deck[] = [
         tags: ['measurements'],
         createdAt: Date.now(),
         hint1: 'Despite having "year" in the name, it measures how far light travels.',
-        explanation: 'One light-year equals about 9.46 trillion kilometers — the distance light covers in one year at 300,000 km/s.',
+        explanation: 'One light-year equals about 9.46 trillion kilometers, the distance light covers in one year at 300,000 km/s.',
       },
       {
         id: 'sf13',
@@ -727,7 +727,7 @@ export const SAMPLE_DECKS: Deck[] = [
         difficulty: 'easy',
         tags: ['saturn', 'rings'],
         createdAt: Date.now(),
-        hint1: 'They\'re not solid — they\'re made of billions of tiny pieces.',
+        hint1: 'They\'re not solid. They\'re made of billions of tiny pieces.',
         explanation: 'Saturn\'s rings are mostly water ice with some rocky debris, ranging from dust-sized to house-sized. They may be remnants of comets or moons.',
       },
     ],
@@ -887,7 +887,7 @@ export const SAMPLE_DECKS: Deck[] = [
         difficulty: 'hard',
         tags: ['rome', 'ancient'],
         createdAt: Date.now(),
-        hint1: 'There was no single cause — it was a gradual decline over centuries.',
+        hint1: 'There was no single cause. It was a gradual decline over centuries.',
         explanation: 'The Western Roman Empire fell in 476 AD. Contributing factors included barbarian invasions, military overspending, corruption, and the split into Eastern and Western halves.',
       },
       {
