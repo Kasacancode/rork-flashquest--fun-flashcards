@@ -15,6 +15,7 @@ import {
   getLifetimeAccuracy,
   getStatsCalendarColumns,
   getStatsCalendarDays,
+  getWeeklyRecap,
   getWeeklySummary,
 } from '@/utils/statsSelectors';
 
@@ -37,6 +38,7 @@ export function useStatsScreenState() {
   const arenaStats = useMemo(() => getArenaStatsSummary(leaderboard, savedPlayerName), [leaderboard, savedPlayerName]);
   const calendarWithIntensity = useMemo(() => getStatsCalendarDays(stats.studyDates ?? []), [stats.studyDates]);
   const weeklySummary = useMemo(() => getWeeklySummary(stats), [stats]);
+  const weeklyRecap = useMemo(() => getWeeklyRecap(stats, performance.cardStatsById), [performance.cardStatsById, stats]);
   const lifetimeAccuracy = useMemo(() => getLifetimeAccuracy(stats), [stats]);
   const displaySessions = useMemo(() => getDisplaySessions(stats), [stats]);
   const formattedStudyTime = useMemo(() => formatStudyTime(stats.totalStudyTimeMs), [stats.totalStudyTimeMs]);
@@ -122,6 +124,7 @@ export function useStatsScreenState() {
     deckProgressSummaries,
     arenaStats,
     weeklySummary,
+    weeklyRecap,
     lifetimeAccuracy,
     displaySessions,
     formattedStudyTime,

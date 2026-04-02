@@ -1,8 +1,10 @@
+import { useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BookOpen, Calendar, Flame, Star, Swords, Target, Zap } from 'lucide-react-native';
-import React, { useCallback, useMemo, useState } from 'react';
+import { BookOpen, Calendar, Flame, Star, Swords, Target, TrendingUp, Zap } from 'lucide-react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
 import { useQueryClient } from '@tanstack/react-query';
 
 import StatsRankEmblem from '@/components/StatsRankEmblem';
@@ -12,6 +14,7 @@ import StatsHeader from '@/components/stats/StatsHeader';
 import StatsScreenBackground from '@/components/stats/StatsScreenBackground';
 import { useStatsScreenState } from '@/components/stats/useStatsScreenState';
 import type { Theme } from '@/constants/colors';
+import { getDailyGoalTarget, getDailyProgress } from '@/utils/dailyGoal';
 import { LEVELS } from '@/utils/levels';
 
 type ThemeValues = Theme;
@@ -33,6 +36,7 @@ export default function StatsPage() {
     deckProgressSummaries,
     arenaStats,
     weeklySummary,
+    weeklyRecap,
     lifetimeAccuracy,
     displaySessions,
     formattedStudyTime,
@@ -61,15 +65,43 @@ export default function StatsPage() {
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const levelModalStyles = useMemo(() => createLevelModalStyles(theme, isDark), [theme, isDark]);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [dailyGoalTarget, setDailyGoalTarget] = useState<number>(15);
+  const [dailyGoalProgress, setDailyGoalProgress] = useState<number>(0);
+  const cardSurface = isDark ? 'rgba(11, 20, 37, 0.84)' : 'rgba(255, 255, 255, 0.9)';
+  const cardBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.18)';
+  const dailyGoalPercent = Math.min(Math.round((dailyGoalProgress / Math.max(dailyGoalTarget, 1)) * 100), 100);
+  const dailyGoalCircumference = Math.PI * 100;
+
+  const loadDailyGoalState = useCallback(async () => {
+    try {
+      const [target, progress] = await Promise.all([getDailyGoalTarget(), getDailyProgress()]);
+      setDailyGoalTarget(target);
+      setDailyGoalProgress(progress.count);
+    } catch {
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDailyGoalState();
+  }, [loadDailyGoalState]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadDailyGoalState();
+    }, [loadDailyGoalState]),
+  );
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await queryClient.refetchQueries();
+      await Promise.all([
+        queryClient.refetchQueries(),
+        loadDailyGoalState(),
+      ]);
     } finally {
       setRefreshing(false);
     }
-  }, [queryClient]);
+  }, [loadDailyGoalState, queryClient]);
 
   return (
     <View style={styles.container} testID="stats-screen">
@@ -177,6 +209,53 @@ export default function StatsPage() {
             </Text>
           </TouchableOpacity>
 
+          <View
+            style={[styles.dailyGoalCard, { backgroundColor: cardSurface, borderColor: cardBorderColor }]}
+            accessible={true}
+            accessibilityLabel={`Today's study goal: ${dailyGoalProgress} of ${dailyGoalTarget} cards. ${dailyGoalProgress >= dailyGoalTarget ? 'Goal reached.' : `${dailyGoalTarget - dailyGoalProgress} remaining.`}`}
+          >
+            <View style={styles.dailyGoalHeader}>
+              <Target color={statsAccent} size={20} strokeWidth={2.2} />
+              <Text style={[styles.dailyGoalTitle, { color: theme.text }]}>Today's Goal</Text>
+              <Text style={[styles.dailyGoalFraction, { color: theme.textSecondary }]}>
+                {dailyGoalProgress} / {dailyGoalTarget}
+              </Text>
+            </View>
+
+            <View style={styles.dailyGoalRingContainer}>
+              <Svg width={120} height={120} viewBox="0 0 120 120">
+                <Circle
+                  cx={60}
+                  cy={60}
+                  r={50}
+                  fill="none"
+                  stroke={isDark ? 'rgba(148,163,184,0.12)' : 'rgba(0,0,0,0.06)'}
+                  strokeWidth={10}
+                />
+                <Circle
+                  cx={60}
+                  cy={60}
+                  r={50}
+                  fill="none"
+                  stroke={dailyGoalProgress >= dailyGoalTarget ? theme.success : statsAccent}
+                  strokeWidth={10}
+                  strokeLinecap="round"
+                  strokeDasharray={`${dailyGoalCircumference}`}
+                  strokeDashoffset={`${dailyGoalCircumference * (1 - Math.min(dailyGoalProgress / Math.max(dailyGoalTarget, 1), 1))}`}
+                  transform="rotate(-90 60 60)"
+                />
+              </Svg>
+              <View style={styles.dailyGoalRingCenter}>
+                <Text style={[styles.dailyGoalPercent, { color: dailyGoalProgress >= dailyGoalTarget ? theme.success : statsAccent }]}>
+                  {dailyGoalPercent}%
+                </Text>
+                <Text style={[styles.dailyGoalSubtext, { color: theme.textSecondary }]}> 
+                  {dailyGoalProgress >= dailyGoalTarget ? 'Goal reached!' : 'cards studied'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
           <View style={styles.weeklyCard}>
             <View style={styles.weeklyHeader}>
               <Calendar color={statsAccent} size={20} strokeWidth={2.2} />
@@ -250,6 +329,46 @@ export default function StatsPage() {
             </View>
             <Text style={styles.weeklyComparison}>{weeklySummary.comparison}</Text>
           </View>
+
+          {weeklyRecap.cardsStudied > 0 ? (
+            <View
+              style={[styles.recapCard, { backgroundColor: cardSurface, borderColor: cardBorderColor }]}
+              accessible={true}
+              accessibilityLabel={`Weekly recap: ${weeklyRecap.cardsStudied} cards studied, ${weeklyRecap.daysActive} days active${weeklyRecap.accuracy !== null ? `, ${Math.round(weeklyRecap.accuracy * 100)}% accuracy` : ''}`}
+            >
+              <View style={styles.recapHeader}>
+                <TrendingUp color={statsAccent} size={20} strokeWidth={2.2} />
+                <Text style={[styles.recapTitle, { color: theme.text }]}>Weekly Recap</Text>
+              </View>
+
+              <View style={styles.recapGrid}>
+                <View style={styles.recapStat}>
+                  <Text style={[styles.recapStatValue, { color: statsAccent }]}>{weeklyRecap.cardsStudied}</Text>
+                  <Text style={[styles.recapStatLabel, { color: theme.textSecondary }]}>Cards Studied</Text>
+                </View>
+                <View style={styles.recapStat}>
+                  <Text style={[styles.recapStatValue, { color: statsAccent }]}>
+                    {weeklyRecap.accuracy !== null ? `${Math.round(weeklyRecap.accuracy * 100)}%` : '--'}
+                  </Text>
+                  <Text style={[styles.recapStatLabel, { color: theme.textSecondary }]}>Accuracy</Text>
+                </View>
+                <View style={styles.recapStat}>
+                  <Text style={[styles.recapStatValue, { color: statsAccent }]}>{weeklyRecap.daysActive}</Text>
+                  <Text style={[styles.recapStatLabel, { color: theme.textSecondary }]}>Days Active</Text>
+                </View>
+              </View>
+
+              {weeklyRecap.comparedToLastWeek !== 'first_week' ? (
+                <Text style={[styles.recapComparison, { color: theme.textSecondary }]}>
+                  {weeklyRecap.comparedToLastWeek === 'better'
+                    ? `Up from ${weeklyRecap.lastWeekCards} cards last week`
+                    : weeklyRecap.comparedToLastWeek === 'same'
+                      ? 'Same as last week. Keep it steady.'
+                      : `Down from ${weeklyRecap.lastWeekCards} cards last week`}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
 
           <View style={styles.calendarCard} testID="stats-study-activity">
             <Text style={styles.calendarTitle}>Study Activity</Text>
@@ -688,6 +807,50 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       marginTop: 14,
     },
 
+    dailyGoalCard: {
+      marginHorizontal: 24,
+      marginBottom: 14,
+      borderRadius: 20,
+      borderWidth: 1,
+      padding: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: isDark ? 0.14 : 0.06,
+      shadowRadius: isDark ? 18 : 12,
+      elevation: isDark ? 6 : 3,
+    },
+    dailyGoalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 16,
+    },
+    dailyGoalTitle: {
+      fontSize: 16,
+      fontWeight: '800' as const,
+      flex: 1,
+    },
+    dailyGoalFraction: {
+      fontSize: 14,
+      fontWeight: '700' as const,
+    },
+    dailyGoalRingContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dailyGoalRingCenter: {
+      position: 'absolute',
+      alignItems: 'center',
+    },
+    dailyGoalPercent: {
+      fontSize: 28,
+      fontWeight: '800' as const,
+    },
+    dailyGoalSubtext: {
+      fontSize: 12,
+      fontWeight: '600' as const,
+      marginTop: 2,
+    },
     weeklyCard: {
       marginHorizontal: 24,
       marginBottom: 18,
@@ -744,6 +907,51 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       marginTop: 14,
     },
 
+    recapCard: {
+      marginHorizontal: 24,
+      marginBottom: 14,
+      borderRadius: 20,
+      borderWidth: 1,
+      padding: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: isDark ? 0.14 : 0.06,
+      shadowRadius: isDark ? 18 : 12,
+      elevation: isDark ? 6 : 3,
+    },
+    recapHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 16,
+    },
+    recapTitle: {
+      fontSize: 16,
+      fontWeight: '800' as const,
+    },
+    recapGrid: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      marginBottom: 12,
+    },
+    recapStat: {
+      alignItems: 'center',
+    },
+    recapStatValue: {
+      fontSize: 24,
+      fontWeight: '800' as const,
+      marginBottom: 4,
+    },
+    recapStatLabel: {
+      fontSize: 12,
+      fontWeight: '600' as const,
+    },
+    recapComparison: {
+      fontSize: 13,
+      fontWeight: '500' as const,
+      textAlign: 'center',
+      marginTop: 4,
+    },
     calendarCard: {
       marginHorizontal: 24,
       marginBottom: 18,

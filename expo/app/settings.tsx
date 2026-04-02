@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   SmartphoneNfc,
   Sun,
+  Target,
   Trash2,
   Vibrate,
 } from 'lucide-react-native';
@@ -35,6 +36,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
+import { getDailyGoalTarget, setDailyGoalTarget, DAILY_GOAL_OPTIONS } from '@/utils/dailyGoal';
 import { setHapticsEnabled as syncHapticsPreference } from '@/utils/haptics';
 import { logger } from '@/utils/logger';
 import { clearScheduledStreakReminders, NOTIFICATIONS_ENABLED_KEY } from '@/utils/notifications';
@@ -121,9 +123,11 @@ export default function SettingsScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(null);
   const [userInterests, setUserInterestsState] = useState<string[]>([]);
+  const [dailyGoal, setDailyGoal] = useState<number>(15);
 
   useEffect(() => {
     getUserInterests().then(setUserInterestsState).catch(() => {});
+    getDailyGoalTarget().then(setDailyGoal).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -191,6 +195,20 @@ export default function SettingsScreen() {
   const handleToggleAnalytics = useCallback((value: boolean) => {
     setAnalyticsConsent(value ? 'granted' : 'declined');
   }, [setAnalyticsConsent]);
+
+  const handleChangeDailyGoal = useCallback(() => {
+    Alert.alert(
+      'Daily Study Goal',
+      'How many cards do you want to study each day?',
+      DAILY_GOAL_OPTIONS.map((option) => ({
+        text: `${option} cards${option === dailyGoal ? ' (current)' : ''}`,
+        onPress: () => {
+          setDailyGoal(option);
+          void setDailyGoalTarget(option);
+        },
+      })),
+    );
+  }, [dailyGoal]);
 
   const handleClearAllData = useCallback(() => {
     Alert.alert(
@@ -267,6 +285,16 @@ export default function SettingsScreen() {
               }
               testID="settings-dark-mode-row"
               theme={theme}
+            />
+            <Divider color={theme.border} />
+            <SettingsRow
+              icon={<Target color={theme.textSecondary} size={20} strokeWidth={2.2} />}
+              label="Daily study goal"
+              subtitle={`${dailyGoal} cards per day`}
+              right={<ChevronRight color={theme.textTertiary} size={18} />}
+              onPress={handleChangeDailyGoal}
+              theme={theme}
+              testID="settings-daily-goal-row"
             />
           </View>
 

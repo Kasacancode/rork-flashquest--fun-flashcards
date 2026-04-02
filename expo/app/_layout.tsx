@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { Redirect, Stack, router, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, LogBox, Platform, StyleSheet as LayoutStyles, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, AppState, Image, LogBox, Platform, StyleSheet as LayoutStyles, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import AchievementMonitor from '@/components/AchievementMonitor';
@@ -14,14 +14,16 @@ import OfflineBanner from '@/components/OfflineBanner';
 import ConsentSheet from '@/components/privacy/ConsentSheet';
 import { ArenaProvider } from '@/context/ArenaContext';
 import { AvatarProvider } from '@/context/AvatarContext';
-import { FlashQuestProvider } from '@/context/FlashQuestContext';
-import { PerformanceProvider } from '@/context/PerformanceContext';
+import { FlashQuestProvider, useFlashQuest } from '@/context/FlashQuestContext';
+import { PerformanceProvider, usePerformance } from '@/context/PerformanceContext';
 import { PrivacyProvider, usePrivacy } from '@/context/PrivacyContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { setAnalyticsCollectionEnabled, trackEvent } from '@/lib/analytics';
 import { trpc, trpcClient } from '@/lib/trpc';
 import { canAccessDebugRoute } from '@/utils/debugTooling';
 import { logger } from '@/utils/logger';
+import { getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
+import { clearAppBadge, scheduleSmartReminder, updateAppBadgeCount } from '@/utils/notifications';
 import { DATA_PRIVACY_ROUTE } from '@/utils/routes';
 import { readStringFlag } from '@/utils/storage';
 
@@ -135,8 +137,39 @@ function RootLayoutContent({ isOnboardingComplete }: { isOnboardingComplete: boo
 function AppShell() {
   const pathname = usePathname();
   const { analyticsEnabled, setAnalyticsConsent, shouldAskForAnalyticsConsent } = usePrivacy();
+  const { decks, stats } = useFlashQuest();
+  const { performance } = usePerformance();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState<boolean | null>(null);
   const didTrackAppOpenRef = useRef<boolean>(false);
+  const latestDueCardCountRef = useRef<number>(0);
+  const dueReviewSummary = useMemo(() => {
+    const now = Date.now();
+    let dueCardCount = 0;
+    let deckCount = 0;
+
+    for (const deck of decks) {
+      let deckDueCount = 0;
+
+      for (const card of deck.flashcards) {
+        const cardStats = performance.cardStatsById[card.id];
+        if (!cardStats || cardStats.attempts === 0) {
+          continue;
+        }
+
+        const liveStats = getLiveCardStats(cardStats, now);
+        if (liveStats.status === 'lapsed' || isCardDueForReview(cardStats, now)) {
+          deckDueCount += 1;
+        }
+      }
+
+      if (deckDueCount > 0) {
+        deckCount += 1;
+        dueCardCount += deckDueCount;
+      }
+    }
+
+    return { dueCardCount, deckCount };
+  }, [decks, performance.cardStatsById]);
 
   useEffect(() => {
     setAnalyticsCollectionEnabled(analyticsEnabled);
@@ -187,6 +220,44 @@ function AppShell() {
 
     return () => clearTimeout(timer);
   }, [analyticsEnabled, isOnboardingComplete, pathname]);
+
+  useEffect(() => {
+    latestDueCardCountRef.current = dueReviewSummary.dueCardCount;
+  }, [dueReviewSummary.dueCardCount]);
+
+  useEffect(() => {
+    if (isOnboardingComplete !== true) {
+      return;
+    }
+
+    void scheduleSmartReminder({
+      dueCardCount: dueReviewSummary.dueCardCount,
+      deckCount: dueReviewSummary.deckCount,
+      currentStreak: stats.currentStreak,
+    });
+  }, [dueReviewSummary.deckCount, dueReviewSummary.dueCardCount, isOnboardingComplete, stats.currentStreak]);
+
+  useEffect(() => {
+    if (isOnboardingComplete !== true) {
+      return;
+    }
+
+    void clearAppBadge();
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        void clearAppBadge();
+        return;
+      }
+
+      if (nextState === 'background' || nextState === 'inactive') {
+        void updateAppBadgeCount(latestDueCardCountRef.current);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isOnboardingComplete]);
 
   const showAnalyticsConsent = isOnboardingComplete === true
     && shouldAskForAnalyticsConsent

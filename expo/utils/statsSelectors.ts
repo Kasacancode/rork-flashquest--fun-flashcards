@@ -27,7 +27,16 @@ export interface ArenaStatsSummary {
   winRate: number;
 }
 
-function getIsoWeekString(date: Date): string {
+export interface WeeklyRecap {
+  cardsStudied: number;
+  accuracy: number | null;
+  daysActive: number;
+  sessionsCompleted: number;
+  comparedToLastWeek: 'better' | 'same' | 'worse' | 'first_week';
+  lastWeekCards: number;
+}
+
+export function getIsoWeekString(date: Date): string {
   const normalized = new Date(date);
   normalized.setHours(0, 0, 0, 0);
   normalized.setDate(normalized.getDate() + 3 - ((normalized.getDay() + 6) % 7));
@@ -135,6 +144,69 @@ export function getWeeklySummary(stats: UserStats): WeeklySummary {
     : null;
 
   return { thisWeekDays, comparison, currentWeekAccuracy };
+}
+
+export function getWeeklyRecap(stats: UserStats, cardStatsById: Record<string, unknown>): WeeklyRecap {
+  void cardStatsById;
+
+  const today = new Date();
+  const todayKey = today.toISOString().slice(0, 10);
+  const currentWeek = getIsoWeekString(today);
+  const lastWeekDate = new Date(today);
+  lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+  const lastWeek = getIsoWeekString(lastWeekDate);
+
+  const weeklyEntries = stats.weeklyAccuracy ?? [];
+  const currentEntry = weeklyEntries.find((entry) => entry.week === currentWeek);
+  const lastEntry = weeklyEntries.find((entry) => entry.week === lastWeek);
+
+  const cardsStudied = currentEntry?.attempted ?? 0;
+  const accuracy = currentEntry && currentEntry.attempted > 0
+    ? currentEntry.correct / currentEntry.attempted
+    : null;
+
+  const studySet = new Set(stats.studyDates ?? []);
+  if (stats.lastActiveDate === todayKey) {
+    studySet.add(todayKey);
+  }
+
+  const dayOfWeek = today.getDay();
+  const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  let daysActive = 0;
+  for (let index = 0; index <= mondayOffset; index += 1) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - index);
+    if (studySet.has(date.toISOString().slice(0, 10))) {
+      daysActive += 1;
+    }
+  }
+
+  const sessionsCompleted =
+    (stats.totalStudySessions ?? 0)
+    + (stats.totalQuestSessions ?? 0)
+    + (stats.totalPracticeSessions ?? 0)
+    + (stats.totalArenaSessions ?? 0);
+
+  const lastWeekCards = lastEntry?.attempted ?? 0;
+  let comparedToLastWeek: WeeklyRecap['comparedToLastWeek'];
+  if (!lastEntry) {
+    comparedToLastWeek = 'first_week';
+  } else if (cardsStudied > lastWeekCards) {
+    comparedToLastWeek = 'better';
+  } else if (cardsStudied === lastWeekCards) {
+    comparedToLastWeek = 'same';
+  } else {
+    comparedToLastWeek = 'worse';
+  }
+
+  return {
+    cardsStudied,
+    accuracy,
+    daysActive,
+    sessionsCompleted,
+    comparedToLastWeek,
+    lastWeekCards,
+  };
 }
 
 export function getLifetimeAccuracy(stats: UserStats): number | null {

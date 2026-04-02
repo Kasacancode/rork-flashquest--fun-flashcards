@@ -16,6 +16,12 @@ type ReminderMessage = {
   body: string;
 };
 
+export interface SmartReminderContext {
+  dueCardCount: number;
+  deckCount: number;
+  currentStreak: number;
+}
+
 const REMINDER_MESSAGES: readonly ReminderMessage[] = [
   {
     title: "Don't break your streak! 🔥",
@@ -37,7 +43,7 @@ if (Platform.OS !== 'web') {
       shouldShowBanner: false,
       shouldShowList: true,
       shouldPlaySound: false,
-      shouldSetBadge: false,
+      shouldSetBadge: true,
     }),
   });
 }
@@ -84,6 +90,26 @@ function getRandomReminderMessage(): ReminderMessage {
   return REMINDER_MESSAGES[randomIndex] ?? REMINDER_MESSAGES[0]!;
 }
 
+function buildSmartReminderMessage(context: SmartReminderContext): ReminderMessage {
+  const { dueCardCount, deckCount, currentStreak } = context;
+
+  if (dueCardCount > 0 && deckCount > 0) {
+    return {
+      title: `${dueCardCount} card${dueCardCount === 1 ? '' : 's'} ready for review`,
+      body: `You have cards due across ${deckCount} deck${deckCount === 1 ? '' : 's'}. A quick session keeps your memory sharp.`,
+    };
+  }
+
+  if (currentStreak > 0) {
+    return {
+      title: `${currentStreak}-day streak on the line`,
+      body: 'Study a few cards today to keep your streak alive.',
+    };
+  }
+
+  return getRandomReminderMessage();
+}
+
 export async function requestNotificationPermission(): Promise<boolean> {
   if (Platform.OS === 'web') {
     return false;
@@ -110,6 +136,67 @@ export async function requestNotificationPermission(): Promise<boolean> {
   }
 
   return false;
+}
+
+export async function scheduleSmartReminder(
+  context: SmartReminderContext,
+  options?: { requestPermissionIfNeeded?: boolean },
+): Promise<void> {
+  try {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
+    const notificationsEnabled = await AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY);
+    if (notificationsEnabled === 'false') {
+      await clearScheduledStreakReminders();
+      return;
+    }
+
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const grantedAfterPrompt = existingStatus !== 'granted' && options?.requestPermissionIfNeeded
+      ? await requestNotificationPermission()
+      : false;
+    const hasPermission = existingStatus === 'granted' || grantedAfterPrompt;
+
+    if (!hasPermission) {
+      return;
+    }
+
+    await ensureAndroidChannel();
+    await clearScheduledStreakReminders();
+
+    const scheduledIdentifiers: string[] = [];
+
+    for (let dayOffset = 1; dayOffset <= 3; dayOffset += 1) {
+      const date = new Date();
+      date.setDate(date.getDate() + dayOffset);
+      date.setHours(18, 0, 0, 0);
+
+      const message = dayOffset === 1
+        ? buildSmartReminderMessage(context)
+        : getRandomReminderMessage();
+
+      const identifier = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: message.title,
+          body: message.body,
+          sound: 'default',
+          ...(Platform.OS === 'android' ? { channelId: STREAK_NOTIFICATION_CHANNEL_ID } : {}),
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date,
+        },
+      });
+
+      scheduledIdentifiers.push(identifier);
+    }
+
+    await AsyncStorage.setItem(STREAK_NOTIFICATION_IDS_KEY, JSON.stringify(scheduledIdentifiers));
+  } catch (error) {
+    logger.warn('[Notifications] Failed to schedule smart reminders:', error);
+  }
 }
 
 export async function scheduleStreakReminder(options?: { requestPermissionIfNeeded?: boolean }): Promise<void> {
@@ -147,7 +234,7 @@ export async function scheduleStreakReminder(options?: { requestPermissionIfNeed
     ];
     const scheduledIdentifiers: string[] = [];
 
-    for (let dayOffset = 1; dayOffset <= 3; dayOffset++) {
+    for (let dayOffset = 1; dayOffset <= 3; dayOffset += 1) {
       const date = new Date();
       date.setDate(date.getDate() + dayOffset);
       date.setHours(18, 0, 0, 0);
@@ -171,5 +258,40 @@ export async function scheduleStreakReminder(options?: { requestPermissionIfNeed
     await AsyncStorage.setItem(STREAK_NOTIFICATION_IDS_KEY, JSON.stringify(scheduledIdentifiers));
   } catch (error) {
     logger.warn('[Notifications] Failed to schedule streak reminders:', error);
+  }
+}
+
+export async function updateAppBadgeCount(dueCardCount: number): Promise<void> {
+  try {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
+    const notificationsEnabled = await AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY);
+    if (notificationsEnabled === 'false') {
+      await Notifications.setBadgeCountAsync(0);
+      return;
+    }
+
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      return;
+    }
+
+    await Notifications.setBadgeCountAsync(Math.max(0, dueCardCount));
+  } catch (error) {
+    logger.warn('[Notifications] Failed to update badge count:', error);
+  }
+}
+
+export async function clearAppBadge(): Promise<void> {
+  try {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
+    await Notifications.setBadgeCountAsync(0);
+  } catch (error) {
+    logger.warn('[Notifications] Failed to clear badge:', error);
   }
 }
