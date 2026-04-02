@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { AnswerEntry, RoomQuestion } from '@/backend/arena/types';
 import { DealerReaction } from '@/components/AnswerCard';
+import ConfettiCelebration from '@/components/ConfettiCelebration';
 import ShareableResultCard, { type ResultCardData } from '@/components/ShareableResultCard';
 import { trackEvent } from '@/lib/analytics';
 import { useArena } from '@/context/ArenaContext';
@@ -88,6 +89,7 @@ export default function ArenaResultsScreen() {
   const [showMissedCards, setShowMissedCards] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showShareCard, setShowShareCard] = useState<boolean>(false);
+  const [showConfetti, setShowConfetti] = useState<boolean>(false);
   const cachedRef = useRef<CachedResults | null>(null);
   const shareCardRef = useRef<View>(null);
   const xpRecordedRef = useRef(false);
@@ -314,6 +316,10 @@ export default function ArenaResultsScreen() {
   }, [winner]);
 
   useEffect(() => {
+    setShowConfetti(Boolean(winner && playerId === winner.id));
+  }, [playerId, winner]);
+
+  useEffect(() => {
     if (data && playerId && !xpRecordedRef.current) {
       xpRecordedRef.current = true;
       const myScore = data.scores[playerId];
@@ -464,7 +470,8 @@ export default function ArenaResultsScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}> 
+      <ConfettiCelebration trigger={showConfetti} />
       <LinearGradient
         colors={[theme.arenaGradient[0], theme.arenaGradient[1]]}
         start={{ x: 0, y: 0 }}

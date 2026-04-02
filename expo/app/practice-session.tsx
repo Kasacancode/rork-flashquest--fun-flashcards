@@ -38,6 +38,7 @@ import {
 import { clearAIDistractorCache as clearDistractorCache, generateOptionsWithAI } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
 import { focusedQuestSessionHref, questHref, studyHref } from '@/utils/routes';
+import { playSound } from '@/utils/sounds';
 
 const FEEDBACK_REVEAL_DELAY_MS = 850;
 const TURN_TRANSITION_DELAY_MS = 850;
@@ -386,6 +387,7 @@ export default function PracticeSessionPage() {
             timeUsed: QUESTION_TIME,
           });
           setButtonState('incorrect');
+          void playSound('wrong');
           markCardMissed(currentCard?.id);
           triggerShake();
           triggerNotification(NotificationFeedbackType.Error);
@@ -399,6 +401,7 @@ export default function PracticeSessionPage() {
             timeUsed: QUESTION_TIME,
           });
           setButtonState('incorrect');
+          void playSound('wrong');
           markCardMissed(currentCard?.id);
           triggerShake();
           triggerNotification(NotificationFeedbackType.Error);
@@ -422,6 +425,7 @@ export default function PracticeSessionPage() {
           quality: 1,
         });
         setButtonState('incorrect');
+        void playSound('wrong');
         setPlayerStreak(0);
         markCardMissed(currentCard?.id);
         triggerShake();
@@ -501,6 +505,7 @@ export default function PracticeSessionPage() {
           timeUsed,
         });
         setButtonState(correct ? 'correct' : 'incorrect');
+        void playSound(correct ? 'correct' : 'wrong');
 
         triggerNotification(correct ? NotificationFeedbackType.Success : NotificationFeedbackType.Error);
 
@@ -523,6 +528,7 @@ export default function PracticeSessionPage() {
           timeUsed,
         });
         setButtonState(correct ? 'correct' : 'incorrect');
+        void playSound(correct ? 'correct' : 'wrong');
 
         triggerNotification(correct ? NotificationFeedbackType.Success : NotificationFeedbackType.Error);
 
@@ -555,6 +561,7 @@ export default function PracticeSessionPage() {
         quality: correct ? 3 : 1,
       });
       setButtonState(correct ? 'correct' : 'incorrect');
+      void playSound(correct ? 'correct' : 'wrong');
       setPlayerStreak(correct ? playerStreak + 1 : 0);
 
       if (!correct) {

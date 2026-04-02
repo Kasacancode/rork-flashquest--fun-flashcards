@@ -1,7 +1,10 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Animated, Text, View, StyleSheet } from 'react-native';
 import { triggerNotification, NotificationFeedbackType } from '@/utils/haptics';
 import { Star } from 'lucide-react-native';
+
+import ConfettiCelebration from '@/components/ConfettiCelebration';
+import { playSound } from '@/utils/sounds';
 
 interface Props {
   levelUp: { level: number; title: string } | null;
@@ -11,7 +14,9 @@ interface Props {
 export default function LevelUpToast({ levelUp, onDismiss }: Props) {
   const slide = useRef(new Animated.Value(-120)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const [showConfetti, setShowConfetti] = useState<boolean>(false);
   const dismiss = useCallback(() => {
+    setShowConfetti(false);
     Animated.parallel([
       Animated.timing(slide, { toValue: -120, duration: 300, useNativeDriver: true }),
       Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
@@ -21,6 +26,8 @@ export default function LevelUpToast({ levelUp, onDismiss }: Props) {
   useEffect(() => {
     if (!levelUp) return;
     triggerNotification(NotificationFeedbackType.Success);
+    void playSound('levelUp');
+    setShowConfetti(true);
     slide.setValue(-120);
     opacity.setValue(0);
     Animated.parallel([
@@ -33,20 +40,23 @@ export default function LevelUpToast({ levelUp, onDismiss }: Props) {
 
   if (!levelUp) return null;
   return (
-    <Animated.View style={[styles.wrap, { transform: [{ translateY: slide }], opacity }]} pointerEvents="none">
-      <View
-        style={styles.toast}
-        accessible={true}
-        accessibilityLabel={`Level up! You are now level ${levelUp.level}.`}
-        accessibilityRole="alert"
-      >
-        <View style={styles.icon}><Star color="#fff" size={20} fill="#fff" /></View>
-        <View style={styles.text}>
-          <Text style={styles.label}>Level Up!</Text>
-          <Text style={styles.title}>Level {levelUp.level} — {levelUp.title}</Text>
+    <>
+      <ConfettiCelebration trigger={showConfetti} />
+      <Animated.View style={[styles.wrap, { transform: [{ translateY: slide }], opacity }]} pointerEvents="none">
+        <View
+          style={styles.toast}
+          accessible={true}
+          accessibilityLabel={`Level up! You are now level ${levelUp.level}.`}
+          accessibilityRole="alert"
+        >
+          <View style={styles.icon}><Star color="#fff" size={20} fill="#fff" /></View>
+          <View style={styles.text}>
+            <Text style={styles.label}>Level Up!</Text>
+            <Text style={styles.title}>Level {levelUp.level} — {levelUp.title}</Text>
+          </View>
         </View>
-      </View>
-    </Animated.View>
+      </Animated.View>
+    </>
   );
 }
 const styles = StyleSheet.create({

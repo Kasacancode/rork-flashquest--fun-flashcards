@@ -1,7 +1,10 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Animated, Text, View, StyleSheet } from 'react-native';
 import { triggerNotification, NotificationFeedbackType } from '@/utils/haptics';
 import { Crown } from 'lucide-react-native';
+
+import ConfettiCelebration from '@/components/ConfettiCelebration';
+import { playSound } from '@/utils/sounds';
 
 interface Props {
   deck: { name: string } | null;
@@ -11,7 +14,9 @@ interface Props {
 export default function DeckMasteryToast({ deck, onDismiss }: Props) {
   const slide = useRef(new Animated.Value(-120)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const [showConfetti, setShowConfetti] = useState<boolean>(false);
   const dismiss = useCallback(() => {
+    setShowConfetti(false);
     Animated.parallel([
       Animated.timing(slide, { toValue: -120, duration: 300, useNativeDriver: true }),
       Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
@@ -21,6 +26,8 @@ export default function DeckMasteryToast({ deck, onDismiss }: Props) {
   useEffect(() => {
     if (!deck) return;
     triggerNotification(NotificationFeedbackType.Success);
+    void playSound('complete');
+    setShowConfetti(true);
     slide.setValue(-120);
     opacity.setValue(0);
     Animated.parallel([
@@ -33,21 +40,24 @@ export default function DeckMasteryToast({ deck, onDismiss }: Props) {
 
   if (!deck) return null;
   return (
-    <Animated.View style={[styles.wrap, { transform: [{ translateY: slide }], opacity }]} pointerEvents="none">
-      <View
-        style={styles.toast}
-        accessible={true}
-        accessibilityLabel={`Deck mastered: ${deck.name}. All cards complete.`}
-        accessibilityRole="alert"
-      >
-        <View style={styles.icon}><Crown color="#fff" size={20} fill="#fff" /></View>
-        <View style={styles.text}>
-          <Text style={styles.label}>Deck Mastered!</Text>
-          <Text style={styles.name}>{deck.name}</Text>
+    <>
+      <ConfettiCelebration trigger={showConfetti} />
+      <Animated.View style={[styles.wrap, { transform: [{ translateY: slide }], opacity }]} pointerEvents="none">
+        <View
+          style={styles.toast}
+          accessible={true}
+          accessibilityLabel={`Deck mastered: ${deck.name}. All cards complete.`}
+          accessibilityRole="alert"
+        >
+          <View style={styles.icon}><Crown color="#fff" size={20} fill="#fff" /></View>
+          <View style={styles.text}>
+            <Text style={styles.label}>Deck Mastered!</Text>
+            <Text style={styles.name}>{deck.name}</Text>
+          </View>
+          <Text style={styles.badge}>100%</Text>
         </View>
-        <Text style={styles.badge}>100%</Text>
-      </View>
-    </Animated.View>
+      </Animated.View>
+    </>
   );
 }
 const styles = StyleSheet.create({

@@ -25,6 +25,7 @@ import { logger } from '@/utils/logger';
 import { getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
 import { clearAppBadge, scheduleSmartReminder, updateAppBadgeCount } from '@/utils/notifications';
 import { DATA_PRIVACY_ROUTE } from '@/utils/routes';
+import { loadSoundsEnabledPreference, preloadSounds } from '@/utils/sounds';
 import { readStringFlag } from '@/utils/storage';
 
 const ONBOARDING_STORAGE_KEY = 'flashquest_onboarding_complete';
@@ -257,6 +258,15 @@ function AppShell() {
     return () => {
       subscription.remove();
     };
+  }, [isOnboardingComplete]);
+
+  useEffect(() => {
+    if (isOnboardingComplete === null) {
+      return;
+    }
+
+    void loadSoundsEnabledPreference();
+    void preloadSounds();
   }, [isOnboardingComplete]);
 
   const showAnalyticsConsent = isOnboardingComplete === true

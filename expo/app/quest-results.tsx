@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ConfettiCelebration from '@/components/ConfettiCelebration';
 import DealerPlaceholder from '@/components/DealerPlaceholder';
 import ShareableResultCard, { type ResultCardData } from '@/components/ShareableResultCard';
 import { useFlashQuest } from '@/context/FlashQuestContext';
@@ -14,6 +15,7 @@ import { logger } from '@/utils/logger';
 import { parseQuestResultParam, serializeQuestSettings } from '@/utils/questParams';
 import { HOME_ROUTE, QUEST_ROUTE, focusedQuestSessionHref, questSessionHref, studyHref } from '@/utils/routes';
 import { captureAndShareImage } from '@/utils/share';
+import { playSound } from '@/utils/sounds';
 import { maybePromptReview } from '@/utils/storeReview';
 
 export default function QuestResultsScreen() {
@@ -24,6 +26,7 @@ export default function QuestResultsScreen() {
 
   const [showMissedCards, setShowMissedCards] = useState(false);
   const [showShareCard, setShowShareCard] = useState<boolean>(false);
+  const [showConfetti, setShowConfetti] = useState<boolean>(false);
   const shareCardRef = useRef<View>(null);
   const reviewPromptStatsRef = useRef({
     totalStudySessions: stats.totalStudySessions,
@@ -100,6 +103,15 @@ export default function QuestResultsScreen() {
     };
   }, [deck, result]);
 
+  useEffect(() => {
+    if (!result) {
+      return;
+    }
+
+    void playSound('complete');
+    setShowConfetti((result.accuracy ?? 0) >= 0.9);
+  }, [result]);
+
   const handlePlayAgain = () => {
     if (!result) {
       router.replace(QUEST_ROUTE);
@@ -155,7 +167,8 @@ export default function QuestResultsScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}> 
+      <ConfettiCelebration trigger={showConfetti} />
       <LinearGradient
         colors={[theme.gradientStart, theme.gradientMid, theme.gradientEnd]}
         start={{ x: 0, y: 0 }}

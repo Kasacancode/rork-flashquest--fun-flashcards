@@ -21,6 +21,8 @@ import {
   Trash2,
   Upload,
   Vibrate,
+  Volume2,
+  VolumeX,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
@@ -44,6 +46,7 @@ import { logger } from '@/utils/logger';
 import { exportBackup, importBackup } from '@/utils/dataBackup';
 import { clearScheduledStreakReminders, NOTIFICATIONS_ENABLED_KEY } from '@/utils/notifications';
 import { DATA_PRIVACY_ROUTE, FAQ_ROUTE } from '@/utils/routes';
+import { getSoundsEnabled, setSoundsEnabled as syncSoundsEnabled, SOUNDS_ENABLED_KEY } from '@/utils/sounds';
 import { getUserInterests } from '@/utils/userInterests';
 
 const HAPTICS_KEY = 'flashquest_haptics_enabled';
@@ -124,6 +127,7 @@ export default function SettingsScreen() {
   const { decks, stats } = useFlashQuest();
   const [hapticsEnabled, setHapticsEnabled] = useState<boolean>(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
+  const [soundEnabled, setSoundEnabledState] = useState<boolean>(getSoundsEnabled());
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(null);
   const [userInterests, setUserInterestsState] = useState<string[]>([]);
   const [dailyGoal, setDailyGoal] = useState<number>(15);
@@ -140,9 +144,10 @@ export default function SettingsScreen() {
 
     const loadSettings = async () => {
       try {
-        const [storedHaptics, storedNotifications] = await Promise.all([
+        const [storedHaptics, storedNotifications, storedSounds] = await Promise.all([
           AsyncStorage.getItem(HAPTICS_KEY),
           AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY),
+          AsyncStorage.getItem(SOUNDS_ENABLED_KEY),
         ]);
 
         if (!isMounted) {
@@ -156,6 +161,10 @@ export default function SettingsScreen() {
         if (storedNotifications !== null) {
           setNotificationsEnabled(storedNotifications !== 'false');
         }
+
+        const nextSoundEnabled = storedSounds !== 'false';
+        setSoundEnabledState(nextSoundEnabled);
+        syncSoundsEnabled(nextSoundEnabled);
       } catch (error) {
         logger.warn('[Settings] Failed to load stored settings:', error);
       }
@@ -195,6 +204,12 @@ export default function SettingsScreen() {
     if (!value) {
       void clearScheduledStreakReminders();
     }
+  }, []);
+
+  const handleToggleSounds = useCallback((value: boolean) => {
+    setSoundEnabledState(value);
+    syncSoundsEnabled(value);
+    void AsyncStorage.setItem(SOUNDS_ENABLED_KEY, String(value));
   }, []);
 
   const handleToggleAnalytics = useCallback((value: boolean) => {
@@ -417,6 +432,25 @@ export default function SettingsScreen() {
                 />
               }
               testID="settings-haptics-row"
+              theme={theme}
+            />
+            <Divider color={theme.border} />
+            <SettingsRow
+              icon={soundEnabled ? <Volume2 color={theme.primary} size={20} strokeWidth={2.2} /> : <VolumeX color={theme.textTertiary} size={20} strokeWidth={2.2} />}
+              label="Sound effects"
+              subtitle={soundEnabled ? 'Sound effects are enabled' : 'Disabled'}
+              right={
+                <Switch
+                  value={soundEnabled}
+                  onValueChange={handleToggleSounds}
+                  trackColor={{ false: theme.border, true: theme.primary }}
+                  thumbColor="#fff"
+                  accessibilityLabel="Sound effects"
+                  accessibilityRole="switch"
+                  testID="settings-sounds-switch"
+                />
+              }
+              testID="settings-sounds-row"
               theme={theme}
             />
           </View>

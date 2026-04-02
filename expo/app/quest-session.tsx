@@ -21,6 +21,7 @@ import { formatGameplayHint } from '@/utils/gameplayCopy';
 import { createFlashcardOptionFromCard, getCanonicalAnswer, getCardAnswerForSurface, getCardQuestionForSurface } from '@/utils/flashcardContent';
 import { logger } from '@/utils/logger';
 import { parseDrillCardIdsParam, parseQuestSettingsParam, serializeQuestResult } from '@/utils/questParams';
+import { playSound } from '@/utils/sounds';
 import { QUEST_ROUTE, questResultsHref } from '@/utils/routes';
 import { selectNextCard, generateAIDistractors, generateOptions, checkAnswer, calculateScore } from '@/utils/questUtils';
 
@@ -329,6 +330,7 @@ export default function QuestSessionScreen() {
     setInputLocked(true);
     setIsCorrect(false);
     showQuestDialogue(dialogueEvent, 'wrong');
+    void playSound('wrong');
     setStreak(0);
     setMissStreak(nextMissStreak);
     setIncorrectCount(prev => prev + 1);
@@ -384,6 +386,7 @@ export default function QuestSessionScreen() {
 
       setIsCorrect(true);
       showQuestDialogue(dialogueEvent, 'correct');
+      void playSound(newStreak >= 3 ? 'streak' : 'correct');
       setStreak(newStreak);
       setMissStreak(0);
       if (newStreak > bestStreak) {
@@ -424,6 +427,7 @@ export default function QuestSessionScreen() {
 
       setIsCorrect(false);
       showQuestDialogue(dialogueEvent, 'wrong');
+      void playSound('wrong');
       setMissStreak(nextMissStreak);
 
       if (settings.secondChanceEnabled && !usedSecondChance) {

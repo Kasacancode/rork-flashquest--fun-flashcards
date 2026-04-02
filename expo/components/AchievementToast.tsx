@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { triggerNotification, NotificationFeedbackType } from '@/utils/haptics';
+import { playSound } from '@/utils/sounds';
 
 import { Award } from 'lucide-react-native';
 
@@ -26,6 +27,7 @@ export default function AchievementToast({ achievement, onDismiss }: Achievement
     }
 
     triggerNotification(NotificationFeedbackType.Success);
+    void playSound('achievement');
 
     slideAnim.setValue(-120);
     opacityAnim.setValue(0);

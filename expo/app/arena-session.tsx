@@ -16,6 +16,7 @@ import { isMeaningfulArenaStreak, selectAssistantDialogue, type ArenaDialogueEve
 import { getOptionalRenderKey } from '@/utils/listKeys';
 import { logger } from '@/utils/logger';
 import { ARENA_RESULTS_ROUTE, ARENA_ROUTE } from '@/utils/routes';
+import { playSound } from '@/utils/sounds';
 
 type ArenaRevealBeat = 'question' | 'lock' | 'answer' | 'leaderboard' | 'next';
 
@@ -96,6 +97,7 @@ export default function ArenaSessionScreen() {
   const prevQuestionSnapshotKeyRef = useRef<string>('no-question');
   const leaderAtQuestionStartRef = useRef<string | null>(null);
   const hasNavigatedToResults = useRef(false);
+  const lastPlayedRevealSoundKeyRef = useRef<string | null>(null);
 
   const cardAnimations = useRef([
     new Animated.Value(0),
@@ -415,6 +417,20 @@ export default function ArenaSessionScreen() {
       }).start();
     }
   }, [phase, revealOpacity]);
+
+  useEffect(() => {
+    if (phase !== 'reveal' || !hasAnsweredCurrent || lastAnswerCorrect === null) {
+      return;
+    }
+
+    const revealSoundKey = `${questionRoundSnapshotKey}:${lastAnswerCorrect ? 'correct' : 'wrong'}`;
+    if (lastPlayedRevealSoundKeyRef.current === revealSoundKey) {
+      return;
+    }
+
+    lastPlayedRevealSoundKeyRef.current = revealSoundKey;
+    void playSound(lastAnswerCorrect ? 'correct' : 'wrong');
+  }, [hasAnsweredCurrent, lastAnswerCorrect, phase, questionRoundSnapshotKey]);
 
   useEffect(() => {
     if (phase !== 'reveal' || (revealBeat !== 'leaderboard' && revealBeat !== 'next')) {
