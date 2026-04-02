@@ -1,5 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, UserRound } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { ArrowLeft, Crown, UserRound } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,8 +20,10 @@ import { type Theme } from '@/constants/colors';
 import type { AvatarColorId, AvatarSuitId } from '@/types/avatar';
 import { ACHIEVEMENT_CATEGORIES } from '@/utils/achievements';
 import { LEVELS } from '@/utils/levels';
+import { LEADERBOARD_ROUTE } from '@/utils/routes';
 
 export default function ProfilePage() {
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const {
     theme,
@@ -177,6 +180,24 @@ export default function ProfilePage() {
             styles={styles}
             theme={theme}
           />
+
+          <TouchableOpacity
+            onPress={() => router.push(LEADERBOARD_ROUTE)}
+            accessibilityLabel="Open leaderboard"
+            accessibilityRole="button"
+            style={[
+              styles.leaderboardButton,
+              {
+                backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)',
+                borderColor: isDark ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.15)',
+              },
+            ]}
+            activeOpacity={0.84}
+            testID="profile-leaderboard-button"
+          >
+            <Crown color={isDark ? '#818CF8' : '#6366F1'} size={18} strokeWidth={2.2} />
+            <Text style={[styles.leaderboardButtonText, { color: isDark ? '#818CF8' : '#6366F1' }]}>Leaderboard</Text>
+          </TouchableOpacity>
 
           <ProfileTabBar
             activeTab={activeTab}
@@ -346,6 +367,21 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       paddingHorizontal: 20,
       paddingBottom: 32,
       gap: 14,
+    },
+    leaderboardButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      borderRadius: 14,
+      borderWidth: 1,
+      marginTop: -2,
+    },
+    leaderboardButtonText: {
+      fontSize: 15,
+      fontWeight: '700' as const,
     },
     heroCard: {
       borderRadius: 24,

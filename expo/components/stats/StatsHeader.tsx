@@ -1,4 +1,4 @@
-import { ArrowLeft, Trophy } from 'lucide-react-native';
+import { ArrowLeft, Crown, Trophy } from 'lucide-react-native';
 import React, { memo } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
@@ -12,6 +12,7 @@ interface StatsHeaderProps {
   styles: StatsViewStyles<'header' | 'backButton' | 'headerTitleWrap' | 'placeholder'> &
     StatsTextStyles<'headerTitle'>;
   onBack: () => void;
+  onLeaderboard?: () => void;
 }
 
 function StatsHeaderComponent({
@@ -21,6 +22,7 @@ function StatsHeaderComponent({
   trophyIconColor,
   styles,
   onBack,
+  onLeaderboard,
 }: StatsHeaderProps) {
   return (
     <View style={styles.header}>
@@ -54,7 +56,28 @@ function StatsHeaderComponent({
         <Trophy color={trophyIconColor} size={21} strokeWidth={2.35} />
         <Text style={[styles.headerTitle, { color: headerContentColor }]}>Stats</Text>
       </View>
-      <View style={styles.placeholder} />
+      {onLeaderboard ? (
+        <TouchableOpacity
+          onPress={onLeaderboard}
+          accessibilityLabel="Open leaderboard"
+          accessibilityRole="button"
+          style={[
+            styles.backButton,
+            {
+              backgroundColor: isDark ? 'rgba(10, 17, 34, 0.46)' : 'rgba(255, 255, 255, 0.58)',
+              borderColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.18)',
+              shadowOpacity: isDark ? 0.22 : 0.08,
+              shadowRadius: isDark ? 14 : 10,
+              elevation: isDark ? 6 : 3,
+            },
+          ]}
+          testID="stats-leaderboard-button"
+        >
+          <Crown color={trophyIconColor} size={20} strokeWidth={2.35} />
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.placeholder} />
+      )}
     </View>
   );
 }

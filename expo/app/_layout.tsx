@@ -75,6 +75,7 @@ function RootLayoutNav() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="stats" options={{ headerShown: false }} />
+      <Stack.Screen name="leaderboard" options={{ headerShown: false, gestureEnabled: true }} />
       <Stack.Screen name="profile" options={{ headerShown: false }} />
       <Stack.Screen name="decks" options={{ headerShown: false }} />
       <Stack.Screen name="practice" options={{ headerShown: false }} />

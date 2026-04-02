@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BookOpen, Calendar, Flame, Star, Swords, Target, TrendingUp, Zap } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -17,6 +17,7 @@ import { useStatsScreenState } from '@/components/stats/useStatsScreenState';
 import type { Theme } from '@/constants/colors';
 import { getDailyGoalTarget, getDailyProgress } from '@/utils/dailyGoal';
 import { LEVELS } from '@/utils/levels';
+import { LEADERBOARD_ROUTE } from '@/utils/routes';
 
 type ThemeValues = Theme;
 
@@ -62,6 +63,7 @@ export default function StatsPage() {
     handleCloseLevels,
   } = useStatsScreenState();
 
+  const router = useRouter();
   const queryClient = useQueryClient();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const levelModalStyles = useMemo(() => createLevelModalStyles(theme, isDark), [theme, isDark]);
@@ -104,6 +106,10 @@ export default function StatsPage() {
     }
   }, [loadDailyGoalState, queryClient]);
 
+  const handleOpenLeaderboard = useCallback(() => {
+    router.push(LEADERBOARD_ROUTE);
+  }, [router]);
+
   return (
     <View style={styles.container} testID="stats-screen">
       <StatsScreenBackground
@@ -125,6 +131,7 @@ export default function StatsPage() {
           trophyIconColor={trophyIconColor}
           styles={styles}
           onBack={handleBack}
+          onLeaderboard={handleOpenLeaderboard}
         />
 
         <ScrollView
