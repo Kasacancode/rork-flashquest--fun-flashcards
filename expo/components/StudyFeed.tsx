@@ -1,4 +1,6 @@
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import * as Speech from 'expo-speech';
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   View,
@@ -13,7 +15,7 @@ import {
   Alert,
   PanResponder,
 } from 'react-native';
-import { Lightbulb, BookOpen, Lock, CheckCircle, Sparkles } from 'lucide-react-native';
+import { Lightbulb, BookOpen, Lock, CheckCircle, Sparkles, Volume2 } from 'lucide-react-native';
 import { triggerImpact } from '@/utils/haptics';
 
 import { generateText } from '@rork-ai/toolkit-sdk';
@@ -80,6 +82,7 @@ export default function StudyFeed({
   const [pendingAiAction, setPendingAiAction] = useState<'hint' | 'explanation' | null>(null);
   const [selectedQuality, setSelectedQuality] = useState<RecallQuality | null>(null);
   const [reviewSaved, setReviewSaved] = useState<boolean>(false);
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const hintOpacity = useRef(new Animated.Value(0)).current;
@@ -122,6 +125,7 @@ export default function StudyFeed({
     return () => {
       clearHintDismissTimer();
       clearCardIntroTimer();
+      void Speech.stop();
     };
   }, [clearHintDismissTimer, clearCardIntroTimer]);
 
@@ -256,6 +260,11 @@ export default function StudyFeed({
       return;
     }
 
+    if (isSpeaking) {
+      void Speech.stop();
+      setIsSpeaking(false);
+    }
+
     isProcessingRef.current = true;
     triggerHaptic();
 
@@ -270,7 +279,7 @@ export default function StudyFeed({
         onCardResolved?.(currentCard.id);
       }
     });
-  }, [isRevealed, resolved, currentCard, onCardResolved, showHintOverlay, showFeedbackOverlay, triggerHaptic, animateCardSwap]);
+  }, [animateCardSwap, currentCard, isRevealed, isSpeaking, onCardResolved, resolved, showFeedbackOverlay, showHintOverlay, triggerHaptic]);
 
   const dismissHintOverlay = useCallback(() => {
     clearHintDismissTimer();
@@ -363,6 +372,29 @@ export default function StudyFeed({
     });
   }, [isRevealed, showFeedbackOverlay, feedbackOpacity, triggerHaptic, triggerShakeWithCooldown]);
 
+  const handleSpeak = useCallback(() => {
+    if (isSpeaking) {
+      void Speech.stop();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const textToSpeak = isRevealed
+      ? (reversed ? currentCard?.question : currentCard?.answer)
+      : null;
+
+    if (!textToSpeak) {
+      return;
+    }
+
+    setIsSpeaking(true);
+    Speech.speak(textToSpeak, {
+      onDone: () => setIsSpeaking(false),
+      onStopped: () => setIsSpeaking(false),
+      onError: () => setIsSpeaking(false),
+    });
+  }, [currentCard, isRevealed, isSpeaking, reversed]);
+
   const commitCurrentCardReview = useCallback(() => {
     if (!currentCard || !resolved || reviewSaved) {
       return;
@@ -391,6 +423,9 @@ export default function StudyFeed({
       triggerShakeWithCooldown();
       return;
     }
+
+    void Speech.stop();
+    setIsSpeaking(false);
 
     if (isProcessingRef.current) {
       return;
@@ -483,6 +518,7 @@ export default function StudyFeed({
     triggerHaptic,
     triggerShakeWithCooldown,
     cardScale,
+    setIsSpeaking,
   ]);
 
   const dismissFeedbackOverlay = useCallback(() => {
@@ -672,6 +708,8 @@ export default function StudyFeed({
     return ((currentIndex + 1) / flashcards.length) * 100;
   }, [currentIndex, flashcards.length]);
 
+  const shouldShowQuestionImage = Boolean(currentCard?.imageUrl) && ((reversed && isRevealed) || (!reversed && !isRevealed));
+
   if (!currentCard) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -734,6 +772,21 @@ export default function StudyFeed({
                     <Text style={styles.hintBadgeText}>Hint used</Text>
                   </View>
                 ) : null}
+                {isRevealed ? (
+                  <TouchableOpacity
+                    onPress={handleSpeak}
+                    style={styles.speakButton}
+                    activeOpacity={0.7}
+                    accessibilityLabel={isSpeaking ? 'Stop pronunciation' : 'Pronounce answer'}
+                    accessibilityRole="button"
+                  >
+                    <Volume2
+                      size={16}
+                      color={isSpeaking ? '#3B82F6' : (isDark ? 'rgba(255,255,255,0.5)' : 'rgba(15,23,42,0.55)')}
+                      strokeWidth={2.2}
+                    />
+                  </TouchableOpacity>
+                ) : null}
                 <FlashcardDebugButton
                   deckId={currentCard?.deckId}
                   cardId={currentCard?.id}
@@ -743,6 +796,15 @@ export default function StudyFeed({
                 />
               </View>
             </View>
+            {shouldShowQuestionImage ? (
+              <Image
+                source={{ uri: currentCard.imageUrl ?? '' }}
+                style={styles.cardImage}
+                contentFit="contain"
+                transition={200}
+                accessibilityLabel="Card image"
+              />
+            ) : null}
             <Text style={[styles.cardText, { color: isDark ? theme.text : '#333' }]}>
               {isRevealed ? backText : frontText}
             </Text>
@@ -994,10 +1056,20 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
+  speakButton: {
+    padding: 6,
+    borderRadius: 8,
+  },
   hintBadgeText: {
     fontSize: 11,
     fontWeight: '600' as const,
     color: '#FFD700',
+  },
+  cardImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 12,
+    marginBottom: 12,
   },
   cardText: {
     fontSize: 24,

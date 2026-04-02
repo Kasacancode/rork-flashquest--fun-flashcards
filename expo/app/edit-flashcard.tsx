@@ -1,14 +1,19 @@
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ArrowLeft,
+  Camera,
   Check,
   HelpCircle,
+  ImageIcon,
   Lightbulb,
   MessageSquare,
   Sparkles,
   Tag,
   Trash2,
+  X,
 } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -36,6 +41,8 @@ const DIFFICULTY_COLORS: Record<Difficulty, string> = {
   hard: '#ef4444',
 };
 
+const MAX_IMAGE_BASE64_LENGTH = 100000;
+
 export default function EditFlashcardScreen() {
   const router = useRouter();
   const { deckId, cardId } = useLocalSearchParams<{ deckId: string; cardId: string }>();
@@ -49,6 +56,7 @@ export default function EditFlashcardScreen() {
   const [hint1, setHint1] = useState<string>(card?.hint1 ?? '');
   const [hint2, setHint2] = useState<string>(card?.hint2 ?? '');
   const [difficulty, setDifficulty] = useState<Difficulty>(card?.difficulty ?? 'medium');
+  const [imageUrl, setImageUrl] = useState<string | undefined>(card?.imageUrl);
   const [hasChanges, setHasChanges] = useState<boolean>(false);
 
   const backgroundGradient: [string, string, string] = isDark
@@ -57,6 +65,57 @@ export default function EditFlashcardScreen() {
   const surfaceBg = isDark ? 'rgba(30, 41, 59, 0.72)' : 'rgba(255, 255, 255, 0.88)';
   const inputBg = isDark ? 'rgba(15, 23, 42, 0.5)' : 'rgba(255, 255, 255, 0.6)';
   const markChanged = useCallback(() => setHasChanges(true), []);
+
+  const handlePickImage = useCallback(async (source: 'camera' | 'gallery') => {
+    try {
+      let result: ImagePicker.ImagePickerResult;
+
+      if (source === 'camera') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert('Permission needed', 'Camera access is required to take a photo.');
+          return;
+        }
+
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          quality: 0.3,
+          base64: true,
+          allowsEditing: true,
+        });
+      } else {
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: 0.3,
+          base64: true,
+          allowsEditing: true,
+        });
+      }
+
+      if (!result.canceled && result.assets[0]?.base64) {
+        const base64 = result.assets[0].base64;
+
+        if (base64.length > MAX_IMAGE_BASE64_LENGTH) {
+          Alert.alert(
+            'Image too large',
+            'This image is too large after compression. Try cropping it tighter or using a simpler photo.',
+          );
+          return;
+        }
+
+        const dataUri = `data:image/jpeg;base64,${base64}`;
+        setImageUrl(dataUri);
+        markChanged();
+      }
+    } catch {
+      Alert.alert('Error', 'Could not load the image. Please try again.');
+    }
+  }, [markChanged]);
+
+  const handleRemoveImage = useCallback(() => {
+    setImageUrl(undefined);
+    markChanged();
+  }, [markChanged]);
 
   const handleSave = useCallback(() => {
     if (!deckId || !cardId || !question.trim() || !answer.trim()) {
@@ -70,11 +129,12 @@ export default function EditFlashcardScreen() {
       explanation: explanation.trim() || undefined,
       hint1: hint1.trim() || undefined,
       hint2: hint2.trim() || undefined,
+      imageUrl: imageUrl || undefined,
       difficulty,
     });
     setHasChanges(false);
     router.back();
-  }, [answer, cardId, deckId, difficulty, explanation, hint1, hint2, question, router, updateFlashcard]);
+  }, [answer, cardId, deckId, difficulty, explanation, hint1, hint2, imageUrl, question, router, updateFlashcard]);
 
   const handleDelete = useCallback(() => {
     if (!deckId || !cardId) {
@@ -175,6 +235,58 @@ export default function EditFlashcardScreen() {
                 maxLength={500}
                 testID="edit-flashcard-question-input"
               />
+              <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Image (optional)</Text>
+              {imageUrl ? (
+                <View style={styles.imagePreviewContainer}>
+                  <Image
+                    source={{ uri: imageUrl }}
+                    style={styles.imagePreview}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                  <TouchableOpacity
+                    style={styles.imageRemoveButton}
+                    onPress={handleRemoveImage}
+                    accessibilityLabel="Remove image"
+                    accessibilityRole="button"
+                  >
+                    <X color="#fff" size={16} strokeWidth={2.5} />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.imagePickerRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.imagePickerButton,
+                      {
+                        backgroundColor: inputBg,
+                        borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                      },
+                    ]}
+                    onPress={() => handlePickImage('camera')}
+                    accessibilityLabel="Take a photo"
+                    accessibilityRole="button"
+                  >
+                    <Camera color={theme.textSecondary} size={18} strokeWidth={2.2} />
+                    <Text style={[styles.imagePickerText, { color: theme.textSecondary }]}>Camera</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.imagePickerButton,
+                      {
+                        backgroundColor: inputBg,
+                        borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                      },
+                    ]}
+                    onPress={() => handlePickImage('gallery')}
+                    accessibilityLabel="Choose from photo library"
+                    accessibilityRole="button"
+                  >
+                    <ImageIcon color={theme.textSecondary} size={18} strokeWidth={2.2} />
+                    <Text style={[styles.imagePickerText, { color: theme.textSecondary }]}>Gallery</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
 
             <View style={[styles.fieldCard, { backgroundColor: surfaceBg }]}> 
@@ -385,6 +497,49 @@ const styles = StyleSheet.create({
   largeInput: {
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  imagePreviewContainer: {
+    marginTop: 10,
+    marginBottom: 16,
+    borderRadius: 14,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  imagePreview: {
+    width: '100%',
+    height: 180,
+    borderRadius: 14,
+  },
+  imageRemoveButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePickerRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+    marginBottom: 16,
+  },
+  imagePickerButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  imagePickerText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
   },
   difficultyRow: {
     flexDirection: 'row',
