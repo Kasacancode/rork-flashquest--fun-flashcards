@@ -1,6 +1,9 @@
 import createContextHook from '@nkzw/create-context-hook';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { makeRedirectUri } from 'expo-auth-session';
+import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
+import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { AppState, Alert, Platform } from 'react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -32,6 +35,13 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
 }
 
+type OAuthProvider = 'apple' | 'google';
+type SupportedOtpType = 'signup' | 'magiclink' | 'recovery' | 'invite' | 'email_change' | 'email';
+
+const AUTH_CALLBACK_PATH = 'auth-callback';
+const NATIVE_AUTH_CALLBACK_URL = 'flashquest://auth-callback';
+const SUPPORTED_OTP_TYPES: SupportedOtpType[] = ['signup', 'magiclink', 'recovery', 'invite', 'email_change', 'email'];
+
 function getWebOrigin(): string {
   const scopedGlobal = globalThis as typeof globalThis & {
     location?: {
@@ -40,6 +50,26 @@ function getWebOrigin(): string {
   };
 
   return scopedGlobal.location?.origin ?? 'http://localhost:3000';
+}
+
+function isExpoGo(): boolean {
+  return Constants.appOwnership === 'expo';
+}
+
+function getAuthRedirectUrl(): string {
+  if (Platform.OS === 'web') {
+    return `${getWebOrigin()}/${AUTH_CALLBACK_PATH}`;
+  }
+
+  if (isExpoGo()) {
+    return makeRedirectUri({ path: AUTH_CALLBACK_PATH });
+  }
+
+  return makeRedirectUri({
+    native: NATIVE_AUTH_CALLBACK_URL,
+    scheme: 'flashquest',
+    path: AUTH_CALLBACK_PATH,
+  });
 }
 
 function getCallbackParams(url: string): URLSearchParams {
@@ -67,10 +97,167 @@ function getReadableAuthError(error: unknown): string {
   return 'An unexpected error occurred.';
 }
 
+function isSupportedOtpType(value: string | null): value is SupportedOtpType {
+  return value !== null && SUPPORTED_OTP_TYPES.includes(value as SupportedOtpType);
+}
+
+function isAuthCallbackUrl(url: string): boolean {
+  return url.includes(AUTH_CALLBACK_PATH)
+    || url.includes('access_token=')
+    || url.includes('refresh_token=')
+    || url.includes('code=')
+    || url.includes('token_hash=');
+}
+
 export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [username, setUsername] = useState<string | null>(null);
+
+  const completeAuthSessionFromUrl = useCallback(async (url: string): Promise<AuthResult> => {
+    try {
+      const params = getCallbackParams(url);
+      const errorDescription = params.get('error_description') ?? params.get('error');
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      const code = params.get('code');
+      const tokenHash = params.get('token_hash');
+      const otpType = params.get('type');
+
+      logger.log('[Auth] Processing callback', {
+        hasAccessToken: Boolean(accessToken),
+        hasRefreshToken: Boolean(refreshToken),
+        hasCode: Boolean(code),
+        hasTokenHash: Boolean(tokenHash),
+        otpType: otpType ?? null,
+      });
+
+      if (errorDescription) {
+        logger.warn('[Auth] Callback returned error:', errorDescription);
+        return { error: errorDescription };
+      }
+
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        if (error) {
+          logger.warn('[Auth] Failed to store callback session:', error.message);
+          return { error: error.message };
+        }
+
+        logger.log('[Auth] Session stored from callback tokens');
+        return {};
+      }
+
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          logger.warn('[Auth] Failed to exchange callback code:', error.message);
+          return { error: error.message };
+        }
+
+        logger.log('[Auth] Session exchanged from callback code');
+        return {};
+      }
+
+      if (tokenHash && isSupportedOtpType(otpType)) {
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: otpType,
+        });
+
+        if (error) {
+          logger.warn('[Auth] Failed to verify callback token hash:', error.message);
+          return { error: error.message };
+        }
+
+        logger.log('[Auth] Session verified from callback token hash');
+        return {};
+      }
+
+      logger.warn('[Auth] Callback missing usable auth payload');
+      return { error: 'Authentication callback did not include a valid session.' };
+    } catch (error: unknown) {
+      logger.warn('[Auth] Failed to process auth callback:', error);
+      return { error: getReadableAuthError(error) };
+    }
+  }, []);
+
+  const signInWithOAuthProvider = useCallback(async (provider: OAuthProvider): Promise<void> => {
+    const redirectTo = getAuthRedirectUrl();
+
+    try {
+      logger.log('[Auth] Starting OAuth sign in', {
+        provider,
+        platform: Platform.OS,
+        appOwnership: Constants.appOwnership ?? 'unknown',
+        redirectTo,
+      });
+
+      if (Platform.OS === 'web') {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo,
+          },
+        });
+
+        if (error) {
+          logger.warn('[Auth] OAuth redirect failed:', error.message);
+          Alert.alert('Sign In Failed', error.message);
+        }
+
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) {
+        logger.warn('[Auth] OAuth setup failed:', error.message);
+        Alert.alert('Sign In Failed', error.message);
+        return;
+      }
+
+      if (!data?.url) {
+        logger.warn('[Auth] OAuth setup returned no URL');
+        Alert.alert('Sign In Failed', 'Sign-in could not be started.');
+        return;
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      logger.log('[Auth] OAuth browser session finished', {
+        provider,
+        type: result.type,
+        hasUrl: 'url' in result && Boolean(result.url),
+      });
+
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        return;
+      }
+
+      if (result.type !== 'success' || !result.url) {
+        Alert.alert('Sign In Failed', 'Sign-in was interrupted. Please try again.');
+        return;
+      }
+
+      const callbackResult = await completeAuthSessionFromUrl(result.url);
+      if (callbackResult.error) {
+        Alert.alert('Sign In Failed', callbackResult.error);
+      }
+    } catch (error: unknown) {
+      logger.warn('[Auth] OAuth sign-in error:', error);
+      Alert.alert('Sign In Failed', 'Could not complete sign-in. Please try again.');
+    }
+  }, [completeAuthSessionFromUrl]);
 
   useEffect(() => {
     let isMounted = true;
@@ -120,6 +307,49 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
     };
   }, []);
 
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    Linking.getInitialURL()
+      .then((initialUrl) => {
+        if (!isMounted || !initialUrl || !isAuthCallbackUrl(initialUrl)) {
+          return;
+        }
+
+        logger.log('[Auth] Handling initial auth URL');
+        void completeAuthSessionFromUrl(initialUrl).then((result) => {
+          if (result.error) {
+            Alert.alert('Sign In Failed', result.error);
+          }
+        });
+      })
+      .catch((error: unknown) => {
+        logger.warn('[Auth] Failed to read initial URL:', error);
+      });
+
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      if (!isAuthCallbackUrl(url)) {
+        return;
+      }
+
+      logger.log('[Auth] Handling runtime auth URL');
+      void completeAuthSessionFromUrl(url).then((result) => {
+        if (result.error) {
+          Alert.alert('Sign In Failed', result.error);
+        }
+      });
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.remove();
+    };
+  }, [completeAuthSessionFromUrl]);
+
   const refreshUsername = useCallback(async (): Promise<string | null> => {
     if (!session?.user?.id) {
       setUsername(null);
@@ -142,6 +372,12 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
     try {
       if (Platform.OS !== 'ios') {
         Alert.alert('Unavailable', 'Apple Sign In is only available on iOS devices.');
+        return;
+      }
+
+      if (isExpoGo()) {
+        logger.log('[Auth] Apple native sign in unavailable in Expo Go, using OAuth fallback');
+        await signInWithOAuthProvider('apple');
         return;
       }
 
@@ -169,10 +405,19 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         nonce: rawNonce,
       });
 
-      if (error) {
-        logger.warn('[Auth] Apple sign-in failed:', error.message);
-        Alert.alert('Sign In Failed', error.message);
+      if (!error) {
+        return;
       }
+
+      logger.warn('[Auth] Apple native sign-in failed:', error.message);
+
+      if (error.message.toLowerCase().includes('audience')) {
+        logger.log('[Auth] Falling back to Apple OAuth flow');
+        await signInWithOAuthProvider('apple');
+        return;
+      }
+
+      Alert.alert('Sign In Failed', error.message);
     } catch (error: unknown) {
       const code = typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string'
         ? error.code
@@ -186,103 +431,11 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
       logger.warn('[Auth] Apple sign-in error:', error);
       Alert.alert('Sign In Failed', 'Could not sign in with Apple. Please try again.');
     }
-  }, []);
+  }, [signInWithOAuthProvider]);
 
   const signInWithGoogle = useCallback(async (): Promise<void> => {
-    try {
-      if (Platform.OS === 'web') {
-        logger.log('[Auth] Starting Google sign in (web redirect)');
-
-        const currentOrigin = getWebOrigin();
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: currentOrigin,
-          },
-        });
-
-        if (error) {
-          logger.warn('[Auth] Google sign-in failed:', error.message);
-          Alert.alert('Sign In Failed', error.message);
-        }
-
-        return;
-      }
-
-      const redirectTo = 'flashquest://auth/callback';
-      logger.log('[Auth] Starting Google sign in (native)', { redirectTo });
-
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) {
-        logger.warn('[Auth] Google sign-in setup failed:', error.message);
-        Alert.alert('Sign In Failed', error.message);
-        return;
-      }
-
-      if (!data?.url) {
-        Alert.alert('Sign In Failed', 'Google sign-in could not be started.');
-        return;
-      }
-
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-      logger.log('[Auth] Google auth session result', { type: result.type });
-
-      if (result.type === 'cancel' || result.type === 'dismiss') {
-        return;
-      }
-
-      if (result.type !== 'success' || !result.url) {
-        Alert.alert('Sign In Failed', 'Google sign-in was interrupted. Please try again.');
-        return;
-      }
-
-      const params = getCallbackParams(result.url);
-      const errorDescription = params.get('error_description') ?? params.get('error');
-      const accessToken = params.get('access_token');
-      const refreshToken = params.get('refresh_token');
-      const code = params.get('code');
-
-      if (errorDescription) {
-        logger.warn('[Auth] Google callback returned error:', errorDescription);
-        Alert.alert('Sign In Failed', errorDescription);
-        return;
-      }
-
-      if (accessToken && refreshToken) {
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-
-        if (sessionError) {
-          logger.warn('[Auth] Failed to store Google session:', sessionError.message);
-          Alert.alert('Sign In Failed', sessionError.message);
-        }
-        return;
-      }
-
-      if (code) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        if (exchangeError) {
-          logger.warn('[Auth] Failed to exchange Google auth code:', exchangeError.message);
-          Alert.alert('Sign In Failed', exchangeError.message);
-        }
-        return;
-      }
-
-      Alert.alert('Sign In Failed', 'Google sign-in did not return a valid session.');
-    } catch (error: unknown) {
-      logger.warn('[Auth] Google sign-in error:', error);
-      Alert.alert('Sign In Failed', 'Could not sign in with Google. Please try again.');
-    }
-  }, []);
+    await signInWithOAuthProvider('google');
+  }, [signInWithOAuthProvider]);
 
   const signInWithEmail = useCallback(async (email: string, password: string): Promise<AuthResult> => {
     try {
@@ -297,10 +450,13 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
 
   const signUpWithEmail = useCallback(async (email: string, password: string, displayName: string): Promise<AuthResult> => {
     try {
-      const redirectTo = Platform.OS === 'web'
-        ? getWebOrigin()
-        : 'flashquest://auth/callback';
-      logger.log('[Auth] Signing up with email', { email, redirectTo });
+      const redirectTo = getAuthRedirectUrl();
+      logger.log('[Auth] Signing up with email', {
+        email,
+        platform: Platform.OS,
+        appOwnership: Constants.appOwnership ?? 'unknown',
+        redirectTo,
+      });
 
       const { error } = await supabase.auth.signUp({
         email,
