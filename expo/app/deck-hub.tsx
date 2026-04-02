@@ -5,6 +5,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import CardScheduleList from '@/components/CardScheduleList';
 import DeckQRSheet from '@/components/DeckQRSheet';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useFlashQuest } from '@/context/FlashQuestContext';
@@ -603,6 +604,11 @@ export default function DeckHubScreen() {
               </View>
             </TouchableOpacity>
           ) : null}
+
+          <CardScheduleList
+            flashcards={deck.flashcards}
+            cardStatsById={performance.cardStatsById}
+          />
           </ResponsiveContainer>
         </ScrollView>
 

@@ -27,6 +27,7 @@ import { maybePromptReview } from '@/utils/storeReview';
 import { triggerImpact } from '@/utils/haptics';
 
 type StudyCardPriority = 'lapsed' | 'due' | 'new' | 'weak' | 'remaining';
+type StudyMode = 'all' | 'due' | 'quick-5' | 'quick-10' | 'quick-15' | 'weak';
 
 interface StudyOrderSummary {
   lapsedCount: number;
@@ -144,6 +145,7 @@ export default function StudyPage() {
   const [showResults, setShowResults] = useState<boolean>(false);
   const [sessionXp, setSessionXp] = useState<number>(0);
   const [reversed, setReversed] = useState<boolean>(false);
+  const [studyMode, setStudyMode] = useState<StudyMode | null>(null);
   const trackedStudyDeckIdRef = useRef<string | null>(null);
   const sessionStartRef = useRef<number>(Date.now());
   const sessionResolvedRef = useRef<number>(0);
@@ -162,6 +164,45 @@ export default function StudyPage() {
     return { orderedFlashcards: ordered, studySummary: summary };
   }, [selectedDeck, performance.cardStatsById]);
 
+  const filteredFlashcards = useMemo(() => {
+    if (!studyMode) {
+      return [] as Flashcard[];
+    }
+
+    switch (studyMode) {
+      case 'all':
+        return orderedFlashcards;
+      case 'due': {
+        const now = Date.now();
+        return orderedFlashcards.filter((card) => {
+          const stats = performance.cardStatsById[card.id];
+          const live = getLiveCardStats(stats, now);
+          return live.status === 'lapsed' || isCardDueForReview(stats, now);
+        });
+      }
+      case 'quick-5':
+        return orderedFlashcards.slice(0, 5);
+      case 'quick-10':
+        return orderedFlashcards.slice(0, 10);
+      case 'quick-15':
+        return orderedFlashcards.slice(0, 15);
+      case 'weak': {
+        const now = Date.now();
+        const WEAK_THRESHOLD = 5;
+        return orderedFlashcards.filter((card) => {
+          const stats = performance.cardStatsById[card.id];
+          const live = getLiveCardStats(stats, now);
+          if (live.attempts === 0) {
+            return false;
+          }
+          return getWeaknessScore(stats, now) >= WEAK_THRESHOLD;
+        });
+      }
+      default:
+        return orderedFlashcards;
+    }
+  }, [studyMode, orderedFlashcards, performance.cardStatsById]);
+
   const deckSummaries = useMemo(() => {
     const entries = new Map<string, { dueCount: number; newCount: number; lapsedCount: number }>();
     for (const deck of decks) {
@@ -179,6 +220,17 @@ export default function StudyPage() {
     setSessionResolved(0);
     setSessionXp(0);
     setShowResults(false);
+    setStudyMode(null);
+  }, []);
+
+  const handleSelectStudyMode = useCallback((mode: StudyMode) => {
+    trackedStudyDeckIdRef.current = null;
+    sessionStartRef.current = Date.now();
+    sessionResolvedRef.current = 0;
+    setSessionResolved(0);
+    setSessionXp(0);
+    setShowResults(false);
+    setStudyMode(mode);
   }, []);
 
   const handleCardResolved = useCallback((_cardId: string) => {
@@ -188,7 +240,7 @@ export default function StudyPage() {
   }, [selectedDeck]);
 
   useEffect(() => {
-    if (!selectedDeck || showResults) {
+    if (!selectedDeck || !studyMode || showResults) {
       return;
     }
 
@@ -203,9 +255,10 @@ export default function StudyPage() {
       properties: {
         deck_name: selectedDeck.name,
         mode: GAME_MODE.STUDY,
+        study_mode: studyMode,
       },
     });
-  }, [selectedDeck, showResults]);
+  }, [selectedDeck, showResults, studyMode]);
 
   const handleComplete = useCallback(() => {
     if (!selectedDeck) {
@@ -474,6 +527,8 @@ export default function StudyPage() {
     );
   }
 
+  const dueOnlyCount = studySummary.lapsedCount + studySummary.dueCount;
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -484,33 +539,184 @@ export default function StudyPage() {
       />
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft color="#fff" size={28} strokeWidth={2.5} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { flex: 1, textAlign: 'center' }]} numberOfLines={1}>{selectedDeck.name}</Text>
-          <TouchableOpacity
-            onPress={handleToggleReversed}
-            style={styles.reverseToggle}
-            activeOpacity={0.75}
-            accessibilityLabel="Reverse question and answer"
-            accessibilityRole="button"
-            testID="study-reverse-toggle"
-          >
-            <ArrowLeftRight color="#fff" size={14} strokeWidth={2.2} />
-            <Text style={styles.reverseToggleText}>{reversed ? 'A → Q' : 'Q → A'}</Text>
-          </TouchableOpacity>
-        </View>
+        {selectedDeck && !studyMode && !showResults ? (
+          <View style={styles.modePickerContainer}>
+            <TouchableOpacity
+              style={styles.modePickerBackButton}
+              onPress={() => {
+                setSelectedDeckId(null);
+                setShowDeckSelector(true);
+              }}
+              accessibilityLabel="Back to deck selection"
+              accessibilityRole="button"
+              testID="study-mode-picker-back"
+            >
+              <ArrowLeft color={theme.text} size={22} strokeWidth={2.2} />
+            </TouchableOpacity>
 
-        <StudyFeed
-          flashcards={orderedFlashcards}
-          theme={theme}
-          isDark={isDark}
-          reversed={reversed}
-          onComplete={handleComplete}
-          onCardResolved={handleCardResolved}
-          onUpdateCard={handleUpdateCard}
-        />
+            <Text style={[styles.modePickerTitle, { color: theme.text }]}>{selectedDeck.name}</Text>
+            <Text style={[styles.modePickerSubtitle, { color: theme.textSecondary }]}>
+              {selectedDeck.flashcards.length} cards in deck
+            </Text>
+
+            <View
+              style={[
+                styles.modePickerBreakdown,
+                { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
+              ]}
+            >
+              {studySummary.lapsedCount > 0 ? (
+                <Text style={[styles.breakdownItem, { color: '#EF4444' }]}>
+                  {studySummary.lapsedCount} lapsed
+                </Text>
+              ) : null}
+              {studySummary.dueCount > 0 ? (
+                <Text style={[styles.breakdownItem, { color: '#F59E0B' }]}>
+                  {studySummary.dueCount} due
+                </Text>
+              ) : null}
+              <Text style={[styles.breakdownItem, { color: theme.textSecondary }]}>
+                {studySummary.newCount} new
+              </Text>
+              {studySummary.weakCount > 0 ? (
+                <Text style={[styles.breakdownItem, { color: '#F97316' }]}>
+                  {studySummary.weakCount} weak
+                </Text>
+              ) : null}
+            </View>
+
+            <View style={styles.modePickerOptions}>
+              <TouchableOpacity
+                style={[
+                  styles.modeOption,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
+                    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                  },
+                ]}
+                onPress={() => handleSelectStudyMode('all')}
+                accessibilityLabel={`Study all ${orderedFlashcards.length} cards`}
+                accessibilityRole="button"
+                testID="study-mode-all"
+              >
+                <Text style={[styles.modeOptionTitle, { color: theme.text }]}>All Cards</Text>
+                <Text style={[styles.modeOptionCount, { color: theme.textSecondary }]}>{orderedFlashcards.length} cards</Text>
+              </TouchableOpacity>
+
+              {dueOnlyCount > 0 ? (
+                <TouchableOpacity
+                  style={[
+                    styles.modeOption,
+                    {
+                      backgroundColor: isDark ? 'rgba(245,158,11,0.1)' : 'rgba(245,158,11,0.06)',
+                      borderColor: isDark ? 'rgba(245,158,11,0.2)' : 'rgba(245,158,11,0.12)',
+                    },
+                  ]}
+                  onPress={() => handleSelectStudyMode('due')}
+                  accessibilityLabel={`Study ${dueOnlyCount} due cards`}
+                  accessibilityRole="button"
+                  testID="study-mode-due"
+                >
+                  <Text style={[styles.modeOptionTitle, { color: '#F59E0B' }]}>Due Cards Only</Text>
+                  <Text style={[styles.modeOptionCount, { color: theme.textSecondary }]}>{dueOnlyCount} cards need review</Text>
+                </TouchableOpacity>
+              ) : null}
+
+              <View style={styles.quickReviewRow}>
+                {[5, 10, 15].map((count) => {
+                  const mode = `quick-${count}` as StudyMode;
+                  const isDisabled = orderedFlashcards.length < count;
+                  return (
+                    <TouchableOpacity
+                      key={count}
+                      style={[
+                        styles.quickReviewOption,
+                        {
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
+                          borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                          opacity: isDisabled ? 0.4 : 1,
+                        },
+                      ]}
+                      onPress={() => handleSelectStudyMode(mode)}
+                      disabled={isDisabled}
+                      accessibilityLabel={`Quick review of ${count} cards`}
+                      accessibilityRole="button"
+                      testID={`study-mode-quick-${count}`}
+                    >
+                      <Text style={[styles.quickReviewCount, { color: theme.primary }]}>{count}</Text>
+                      <Text style={[styles.quickReviewLabel, { color: theme.textSecondary }]}>cards</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {studySummary.weakCount > 0 ? (
+                <TouchableOpacity
+                  style={[
+                    styles.modeOption,
+                    {
+                      backgroundColor: isDark ? 'rgba(249,115,22,0.1)' : 'rgba(249,115,22,0.06)',
+                      borderColor: isDark ? 'rgba(249,115,22,0.2)' : 'rgba(249,115,22,0.12)',
+                    },
+                  ]}
+                  onPress={() => handleSelectStudyMode('weak')}
+                  accessibilityLabel={`Study ${studySummary.weakCount} weak cards`}
+                  accessibilityRole="button"
+                  testID="study-mode-weak"
+                >
+                  <Text style={[styles.modeOptionTitle, { color: '#F97316' }]}>Weakest Cards</Text>
+                  <Text style={[styles.modeOptionCount, { color: theme.textSecondary }]}>{studySummary.weakCount} cards with low accuracy</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
+        {selectedDeck && studyMode && !showResults && filteredFlashcards.length === 0 ? (
+          <View style={styles.emptyModeContainer}>
+            <Text style={[styles.emptyModeText, { color: theme.textSecondary }]}>No cards match this filter right now.</Text>
+            <TouchableOpacity
+              style={[styles.emptyModeButton, { backgroundColor: theme.primary }]}
+              onPress={() => setStudyMode(null)}
+              accessibilityRole="button"
+              testID="study-mode-empty-reset"
+            >
+              <Text style={styles.emptyModeButtonText}>Choose Another Mode</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {selectedDeck && studyMode && !showResults && filteredFlashcards.length > 0 ? (
+          <>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => setStudyMode(null)} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Back to study modes">
+                <ArrowLeft color="#fff" size={28} strokeWidth={2.5} />
+              </TouchableOpacity>
+              <Text style={[styles.headerTitle, { flex: 1, textAlign: 'center' }]} numberOfLines={1}>{selectedDeck.name}</Text>
+              <TouchableOpacity
+                onPress={handleToggleReversed}
+                style={styles.reverseToggle}
+                activeOpacity={0.75}
+                accessibilityLabel="Reverse question and answer"
+                accessibilityRole="button"
+                testID="study-reverse-toggle"
+              >
+                <ArrowLeftRight color="#fff" size={14} strokeWidth={2.2} />
+                <Text style={styles.reverseToggleText}>{reversed ? 'A → Q' : 'Q → A'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <StudyFeed
+              flashcards={filteredFlashcards}
+              theme={theme}
+              isDark={isDark}
+              reversed={reversed}
+              onComplete={handleComplete}
+              onCardResolved={handleCardResolved}
+              onUpdateCard={handleUpdateCard}
+            />
+          </>
+        ) : null}
       </SafeAreaView>
 
       <Modal
@@ -868,5 +1074,99 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: 'rgba(255, 255, 255, 0.7)',
+  },
+  modePickerContainer: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
+  modePickerBackButton: {
+    padding: 8,
+    marginLeft: -8,
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  modePickerTitle: {
+    fontSize: 24,
+    fontWeight: '800' as const,
+    marginBottom: 4,
+  },
+  modePickerSubtitle: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    marginBottom: 20,
+  },
+  modePickerBreakdown: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    marginBottom: 24,
+  },
+  breakdownItem: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+  },
+  modePickerOptions: {
+    gap: 12,
+  },
+  modeOption: {
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  modeOptionTitle: {
+    fontSize: 16,
+    fontWeight: '800' as const,
+    marginBottom: 3,
+  },
+  modeOptionCount: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+  },
+  quickReviewRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  quickReviewOption: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  quickReviewCount: {
+    fontSize: 22,
+    fontWeight: '800' as const,
+    marginBottom: 2,
+  },
+  quickReviewLabel: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+  },
+  emptyModeContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  emptyModeText: {
+    fontSize: 16,
+    fontWeight: '500' as const,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  emptyModeButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  emptyModeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700' as const,
   },
 });
