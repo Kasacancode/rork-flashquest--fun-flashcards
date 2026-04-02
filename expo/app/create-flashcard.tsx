@@ -32,6 +32,7 @@ import { trackEvent } from '@/lib/analytics';
 import { Flashcard } from '@/types/flashcard';
 import { normalizeDeck } from '@/utils/flashcardContent';
 import { logger } from '@/utils/logger';
+import { getUserInterests, pickDefaultCategory } from '@/utils/userInterests';
 import { DECKS_ROUTE } from '@/utils/routes';
 import { generateUUID } from '@/utils/uuid';
 
@@ -44,11 +45,14 @@ interface CardInput {
 
 export default function CreateFlashcardPage() {
   const router = useRouter();
-  const { deckId } = useLocalSearchParams<{ deckId?: string }>();
+  const { deckId, category } = useLocalSearchParams<{ deckId?: string; category?: string }>();
   const { addDeck, updateDeck, deleteDeck, decks, deckCategories } = useFlashQuest();
   const { cleanupDeck: cleanupPerformance } = usePerformance();
   const { cleanupDeck: cleanupArena } = useArena();
   const { theme, isDark } = useTheme();
+  const requestedCategory = typeof category === 'string'
+    ? normalizeDeckCategory(category, MANUAL_DEFAULT_DECK_CATEGORY)
+    : null;
 
   const [deckName, setDeckName] = useState<string>('');
   const [deckDescription, setDeckDescription] = useState<string>('');
@@ -56,7 +60,7 @@ export default function CreateFlashcardPage() {
     { id: '1', originalCardId: null, question: '', answer: '' },
   ]);
   const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>(MANUAL_DEFAULT_DECK_CATEGORY);
+  const [selectedCategory, setSelectedCategory] = useState<string>(requestedCategory ?? MANUAL_DEFAULT_DECK_CATEGORY);
   const [showCustomCategory, setShowCustomCategory] = useState<boolean>(false);
   const [customCategoryInput, setCustomCategoryInput] = useState<string>('');
   const [showCategoryManager, setShowCategoryManager] = useState<boolean>(false);
@@ -85,6 +89,33 @@ export default function CreateFlashcardPage() {
     setShowCustomCategory(false);
     setEditingDeckId(deck.id);
   }, [deckId, decks, editingDeckId]);
+
+  useEffect(() => {
+    if (deckId || editingDeckId || requestedCategory) {
+      return;
+    }
+
+    let isMounted = true;
+
+    getUserInterests()
+      .then((interests) => {
+        if (!isMounted || interests.length === 0) {
+          return;
+        }
+
+        setSelectedCategory(
+          normalizeDeckCategory(
+            pickDefaultCategory(interests, MANUAL_DEFAULT_DECK_CATEGORY),
+            MANUAL_DEFAULT_DECK_CATEGORY,
+          ),
+        );
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [deckId, editingDeckId, requestedCategory]);
 
   const addCard = () => {
     setCards([...cards, { id: Date.now().toString(), originalCardId: null, question: '', answer: '' }]);

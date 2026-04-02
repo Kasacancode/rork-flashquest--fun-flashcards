@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Bell,
   BellOff,
+  BookOpen,
   ChevronRight,
   HelpCircle,
   Info,
@@ -38,6 +39,7 @@ import { setHapticsEnabled as syncHapticsPreference } from '@/utils/haptics';
 import { logger } from '@/utils/logger';
 import { clearScheduledStreakReminders, NOTIFICATIONS_ENABLED_KEY } from '@/utils/notifications';
 import { DATA_PRIVACY_ROUTE, FAQ_ROUTE } from '@/utils/routes';
+import { getUserInterests } from '@/utils/userInterests';
 
 const HAPTICS_KEY = 'flashquest_haptics_enabled';
 
@@ -106,6 +108,11 @@ export default function SettingsScreen() {
   const [hapticsEnabled, setHapticsEnabled] = useState<boolean>(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(null);
+  const [userInterests, setUserInterestsState] = useState<string[]>([]);
+
+  useEffect(() => {
+    getUserInterests().then(setUserInterestsState).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -308,6 +315,21 @@ export default function SettingsScreen() {
               right={<ChevronRight color={theme.textTertiary} size={18} />}
               testID="settings-privacy-link"
               theme={theme}
+            />
+            <Divider color={theme.border} />
+            <SettingsRow
+              icon={<BookOpen color={theme.textSecondary} size={20} strokeWidth={2.2} />}
+              label="Your interests"
+              subtitle={userInterests.length > 0 ? userInterests.join(', ') : 'None set'}
+              right={<ChevronRight color={theme.textTertiary} size={18} />}
+              onPress={() => {
+                Alert.alert(
+                  'Edit Interests',
+                  'You can update your study interests during onboarding. This feature will be editable here in a future update.',
+                );
+              }}
+              theme={theme}
+              testID="settings-interests-row"
             />
           </View>
 

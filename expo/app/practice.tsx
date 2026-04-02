@@ -5,6 +5,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import FirstVisitCard from '@/components/FirstVisitCard';
 import ConsentSheet from '@/components/privacy/ConsentSheet';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePrivacy } from '@/context/PrivacyContext';
@@ -170,6 +171,17 @@ export default function PracticePage() {
                 : 'Quick head-to-head rounds with a sharper, cleaner setup.'}
             </Text>
           </View>
+
+          <FirstVisitCard
+            screen="practice"
+            title="How Practice works"
+            lines={[
+              'Pick a deck and go head-to-head against an AI opponent over 5 rounds.',
+              'The AI adapts to your level, so matches stay competitive.',
+              'You both answer the same questions. Fastest and most accurate wins.',
+            ]}
+            accentColor={theme.primary}
+          />
 
           {decks.length === 0 ? (
             <View

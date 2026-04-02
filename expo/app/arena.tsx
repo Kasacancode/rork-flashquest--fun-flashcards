@@ -6,6 +6,7 @@ import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInpu
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ArenaRecentBattlesList from '@/components/arena/ArenaRecentBattlesList';
+import FirstVisitCard from '@/components/FirstVisitCard';
 import { useArena } from '@/context/ArenaContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { ArenaLeaderboardEntry } from '@/types/arena';
@@ -351,6 +352,17 @@ export default function ArenaMenuScreen() {
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
         >
+          <FirstVisitCard
+            screen="arena"
+            title="How Arena works"
+            lines={[
+              'Create a room and share the code, or join a friend’s room with theirs.',
+              'The host picks the deck, round count, and timer. Both players see the same questions live.',
+              'Score is based on speed and accuracy. Results save to your battle history.',
+            ]}
+            accentColor="#F59E0B"
+          />
+
           <View
             style={[
               styles.statStrip,

@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Camera, ImageIcon, Sparkles, Check, Plus, Trash2 } from 'lucide-react-native';
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import { prepareGeneratedFlashcards } from '@/utils/flashcardContent';
 import { DATA_PRIVACY_ROUTE, DECKS_ROUTE } from '@/utils/routes';
+import { getUserInterests, pickDefaultCategory } from '@/utils/userInterests';
 import { generateObject } from '@rork-ai/toolkit-sdk';
 
 const flashcardSchema = z.object({
@@ -74,6 +75,24 @@ export default function ScanNotesPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingSource, setPendingSource] = useState<'camera' | 'gallery' | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getUserInterests()
+      .then((interests) => {
+        if (!isMounted || interests.length === 0) {
+          return;
+        }
+
+        setDeckCategory(normalizeDeckCategory(pickDefaultCategory(interests, AI_DEFAULT_DECK_CATEGORY), AI_DEFAULT_DECK_CATEGORY));
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const startPulse = useCallback(() => {
     Animated.loop(

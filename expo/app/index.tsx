@@ -26,6 +26,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { computeLevel, getLevelBandPalette, getLevelEntry } from '@/utils/levels';
 import { computeDeckMastery, getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
 import { studyHref } from '@/utils/routes';
+import { getUserInterests } from '@/utils/userInterests';
 
 const { width } = Dimensions.get('window');
 const quickStartSectionPadding = 24;
@@ -64,9 +65,15 @@ export default function HomePage() {
   const statsPagerDragStartX = useRef<number>(0);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [statsPage, setStatsPage] = useState<number>(0);
+  const [userInterests, setUserInterests] = useState<string[]>([]);
+  const hasCustomDecks = useMemo<boolean>(() => decks.some((deck) => deck.isCustom), [decks]);
   const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
   const levelEntry = useMemo(() => getLevelEntry(level), [level]);
   const levelPalette = useMemo(() => getLevelBandPalette(level, isDark), [level, isDark]);
+
+  useEffect(() => {
+    getUserInterests().then(setUserInterests).catch(() => {});
+  }, []);
 
   const backgroundGradient = useMemo(
     () => (
@@ -626,7 +633,7 @@ export default function HomePage() {
                 <Text style={[styles.sectionTitle, { color: sectionTitleColor }]}>
               {'Quick Start'}
             </Text>
-            {decks.length === 0 ? (
+            {!hasCustomDecks ? (
               <View
                 style={[
                   styles.quickStartEmptyState,
@@ -638,7 +645,11 @@ export default function HomePage() {
                 ]}
               >
                 <Text style={[styles.quickStartEmptyTitle, { color: theme.text }]}>No decks yet</Text>
-                <Text style={[styles.quickStartEmptySubtitle, { color: theme.textSecondary }]}>Create a deck to see it here.</Text>
+                <Text style={[styles.quickStartEmptySubtitle, { color: theme.textSecondary }]}>
+                  {userInterests.length > 0
+                    ? `Interested in ${userInterests.slice(0, 2).join(' and ')}? Scan your notes or paste some text to create your first deck.`
+                    : 'Create a deck to see it here.'}
+                </Text>
                 <TouchableOpacity
                   style={[styles.quickStartEmptyButton, { backgroundColor: theme.primary }]}
                   onPress={() => router.push('/decks' as Href)}

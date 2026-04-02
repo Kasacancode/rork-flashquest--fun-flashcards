@@ -5,6 +5,7 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Animated, Dimensions, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import FirstVisitCard from '@/components/FirstVisitCard';
 import ConsentSheet from '@/components/privacy/ConsentSheet';
 import QuestDeckSelector from '@/components/quest/QuestDeckSelector';
 import QuestSettingsOptions from '@/components/quest/QuestSettingsOptions';
@@ -298,6 +299,17 @@ export default function QuestMenuScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          <FirstVisitCard
+            screen="quest"
+            title="How Quest works"
+            lines={[
+              'Pick a deck, choose Learn or Test mode, and answer multiple-choice questions.',
+              'Learn mode gives you hints and no timer. Test mode is timed with higher points.',
+              'Your score converts to XP. Drill any cards you miss at the end.',
+            ]}
+            accentColor={theme.primary}
+          />
+
           {!hasDecks ? (
             <View style={[styles.emptyState, { backgroundColor: sectionSurface, borderColor: surfaceBorderColor }]}> 
               <Target color={theme.textTertiary} size={48} strokeWidth={2.2} />

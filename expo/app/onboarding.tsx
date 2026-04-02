@@ -42,9 +42,11 @@ type TutorialCardKey = Extract<TutorialPart, 'card-1' | 'card-2'>;
 type AnalyticsChoice = 'granted' | 'declined' | null;
 type OnboardingGradient = readonly [string, string] | readonly [string, string, string];
 type PresetCategory = (typeof PRESET_DECK_CATEGORIES)[number];
-type FeatureTile = {
+type LearningJourneyItem = {
   key: string;
+  step: number;
   title: string;
+  tagline: string;
   description: string;
   Icon: typeof BookOpen;
 };
@@ -73,30 +75,38 @@ const DEMO_TUTORIAL_CARDS: Record<TutorialCardKey, {
   },
 };
 
-const LEARNING_TILES: readonly FeatureTile[] = [
+const LEARNING_JOURNEY: readonly LearningJourneyItem[] = [
   {
     key: 'study',
+    step: 1,
     title: 'Study',
-    description: 'Flip cards at your own pace and rate your recall',
+    tagline: 'Learn at your own pace',
+    description: 'Flip through your cards, reveal answers, and rate how well you know each one. The app tracks what you remember and what needs work.',
     Icon: BookOpen,
   },
   {
     key: 'quest',
+    step: 2,
     title: 'Quest',
-    description: 'Timed multiple-choice rounds to test yourself',
+    tagline: 'Test what you know',
+    description: 'Multiple-choice rounds that score you on speed and accuracy. Choose Learn mode (hints on, no timer) or Test mode (no hints, timed).',
     Icon: Target,
   },
   {
-    key: 'arena',
-    title: 'Arena',
-    description: 'Challenge friends in real-time battles',
-    Icon: Swords,
+    key: 'practice',
+    step: 3,
+    title: 'Practice',
+    tagline: 'Challenge the AI',
+    description: 'Go head-to-head against an AI opponent that adapts to your skill level. Five rounds, winner takes the higher score.',
+    Icon: Bot,
   },
   {
-    key: 'practice',
-    title: 'Practice',
-    description: 'Warm up against an AI opponent',
-    Icon: Bot,
+    key: 'arena',
+    step: 4,
+    title: 'Arena',
+    tagline: 'Compete with friends',
+    description: 'Create a room, share the code, and battle a friend in real time. Same questions, same timer — fastest and most accurate wins.',
+    Icon: Swords,
   },
 ] as const;
 
@@ -176,25 +186,35 @@ function TutorialStep({
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.overviewScrollContent}>
-            <Text style={styles.overviewTitle}>Here&apos;s how it works</Text>
-            <Text style={styles.overviewSubtitle}>Four ways to learn — pick what fits your style.</Text>
+            <Text style={styles.overviewTitle}>Your learning journey</Text>
+            <Text style={styles.overviewSubtitle}>
+              Four modes, one goal: actually remember what you study.
+            </Text>
 
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionLabel}>Ways to learn</Text>
-              <View style={styles.featureGrid}>
-                {LEARNING_TILES.map((tile) => {
-                  const Icon = tile.Icon;
+            {LEARNING_JOURNEY.map((item, index) => {
+              const Icon = item.Icon;
+              const isLast = index === LEARNING_JOURNEY.length - 1;
 
-                  return (
-                    <View key={tile.key} style={styles.featureGridTile}>
-                      <Icon color="#FFFFFF" size={24} strokeWidth={2.2} />
-                      <Text style={styles.featureTileTitle}>{tile.title}</Text>
-                      <Text style={styles.featureTileDescription}>{tile.description}</Text>
+              return (
+                <View key={item.key} style={styles.journeyRow}>
+                  <View style={styles.journeyTimeline}>
+                    <View style={styles.journeyDot}>
+                      <Text style={styles.journeyStepNumber}>{item.step}</Text>
                     </View>
-                  );
-                })}
-              </View>
-            </View>
+                    {!isLast ? <View style={styles.journeyLine} /> : null}
+                  </View>
+
+                  <View style={styles.journeyCard}>
+                    <View style={styles.journeyCardHeader}>
+                      <Icon color="#FFFFFF" size={20} strokeWidth={2.2} />
+                      <Text style={styles.journeyCardTitle}>{item.title}</Text>
+                      <Text style={styles.journeyCardTagline}>{item.tagline}</Text>
+                    </View>
+                    <Text style={styles.journeyCardDescription}>{item.description}</Text>
+                  </View>
+                </View>
+              );
+            })}
 
             <TouchableOpacity style={styles.primaryButton} onPress={onAdvance} activeOpacity={0.86} testID="onboarding-overview-continue">
               <Text style={styles.primaryButtonText}>Continue</Text>
@@ -869,6 +889,10 @@ export default function OnboardingPage() {
         throw new Error('Choose a respectful player name.');
       }
 
+      if (selectedCategories.length > 0) {
+        await AsyncStorage.setItem('flashquest_user_interests', JSON.stringify(selectedCategories));
+      }
+
       await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, 'true');
       router.replace('/' as Href);
     } catch (error) {
@@ -883,6 +907,7 @@ export default function OnboardingPage() {
     analyticsChoice,
     isSaving,
     playerName,
+    selectedCategories,
     selectedIdentityKey,
     setAnalyticsConsent,
     setAvatarIdentity,
@@ -1105,43 +1130,67 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     maxWidth: 340,
   },
-  sectionBlock: {
-    marginBottom: 20,
-  },
-  sectionLabel: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 12,
-    fontWeight: '800' as const,
-    textTransform: 'uppercase' as const,
-    letterSpacing: 1.4,
-    marginBottom: 12,
-  },
-  featureGrid: {
+  journeyRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap' as const,
-    justifyContent: 'space-between',
+    marginBottom: 0,
   },
-  featureGridTile: {
-    width: '48%',
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+  journeyTimeline: {
+    width: 36,
+    alignItems: 'center',
+    paddingTop: 2,
+  },
+  journeyDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    padding: 14,
-    marginBottom: 12,
-    minHeight: 132,
+    borderColor: 'rgba(255,255,255,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  featureTileTitle: {
+  journeyStepNumber: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800' as const,
-    marginTop: 12,
-    marginBottom: 6,
-  },
-  featureTileDescription: {
-    color: 'rgba(255,255,255,0.75)',
     fontSize: 13,
-    lineHeight: 18,
+    fontWeight: '800' as const,
+  },
+  journeyLine: {
+    width: 2,
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    marginVertical: 4,
+  },
+  journeyCard: {
+    flex: 1,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    padding: 14,
+    marginLeft: 10,
+    marginBottom: 12,
+  },
+  journeyCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  journeyCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800' as const,
+  },
+  journeyCardTagline: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 13,
+    fontWeight: '600' as const,
+    marginLeft: 'auto',
+  },
+  journeyCardDescription: {
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 13,
+    lineHeight: 19,
     fontWeight: '500' as const,
   },
   scrollStepContent: {
