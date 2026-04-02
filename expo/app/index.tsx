@@ -536,14 +536,15 @@ export default function HomePage() {
                   </View>
 
                   {hasReviewPage && (
-                    <TouchableOpacity
-                      style={[styles.reviewPage, { width: statsCardInnerWidth }]}
-                      onPress={() => router.push(studyHref(reviewSummary!.deckSummaries[0].deckId))}
-                      activeOpacity={0.85}
-                      accessibilityLabel={`${reviewSummary!.totalReviewCount} cards ready for review across ${reviewSummary!.deckSummaries.length} decks`}
-                      accessibilityRole="button"
-                      testID="stats-card-review-page"
-                    >
+                    <View style={[styles.reviewPage, { width: statsCardInnerWidth }]}>
+                      <TouchableOpacity
+                        style={styles.reviewPageSummaryButton}
+                        onPress={() => router.push(studyHref(reviewSummary!.deckSummaries[0].deckId))}
+                        activeOpacity={0.85}
+                        accessibilityLabel={`${reviewSummary!.totalReviewCount} cards ready for review across ${reviewSummary!.deckSummaries.length} decks`}
+                        accessibilityRole="button"
+                        testID="stats-card-review-page"
+                      >
                       <View style={styles.reviewPageHeader}>
                         <View style={[styles.reviewIconWrap, { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)' }]}>
                           <RotateCcw color={isDark ? '#a5b4fc' : '#6366f1'} size={16} strokeWidth={2.4} />
@@ -557,13 +558,13 @@ export default function HomePage() {
                           </Text>
                         </View>
                       </View>
+                      </TouchableOpacity>
                       <View style={styles.reviewChips}>
                         {reviewSummary!.deckSummaries.slice(0, 3).map((entry) => (
                           <TouchableOpacity
                             key={entry.deckId}
                             style={[styles.reviewChip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}
-                            onPress={(event) => {
-                              event.stopPropagation();
+                            onPress={() => {
                               router.push(studyHref(entry.deckId));
                             }}
                             activeOpacity={0.75}
@@ -577,7 +578,7 @@ export default function HomePage() {
                           </TouchableOpacity>
                         ))}
                       </View>
-                    </TouchableOpacity>
+                    </View>
                   )}
                   </Animated.View>
                 </View>
@@ -813,6 +814,7 @@ const styles = StyleSheet.create<{
   statLabel: TextStyle;
   statDivider: ViewStyle;
   reviewPage: ViewStyle;
+  reviewPageSummaryButton: ViewStyle;
   reviewPageHeader: ViewStyle;
   reviewIconWrap: ViewStyle;
   reviewPageText: ViewStyle;
@@ -1014,6 +1016,9 @@ const styles = StyleSheet.create<{
     justifyContent: 'center',
     paddingBottom: 2,
     gap: 9,
+  },
+  reviewPageSummaryButton: {
+    borderRadius: 14,
   },
   reviewPageHeader: {
     flexDirection: 'row',
