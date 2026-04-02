@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, ArrowLeftRight, Clock, RefreshCw, RotateCcw, Sparkles, Target, Zap } from 'lucide-react-native';
+import { ArrowLeft, ArrowLeftRight, BookOpen, Clock, AlertTriangle, RefreshCw, RotateCcw, Sparkles, Target, Zap } from 'lucide-react-native';
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
@@ -528,12 +528,14 @@ export default function StudyPage() {
   }
 
   const dueOnlyCount = studySummary.lapsedCount + studySummary.dueCount;
-  const modeCardBg = isDark ? 'rgba(15, 23, 42, 0.88)' : 'rgba(255, 255, 255, 0.92)';
-  const modeCardBorder = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(255, 255, 255, 0.5)';
-  const modeCardShadow = isDark ? '#000' : 'rgba(80, 50, 120, 0.25)';
-  const breakdownBg = isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.85)';
-  const modeTextColor = isDark ? '#F8FAFC' : '#FFFFFF';
-  const modeSubtextColor = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.75)';
+  const modeCardBg = isDark ? 'rgba(15, 23, 42, 0.88)' : 'rgba(255, 255, 255, 0.93)';
+  const modeCardBorder = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(255, 255, 255, 0.6)';
+  const modeCardShadow = isDark ? '#000' : 'rgba(80, 50, 120, 0.2)';
+  const breakdownBg = isDark ? 'rgba(15, 23, 42, 0.6)' : 'rgba(255, 255, 255, 0.35)';
+  const modeTextPrimary = isDark ? '#F8FAFC' : '#FFFFFF';
+  const modeTextSecondary = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.75)';
+  const heroBg = isDark ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.95)';
+  const heroBorder = isDark ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.3)';
 
   return (
     <View style={styles.container}>
@@ -557,136 +559,174 @@ export default function StudyPage() {
               accessibilityRole="button"
               testID="study-mode-picker-back"
             >
-              <ArrowLeft color={modeTextColor} size={22} strokeWidth={2.2} />
+              <ArrowLeft color={modeTextPrimary} size={22} strokeWidth={2.2} />
             </TouchableOpacity>
 
-            <Text style={[styles.modePickerTitle, { color: modeTextColor }]}>{selectedDeck.name}</Text>
-            <Text style={[styles.modePickerSubtitle, { color: modeSubtextColor }]}>
+            <Text style={[styles.modePickerTitle, { color: modeTextPrimary }]}>{selectedDeck.name}</Text>
+            <Text style={[styles.modePickerSubtitle, { color: modeTextSecondary }]}>
               {selectedDeck.flashcards.length} cards in deck
             </Text>
 
-            <View style={[styles.modePickerBreakdown, { backgroundColor: breakdownBg }]}>
+            <View style={styles.breakdownChips}>
               {studySummary.lapsedCount > 0 ? (
-                <Text style={[styles.breakdownItem, { color: '#EF4444' }]}>
-                  {studySummary.lapsedCount} lapsed
-                </Text>
+                <View style={[styles.breakdownChip, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                  <View style={[styles.chipDot, { backgroundColor: '#EF4444' }]} />
+                  <Text style={[styles.chipText, { color: isDark ? '#FCA5A5' : '#DC2626' }]}>{studySummary.lapsedCount} lapsed</Text>
+                </View>
               ) : null}
               {studySummary.dueCount > 0 ? (
-                <Text style={[styles.breakdownItem, { color: isDark ? '#F59E0B' : '#D97706' }]}>
-                  {studySummary.dueCount} due
-                </Text>
+                <View style={[styles.breakdownChip, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                  <View style={[styles.chipDot, { backgroundColor: '#F59E0B' }]} />
+                  <Text style={[styles.chipText, { color: isDark ? '#FCD34D' : '#B45309' }]}>{studySummary.dueCount} due</Text>
+                </View>
               ) : null}
-              <Text style={[styles.breakdownItem, { color: isDark ? modeSubtextColor : '#64748B' }]}>
-                {studySummary.newCount} new
-              </Text>
+              {studySummary.newCount > 0 ? (
+                <View style={[styles.breakdownChip, { backgroundColor: breakdownBg }]}>
+                  <View style={[styles.chipDot, { backgroundColor: isDark ? '#64748B' : 'rgba(255,255,255,0.7)' }]} />
+                  <Text style={[styles.chipText, { color: modeTextSecondary }]}>{studySummary.newCount} new</Text>
+                </View>
+              ) : null}
               {studySummary.weakCount > 0 ? (
-                <Text style={[styles.breakdownItem, { color: isDark ? '#F97316' : '#EA580C' }]}>
-                  {studySummary.weakCount} weak
-                </Text>
+                <View style={[styles.breakdownChip, { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
+                  <View style={[styles.chipDot, { backgroundColor: '#F97316' }]} />
+                  <Text style={[styles.chipText, { color: isDark ? '#FDBA74' : '#C2410C' }]}>{studySummary.weakCount} weak</Text>
+                </View>
               ) : null}
             </View>
 
             <View style={styles.modePickerOptions}>
               <TouchableOpacity
                 style={[
-                  styles.modeOption,
+                  styles.modeActionButton,
                   {
-                    backgroundColor: modeCardBg,
-                    borderColor: modeCardBorder,
+                    backgroundColor: heroBg,
+                    borderColor: heroBorder,
                     shadowColor: modeCardShadow,
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.15,
-                    shadowRadius: 12,
-                    elevation: 4,
+                    shadowOffset: { width: 0, height: 6 },
+                    shadowOpacity: 0.18,
+                    shadowRadius: 14,
+                    elevation: 5,
                   },
                 ]}
                 onPress={() => handleSelectStudyMode('all')}
+                activeOpacity={0.85}
                 accessibilityLabel={`Study all ${orderedFlashcards.length} cards`}
                 accessibilityRole="button"
                 testID="study-mode-all"
               >
-                <Text style={[styles.modeOptionTitle, { color: isDark ? '#F8FAFC' : '#1E293B' }]}>All Cards</Text>
-                <Text style={[styles.modeOptionCount, { color: isDark ? 'rgba(255,255,255,0.5)' : '#64748B' }]}>{orderedFlashcards.length} cards</Text>
+                <View style={[styles.modeIconWrap, { backgroundColor: isDark ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.12)' }]}>
+                  <BookOpen color={isDark ? '#818CF8' : '#6366F1'} size={20} strokeWidth={2.2} />
+                </View>
+                <View style={styles.modeActionText}>
+                  <Text style={[styles.modeActionTitle, { color: isDark ? '#F8FAFC' : '#1E293B' }]}>All Cards</Text>
+                  <Text style={[styles.modeActionDesc, { color: isDark ? 'rgba(255,255,255,0.5)' : '#64748B' }]}>Study every card in priority order</Text>
+                </View>
+                <View style={[styles.modeCountBadge, { backgroundColor: isDark ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)' }]}>
+                  <Text style={[styles.modeCountText, { color: isDark ? '#818CF8' : '#6366F1' }]}>{orderedFlashcards.length}</Text>
+                </View>
               </TouchableOpacity>
 
               {dueOnlyCount > 0 ? (
                 <TouchableOpacity
                   style={[
-                    styles.modeOption,
+                    styles.modeActionButton,
                     {
-                      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.14)' : 'rgba(255, 255, 255, 0.92)',
-                      borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : 'rgba(245, 158, 11, 0.35)',
+                      backgroundColor: isDark ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.93)',
+                      borderColor: isDark ? 'rgba(245,158,11,0.25)' : 'rgba(245,158,11,0.3)',
                       shadowColor: modeCardShadow,
                       shadowOffset: { width: 0, height: 4 },
                       shadowOpacity: 0.12,
-                      shadowRadius: 12,
+                      shadowRadius: 10,
                       elevation: 3,
                     },
                   ]}
                   onPress={() => handleSelectStudyMode('due')}
+                  activeOpacity={0.85}
                   accessibilityLabel={`Study ${dueOnlyCount} due cards`}
                   accessibilityRole="button"
                   testID="study-mode-due"
                 >
-                  <Text style={[styles.modeOptionTitle, { color: '#F59E0B' }]}>Due Cards Only</Text>
-                  <Text style={[styles.modeOptionCount, { color: isDark ? 'rgba(255,255,255,0.5)' : '#64748B' }]}>{dueOnlyCount} cards need review</Text>
+                  <View style={[styles.modeIconWrap, { backgroundColor: 'rgba(245,158,11,0.15)' }]}>
+                    <Clock color="#F59E0B" size={20} strokeWidth={2.2} />
+                  </View>
+                  <View style={styles.modeActionText}>
+                    <Text style={[styles.modeActionTitle, { color: isDark ? '#FCD34D' : '#92400E' }]}>Due Cards</Text>
+                    <Text style={[styles.modeActionDesc, { color: isDark ? 'rgba(255,255,255,0.5)' : '#64748B' }]}>Lapsed and overdue cards only</Text>
+                  </View>
+                  <View style={[styles.modeCountBadge, { backgroundColor: 'rgba(245,158,11,0.15)' }]}>
+                    <Text style={[styles.modeCountText, { color: '#F59E0B' }]}>{dueOnlyCount}</Text>
+                  </View>
                 </TouchableOpacity>
               ) : null}
 
-              <View style={styles.quickReviewRow}>
-                {[5, 10, 15].map((count) => {
-                  const mode = `quick-${count}` as StudyMode;
-                  const isDisabled = orderedFlashcards.length < count;
-                  return (
-                    <TouchableOpacity
-                      key={count}
-                      style={[
-                        styles.quickReviewOption,
-                        {
-                          backgroundColor: modeCardBg,
-                          borderColor: modeCardBorder,
-                          shadowColor: modeCardShadow,
-                          shadowOffset: { width: 0, height: 3 },
-                          shadowOpacity: 0.1,
-                          shadowRadius: 8,
-                          elevation: 3,
-                          opacity: isDisabled ? 0.4 : 1,
-                        },
-                      ]}
-                      onPress={() => handleSelectStudyMode(mode)}
-                      disabled={isDisabled}
-                      accessibilityLabel={`Quick review of ${count} cards`}
-                      accessibilityRole="button"
-                      testID={`study-mode-quick-${count}`}
-                    >
-                      <Text style={[styles.quickReviewCount, { color: isDark ? '#38BDF8' : theme.primary }]}>{count}</Text>
-                      <Text style={[styles.quickReviewLabel, { color: isDark ? 'rgba(255,255,255,0.5)' : '#64748B' }]}>cards</Text>
-                    </TouchableOpacity>
-                  );
-                })}
+              <View style={styles.quickReviewSection}>
+                <Text style={[styles.quickReviewHeader, { color: modeTextSecondary }]}>Quick Review</Text>
+                <View style={styles.quickReviewRow}>
+                  {[5, 10, 15].map((count) => {
+                    const mode = `quick-${count}` as StudyMode;
+                    const disabled = orderedFlashcards.length < count;
+                    return (
+                      <TouchableOpacity
+                        key={count}
+                        style={[
+                          styles.quickReviewPill,
+                          {
+                            backgroundColor: disabled ? 'transparent' : modeCardBg,
+                            borderColor: disabled ? 'rgba(255,255,255,0.1)' : modeCardBorder,
+                            shadowColor: disabled ? 'transparent' : modeCardShadow,
+                            shadowOffset: { width: 0, height: 3 },
+                            shadowOpacity: disabled ? 0 : 0.1,
+                            shadowRadius: 8,
+                            elevation: disabled ? 0 : 3,
+                            opacity: disabled ? 0.35 : 1,
+                          },
+                        ]}
+                        onPress={() => handleSelectStudyMode(mode)}
+                        disabled={disabled}
+                        activeOpacity={0.85}
+                        accessibilityLabel={`Quick review of ${count} cards`}
+                        accessibilityRole="button"
+                        testID={`study-mode-quick-${count}`}
+                      >
+                        <Zap color={isDark ? '#38BDF8' : '#6366F1'} size={14} strokeWidth={2.5} />
+                        <Text style={[styles.quickPillNumber, { color: isDark ? '#38BDF8' : '#6366F1' }]}>{count}</Text>
+                        <Text style={[styles.quickPillLabel, { color: isDark ? 'rgba(255,255,255,0.45)' : '#64748B' }]}>cards</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
 
               {studySummary.weakCount > 0 ? (
                 <TouchableOpacity
                   style={[
-                    styles.modeOption,
+                    styles.modeActionButton,
                     {
-                      backgroundColor: isDark ? 'rgba(249, 115, 22, 0.14)' : 'rgba(255, 255, 255, 0.92)',
-                      borderColor: isDark ? 'rgba(249, 115, 22, 0.3)' : 'rgba(249, 115, 22, 0.35)',
+                      backgroundColor: isDark ? 'rgba(249,115,22,0.1)' : 'rgba(255,255,255,0.93)',
+                      borderColor: isDark ? 'rgba(249,115,22,0.25)' : 'rgba(249,115,22,0.3)',
                       shadowColor: modeCardShadow,
                       shadowOffset: { width: 0, height: 4 },
                       shadowOpacity: 0.12,
-                      shadowRadius: 12,
+                      shadowRadius: 10,
                       elevation: 3,
                     },
                   ]}
                   onPress={() => handleSelectStudyMode('weak')}
+                  activeOpacity={0.85}
                   accessibilityLabel={`Study ${studySummary.weakCount} weak cards`}
                   accessibilityRole="button"
                   testID="study-mode-weak"
                 >
-                  <Text style={[styles.modeOptionTitle, { color: '#F97316' }]}>Weakest Cards</Text>
-                  <Text style={[styles.modeOptionCount, { color: isDark ? 'rgba(255,255,255,0.5)' : '#64748B' }]}>{studySummary.weakCount} cards with low accuracy</Text>
+                  <View style={[styles.modeIconWrap, { backgroundColor: 'rgba(249,115,22,0.15)' }]}>
+                    <AlertTriangle color="#F97316" size={20} strokeWidth={2.2} />
+                  </View>
+                  <View style={styles.modeActionText}>
+                    <Text style={[styles.modeActionTitle, { color: isDark ? '#FDBA74' : '#9A3412' }]}>Weakest Cards</Text>
+                    <Text style={[styles.modeActionDesc, { color: isDark ? 'rgba(255,255,255,0.5)' : '#64748B' }]}>Focus on cards with low accuracy</Text>
+                  </View>
+                  <View style={[styles.modeCountBadge, { backgroundColor: 'rgba(249,115,22,0.15)' }]}>
+                    <Text style={[styles.modeCountText, { color: '#F97316' }]}>{studySummary.weakCount}</Text>
+                  </View>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -1104,67 +1144,113 @@ const styles = StyleSheet.create({
   modePickerBackButton: {
     padding: 8,
     marginLeft: -8,
-    marginBottom: 12,
+    marginBottom: 16,
     alignSelf: 'flex-start',
   },
   modePickerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '800' as const,
+    letterSpacing: -0.5,
     marginBottom: 4,
   },
   modePickerSubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500' as const,
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  modePickerBreakdown: {
+  breakdownChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    gap: 8,
     marginBottom: 24,
   },
-  breakdownItem: {
+  breakdownChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  chipDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  chipText: {
     fontSize: 13,
     fontWeight: '700' as const,
   },
   modePickerOptions: {
-    gap: 12,
+    gap: 10,
   },
-  modeOption: {
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  modeOptionTitle: {
-    fontSize: 16,
-    fontWeight: '800' as const,
-    marginBottom: 3,
-  },
-  modeOptionCount: {
-    fontSize: 13,
-    fontWeight: '500' as const,
-  },
-  quickReviewRow: {
+  modeActionButton: {
     flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
     gap: 12,
   },
-  quickReviewOption: {
-    flex: 1,
+  modeIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
-    paddingVertical: 18,
-    borderRadius: 16,
-    borderWidth: 1,
+    justifyContent: 'center',
   },
-  quickReviewCount: {
-    fontSize: 22,
+  modeActionText: {
+    flex: 1,
+  },
+  modeActionTitle: {
+    fontSize: 16,
     fontWeight: '800' as const,
     marginBottom: 2,
   },
-  quickReviewLabel: {
+  modeActionDesc: {
+    fontSize: 12,
+    fontWeight: '500' as const,
+  },
+  modeCountBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    minWidth: 36,
+    alignItems: 'center',
+  },
+  modeCountText: {
+    fontSize: 14,
+    fontWeight: '800' as const,
+  },
+  quickReviewSection: {
+    gap: 8,
+  },
+  quickReviewHeader: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginLeft: 4,
+  },
+  quickReviewRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  quickReviewPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  quickPillNumber: {
+    fontSize: 18,
+    fontWeight: '800' as const,
+  },
+  quickPillLabel: {
     fontSize: 12,
     fontWeight: '600' as const,
   },
