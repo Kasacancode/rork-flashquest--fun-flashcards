@@ -532,6 +532,8 @@ export default function StudyPage() {
   const modeCardBorder = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(255, 255, 255, 0.6)';
   const modeCardShadow = isDark ? '#000' : 'rgba(80, 50, 120, 0.2)';
   const breakdownBg = isDark ? 'rgba(15, 23, 42, 0.6)' : 'rgba(255, 255, 255, 0.35)';
+  const weakChipBg = isDark ? 'rgba(249, 115, 22, 0.15)' : 'rgba(255, 237, 213, 0.96)';
+  const weakChipBorder = isDark ? 'rgba(249, 115, 22, 0.22)' : 'rgba(234, 88, 12, 0.2)';
   const modeTextPrimary = isDark ? '#F8FAFC' : '#FFFFFF';
   const modeTextSecondary = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.75)';
   const heroBg = isDark ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.95)';
@@ -587,9 +589,15 @@ export default function StudyPage() {
                 </View>
               ) : null}
               {studySummary.weakCount > 0 ? (
-                <View style={[styles.breakdownChip, { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
-                  <View style={[styles.chipDot, { backgroundColor: '#F97316' }]} />
-                  <Text style={[styles.chipText, { color: isDark ? '#FDBA74' : '#C2410C' }]}>{studySummary.weakCount} weak</Text>
+                <View
+                  style={[
+                    styles.breakdownChip,
+                    !isDark ? styles.breakdownChipLight : null,
+                    { backgroundColor: weakChipBg, borderColor: weakChipBorder },
+                  ]}
+                >
+                  <View style={[styles.chipDot, { backgroundColor: isDark ? '#F97316' : '#EA580C' }]} />
+                  <Text style={[styles.chipText, { color: isDark ? '#FDBA74' : '#9A3412' }]}>{studySummary.weakCount} weak</Text>
                 </View>
               ) : null}
             </View>
@@ -1171,6 +1179,15 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  breakdownChipLight: {
+    shadowColor: 'rgba(80, 50, 120, 0.16)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 2,
   },
   chipDot: {
     width: 6,
