@@ -528,6 +528,12 @@ export default function StudyPage() {
   }
 
   const dueOnlyCount = studySummary.lapsedCount + studySummary.dueCount;
+  const modeCardBg = isDark ? 'rgba(15, 23, 42, 0.88)' : 'rgba(255, 255, 255, 0.92)';
+  const modeCardBorder = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(255, 255, 255, 0.5)';
+  const modeCardShadow = isDark ? '#000' : 'rgba(80, 50, 120, 0.25)';
+  const breakdownBg = isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.25)';
+  const modeTextColor = isDark ? '#F8FAFC' : '#FFFFFF';
+  const modeSubtextColor = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.75)';
 
   return (
     <View style={styles.container}>
@@ -551,20 +557,15 @@ export default function StudyPage() {
               accessibilityRole="button"
               testID="study-mode-picker-back"
             >
-              <ArrowLeft color={theme.text} size={22} strokeWidth={2.2} />
+              <ArrowLeft color={modeTextColor} size={22} strokeWidth={2.2} />
             </TouchableOpacity>
 
-            <Text style={[styles.modePickerTitle, { color: theme.text }]}>{selectedDeck.name}</Text>
-            <Text style={[styles.modePickerSubtitle, { color: theme.textSecondary }]}>
+            <Text style={[styles.modePickerTitle, { color: modeTextColor }]}>{selectedDeck.name}</Text>
+            <Text style={[styles.modePickerSubtitle, { color: modeSubtextColor }]}>
               {selectedDeck.flashcards.length} cards in deck
             </Text>
 
-            <View
-              style={[
-                styles.modePickerBreakdown,
-                { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
-              ]}
-            >
+            <View style={[styles.modePickerBreakdown, { backgroundColor: breakdownBg }]}>
               {studySummary.lapsedCount > 0 ? (
                 <Text style={[styles.breakdownItem, { color: '#EF4444' }]}>
                   {studySummary.lapsedCount} lapsed
@@ -575,7 +576,7 @@ export default function StudyPage() {
                   {studySummary.dueCount} due
                 </Text>
               ) : null}
-              <Text style={[styles.breakdownItem, { color: theme.textSecondary }]}>
+              <Text style={[styles.breakdownItem, { color: modeSubtextColor }]}>
                 {studySummary.newCount} new
               </Text>
               {studySummary.weakCount > 0 ? (
@@ -590,8 +591,13 @@ export default function StudyPage() {
                 style={[
                   styles.modeOption,
                   {
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
-                    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                    backgroundColor: modeCardBg,
+                    borderColor: modeCardBorder,
+                    shadowColor: modeCardShadow,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 12,
+                    elevation: 4,
                   },
                 ]}
                 onPress={() => handleSelectStudyMode('all')}
@@ -599,8 +605,8 @@ export default function StudyPage() {
                 accessibilityRole="button"
                 testID="study-mode-all"
               >
-                <Text style={[styles.modeOptionTitle, { color: theme.text }]}>All Cards</Text>
-                <Text style={[styles.modeOptionCount, { color: theme.textSecondary }]}>{orderedFlashcards.length} cards</Text>
+                <Text style={[styles.modeOptionTitle, { color: isDark ? '#F8FAFC' : '#1E293B' }]}>All Cards</Text>
+                <Text style={[styles.modeOptionCount, { color: isDark ? 'rgba(255,255,255,0.5)' : '#64748B' }]}>{orderedFlashcards.length} cards</Text>
               </TouchableOpacity>
 
               {dueOnlyCount > 0 ? (
@@ -608,8 +614,13 @@ export default function StudyPage() {
                   style={[
                     styles.modeOption,
                     {
-                      backgroundColor: isDark ? 'rgba(245,158,11,0.1)' : 'rgba(245,158,11,0.06)',
-                      borderColor: isDark ? 'rgba(245,158,11,0.2)' : 'rgba(245,158,11,0.12)',
+                      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.14)' : 'rgba(255, 255, 255, 0.92)',
+                      borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : 'rgba(245, 158, 11, 0.35)',
+                      shadowColor: modeCardShadow,
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.12,
+                      shadowRadius: 12,
+                      elevation: 3,
                     },
                   ]}
                   onPress={() => handleSelectStudyMode('due')}
@@ -618,7 +629,7 @@ export default function StudyPage() {
                   testID="study-mode-due"
                 >
                   <Text style={[styles.modeOptionTitle, { color: '#F59E0B' }]}>Due Cards Only</Text>
-                  <Text style={[styles.modeOptionCount, { color: theme.textSecondary }]}>{dueOnlyCount} cards need review</Text>
+                  <Text style={[styles.modeOptionCount, { color: isDark ? 'rgba(255,255,255,0.5)' : '#64748B' }]}>{dueOnlyCount} cards need review</Text>
                 </TouchableOpacity>
               ) : null}
 
@@ -632,8 +643,13 @@ export default function StudyPage() {
                       style={[
                         styles.quickReviewOption,
                         {
-                          backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
-                          borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                          backgroundColor: modeCardBg,
+                          borderColor: modeCardBorder,
+                          shadowColor: modeCardShadow,
+                          shadowOffset: { width: 0, height: 3 },
+                          shadowOpacity: 0.1,
+                          shadowRadius: 8,
+                          elevation: 3,
                           opacity: isDisabled ? 0.4 : 1,
                         },
                       ]}
@@ -643,8 +659,8 @@ export default function StudyPage() {
                       accessibilityRole="button"
                       testID={`study-mode-quick-${count}`}
                     >
-                      <Text style={[styles.quickReviewCount, { color: theme.primary }]}>{count}</Text>
-                      <Text style={[styles.quickReviewLabel, { color: theme.textSecondary }]}>cards</Text>
+                      <Text style={[styles.quickReviewCount, { color: isDark ? '#38BDF8' : theme.primary }]}>{count}</Text>
+                      <Text style={[styles.quickReviewLabel, { color: isDark ? 'rgba(255,255,255,0.5)' : '#64748B' }]}>cards</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -655,8 +671,13 @@ export default function StudyPage() {
                   style={[
                     styles.modeOption,
                     {
-                      backgroundColor: isDark ? 'rgba(249,115,22,0.1)' : 'rgba(249,115,22,0.06)',
-                      borderColor: isDark ? 'rgba(249,115,22,0.2)' : 'rgba(249,115,22,0.12)',
+                      backgroundColor: isDark ? 'rgba(249, 115, 22, 0.14)' : 'rgba(255, 255, 255, 0.92)',
+                      borderColor: isDark ? 'rgba(249, 115, 22, 0.3)' : 'rgba(249, 115, 22, 0.35)',
+                      shadowColor: modeCardShadow,
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.12,
+                      shadowRadius: 12,
+                      elevation: 3,
                     },
                   ]}
                   onPress={() => handleSelectStudyMode('weak')}
@@ -665,7 +686,7 @@ export default function StudyPage() {
                   testID="study-mode-weak"
                 >
                   <Text style={[styles.modeOptionTitle, { color: '#F97316' }]}>Weakest Cards</Text>
-                  <Text style={[styles.modeOptionCount, { color: theme.textSecondary }]}>{studySummary.weakCount} cards with low accuracy</Text>
+                  <Text style={[styles.modeOptionCount, { color: isDark ? 'rgba(255,255,255,0.5)' : '#64748B' }]}>{studySummary.weakCount} cards with low accuracy</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -1100,9 +1121,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 14,
+    borderRadius: 12,
     marginBottom: 24,
   },
   breakdownItem: {
@@ -1134,7 +1155,7 @@ const styles = StyleSheet.create({
   quickReviewOption: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 18,
     borderRadius: 16,
     borderWidth: 1,
   },
