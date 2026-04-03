@@ -1,4 +1,5 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
+import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Mail } from 'lucide-react-native';
@@ -20,6 +21,7 @@ import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { uploadToCloud } from '@/utils/cloudSync';
+import { getAuthRedirectUrl } from '@/utils/authRedirects';
 import { CHOOSE_USERNAME_ROUTE, SETTINGS_ROUTE } from '@/utils/routes';
 import { fetchUsername } from '@/utils/usernameService';
 
@@ -130,6 +132,13 @@ export default function AuthScreen() {
   const formMutedTextColor = isDark ? 'rgba(255,255,255,0.58)' : '#64748B';
   const guestNoteColor = isDark ? 'rgba(226,232,240,0.58)' : 'rgba(255,255,255,0.82)';
   const switchModeColor = isDark ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.92)';
+  const authDebugCardBackground = isDark ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255, 255, 255, 0.18)';
+  const authDebugCardBorder = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(255, 255, 255, 0.22)';
+  const authDebugTitleColor = '#FFFFFF';
+  const authDebugBodyColor = isDark ? 'rgba(226,232,240,0.84)' : 'rgba(255,255,255,0.92)';
+  const authDebugUrlColor = isDark ? '#C4B5FD' : '#E9D5FF';
+  const shouldShowAuthDebugCard = Platform.OS === 'web' || Constants.appOwnership === 'expo';
+  const authRedirectUrl = getAuthRedirectUrl();
 
   return (
     <View style={styles.container}>
@@ -295,6 +304,29 @@ export default function AuthScreen() {
               )}
 
               <Text style={[styles.guestNote, { color: guestNoteColor }]}>You can keep using FlashQuest without an account. Your current local data stays on this device.</Text>
+
+              {shouldShowAuthDebugCard ? (
+                <View
+                  style={[
+                    styles.authDebugCard,
+                    {
+                      backgroundColor: authDebugCardBackground,
+                      borderColor: authDebugCardBorder,
+                    },
+                  ]}
+                  testID="auth-debug-card"
+                >
+                  <Text style={[styles.authDebugTitle, { color: authDebugTitleColor }]}>Preview auth redirect</Text>
+                  <Text style={[styles.authDebugBody, { color: authDebugBodyColor }]}>If Google sends you to flashquest.net, add this exact URL to Supabase Redirect URLs and make sure your Gmail is in Google test users.</Text>
+                  <Text
+                    selectable
+                    style={[styles.authDebugUrl, { color: authDebugUrlColor }]}
+                    testID="auth-debug-redirect-url"
+                  >
+                    {authRedirectUrl}
+                  </Text>
+                </View>
+              ) : null}
             </ResponsiveContainer>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -432,5 +464,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 24,
     lineHeight: 19,
+  },
+  authDebugCard: {
+    marginTop: 18,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  authDebugTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
+  },
+  authDebugBody: {
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+  authDebugUrl: {
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
   },
 });
