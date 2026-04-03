@@ -9,7 +9,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
 import { logger } from '@/utils/logger';
-import { getAuthRedirectUrl, getExpectedSupabaseRedirectUrls, isExpoGo, AUTH_CALLBACK_PATH } from '@/utils/authRedirects';
+import {
+  getAuthRedirectUrl,
+  getExpectedSupabaseRedirectUrls,
+  isExpoGo,
+  isKnownAuthCallbackUrl,
+} from '@/utils/authRedirects';
 import { fetchUsername } from '@/utils/usernameService';
 
 import type { AuthError, Session, User } from '@supabase/supabase-js';
@@ -70,7 +75,7 @@ function isSupportedOtpType(value: string | null): value is SupportedOtpType {
 }
 
 function isAuthCallbackUrl(url: string): boolean {
-  return url.includes(AUTH_CALLBACK_PATH)
+  return isKnownAuthCallbackUrl(url)
     || url.includes('access_token=')
     || url.includes('refresh_token=')
     || url.includes('code=')
@@ -278,6 +283,19 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
 
   useEffect(() => {
     if (Platform.OS === 'web') {
+      const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+
+      if (!currentUrl || !isAuthCallbackUrl(currentUrl)) {
+        return undefined;
+      }
+
+      logger.log('[Auth] Handling web auth callback URL');
+      void completeAuthSessionFromUrl(currentUrl).then((result) => {
+        if (result.error) {
+          Alert.alert('Sign In Failed', result.error);
+        }
+      });
+
       return undefined;
     }
 
