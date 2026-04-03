@@ -32,25 +32,46 @@ export function validateUsername(username: string): string | null {
   return null;
 }
 
-export async function checkUsernameAvailable(username: string): Promise<boolean> {
+export type UsernameAvailabilityStatus = 'available' | 'taken' | 'unknown';
+
+interface UsernameAvailabilityResult {
+  status: UsernameAvailabilityStatus;
+  error?: string;
+}
+
+export async function getUsernameAvailability(username: string): Promise<UsernameAvailabilityResult> {
   try {
     const trimmed = username.trim();
     const { data, error } = await supabase
       .from('profiles')
       .select('id')
       .ilike('username', trimmed)
+      .limit(1)
       .maybeSingle();
 
     if (error) {
       logger.warn('[Username] Availability check failed:', error.message);
-      return false;
+      return {
+        status: 'unknown',
+        error: 'Could not verify availability. You can still try claiming it.',
+      };
     }
 
-    return data === null;
+    return {
+      status: data === null ? 'available' : 'taken',
+    };
   } catch (error) {
     logger.warn('[Username] Availability check error:', error);
-    return false;
+    return {
+      status: 'unknown',
+      error: 'Could not verify availability. You can still try claiming it.',
+    };
   }
+}
+
+export async function checkUsernameAvailable(username: string): Promise<boolean> {
+  const result = await getUsernameAvailability(username);
+  return result.status === 'available';
 }
 
 export async function claimUsername(userId: string, username: string): Promise<{ success: boolean; error?: string }> {
@@ -62,20 +83,43 @@ export async function claimUsername(userId: string, username: string): Promise<{
       return { success: false, error: validationError };
     }
 
-    const isAvailable = await checkUsernameAvailable(trimmed);
-    if (!isAvailable) {
+    const availabilityResult = await getUsernameAvailability(trimmed);
+    if (availabilityResult.status === 'taken') {
       return { success: false, error: 'This username is already taken.' };
     }
 
-    const { data, error } = await supabase
+    if (availabilityResult.status === 'unknown') {
+      logger.warn('[Username] Availability could not be confirmed, attempting claim anyway');
+    }
+
+    const timestamp = new Date().toISOString();
+    let { data, error } = await supabase
       .from('profiles')
       .update({
         username: trimmed,
-        updated_at: new Date().toISOString(),
+        updated_at: timestamp,
       })
       .eq('id', userId)
       .select('id')
       .maybeSingle();
+
+    if (!error && !data) {
+      logger.warn('[Username] No profile row found during claim, attempting upsert for user', userId);
+      const fallbackResult = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          username: trimmed,
+          updated_at: timestamp,
+        }, {
+          onConflict: 'id',
+        })
+        .select('id')
+        .maybeSingle();
+
+      data = fallbackResult.data;
+      error = fallbackResult.error;
+    }
 
     if (error) {
       if (error.code === '23505') {

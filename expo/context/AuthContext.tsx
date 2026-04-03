@@ -44,6 +44,7 @@ type OAuthProvider = 'apple' | 'google';
 type SupportedOtpType = 'signup' | 'magiclink' | 'recovery' | 'invite' | 'email_change' | 'email';
 
 const SUPPORTED_OTP_TYPES: SupportedOtpType[] = ['signup', 'magiclink', 'recovery', 'invite', 'email_change', 'email'];
+const WEB_POPUP_AUTH_MESSAGE_TYPE = 'flashquest:oauth-popup-complete' as const;
 
 function getCallbackParams(url: string): URLSearchParams {
   const parsedUrl = new URL(url);
@@ -86,6 +87,55 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function canUseBrowserWindow(): boolean {
+  return Platform.OS === 'web' && typeof window !== 'undefined';
+}
+
+function isEmbeddedWebPreview(): boolean {
+  if (!canUseBrowserWindow()) {
+    return false;
+  }
+
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
+function isPopupAuthWindow(): boolean {
+  if (!canUseBrowserWindow()) {
+    return false;
+  }
+
+  return Boolean(window.opener && window.opener !== window);
+}
+
+function notifyOpenerOfAuthCallback(url: string): void {
+  if (!canUseBrowserWindow() || !isPopupAuthWindow()) {
+    return;
+  }
+
+  try {
+    window.opener?.postMessage({
+      type: WEB_POPUP_AUTH_MESSAGE_TYPE,
+      url,
+    }, window.location.origin);
+  } catch (error) {
+    logger.warn('[Auth] Failed to notify opener about popup auth callback:', error);
+  }
+}
+
+function closeAuthPopupWindow(): void {
+  if (!canUseBrowserWindow() || !isPopupAuthWindow()) {
+    return;
+  }
+
+  window.setTimeout(() => {
+    window.close();
+  }, 60);
 }
 
 interface OAuthSignInOptions {
@@ -237,7 +287,8 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
 
   const signInWithOAuthProvider = useCallback(async (provider: OAuthProvider): Promise<void> => {
     const redirectTo = getAuthRedirectUrl();
-    const shouldUseWebRedirectFlow = Platform.OS === 'web';
+    const isEmbeddedPreview = isEmbeddedWebPreview();
+    const shouldUseWebRedirectFlow = Platform.OS === 'web' && !isEmbeddedPreview;
     const expectedSupabaseRedirects = getExpectedSupabaseRedirectUrls();
 
     try {
@@ -248,6 +299,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         redirectTo,
         isExpoGo: isExpoGo(),
         shouldUseWebRedirectFlow,
+        isEmbeddedPreview,
         expectedSupabaseRedirects,
       });
       logger.log('[Auth] Supabase redirect allowlist copy/paste', expectedSupabaseRedirects.join('\n'));
@@ -263,6 +315,36 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
           Alert.alert('Sign In Failed', error.message);
         }
 
+        return;
+      }
+
+      if (Platform.OS === 'web' && isEmbeddedPreview) {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: getOAuthSignInOptions(provider, redirectTo, true),
+        });
+
+        if (error) {
+          logger.warn('[Auth] OAuth popup setup failed:', error.message);
+          Alert.alert('Sign In Failed', error.message);
+          return;
+        }
+
+        if (!data?.url) {
+          logger.warn('[Auth] OAuth popup setup returned no URL');
+          Alert.alert('Sign In Failed', 'Sign-in could not be started.');
+          return;
+        }
+
+        const popup = window.open(data.url, 'flashquest-oauth', 'popup=yes,width=520,height=720');
+
+        if (!popup) {
+          logger.warn('[Auth] OAuth popup was blocked, falling back to browser redirect');
+          window.location.assign(data.url);
+          return;
+        }
+
+        popup.focus();
         return;
       }
 
@@ -363,10 +445,71 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
   }, []);
 
   useEffect(() => {
+    if (Platform.OS === 'web' && isEmbeddedWebPreview()) {
+      const handleMessage = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) {
+          return;
+        }
+
+        const eventData = typeof event.data === 'object' && event.data !== null
+          ? event.data as { type?: string; url?: string }
+          : null;
+
+        if (!eventData || eventData.type !== WEB_POPUP_AUTH_MESSAGE_TYPE) {
+          return;
+        }
+
+        logger.log('[Auth] Received popup auth completion message');
+        void waitForSessionAfterBrowserReturn()
+          .then(async (hasRecoveredSession) => {
+            if (hasRecoveredSession) {
+              return;
+            }
+
+            if (typeof eventData.url !== 'string' || !isAuthCallbackUrl(eventData.url)) {
+              Alert.alert('Sign In Failed', 'Sign-in did not return a valid callback URL.');
+              return;
+            }
+
+            const result = await completeAuthSessionFromUrl(eventData.url);
+
+            if (!result.error) {
+              return;
+            }
+
+            const hasRecoveredAfterRetry = await waitForSessionAfterBrowserReturn();
+            if (!hasRecoveredAfterRetry) {
+              Alert.alert('Sign In Failed', result.error);
+            }
+          })
+          .catch((error: unknown) => {
+            logger.warn('[Auth] Failed to resolve popup auth message:', error);
+          });
+      };
+
+      window.addEventListener('message', handleMessage);
+
+      return () => {
+        window.removeEventListener('message', handleMessage);
+      };
+    }
+
+    return undefined;
+  }, [completeAuthSessionFromUrl, waitForSessionAfterBrowserReturn]);
+
+  useEffect(() => {
     if (Platform.OS === 'web') {
       const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
 
       if (!currentUrl || !isAuthCallbackUrl(currentUrl)) {
+        return undefined;
+      }
+
+      if (isPopupAuthWindow()) {
+        logger.log('[Auth] Detected popup auth callback, notifying opener');
+        notifyOpenerOfAuthCallback(currentUrl);
+        clearWebAuthCallbackState();
+        closeAuthPopupWindow();
         return undefined;
       }
 

@@ -317,7 +317,7 @@ export default function AuthScreen() {
                   testID="auth-debug-card"
                 >
                   <Text style={[styles.authDebugTitle, { color: authDebugTitleColor }]}>Preview auth redirect</Text>
-                  <Text style={[styles.authDebugBody, { color: authDebugBodyColor }]}>If Google sends you to flashquest.net, add this exact URL to Supabase Redirect URLs and make sure your Gmail is in Google test users.</Text>
+                  <Text style={[styles.authDebugBody, { color: authDebugBodyColor }]}>Preview now opens Google in a separate window. If sign-in still fails, add this exact URL to Supabase Redirect URLs and make sure your Gmail is in Google test users.</Text>
                   <Text
                     selectable
                     style={[styles.authDebugUrl, { color: authDebugUrlColor }]}

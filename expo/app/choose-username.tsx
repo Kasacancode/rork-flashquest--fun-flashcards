@@ -20,8 +20,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { AUTH_ROUTE, HOME_ROUTE } from '@/utils/routes';
 import {
   USERNAME_MAX_LENGTH,
-  checkUsernameAvailable,
   claimUsername,
+  getUsernameAvailability,
   validateUsername,
 } from '@/utils/usernameService';
 
@@ -31,6 +31,7 @@ export default function ChooseUsernameScreen() {
   const { user, username: existingUsername, refreshUsername } = useAuth();
   const [username, setUsername] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [helperMessage, setHelperMessage] = useState<string | null>(null);
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -60,6 +61,7 @@ export default function ChooseUsernameScreen() {
     const cleaned = value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, USERNAME_MAX_LENGTH);
     setUsername(cleaned);
     setError(null);
+    setHelperMessage(null);
     setIsAvailable(null);
     setIsChecking(false);
 
@@ -82,17 +84,27 @@ export default function ChooseUsernameScreen() {
     requestIdRef.current = nextRequestId;
 
     debounceRef.current = setTimeout(() => {
-      void checkUsernameAvailable(cleaned)
-        .then((available) => {
+      void getUsernameAvailability(cleaned)
+        .then((availabilityResult) => {
           if (requestIdRef.current !== nextRequestId) {
             return;
           }
 
           setIsChecking(false);
-          setIsAvailable(available);
-          if (!available) {
-            setError('This username is already taken.');
+
+          if (availabilityResult.status === 'available') {
+            setIsAvailable(true);
+            return;
           }
+
+          if (availabilityResult.status === 'taken') {
+            setIsAvailable(false);
+            setError('This username is already taken.');
+            return;
+          }
+
+          setIsAvailable(null);
+          setHelperMessage(availabilityResult.error ?? 'Could not verify availability. You can still try claiming it.');
         })
         .catch(() => {
           if (requestIdRef.current !== nextRequestId) {
@@ -100,7 +112,8 @@ export default function ChooseUsernameScreen() {
           }
 
           setIsChecking(false);
-          setError('Could not check username availability.');
+          setIsAvailable(null);
+          setHelperMessage('Could not verify availability. You can still try claiming it.');
         });
     }, 500);
   }, []);
@@ -117,10 +130,14 @@ export default function ChooseUsernameScreen() {
     }
 
     setIsSaving(true);
+    setHelperMessage(null);
     const result = await claimUsername(user.id, username);
 
     if (!result.success) {
       setIsSaving(false);
+      if ((result.error ?? '').toLowerCase().includes('taken')) {
+        setIsAvailable(false);
+      }
       setError(result.error ?? 'Could not save username.');
       return;
     }
@@ -130,7 +147,7 @@ export default function ChooseUsernameScreen() {
     router.replace(HOME_ROUTE);
   }, [isSaving, refreshUsername, router, user?.id, username]);
 
-  const canSubmit = username.length >= 3 && !error && isAvailable === true && !isChecking && !isSaving;
+  const canSubmit = username.length >= 3 && !error && !isChecking && !isSaving;
   const backgroundGradient = useMemo<readonly [string, string, string]>(() => (
     isDark
       ? ['#08111f', '#1c1633', '#0b1322']
@@ -199,6 +216,8 @@ export default function ChooseUsernameScreen() {
                 <Text style={styles.errorText}>{error}</Text>
               ) : isAvailable === true ? (
                 <Text style={styles.availableText}>Username is available!</Text>
+              ) : helperMessage ? (
+                <Text style={[styles.hintText, { color: hintColor }]}>{helperMessage}</Text>
               ) : (
                 <Text style={[styles.hintText, { color: hintColor }]}>Letters, numbers, and underscores. 3-20 characters.</Text>
               )}
