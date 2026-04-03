@@ -1,5 +1,6 @@
 import { makeRedirectUri } from 'expo-auth-session';
 import Constants from 'expo-constants';
+import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 
 export const AUTH_CALLBACK_PATH = 'auth-callback';
@@ -25,6 +26,19 @@ function getWebOrigin(): string {
   return scopedGlobal.location?.origin ?? LOCALHOST_WEB_ORIGIN;
 }
 
+function isHttpUrl(url: string): boolean {
+  return url.startsWith('http://') || url.startsWith('https://');
+}
+
+function getLinkingAuthRedirectUrl(): string {
+  return Linking.createURL(AUTH_CALLBACK_PATH);
+}
+
+function pickPreferredNativeRedirectUrl(...candidates: string[]): string {
+  const usableCandidate = candidates.find((candidate) => candidate.length > 0 && !isHttpUrl(candidate));
+  return usableCandidate ?? NATIVE_AUTH_CALLBACK_URL;
+}
+
 export function isExpoGo(): boolean {
   return Constants.appOwnership === 'expo';
 }
@@ -42,9 +56,12 @@ export function isKnownAuthCallbackUrl(url: string): boolean {
 }
 
 export function getExpoGoAuthRedirectUrl(): string {
-  return makeRedirectUri({
-    path: AUTH_CALLBACK_PATH,
-  });
+  return pickPreferredNativeRedirectUrl(
+    makeRedirectUri({
+      path: AUTH_CALLBACK_PATH,
+    }),
+    getLinkingAuthRedirectUrl(),
+  );
 }
 
 export function getNativeAppAuthRedirectUrl(): string {
@@ -56,10 +73,15 @@ export function getNativeAppAuthRedirectUrl(): string {
     return getExpoGoAuthRedirectUrl();
   }
 
-  return makeRedirectUri({
-    path: AUTH_CALLBACK_PATH,
-    scheme: 'flashquest',
-  });
+  return pickPreferredNativeRedirectUrl(
+    makeRedirectUri({
+      path: AUTH_CALLBACK_PATH,
+      scheme: 'flashquest',
+      native: NATIVE_AUTH_CALLBACK_URL,
+    }),
+    getLinkingAuthRedirectUrl(),
+    NATIVE_AUTH_CALLBACK_URL,
+  );
 }
 
 export function getAuthRedirectUrl(): string {
