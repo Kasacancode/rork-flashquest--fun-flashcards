@@ -11,16 +11,9 @@ function normalizeCandidate(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export function getPreferredProfileName(options: {
-  username?: string | null;
+export function getStoredProfileName(options: {
   user?: UserIdentityLike;
-  fallback?: string;
-}): string {
-  const username = normalizeCandidate(options.username);
-  if (username) {
-    return username;
-  }
-
+}): string | null {
   const fullName = normalizeCandidate(options.user?.user_metadata?.full_name);
   if (fullName) {
     return fullName;
@@ -31,10 +24,59 @@ export function getPreferredProfileName(options: {
     return name;
   }
 
+  return null;
+}
+
+export function getProfileDisplayName(options: {
+  username?: string | null;
+  user?: UserIdentityLike;
+  fallback?: string;
+}): string {
+  const storedProfileName = getStoredProfileName({ user: options.user });
+  if (storedProfileName) {
+    return storedProfileName;
+  }
+
+  const username = normalizeCandidate(options.username);
+  if (username) {
+    return username;
+  }
+
   const emailHandle = normalizeCandidate(options.user?.email?.split('@')[0]);
   if (emailHandle) {
     return emailHandle;
   }
 
   return normalizeCandidate(options.fallback) ?? 'Player';
+}
+
+export function getPublicProfileName(options: {
+  username?: string | null;
+  user?: UserIdentityLike;
+  fallback?: string;
+}): string {
+  const username = normalizeCandidate(options.username);
+  if (username) {
+    return username;
+  }
+
+  const storedProfileName = getStoredProfileName({ user: options.user });
+  if (storedProfileName) {
+    return storedProfileName;
+  }
+
+  const emailHandle = normalizeCandidate(options.user?.email?.split('@')[0]);
+  if (emailHandle) {
+    return emailHandle;
+  }
+
+  return normalizeCandidate(options.fallback) ?? 'Player';
+}
+
+export function getPreferredProfileName(options: {
+  username?: string | null;
+  user?: UserIdentityLike;
+  fallback?: string;
+}): string {
+  return getPublicProfileName(options);
 }

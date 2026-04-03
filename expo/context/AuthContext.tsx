@@ -15,7 +15,8 @@ import {
   isExpoGo,
   isKnownAuthCallbackUrl,
 } from '@/utils/authRedirects';
-import { getPreferredProfileName } from '@/utils/userIdentity';
+import { sanitizeProfileName, validateProfileName } from '@/utils/profileName';
+import { getProfileDisplayName, getPublicProfileName } from '@/utils/userIdentity';
 import { fetchUsername } from '@/utils/usernameService';
 
 import type { AuthError, Session, User } from '@supabase/supabase-js';
@@ -33,7 +34,9 @@ interface AuthContextValue {
   isSignedIn: boolean;
   username: string | null;
   displayName: string;
+  publicDisplayName: string;
   refreshUsername: () => Promise<string | null>;
+  updateDisplayName: (displayName: string) => Promise<AuthResult>;
   signInWithApple: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<AuthResult>;
@@ -717,6 +720,57 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
     }
   }, []);
 
+  const updateDisplayName = useCallback(async (nextDisplayName: string): Promise<AuthResult> => {
+    if (!session?.user) {
+      return { error: 'You need to be signed in to update your profile.' };
+    }
+
+    const validationError = validateProfileName(nextDisplayName);
+    if (validationError) {
+      return { error: validationError };
+    }
+
+    const sanitizedDisplayName = sanitizeProfileName(nextDisplayName);
+
+    try {
+      logger.log('[Auth] Updating display name', {
+        userId: session.user.id,
+        displayName: sanitizedDisplayName,
+      });
+
+      const { data, error } = await supabase.auth.updateUser({
+        data: {
+          ...(session.user.user_metadata ?? {}),
+          full_name: sanitizedDisplayName,
+          name: sanitizedDisplayName,
+        },
+      });
+
+      if (error) {
+        logger.warn('[Auth] Display name update failed:', error.message);
+        return { error: error.message };
+      }
+
+      if (data.user) {
+        setSession((currentSession) => {
+          if (!currentSession) {
+            return currentSession;
+          }
+
+          return {
+            ...currentSession,
+            user: data.user,
+          };
+        });
+      }
+
+      return {};
+    } catch (error: unknown) {
+      logger.warn('[Auth] Display name update error:', error);
+      return { error: getReadableAuthError(error) };
+    }
+  }, [session?.user]);
+
   const signOut = useCallback(async (): Promise<void> => {
     try {
       logger.log('[Auth] Signing out');
@@ -732,10 +786,15 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
   }, []);
 
   const user = session?.user ?? null;
-  const displayName = getPreferredProfileName({
+  const displayName = getProfileDisplayName({
     username,
     user,
     fallback: '',
+  });
+  const publicDisplayName = getPublicProfileName({
+    username,
+    user,
+    fallback: displayName,
   });
 
   return useMemo<AuthContextValue>(() => ({
@@ -745,11 +804,13 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
     isSignedIn: Boolean(session),
     username,
     displayName,
+    publicDisplayName,
     refreshUsername,
+    updateDisplayName,
     signInWithApple,
     signInWithGoogle,
     signInWithEmail,
     signUpWithEmail,
     signOut,
-  }), [displayName, isLoading, refreshUsername, session, signInWithApple, signInWithEmail, signInWithGoogle, signOut, signUpWithEmail, user, username]);
+  }), [displayName, isLoading, publicDisplayName, refreshUsername, session, signInWithApple, signInWithEmail, signInWithGoogle, signOut, signUpWithEmail, updateDisplayName, user, username]);
 });

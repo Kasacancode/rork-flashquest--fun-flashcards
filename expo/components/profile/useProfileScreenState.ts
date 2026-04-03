@@ -12,7 +12,7 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { canAccessDebugFeature } from '@/utils/debugTooling';
-import { DATA_PRIVACY_ROUTE, FAQ_ROUTE, SETTINGS_ROUTE, flashcardDebugHref } from '@/utils/routes';
+import { ACCOUNT_ROUTE, DATA_PRIVACY_ROUTE, FAQ_ROUTE, SETTINGS_ROUTE, flashcardDebugHref } from '@/utils/routes';
 import {
   ACHIEVEMENT_CATEGORIES,
   computeAchievements,
@@ -21,14 +21,13 @@ import {
 } from '@/utils/achievements';
 import { computeLevel, computeLevelProgress, getLevelEntry } from '@/utils/levels';
 import { getPlayerNameValidationError } from '@/utils/playerName';
-import { getPreferredProfileName } from '@/utils/userIdentity';
 
 export function useProfileScreenState() {
   const navigation = useRouter();
   const { stats, decks } = useFlashQuest();
   const { performance } = usePerformance();
   const { playerName, updatePlayerName, isPlayerNameReady, leaderboard } = useArena();
-  const { displayName, isSignedIn, username, user } = useAuth();
+  const { displayName, isSignedIn, username } = useAuth();
   const { theme, isDark, toggleTheme } = useTheme();
   const { selectedSuit, selectedColor, setSelectedSuit, setSelectedColor } = useAvatar();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -51,14 +50,10 @@ export function useProfileScreenState() {
   );
   const currentPlayerName = playerName.trim();
   const profileDisplayName = isSignedIn
-    ? getPreferredProfileName({
-      username,
-      user,
-      fallback: currentPlayerName || displayName || 'FlashQuest Player',
-    })
+    ? displayName || username || currentPlayerName || 'FlashQuest Player'
     : currentPlayerName || 'FlashQuest Player';
   const usernameLabel = isSignedIn && username ? `@${username}` : null;
-  const canEditPlayerName = !isSignedIn || !username;
+  const canEditPlayerName = true;
   const totalCardsOwned = useMemo(() => decks.flatMap((deck) => deck.flashcards).length, [decks]);
   const customDeckCount = useMemo(() => decks.filter((deck) => deck.isCustom).length, [decks]);
   const achievements: AchievementItem[] = useMemo(
@@ -193,6 +188,11 @@ export function useProfileScreenState() {
   }, [setSelectedColor]);
 
   const handleEditPlayerName = useCallback(() => {
+    if (isSignedIn) {
+      navigation.push(ACCOUNT_ROUTE);
+      return;
+    }
+
     if (!canEditPlayerName) {
       return;
     }
@@ -200,7 +200,7 @@ export function useProfileScreenState() {
     setPlayerNameInput(playerName);
     setPlayerNameError(null);
     setIsEditingPlayerName(true);
-  }, [canEditPlayerName, playerName]);
+  }, [canEditPlayerName, isSignedIn, navigation, playerName]);
 
   const handleCancelPlayerNameEdit = useCallback(() => {
     setPlayerNameInput(playerName);

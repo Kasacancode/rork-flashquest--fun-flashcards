@@ -15,6 +15,7 @@ export const LEADERBOARD_ROUTE = '/leaderboard' as const satisfies Href;
 export const AUTH_ROUTE = '/auth' as const satisfies Href;
 export const AUTH_CALLBACK_ROUTE = '/auth-callback' as const satisfies Href;
 export const CHOOSE_USERNAME_ROUTE = '/choose-username' as const satisfies Href;
+export const ACCOUNT_ROUTE = '/account' as const satisfies Href;
 export const DATA_PRIVACY_ROUTE = '/data-privacy' as const satisfies Href;
 export const FAQ_ROUTE = '/faq' as const satisfies Href;
 export const QUEST_ROUTE = '/quest' as const satisfies Href;

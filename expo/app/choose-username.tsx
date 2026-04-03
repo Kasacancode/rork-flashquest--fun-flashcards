@@ -183,7 +183,7 @@ export default function ChooseUsernameScreen() {
 
             <Text style={styles.title}>Choose your username</Text>
             <Text style={styles.subtitle}>
-              This is how you&apos;ll appear on the leaderboard, in arena battles, and on decks you publish.
+              This is your public handle for the leaderboard, arena battles, and published decks. Your profile name stays separate.
             </Text>
 
             <View style={[styles.inputCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>

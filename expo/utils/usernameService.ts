@@ -6,6 +6,10 @@ export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 20;
 const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/;
 
+export function normalizeUsernameInput(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, USERNAME_MAX_LENGTH);
+}
+
 export function validateUsername(username: string): string | null {
   const trimmed = username.trim();
 
@@ -39,7 +43,10 @@ interface UsernameAvailabilityResult {
   error?: string;
 }
 
-export async function getUsernameAvailability(username: string): Promise<UsernameAvailabilityResult> {
+export async function getUsernameAvailability(
+  username: string,
+  options?: { excludeUserId?: string | null },
+): Promise<UsernameAvailabilityResult> {
   try {
     const trimmed = username.trim();
     const { data, error } = await supabase
@@ -54,6 +61,12 @@ export async function getUsernameAvailability(username: string): Promise<Usernam
       return {
         status: 'unknown',
         error: 'Could not verify availability. You can still try claiming it.',
+      };
+    }
+
+    if (data?.id && options?.excludeUserId && data.id === options.excludeUserId) {
+      return {
+        status: 'available',
       };
     }
 
@@ -74,16 +87,32 @@ export async function checkUsernameAvailable(username: string): Promise<boolean>
   return result.status === 'available';
 }
 
-export async function claimUsername(userId: string, username: string): Promise<{ success: boolean; error?: string }> {
+export async function claimUsername(
+  userId: string,
+  username: string,
+  options?: {
+    excludeUserId?: string | null;
+    currentUsername?: string | null;
+    allowCurrentUsername?: boolean;
+  },
+): Promise<{ success: boolean; error?: string }> {
   try {
     const trimmed = username.trim();
+    const currentUsername = options?.currentUsername?.trim() ?? null;
     const validationError = validateUsername(trimmed);
 
     if (validationError) {
       return { success: false, error: validationError };
     }
 
-    const availabilityResult = await getUsernameAvailability(trimmed);
+    if (options?.allowCurrentUsername && currentUsername && currentUsername.toLowerCase() === trimmed.toLowerCase()) {
+      logger.log('[Username] Keeping current username:', trimmed);
+      return { success: true };
+    }
+
+    const availabilityResult = await getUsernameAvailability(trimmed, {
+      excludeUserId: options?.excludeUserId ?? userId,
+    });
     if (availabilityResult.status === 'taken') {
       return { success: false, error: 'This username is already taken.' };
     }

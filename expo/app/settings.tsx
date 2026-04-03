@@ -51,7 +51,7 @@ import { setHapticsEnabled as syncHapticsPreference } from '@/utils/haptics';
 import { logger } from '@/utils/logger';
 import { exportBackup, importBackup } from '@/utils/dataBackup';
 import { clearScheduledStreakReminders, NOTIFICATIONS_ENABLED_KEY } from '@/utils/notifications';
-import { DATA_PRIVACY_ROUTE, FAQ_ROUTE } from '@/utils/routes';
+import { ACCOUNT_ROUTE, DATA_PRIVACY_ROUTE, FAQ_ROUTE } from '@/utils/routes';
 import { getSoundsEnabled, setSoundsEnabled as syncSoundsEnabled, SOUNDS_ENABLED_KEY } from '@/utils/sounds';
 import { getUserInterests } from '@/utils/userInterests';
 
@@ -130,7 +130,7 @@ export default function SettingsScreen() {
   const queryClient = useQueryClient();
   const { theme, isDark, toggleTheme } = useTheme();
   const { analyticsEnabled, setAnalyticsConsent } = usePrivacy();
-  const { isSignedIn, displayName, user, signOut } = useAuth();
+  const { isSignedIn, displayName, username, user, signOut } = useAuth();
   const { decks, stats } = useFlashQuest();
   const [hapticsEnabled, setHapticsEnabled] = useState<boolean>(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
@@ -241,6 +241,9 @@ export default function SettingsScreen() {
   }, [signOut]);
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+  const accountSubtitle = username
+    ? `${`@${username}`}${user?.email ? ` • ${user.email}` : ''}`
+    : user?.email ?? 'Signed in';
 
   const handleChangeDailyGoal = useCallback(() => {
     Alert.alert(
@@ -393,8 +396,10 @@ export default function SettingsScreen() {
                 <>
                   <SettingsRow
                     icon={<User color={theme.primary} size={20} strokeWidth={2.2} />}
-                    label={displayName || 'Account'}
-                    subtitle={user?.email ?? 'Signed in'}
+                    label={displayName || username || 'Account'}
+                    subtitle={accountSubtitle}
+                    onPress={() => router.push(ACCOUNT_ROUTE)}
+                    right={<ChevronRight color={theme.textTertiary} size={18} />}
                     theme={theme}
                     testID="settings-account-row"
                   />

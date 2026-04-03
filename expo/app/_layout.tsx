@@ -98,6 +98,7 @@ function RootLayoutNav() {
       <Stack.Screen name="auth" options={{ headerShown: false, gestureEnabled: true }} />
       <Stack.Screen name="auth-callback" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="choose-username" options={{ headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="account" options={{ headerShown: false, gestureEnabled: true }} />
       <Stack.Screen name="edit-deck" options={{ headerShown: false }} />
       <Stack.Screen name="edit-flashcard" options={{ headerShown: false }} />
       <Stack.Protected guard={canAccessDebugRoute('flashcard-debug')}>
