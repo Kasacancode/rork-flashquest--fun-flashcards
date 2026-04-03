@@ -238,6 +238,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
   const signInWithOAuthProvider = useCallback(async (provider: OAuthProvider): Promise<void> => {
     const redirectTo = getAuthRedirectUrl();
     const shouldUseWebRedirectFlow = Platform.OS === 'web';
+    const expectedSupabaseRedirects = getExpectedSupabaseRedirectUrls();
 
     try {
       logger.log('[Auth] Starting OAuth sign in', {
@@ -247,8 +248,9 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         redirectTo,
         isExpoGo: isExpoGo(),
         shouldUseWebRedirectFlow,
-        expectedSupabaseRedirects: getExpectedSupabaseRedirectUrls(),
+        expectedSupabaseRedirects,
       });
+      logger.log('[Auth] Supabase redirect allowlist copy/paste', expectedSupabaseRedirects.join('\n'));
 
       if (shouldUseWebRedirectFlow) {
         const { error } = await supabase.auth.signInWithOAuth({
