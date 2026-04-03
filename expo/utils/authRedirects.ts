@@ -41,15 +41,24 @@ export function isKnownAuthCallbackUrl(url: string): boolean {
   return AUTH_CALLBACK_PATHS.some((path) => url.includes(path));
 }
 
+export function getExpoGoAuthRedirectUrl(): string {
+  return makeRedirectUri({
+    path: AUTH_CALLBACK_PATH,
+  });
+}
+
 export function getNativeAppAuthRedirectUrl(): string {
   if (Platform.OS === 'web') {
     return getAuthCallbackUrlForOrigin(getWebOrigin());
   }
 
+  if (isExpoGo()) {
+    return getExpoGoAuthRedirectUrl();
+  }
+
   return makeRedirectUri({
     path: AUTH_CALLBACK_PATH,
     scheme: 'flashquest',
-    native: NATIVE_AUTH_CALLBACK_URL,
   });
 }
 
@@ -63,7 +72,6 @@ export function getAuthRedirectUrl(): string {
 
 export function getExpectedSupabaseRedirectUrls(): string[] {
   const currentWebOrigin = getWebOrigin();
-  const nativeRedirectUrl = Platform.OS === 'web' ? null : getNativeAppAuthRedirectUrl();
   const redirectUrls: string[] = [
     NATIVE_AUTH_CALLBACK_URL,
     LEGACY_NATIVE_AUTH_CALLBACK_URL,
@@ -81,8 +89,12 @@ export function getExpectedSupabaseRedirectUrls(): string[] {
     getLegacyAuthCallbackUrlForOrigin(currentWebOrigin),
   ];
 
-  if (nativeRedirectUrl) {
-    redirectUrls.push(nativeRedirectUrl);
+  if (Platform.OS !== 'web') {
+    redirectUrls.push(getNativeAppAuthRedirectUrl());
+
+    if (isExpoGo()) {
+      redirectUrls.push(getExpoGoAuthRedirectUrl());
+    }
   }
 
   return Array.from(new Set(redirectUrls));

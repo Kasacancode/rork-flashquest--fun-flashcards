@@ -88,6 +88,55 @@ function delay(ms: number): Promise<void> {
   });
 }
 
+interface OAuthSignInOptions {
+  redirectTo: string;
+  skipBrowserRedirect?: boolean;
+  scopes?: string;
+  queryParams?: Record<string, string>;
+}
+
+function getOAuthSignInOptions(
+  provider: OAuthProvider,
+  redirectTo: string,
+  skipBrowserRedirect?: boolean,
+): OAuthSignInOptions {
+  const options: OAuthSignInOptions = {
+    redirectTo,
+  };
+
+  if (skipBrowserRedirect) {
+    options.skipBrowserRedirect = true;
+  }
+
+  if (provider === 'google') {
+    options.scopes = 'openid email profile https://www.googleapis.com/auth/userinfo.email';
+    options.queryParams = {
+      prompt: 'select_account',
+    };
+  }
+
+  return options;
+}
+
+function clearWebAuthCallbackState(): void {
+  const scopedGlobal = globalThis as typeof globalThis & {
+    history?: {
+      replaceState?: (data: unknown, unused: string, url?: string | URL | null) => void;
+    };
+    location?: {
+      pathname?: string;
+    };
+  };
+
+  const pathname = scopedGlobal.location?.pathname;
+
+  if (!pathname) {
+    return;
+  }
+
+  scopedGlobal.history?.replaceState?.({}, '', pathname);
+}
+
 export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -204,9 +253,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
       if (shouldUseWebRedirectFlow) {
         const { error } = await supabase.auth.signInWithOAuth({
           provider,
-          options: {
-            redirectTo,
-          },
+          options: getOAuthSignInOptions(provider, redirectTo),
         });
 
         if (error) {
@@ -219,10 +266,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: {
-          redirectTo,
-          skipBrowserRedirect: true,
-        },
+        options: getOAuthSignInOptions(provider, redirectTo, true),
       });
 
       if (error) {
@@ -324,14 +368,41 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         return undefined;
       }
 
-      logger.log('[Auth] Handling web auth callback URL');
-      void completeAuthSessionFromUrl(currentUrl).then((result) => {
-        if (result.error) {
-          Alert.alert('Sign In Failed', result.error);
-        }
-      });
+      let isMounted = true;
 
-      return undefined;
+      logger.log('[Auth] Detected web auth callback URL');
+      void waitForSessionAfterBrowserReturn()
+        .then(async (hasRecoveredSession) => {
+          if (!isMounted) {
+            return;
+          }
+
+          if (hasRecoveredSession) {
+            clearWebAuthCallbackState();
+            return;
+          }
+
+          logger.log('[Auth] Web callback was not auto-detected, attempting manual recovery');
+          const result = await completeAuthSessionFromUrl(currentUrl);
+
+          if (!isMounted) {
+            return;
+          }
+
+          if (result.error) {
+            Alert.alert('Sign In Failed', result.error);
+            return;
+          }
+
+          clearWebAuthCallbackState();
+        })
+        .catch((error: unknown) => {
+          logger.warn('[Auth] Failed while resolving web auth callback:', error);
+        });
+
+      return () => {
+        isMounted = false;
+      };
     }
 
     let isMounted = true;
@@ -370,7 +441,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
       isMounted = false;
       subscription.remove();
     };
-  }, [completeAuthSessionFromUrl]);
+  }, [completeAuthSessionFromUrl, waitForSessionAfterBrowserReturn]);
 
   const refreshUsername = useCallback(async (): Promise<string | null> => {
     if (!session?.user?.id) {
@@ -397,9 +468,10 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         return;
       }
 
-      if (isExpoGo()) {
-        logger.log('[Auth] Apple native sign in unavailable in Expo Go, using OAuth fallback');
-        await signInWithOAuthProvider('apple');
+      const appleSignInAvailable = await AppleAuthentication.isAvailableAsync();
+
+      if (!appleSignInAvailable) {
+        Alert.alert('Unavailable', 'Apple Sign In is not available on this device.');
         return;
       }
 
