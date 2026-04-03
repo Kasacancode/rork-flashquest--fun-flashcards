@@ -10,10 +10,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { logger } from '@/utils/logger';
 import {
-  buildNativeAppRedirectFromWebCallback,
   getAuthRedirectUrl,
   getExpectedSupabaseRedirectUrls,
-  isEmbeddedWebAuthSession,
   isExpoGo,
   isKnownAuthCallbackUrl,
 } from '@/utils/authRedirects';
@@ -82,6 +80,12 @@ function isAuthCallbackUrl(url: string): boolean {
     || url.includes('refresh_token=')
     || url.includes('code=')
     || url.includes('token_hash=');
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() => {
@@ -161,10 +165,30 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
     }
   }, []);
 
+  const waitForSessionAfterBrowserReturn = useCallback(async (): Promise<boolean> => {
+    for (let attempt = 0; attempt < 15; attempt += 1) {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error) {
+        logger.warn('[Auth] Failed to read session while waiting for browser return:', error.message);
+        return false;
+      }
+
+      if (data.session) {
+        logger.log('[Auth] Session became available after browser return');
+        return true;
+      }
+
+      await delay(200);
+    }
+
+    logger.log('[Auth] No session became available after browser return');
+    return false;
+  }, []);
+
   const signInWithOAuthProvider = useCallback(async (provider: OAuthProvider): Promise<void> => {
     const redirectTo = getAuthRedirectUrl();
-    const shouldUseWebRedirectFlow = Platform.OS === 'web' && !isEmbeddedWebAuthSession();
-    const shouldUseExpoGoBridgeFlow = Platform.OS !== 'web' && isExpoGo();
+    const shouldUseWebRedirectFlow = Platform.OS === 'web';
 
     try {
       logger.log('[Auth] Starting OAuth sign in', {
@@ -172,8 +196,8 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         platform: Platform.OS,
         appOwnership: Constants.appOwnership ?? 'unknown',
         redirectTo,
+        isExpoGo: isExpoGo(),
         shouldUseWebRedirectFlow,
-        shouldUseExpoGoBridgeFlow,
         expectedSupabaseRedirects: getExpectedSupabaseRedirectUrls(),
       });
 
@@ -213,15 +237,6 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         return;
       }
 
-      if (shouldUseExpoGoBridgeFlow) {
-        const browserResult = await WebBrowser.openBrowserAsync(data.url);
-        logger.log('[Auth] OAuth Expo Go browser opened', {
-          provider,
-          type: browserResult.type,
-        });
-        return;
-      }
-
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
       logger.log('[Auth] OAuth browser session finished', {
         provider,
@@ -229,24 +244,29 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         hasUrl: 'url' in result && Boolean(result.url),
       });
 
+      if (result.type === 'success' && result.url) {
+        const callbackResult = await completeAuthSessionFromUrl(result.url);
+        if (callbackResult.error) {
+          Alert.alert('Sign In Failed', callbackResult.error);
+        }
+        return;
+      }
+
+      const hasRecoveredSession = await waitForSessionAfterBrowserReturn();
+      if (hasRecoveredSession) {
+        return;
+      }
+
       if (result.type === 'cancel' || result.type === 'dismiss') {
         return;
       }
 
-      if (result.type !== 'success' || !result.url) {
-        Alert.alert('Sign In Failed', 'Sign-in was interrupted. Please try again.');
-        return;
-      }
-
-      const callbackResult = await completeAuthSessionFromUrl(result.url);
-      if (callbackResult.error) {
-        Alert.alert('Sign In Failed', callbackResult.error);
-      }
+      Alert.alert('Sign In Failed', 'Sign-in was interrupted. Please try again.');
     } catch (error: unknown) {
       logger.warn('[Auth] OAuth sign-in error:', error);
       Alert.alert('Sign In Failed', 'Could not complete sign-in. Please try again.');
     }
-  }, [completeAuthSessionFromUrl]);
+  }, [completeAuthSessionFromUrl, waitForSessionAfterBrowserReturn]);
 
   useEffect(() => {
     let isMounted = true;
@@ -301,11 +321,6 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
       const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
 
       if (!currentUrl || !isAuthCallbackUrl(currentUrl)) {
-        return undefined;
-      }
-
-      if (buildNativeAppRedirectFromWebCallback(currentUrl)) {
-        logger.log('[Auth] Skipping web callback session handling for native bridge callback');
         return undefined;
       }
 

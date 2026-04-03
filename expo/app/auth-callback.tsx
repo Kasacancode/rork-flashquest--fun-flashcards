@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -14,54 +13,25 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { buildNativeAppRedirectFromWebCallback } from '@/utils/authRedirects';
 import { uploadToCloud } from '@/utils/cloudSync';
-import { logger } from '@/utils/logger';
 import { AUTH_ROUTE, CHOOSE_USERNAME_ROUTE, SETTINGS_ROUTE } from '@/utils/routes';
 import { fetchUsername } from '@/utils/usernameService';
 
 const FALLBACK_DELAY_MS = 3500;
-const BRIDGE_FALLBACK_DELAY_MS = 1400;
 
 export default function AuthCallbackScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
   const { isLoading, isSignedIn, user } = useAuth();
   const [showFallback, setShowFallback] = useState<boolean>(false);
-  const [nativeRelayUrl, setNativeRelayUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') {
-      return undefined;
-    }
-
-    const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
-    if (!currentUrl) {
-      return undefined;
-    }
-
-    const nextNativeRelayUrl = buildNativeAppRedirectFromWebCallback(currentUrl);
-    if (!nextNativeRelayUrl) {
-      return undefined;
-    }
-
-    setNativeRelayUrl(nextNativeRelayUrl);
-    logger.log('[AuthCallback] Relaying browser callback back to native app', { nextNativeRelayUrl });
-
-    if (typeof window !== 'undefined') {
-      window.location.replace(nextNativeRelayUrl);
-    }
-
-    return undefined;
-  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowFallback(true);
-    }, nativeRelayUrl ? BRIDGE_FALLBACK_DELAY_MS : FALLBACK_DELAY_MS);
+    }, FALLBACK_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [nativeRelayUrl]);
+  }, []);
 
   useEffect(() => {
     if (!isSignedIn || !user || isLoading) {
@@ -84,13 +54,8 @@ export default function AuthCallbackScreen() {
   }, [isLoading, isSignedIn, router, user]);
 
   const handleFallbackPress = useCallback(() => {
-    if (nativeRelayUrl && Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.location.assign(nativeRelayUrl);
-      return;
-    }
-
     router.replace(AUTH_ROUTE);
-  }, [nativeRelayUrl, router]);
+  }, [router]);
 
   const gradientColors = useMemo<readonly [string, string, string]>(() => (
     isDark
@@ -102,7 +67,6 @@ export default function AuthCallbackScreen() {
   const titleColor = isDark ? '#FFFFFF' : '#1E293B';
   const subtitleColor = isDark ? 'rgba(255,255,255,0.66)' : '#64748B';
   const buttonBorder = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(30,41,59,0.12)';
-  const isBridgeMode = nativeRelayUrl !== null;
 
   return (
     <View style={styles.container}>
@@ -116,14 +80,8 @@ export default function AuthCallbackScreen() {
         <ResponsiveContainer maxWidth={560} style={styles.content}>
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]} testID="auth-callback-screen">
             <ActivityIndicator size="large" color="#6366F1" />
-            <Text style={[styles.title, { color: titleColor }]}>
-              {isBridgeMode ? 'Opening FlashQuest' : 'Finishing sign in'}
-            </Text>
-            <Text style={[styles.subtitle, { color: subtitleColor }]}> 
-              {isBridgeMode
-                ? 'We captured your sign-in in the browser and are sending you back into the app now.'
-                : 'We\'re securely connecting your account and bringing you back into FlashQuest.'}
-            </Text>
+            <Text style={[styles.title, { color: titleColor }]}>Finishing sign in</Text>
+            <Text style={[styles.subtitle, { color: subtitleColor }]}>We&apos;re securely connecting your account and bringing you back into FlashQuest.</Text>
 
             {showFallback && !isSignedIn ? (
               <TouchableOpacity
@@ -132,9 +90,7 @@ export default function AuthCallbackScreen() {
                 activeOpacity={0.85}
                 testID="auth-callback-back-button"
               >
-                <Text style={[styles.buttonText, { color: titleColor }]}>
-                  {isBridgeMode ? 'Open FlashQuest again' : 'Back to sign in'}
-                </Text>
+                <Text style={[styles.buttonText, { color: titleColor }]}>Back to sign in</Text>
               </TouchableOpacity>
             ) : null}
           </View>
