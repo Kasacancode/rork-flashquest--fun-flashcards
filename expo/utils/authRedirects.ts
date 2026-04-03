@@ -7,6 +7,7 @@ export const LEGACY_AUTH_CALLBACK_PATH = 'auth/callback';
 export const AUTH_CALLBACK_PATHS = [AUTH_CALLBACK_PATH, LEGACY_AUTH_CALLBACK_PATH] as const;
 export const NATIVE_AUTH_CALLBACK_URL = 'flashquest://auth-callback';
 export const LEGACY_NATIVE_AUTH_CALLBACK_URL = 'flashquest://auth/callback';
+export const WEB_AUTH_MESSAGE_TYPE = 'flashquest-auth-callback';
 
 const LOCALHOST_WEB_ORIGIN = 'http://localhost:3000';
 const PRODUCTION_WEB_ORIGIN = 'https://flashquest.net';
@@ -23,6 +24,18 @@ function getWebOrigin(): string {
 
 export function isExpoGo(): boolean {
   return Constants.appOwnership === 'expo';
+}
+
+export function isEmbeddedWebAuthSession(): boolean {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return false;
+  }
+
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
 }
 
 export function getAuthCallbackUrlForOrigin(origin: string): string {

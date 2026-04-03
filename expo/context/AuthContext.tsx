@@ -12,6 +12,7 @@ import { logger } from '@/utils/logger';
 import {
   getAuthRedirectUrl,
   getExpectedSupabaseRedirectUrls,
+  isEmbeddedWebAuthSession,
   isExpoGo,
   isKnownAuthCallbackUrl,
 } from '@/utils/authRedirects';
@@ -161,6 +162,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
 
   const signInWithOAuthProvider = useCallback(async (provider: OAuthProvider): Promise<void> => {
     const redirectTo = getAuthRedirectUrl();
+    const shouldUsePopupFlow = Platform.OS !== 'web' || isEmbeddedWebAuthSession();
 
     try {
       logger.log('[Auth] Starting OAuth sign in', {
@@ -168,10 +170,11 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         platform: Platform.OS,
         appOwnership: Constants.appOwnership ?? 'unknown',
         redirectTo,
+        shouldUsePopupFlow,
         expectedSupabaseRedirects: getExpectedSupabaseRedirectUrls(),
       });
 
-      if (Platform.OS === 'web') {
+      if (Platform.OS === 'web' && !shouldUsePopupFlow) {
         const { error } = await supabase.auth.signInWithOAuth({
           provider,
           options: {
