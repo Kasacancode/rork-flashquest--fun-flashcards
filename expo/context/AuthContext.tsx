@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { logger } from '@/utils/logger';
 import {
+  buildNativeAppRedirectFromWebCallback,
   getAuthRedirectUrl,
   getExpectedSupabaseRedirectUrls,
   isEmbeddedWebAuthSession,
@@ -162,7 +163,8 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
 
   const signInWithOAuthProvider = useCallback(async (provider: OAuthProvider): Promise<void> => {
     const redirectTo = getAuthRedirectUrl();
-    const shouldUsePopupFlow = Platform.OS !== 'web' || isEmbeddedWebAuthSession();
+    const shouldUseWebRedirectFlow = Platform.OS === 'web' && !isEmbeddedWebAuthSession();
+    const shouldUseExpoGoBridgeFlow = Platform.OS !== 'web' && isExpoGo();
 
     try {
       logger.log('[Auth] Starting OAuth sign in', {
@@ -170,11 +172,12 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         platform: Platform.OS,
         appOwnership: Constants.appOwnership ?? 'unknown',
         redirectTo,
-        shouldUsePopupFlow,
+        shouldUseWebRedirectFlow,
+        shouldUseExpoGoBridgeFlow,
         expectedSupabaseRedirects: getExpectedSupabaseRedirectUrls(),
       });
 
-      if (Platform.OS === 'web' && !shouldUsePopupFlow) {
+      if (shouldUseWebRedirectFlow) {
         const { error } = await supabase.auth.signInWithOAuth({
           provider,
           options: {
@@ -207,6 +210,15 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
       if (!data?.url) {
         logger.warn('[Auth] OAuth setup returned no URL');
         Alert.alert('Sign In Failed', 'Sign-in could not be started.');
+        return;
+      }
+
+      if (shouldUseExpoGoBridgeFlow) {
+        const browserResult = await WebBrowser.openBrowserAsync(data.url);
+        logger.log('[Auth] OAuth Expo Go browser opened', {
+          provider,
+          type: browserResult.type,
+        });
         return;
       }
 
@@ -289,6 +301,11 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
       const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
 
       if (!currentUrl || !isAuthCallbackUrl(currentUrl)) {
+        return undefined;
+      }
+
+      if (buildNativeAppRedirectFromWebCallback(currentUrl)) {
+        logger.log('[Auth] Skipping web callback session handling for native bridge callback');
         return undefined;
       }
 
