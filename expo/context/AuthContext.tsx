@@ -1,6 +1,5 @@
 import createContextHook from '@nkzw/create-context-hook';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { makeRedirectUri } from 'expo-auth-session';
 import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
@@ -10,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
 import { logger } from '@/utils/logger';
+import { getAuthRedirectUrl, getExpectedSupabaseRedirectUrls, isExpoGo, AUTH_CALLBACK_PATH } from '@/utils/authRedirects';
 import { fetchUsername } from '@/utils/usernameService';
 
 import type { AuthError, Session, User } from '@supabase/supabase-js';
@@ -38,39 +38,7 @@ interface AuthContextValue {
 type OAuthProvider = 'apple' | 'google';
 type SupportedOtpType = 'signup' | 'magiclink' | 'recovery' | 'invite' | 'email_change' | 'email';
 
-const AUTH_CALLBACK_PATH = 'auth-callback';
-const NATIVE_AUTH_CALLBACK_URL = 'flashquest://auth-callback';
 const SUPPORTED_OTP_TYPES: SupportedOtpType[] = ['signup', 'magiclink', 'recovery', 'invite', 'email_change', 'email'];
-
-function getWebOrigin(): string {
-  const scopedGlobal = globalThis as typeof globalThis & {
-    location?: {
-      origin?: string;
-    };
-  };
-
-  return scopedGlobal.location?.origin ?? 'http://localhost:3000';
-}
-
-function isExpoGo(): boolean {
-  return Constants.appOwnership === 'expo';
-}
-
-function getAuthRedirectUrl(): string {
-  if (Platform.OS === 'web') {
-    return `${getWebOrigin()}/${AUTH_CALLBACK_PATH}`;
-  }
-
-  if (isExpoGo()) {
-    return makeRedirectUri({ path: AUTH_CALLBACK_PATH });
-  }
-
-  return makeRedirectUri({
-    native: NATIVE_AUTH_CALLBACK_URL,
-    scheme: 'flashquest',
-    path: AUTH_CALLBACK_PATH,
-  });
-}
 
 function getCallbackParams(url: string): URLSearchParams {
   const parsedUrl = new URL(url);
@@ -195,6 +163,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         platform: Platform.OS,
         appOwnership: Constants.appOwnership ?? 'unknown',
         redirectTo,
+        expectedSupabaseRedirects: getExpectedSupabaseRedirectUrls(),
       });
 
       if (Platform.OS === 'web') {
@@ -456,6 +425,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         platform: Platform.OS,
         appOwnership: Constants.appOwnership ?? 'unknown',
         redirectTo,
+        expectedSupabaseRedirects: getExpectedSupabaseRedirectUrls(),
       });
 
       const { error } = await supabase.auth.signUp({
