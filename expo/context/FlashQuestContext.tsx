@@ -23,6 +23,7 @@ import { incrementDailyProgress } from '@/utils/dailyGoal';
 import { computeLevel } from '@/utils/levels';
 import { logger } from '@/utils/logger';
 import { scheduleStreakReminder } from '@/utils/notifications';
+import { getPreferredProfileName } from '@/utils/userIdentity';
 import { fetchUsername } from '@/utils/usernameService';
 import { updateWidgetData } from '@/utils/widgetBridge';
 
@@ -836,12 +837,11 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
           }
 
           const claimedUsername = await fetchUsername(currentSession.user.id);
-          const displayName = claimedUsername
-            ?? (typeof currentSession.user.user_metadata?.full_name === 'string' && currentSession.user.user_metadata.full_name.trim().length > 0
-              ? currentSession.user.user_metadata.full_name.trim()
-              : typeof currentSession.user.user_metadata?.name === 'string' && currentSession.user.user_metadata.name.trim().length > 0
-                ? currentSession.user.user_metadata.name.trim()
-                : currentSession.user.email?.split('@')[0] ?? 'Player');
+          const displayName = getPreferredProfileName({
+            username: claimedUsername,
+            user: currentSession.user,
+            fallback: 'Player',
+          });
 
           void uploadToCloud(currentSession.user.id);
           void updateLeaderboard(currentSession.user.id, {

@@ -15,6 +15,7 @@ import {
   isExpoGo,
   isKnownAuthCallbackUrl,
 } from '@/utils/authRedirects';
+import { getPreferredProfileName } from '@/utils/userIdentity';
 import { fetchUsername } from '@/utils/usernameService';
 
 import type { AuthError, Session, User } from '@supabase/supabase-js';
@@ -731,11 +732,11 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
   }, []);
 
   const user = session?.user ?? null;
-  const displayName = username
-    ?? user?.user_metadata?.full_name
-    ?? user?.user_metadata?.name
-    ?? user?.email?.split('@')[0]
-    ?? '';
+  const displayName = getPreferredProfileName({
+    username,
+    user,
+    fallback: '',
+  });
 
   return useMemo<AuthContextValue>(() => ({
     session,

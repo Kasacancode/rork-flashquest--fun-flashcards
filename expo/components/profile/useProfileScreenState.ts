@@ -21,13 +21,14 @@ import {
 } from '@/utils/achievements';
 import { computeLevel, computeLevelProgress, getLevelEntry } from '@/utils/levels';
 import { getPlayerNameValidationError } from '@/utils/playerName';
+import { getPreferredProfileName } from '@/utils/userIdentity';
 
 export function useProfileScreenState() {
   const navigation = useRouter();
   const { stats, decks } = useFlashQuest();
   const { performance } = usePerformance();
   const { playerName, updatePlayerName, isPlayerNameReady, leaderboard } = useArena();
-  const { isSignedIn, username, user } = useAuth();
+  const { displayName, isSignedIn, username, user } = useAuth();
   const { theme, isDark, toggleTheme } = useTheme();
   const { selectedSuit, selectedColor, setSelectedSuit, setSelectedColor } = useAvatar();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -49,13 +50,12 @@ export function useProfileScreenState() {
     [selectedColor],
   );
   const currentPlayerName = playerName.trim();
-  const accountDisplayName = typeof user?.user_metadata?.full_name === 'string' && user.user_metadata.full_name.trim().length > 0
-    ? user.user_metadata.full_name.trim()
-    : typeof user?.user_metadata?.name === 'string' && user.user_metadata.name.trim().length > 0
-      ? user.user_metadata.name.trim()
-      : user?.email?.split('@')[0] ?? '';
   const profileDisplayName = isSignedIn
-    ? accountDisplayName || currentPlayerName || 'FlashQuest Player'
+    ? getPreferredProfileName({
+      username,
+      user,
+      fallback: currentPlayerName || displayName || 'FlashQuest Player',
+    })
     : currentPlayerName || 'FlashQuest Player';
   const usernameLabel = isSignedIn && username ? `@${username}` : null;
   const canEditPlayerName = !isSignedIn || !username;
