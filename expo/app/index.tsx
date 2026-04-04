@@ -80,6 +80,7 @@ export default function HomePage() {
   const [userInterests, setUserInterests] = useState<string[]>([]);
   const hasCustomDecks = useMemo<boolean>(() => decks.some((deck) => deck.isCustom), [decks]);
   const availableContentWidth = contentMaxWidth ?? screenWidth;
+  const isCompactHomeLayout = availableContentWidth < 390;
   const statsCardInnerWidth = Math.max(260, availableContentWidth - 80);
   const actionCardWidth = Math.max(140, Math.floor((availableContentWidth - 64) / 2));
   const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
@@ -477,6 +478,10 @@ export default function HomePage() {
   const communityBannerSubtitleColor = isDark ? 'rgba(226, 232, 240, 0.82)' : '#64748B';
   const communityBannerDecorColor = isDark ? 'rgba(99, 102, 241, 0.12)' : 'rgba(198, 208, 255, 0.36)';
   const communityBannerAccentColor = isDark ? 'rgba(129, 140, 248, 0.08)' : 'rgba(224, 231, 255, 0.82)';
+  const communityBannerTitle = 'Community Decks';
+  const communityBannerSubtitle = isCompactHomeLayout
+    ? 'Browse popular decks from other players and save them offline.'
+    : 'Browse popular decks from other FlashQuest players and save them offline.';
 
   const hasReviewPage = reviewSummary !== null;
 
@@ -898,6 +903,8 @@ export default function HomePage() {
                       shadowRadius: isDark ? 18 : 10,
                       elevation: isDark ? 8 : 5,
                       borderColor: communityBannerBorderColor,
+                      marginTop: isCompactHomeLayout ? 22 : 24,
+                      minHeight: isCompactHomeLayout ? 96 : 102,
                     },
                   ]}
                   onPress={() => router.push(communityDeckAction.route)}
@@ -918,33 +925,68 @@ export default function HomePage() {
                     style={[
                       styles.exploreBannerOrb,
                       {
-                        right: -2,
-                        bottom: -28,
-                        width: 112,
-                        height: 112,
-                        borderRadius: 56,
+                        right: isCompactHomeLayout ? -18 : -2,
+                        bottom: isCompactHomeLayout ? -36 : -28,
+                        width: isCompactHomeLayout ? 96 : 112,
+                        height: isCompactHomeLayout ? 96 : 112,
+                        borderRadius: isCompactHomeLayout ? 48 : 56,
                         backgroundColor: communityBannerAccentColor,
                       },
                     ]}
                   />
-                  <View style={styles.exploreBannerContent}>
+                  <View
+                    style={[
+                      styles.exploreBannerContent,
+                      {
+                        paddingHorizontal: isCompactHomeLayout ? 18 : 22,
+                        paddingVertical: isCompactHomeLayout ? 16 : 18,
+                        gap: isCompactHomeLayout ? 12 : 14,
+                        alignItems: isCompactHomeLayout ? 'flex-start' : 'center',
+                      },
+                    ]}
+                  >
                     <View
                       style={[
                         styles.exploreBannerIconWrap,
                         {
                           backgroundColor: communityBannerIconSurface,
                           borderColor: communityBannerBorderColor,
+                          width: isCompactHomeLayout ? 48 : 52,
+                          height: isCompactHomeLayout ? 48 : 52,
+                          borderRadius: isCompactHomeLayout ? 16 : 17,
                         },
                       ]}
                     >
-                      <Compass color={communityBannerIconColor} size={22} strokeWidth={2.35} />
+                      <Compass color={communityBannerIconColor} size={isCompactHomeLayout ? 20 : 21} strokeWidth={2.35} />
                     </View>
-                    <View style={styles.exploreBannerCopy}>
-                      <Text style={[styles.exploreBannerTitle, { color: communityBannerTitleColor }]} numberOfLines={1}>
-                        Explore Community Decks
+                    <View style={[styles.exploreBannerCopy, { gap: isCompactHomeLayout ? 4 : 5 }]}>
+                      <Text
+                        style={[
+                          styles.exploreBannerTitle,
+                          {
+                            color: communityBannerTitleColor,
+                            fontSize: isCompactHomeLayout ? 16 : 17,
+                            lineHeight: isCompactHomeLayout ? 20 : 21,
+                          },
+                        ]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.88}
+                      >
+                        {communityBannerTitle}
                       </Text>
-                      <Text style={[styles.exploreBannerSubtitle, { color: communityBannerSubtitleColor }]} numberOfLines={2}>
-                        Discover decks from other FlashQuest players and save them offline.
+                      <Text
+                        style={[
+                          styles.exploreBannerSubtitle,
+                          {
+                            color: communityBannerSubtitleColor,
+                            fontSize: isCompactHomeLayout ? 11.5 : 12,
+                            lineHeight: isCompactHomeLayout ? 15 : 16,
+                          },
+                        ]}
+                        numberOfLines={2}
+                      >
+                        {communityBannerSubtitle}
                       </Text>
                     </View>
                   </View>
