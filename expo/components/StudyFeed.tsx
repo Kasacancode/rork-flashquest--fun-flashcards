@@ -737,7 +737,7 @@ export default function StudyFeed({
       }
 
       const intent = resolveCardGestureIntent(gestureState);
-      console.log('[StudyFeed] card gesture resolved', {
+      logger.debug('[StudyFeed] card gesture resolved', {
         intent,
         dx: gestureState.dx,
         dy: gestureState.dy,

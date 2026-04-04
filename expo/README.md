@@ -1,72 +1,87 @@
 # FlashQuest
 
-**Gamified flashcards with AI deck creation, spaced repetition, and real-time multiplayer battles.**
+**Gamified flashcards with AI deck creation, spaced repetition, real-time multiplayer, and cloud sync.**
 
-FlashQuest is a mobile study app that turns flashcards into a competitive game. Instead of passive review, users train decks across four distinct modes, track mastery with a spaced repetition engine, earn XP through a 20-level progression system, and challenge friends in real-time arena battles.
+FlashQuest is a mobile study app that turns flashcards into a competitive game. Users train decks across four study modes, track mastery with a spaced repetition engine, earn XP through a 20-level progression system, challenge friends in real-time arena battles, and discover community decks on the marketplace.
 
-Built with Expo, React Native, and TypeScript. ~49,000 lines across 150 files.
+Built with Expo SDK 54, React Native 0.81, and TypeScript. ~61,000 lines across 182 files.
 
 ## Features
 
 ### Four Study Modes
 
-- **Study:** Flip through cards at your own pace. Rate your recall, view hints and explanations, and let the spaced repetition engine schedule reviews automatically.
-- **Quest:** Timed multiple-choice rounds. Choose Learn mode (hints on, no timer) or Test mode (no hints, timed, higher points). Drill missed cards after each round.
-- **Practice:** Head-to-head against an adaptive AI opponent over 5 rounds. The AI adjusts to your skill level to keep matches competitive.
-- **Arena:** Real-time multiplayer. Create a room, share the code, and battle a friend. Same questions, same timer. Scores based on speed and accuracy.
+- **Study:** Flip-style card review with self-rated recall. Pre-session mode picker (All, Due, Quick 5/10/15, Weak Cards). Spaced repetition schedules reviews automatically. Card schedule list shows SRS status per card.
+- **Quest:** Timed multiple-choice rounds in Learn mode (hints, no timer) or Test mode (no hints, timed, higher points). Drill missed cards after each round.
+- **Practice:** Head-to-head against an adaptive AI opponent over 5 rounds. The AI adjusts difficulty to keep matches competitive.
+- **Arena:** Real-time multiplayer. Create a room, share the code, and battle friends. Same questions, same timer, scored on speed and accuracy.
 
 ### AI Deck Creation
 
 - **Scan Notes:** Take a photo of handwritten or printed notes and generate a full flashcard deck with AI.
-- **Text to Deck:** Paste any text (notes, articles, study guides) and extract key concepts into flashcards automatically.
-- Both flows produce structured cards with questions, short answers, and explanations. Users can review, edit, add, or remove cards before saving.
+- **Text to Deck:** Paste any text and extract key concepts into flashcards automatically.
+- Both flows produce structured cards with questions, short answers, hints, and explanations. Users review, edit, add, or remove cards before saving.
+
+### User Accounts and Cloud Sync
+
+- Optional sign-in with Apple, Google, or email (guest mode works fully without an account)
+- Automatic cloud sync of all data after study sessions and on app open
+- Cross-device sync with last-write-wins conflict resolution
+- Unique username system with real-time availability checking
+- Profile with username display across all social features
+
+### Community Marketplace
+
+- **Explore:** Browse community decks with search, category filters, and sort (Popular, Top Rated, Newest)
+- **Download:** One-tap download creates a local copy with all cards, hints, and explanations
+- **Publish:** Share your decks with the community from the deck hub menu
+- **Vote:** Thumbs up/down rating system with atomic vote counting
+- Duplicate detection updates existing published decks instead of creating copies
+
+### Global Leaderboard
+
+- All Time and Weekly rankings by XP
+- Crown/Medal icons for top 3 places
+- Current user highlight with rank card
+- Entry points from Stats header and Profile screen
 
 ### Spaced Repetition Engine
 
-FSRS-inspired memory model that tracks per-card stability, difficulty, and retrievability. Cards are classified as new, learning, reviewing, mastered, or lapsed. The engine schedules reviews based on forgetting curves, not fixed intervals.
+FSRS-inspired memory model tracking per-card stability, difficulty, and retrievability. Cards classified as new, learning, reviewing, mastered, or lapsed. Reviews scheduled based on forgetting curves.
 
 ### Progression System
 
-- **20 levels** across 5 rank bands (Foundation, Momentum, Established, Advanced, Prestige)
-- **36 achievements** across 8 categories (Study, Streaks, XP, Battle, Quest, Accuracy, Building, Collection)
-- **Daily streaks** with push notification reminders
-- **Deck mastery tracking** with per-card and per-deck breakdowns
-- **Weekly accuracy trends** and study activity heatmaps
+- 20 levels across 5 rank bands (Foundation, Momentum, Established, Advanced, Prestige)
+- 36 achievements across 8 categories
+- Daily streaks with push notification reminders
+- Daily goal with progress ring
+- Weekly recap with trend indicators
+- Deck mastery tracking with per-card breakdowns
 
 ### Deck Management
 
-- 8 built-in sample decks across all categories (Geography, Technology, Languages, Science, History, Math, Art, Business)
-- Manual card creation with question, answer, hints, and explanation fields
-- Deck import/export via clipboard (share decks as encoded text)
+- 10 built-in sample decks (Geography, Science, Math, Languages, History, Art, Business, Technology, SAT Vocab, Biology)
+- Manual card creation with question, answer, hints, explanation, and image fields
+- CSV import with automatic header detection
+- JSON backup/restore via system share sheet
+- QR code deck sharing (up to 2500 characters)
+- Shareable result cards via screenshot capture
 - Category management with presets and custom categories
-- Deck duplication, editing, hiding, and deletion
 
-### Multiplayer Arena (Backend)
+### Accessibility
 
-- Real-time game engine with Redis-backed room state
-- Room creation, join-by-code, and deep link support (`flashquest://join/{code}`)
-- Lobby system with player presence, heartbeats, and disconnect detection
-- Configurable round count, timer settings, and deck selection
-- Post-game leaderboard with battle history
+- 101 maxFontSizeMultiplier annotations on game UI
+- Reduce motion support (disables confetti, toasts, animations)
+- 241 accessibility labels across interactive elements
+- Sound effects with independent toggle
+- Haptic feedback with independent toggle
+- Dark mode with system preference detection
 
-### Privacy and Analytics
+### Privacy
 
-- Opt-in analytics with granular consent management
-- AI feature disclosure prompts before first use
-- Data privacy screen with full transparency into what is collected
-- All user data stored locally on device (no account required)
-
-### Polish
-
-- Full dark mode with system preference detection
-- Haptic feedback throughout (configurable)
-- Guided onboarding with interactive tutorial, category selection, and profile setup
-- First-visit contextual education cards on Quest, Practice, and Arena screens
-- In-app FAQ covering all features and modes
-- Content normalization pipeline for consistent card display across all surfaces
-- Store review prompting after engagement milestones
-- Offline detection banner
-- Error boundaries with recovery
+- Opt-in analytics with granular consent
+- AI feature disclosure before first use
+- Data privacy screen with full transparency
+- Guest mode with all data stored locally on device
 
 ## Tech Stack
 
@@ -76,76 +91,38 @@ FSRS-inspired memory model that tracks per-card stability, difficulty, and retri
 | Language | TypeScript 5.9 (strict) |
 | Navigation | Expo Router 6 (file-based, typed routes) |
 | State | React Context + TanStack React Query |
-| Persistence | AsyncStorage with backup/restore |
-| Backend | Hono + tRPC + Upstash Redis |
-| AI | Rork AI Toolkit SDK (structured generation with Zod schemas) |
-| Analytics | Custom event pipeline with batched tRPC submission |
+| Persistence | AsyncStorage with cloud sync and backup/restore |
+| Backend | Supabase (PostgreSQL, Auth, Row Level Security) |
+| Arena Backend | Hono + tRPC + Upstash Redis |
+| AI | Rork AI Toolkit SDK (structured generation) |
+| Auth | Apple Sign In (native), Google OAuth, Email/Password |
 | UI | Custom components, Lucide icons, Expo Linear Gradient |
-| Notifications | Expo Notifications (streak reminders) |
+| Notifications | Expo Notifications (streak reminders, smart scheduling) |
 | Build | EAS Build (development, preview, production profiles) |
 
 ## Project Structure
 
 ```
-app/                    # 29 screens (Expo Router file-based routing)
-  index.tsx             # Home screen with recommendations and stats
-  onboarding.tsx        # 4-step guided onboarding flow
-  study.tsx             # Spaced repetition study mode
-  quest.tsx             # Multiple-choice quiz configuration
-  quest-session.tsx     # Active quest gameplay
-  practice.tsx          # AI opponent mode selection
-  practice-session.tsx  # Active practice gameplay
-  arena.tsx             # Multiplayer hub (create/join rooms)
-  arena-lobby.tsx       # Pre-game lobby with settings
-  arena-session.tsx     # Active arena gameplay
-  decks.tsx             # Deck library with search and filters
-  deck-hub.tsx          # Per-deck overview with mastery stats
-  scan-notes.tsx        # Camera/gallery AI deck generation
-  text-to-deck.tsx      # Text input AI deck generation
-  stats.tsx             # Full statistics dashboard
-  profile.tsx           # Player profile with awards and avatar
-  settings.tsx          # App preferences and data management
-backend/                # 14 server-side modules
-  arena/                # Game engine, room repository, deck service
-  analytics/            # Event ingestion and aggregation
-  trpc/                 # Router definitions and context
-components/             # 47 reusable UI components
-context/                # 6 providers (FlashQuest, Performance, Arena, Avatar, Privacy, Theme)
-data/                   # Sample decks and dialogue text
+app/                    # 34 screens (Expo Router file-based routing)
+backend/                # Server-side modules (arena engine, analytics, tRPC)
+components/             # 52 reusable UI components
+context/                # 7 providers (FlashQuest, Performance, Arena, Avatar, Privacy, Theme, Auth)
+data/                   # 10 sample decks and dialogue text
+lib/                    # Supabase client, tRPC client, analytics
 types/                  # Domain models (flashcard, game, arena, performance, avatar)
-utils/                  # 31 utility modules (mastery, levels, achievements, content normalization)
+utils/                  # 51 utility modules (mastery, levels, achievements, cloud sync, marketplace)
 constants/              # Colors, categories, avatar identities, privacy config
 ```
 
 ## Getting Started
 
 ```bash
-# Install dependencies
 npm install
-
-# Start Expo dev server
 npx expo start
 ```
 
 Run on iOS Simulator, Android Emulator, or a physical device with Expo Go.
 
-### Building for Production
-
-```bash
-# Install EAS CLI
-npm install -g eas-cli
-
-# Build for iOS TestFlight
-eas build --profile preview --platform ios
-
-# Build for Android internal testing
-eas build --profile preview --platform android
-
-# Production build for store submission
-eas build --profile production --platform all
-```
-
 ## Author
 
 Built by **Caleb Mukasa**
-Economics & Data Science | Mobile Development | Gamified Learning Systems

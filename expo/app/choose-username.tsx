@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { logger } from '@/utils/logger';
 import { AUTH_ROUTE, HOME_ROUTE } from '@/utils/routes';
 import {
   USERNAME_AVAILABILITY_FALLBACK_MESSAGE,
@@ -113,7 +114,7 @@ export default function ChooseUsernameScreen() {
             return;
           }
 
-          console.warn('[ChooseUsername] Username availability check failed', availabilityError);
+          logger.warn('[ChooseUsername] Username availability check failed', availabilityError);
           setIsChecking(false);
           setIsAvailable(null);
           setHelperMessage(USERNAME_AVAILABILITY_FALLBACK_MESSAGE);
