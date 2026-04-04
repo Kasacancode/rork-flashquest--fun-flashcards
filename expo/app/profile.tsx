@@ -25,6 +25,7 @@ export default function ProfilePage() {
   const {
     theme,
     isDark,
+    toggleTheme,
     activeTab,
     activeAchievementCategory,
     showLevels,
@@ -190,11 +191,13 @@ export default function ProfilePage() {
 
               {activeTab === 'overview' && (
                 <OverviewTab
+                  isDark={isDark}
                   onOpenSettings={handleOpenSettings}
                   onOpenLeaderboard={handleOpenLeaderboard}
                   surfaceGradient={surfaceGradient}
                   styles={styles}
                   theme={theme}
+                  toggleTheme={toggleTheme}
                 />
               )}
 
@@ -824,6 +827,10 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     toggleTextWrap: {
       flex: 1,
       gap: 3,
+    },
+    toggleRight: {
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     toggleTitle: {
       fontSize: 15,

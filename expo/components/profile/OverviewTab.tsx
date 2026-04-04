@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronRight, Crown, Settings } from 'lucide-react-native';
+import { ChevronRight, Crown, Moon, Settings, Sun } from 'lucide-react-native';
 import React from 'react';
-import { Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import { Switch, Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
 import type { Theme } from '@/constants/colors';
 
@@ -9,6 +9,7 @@ type ViewStyles<K extends string> = { [P in K]: StyleProp<ViewStyle> };
 type TextStyles<K extends string> = { [P in K]: StyleProp<TextStyle> };
 
 interface OverviewTabProps {
+  isDark: boolean;
   onOpenSettings: () => void;
   onOpenLeaderboard: () => void;
   surfaceGradient: readonly [string, string];
@@ -16,68 +17,36 @@ interface OverviewTabProps {
     | 'tabContent'
     | 'cardShell'
     | 'appearanceCard'
-    | 'appearanceHeader'
-    | 'appearanceIntro'
-    | 'appearanceIconWrap'
-    | 'appearanceTextWrap'
     | 'toggleCard'
     | 'toggleLeadingIcon'
     | 'toggleTextWrap'
+    | 'toggleRight'
     | 'leaderboardButton'
     | 'leaderboardIconWrap'
     | 'leaderboardTextWrap'
     | 'leaderboardChevronWrap'
   > &
     TextStyles<
-      | 'cardTitle'
       | 'toggleTitle'
       | 'toggleSubtitle'
       | 'leaderboardButtonText'
       | 'leaderboardSubtitle'
     >;
   theme: Theme;
+  toggleTheme: () => void;
 }
 
 export default function OverviewTab({
+  isDark,
   onOpenSettings,
   onOpenLeaderboard,
   surfaceGradient,
   styles,
   theme,
+  toggleTheme,
 }: OverviewTabProps) {
   return (
     <View style={styles.tabContent}>
-      <View style={styles.cardShell}>
-        <LinearGradient
-          colors={surfaceGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.appearanceCard}
-        >
-          <View style={styles.appearanceHeader}>
-            <View style={styles.appearanceIntro}>
-              <View style={styles.appearanceIconWrap}>
-                <Settings color={theme.primary} size={18} strokeWidth={2.3} />
-              </View>
-              <View style={styles.appearanceTextWrap}>
-                <Text style={styles.cardTitle}>App settings</Text>
-              </View>
-            </View>
-          </View>
-
-          <TouchableOpacity style={styles.toggleCard} onPress={onOpenSettings} activeOpacity={0.7} testID="profile-open-settings">
-            <View style={styles.toggleLeadingIcon}>
-              <Settings color={theme.primary} size={17} strokeWidth={2.3} />
-            </View>
-            <View style={styles.toggleTextWrap}>
-              <Text style={styles.toggleTitle}>Open settings</Text>
-              <Text style={styles.toggleSubtitle}>Dark mode, reminders, sound, privacy, support, and data tools.</Text>
-            </View>
-            <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
-          </TouchableOpacity>
-        </LinearGradient>
-      </View>
-
       <TouchableOpacity
         style={styles.leaderboardButton}
         onPress={onOpenLeaderboard}
@@ -99,6 +68,46 @@ export default function OverviewTab({
           <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
         </View>
       </TouchableOpacity>
+
+      <View style={styles.cardShell}>
+        <LinearGradient
+          colors={surfaceGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.appearanceCard}
+        >
+          <TouchableOpacity style={styles.toggleCard} onPress={onOpenSettings} activeOpacity={0.7} testID="profile-open-settings">
+            <View style={styles.toggleLeadingIcon}>
+              <Settings color={theme.primary} size={17} strokeWidth={2.3} />
+            </View>
+            <View style={styles.toggleTextWrap}>
+              <Text style={styles.toggleTitle}>Settings</Text>
+            </View>
+            <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
+          </TouchableOpacity>
+
+          <View style={styles.toggleCard} testID="profile-dark-mode-row">
+            <View style={styles.toggleLeadingIcon}>
+              {isDark ? <Moon color={theme.primary} size={17} strokeWidth={2.3} /> : <Sun color={theme.primary} size={17} strokeWidth={2.3} />}
+            </View>
+            <View style={styles.toggleTextWrap}>
+              <Text style={styles.toggleTitle}>Dark mode</Text>
+              <Text style={styles.toggleSubtitle}>{isDark ? 'Dark theme active' : 'Light theme active'}</Text>
+            </View>
+            <View style={styles.toggleRight}>
+              <Switch
+                value={isDark}
+                onValueChange={toggleTheme}
+                trackColor={{ false: theme.border, true: theme.primary }}
+                thumbColor="#fff"
+                accessibilityLabel="Dark mode"
+                accessibilityRole="switch"
+                testID="profile-dark-mode-switch"
+              />
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
     </View>
   );
 }

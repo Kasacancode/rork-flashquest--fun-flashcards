@@ -15,10 +15,8 @@ import {
   Info,
   LogIn,
   LogOut,
-  Moon,
   ShieldCheck,
   SmartphoneNfc,
-  Sun,
   Target,
   Trash2,
   Upload,
@@ -128,7 +126,7 @@ function SettingsRow({
 export default function SettingsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { theme, isDark, toggleTheme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { analyticsEnabled, setAnalyticsConsent } = usePrivacy();
   const { isSignedIn, displayName, username, user, signOut } = useAuth();
   const { decks, stats } = useFlashQuest();
@@ -437,25 +435,6 @@ export default function SettingsScreen() {
 
             <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Appearance</Text>
           <View style={[styles.card, { backgroundColor: surfaceBg }]}> 
-            <SettingsRow
-              icon={isDark ? <Moon color={theme.primary} size={20} /> : <Sun color={theme.primary} size={20} />}
-              label="Dark Mode"
-              subtitle={isDark ? 'Dark theme active' : 'Light theme active'}
-              right={
-                <Switch
-                  value={isDark}
-                  onValueChange={toggleTheme}
-                  trackColor={{ false: theme.border, true: theme.primary }}
-                  thumbColor="#fff"
-                  accessibilityLabel="Dark mode"
-                  accessibilityRole="switch"
-                  testID="settings-dark-mode-switch"
-                />
-              }
-              testID="settings-dark-mode-row"
-              theme={theme}
-            />
-            <Divider color={theme.border} />
             <SettingsRow
               icon={<Target color={theme.textSecondary} size={20} strokeWidth={2.2} />}
               label="Daily study goal"
