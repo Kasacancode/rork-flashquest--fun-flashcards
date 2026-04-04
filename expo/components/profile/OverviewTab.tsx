@@ -63,7 +63,7 @@ export default function OverviewTab({
       <TouchableOpacity
         style={styles.toggleCard}
         onPress={onOpenSettings}
-        activeOpacity={0.72}
+        activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel="Open settings"
         testID="profile-open-settings"
@@ -76,7 +76,7 @@ export default function OverviewTab({
           <Text style={styles.toggleSubtitle} numberOfLines={2}>Appearance, goals, privacy, and backup.</Text>
         </View>
         <View style={styles.toggleChevronWrap}>
-          <ChevronRight color={theme.textSecondary} size={20} strokeWidth={2.5} />
+          <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
         </View>
       </TouchableOpacity>
 
