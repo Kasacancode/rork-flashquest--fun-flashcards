@@ -5,9 +5,82 @@ import { logger } from '@/utils/logger';
 export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 20;
 const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/;
+const USERNAME_LOOKUP_RETRY_COUNT = 3;
+const USERNAME_LOOKUP_RETRY_DELAY_MS = 250;
+export const USERNAME_AVAILABILITY_FALLBACK_MESSAGE = 'Live availability check is unavailable right now. You can still claim it. Saving will still enforce uniqueness.';
+
+interface UsernameAvailabilityResult {
+  status: UsernameAvailabilityStatus;
+  error?: string;
+}
+
+interface UsernameOwnerRow {
+  id: string;
+  username: string | null;
+}
 
 export function normalizeUsernameInput(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, USERNAME_MAX_LENGTH);
+  return value.toLowerCase().replace(/[^a-zA-Z0-9_]/g, '').slice(0, USERNAME_MAX_LENGTH);
+}
+
+function getCanonicalUsername(value: string): string {
+  return normalizeUsernameInput(value.trim());
+}
+
+function isUniqueViolationError(error: { code?: string; message?: string } | null | undefined): boolean {
+  const message = error?.message?.toLowerCase() ?? '';
+  return error?.code === '23505' || message.includes('duplicate key');
+}
+
+async function pause(durationMs: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    setTimeout(() => resolve(), durationMs);
+  });
+}
+
+async function lookupUsernameOwners(canonicalUsername: string): Promise<{
+  data: UsernameOwnerRow[] | null;
+  error: string | null;
+}> {
+  if (!canonicalUsername) {
+    return {
+      data: [],
+      error: null,
+    };
+  }
+
+  for (let attempt = 0; attempt < USERNAME_LOOKUP_RETRY_COUNT; attempt += 1) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, username')
+      .eq('username', canonicalUsername)
+      .limit(10);
+
+    if (!error) {
+      return {
+        data: Array.isArray(data) ? data as UsernameOwnerRow[] : [],
+        error: null,
+      };
+    }
+
+    logger.warn('[Username] Availability lookup failed:', {
+      attempt: attempt + 1,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+      message: error.message,
+      username: canonicalUsername,
+    });
+
+    if (attempt < USERNAME_LOOKUP_RETRY_COUNT - 1) {
+      await pause(USERNAME_LOOKUP_RETRY_DELAY_MS * (attempt + 1));
+    }
+  }
+
+  return {
+    data: null,
+    error: USERNAME_AVAILABILITY_FALLBACK_MESSAGE,
+  };
 }
 
 export function validateUsername(username: string): string | null {
@@ -38,46 +111,32 @@ export function validateUsername(username: string): string | null {
 
 export type UsernameAvailabilityStatus = 'available' | 'taken' | 'unknown';
 
-interface UsernameAvailabilityResult {
-  status: UsernameAvailabilityStatus;
-  error?: string;
-}
-
 export async function getUsernameAvailability(
   username: string,
   options?: { excludeUserId?: string | null },
 ): Promise<UsernameAvailabilityResult> {
   try {
-    const trimmed = username.trim();
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id')
-      .ilike('username', trimmed)
-      .limit(1)
-      .maybeSingle();
+    const canonicalUsername = getCanonicalUsername(username);
+    const lookupResult = await lookupUsernameOwners(canonicalUsername);
 
-    if (error) {
-      logger.warn('[Username] Availability check failed:', error.message);
+    if (lookupResult.error) {
       return {
         status: 'unknown',
-        error: 'Could not verify availability. You can still try claiming it.',
+        error: lookupResult.error,
       };
     }
 
-    if (data?.id && options?.excludeUserId && data.id === options.excludeUserId) {
-      return {
-        status: 'available',
-      };
-    }
+    const exactMatches = lookupResult.data ?? [];
+    const conflictingMatches = exactMatches.filter((row) => row.id !== options?.excludeUserId);
 
     return {
-      status: data === null ? 'available' : 'taken',
+      status: conflictingMatches.length === 0 ? 'available' : 'taken',
     };
   } catch (error) {
     logger.warn('[Username] Availability check error:', error);
     return {
       status: 'unknown',
-      error: 'Could not verify availability. You can still try claiming it.',
+      error: USERNAME_AVAILABILITY_FALLBACK_MESSAGE,
     };
   }
 }
@@ -97,28 +156,17 @@ export async function claimUsername(
   },
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const trimmed = username.trim();
-    const currentUsername = options?.currentUsername?.trim() ?? null;
+    const trimmed = getCanonicalUsername(username);
+    const currentUsername = options?.currentUsername ? getCanonicalUsername(options.currentUsername) : null;
     const validationError = validateUsername(trimmed);
 
     if (validationError) {
       return { success: false, error: validationError };
     }
 
-    if (options?.allowCurrentUsername && currentUsername && currentUsername.toLowerCase() === trimmed.toLowerCase()) {
+    if (options?.allowCurrentUsername && currentUsername && currentUsername === trimmed) {
       logger.log('[Username] Keeping current username:', trimmed);
       return { success: true };
-    }
-
-    const availabilityResult = await getUsernameAvailability(trimmed, {
-      excludeUserId: options?.excludeUserId ?? userId,
-    });
-    if (availabilityResult.status === 'taken') {
-      return { success: false, error: 'This username is already taken.' };
-    }
-
-    if (availabilityResult.status === 'unknown') {
-      logger.warn('[Username] Availability could not be confirmed, attempting claim anyway');
     }
 
     const timestamp = new Date().toISOString();
@@ -151,11 +199,16 @@ export async function claimUsername(
     }
 
     if (error) {
-      if (error.code === '23505') {
+      if (isUniqueViolationError(error)) {
         return { success: false, error: 'This username was just taken. Try another.' };
       }
 
-      logger.warn('[Username] Claim failed:', error.message);
+      logger.warn('[Username] Claim failed:', {
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        message: error.message,
+      });
       return { success: false, error: 'Could not save username. Please try again.' };
     }
 
@@ -209,9 +262,12 @@ export async function fetchUsername(userId: string): Promise<string | null> {
       return null;
     }
 
-    return typeof data.username === 'string' && data.username.trim().length > 0
-      ? data.username.trim()
-      : null;
+    if (typeof data.username !== 'string' || data.username.trim().length === 0) {
+      return null;
+    }
+
+    const canonicalUsername = getCanonicalUsername(data.username);
+    return canonicalUsername.length > 0 ? canonicalUsername : null;
   } catch {
     return null;
   }

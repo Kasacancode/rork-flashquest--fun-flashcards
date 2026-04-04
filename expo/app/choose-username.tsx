@@ -19,9 +19,11 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { AUTH_ROUTE, HOME_ROUTE } from '@/utils/routes';
 import {
+  USERNAME_AVAILABILITY_FALLBACK_MESSAGE,
   USERNAME_MAX_LENGTH,
   claimUsername,
   getUsernameAvailability,
+  normalizeUsernameInput,
   validateUsername,
 } from '@/utils/usernameService';
 
@@ -58,7 +60,7 @@ export default function ChooseUsernameScreen() {
   }, []);
 
   const handleChangeUsername = useCallback((value: string) => {
-    const cleaned = value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, USERNAME_MAX_LENGTH);
+    const cleaned = normalizeUsernameInput(value);
     setUsername(cleaned);
     setError(null);
     setHelperMessage(null);
@@ -104,16 +106,17 @@ export default function ChooseUsernameScreen() {
           }
 
           setIsAvailable(null);
-          setHelperMessage(availabilityResult.error ?? 'Could not verify availability. You can still try claiming it.');
+          setHelperMessage(availabilityResult.error ?? USERNAME_AVAILABILITY_FALLBACK_MESSAGE);
         })
-        .catch(() => {
+        .catch((availabilityError: unknown) => {
           if (requestIdRef.current !== nextRequestId) {
             return;
           }
 
+          console.warn('[ChooseUsername] Username availability check failed', availabilityError);
           setIsChecking(false);
           setIsAvailable(null);
-          setHelperMessage('Could not verify availability. You can still try claiming it.');
+          setHelperMessage(USERNAME_AVAILABILITY_FALLBACK_MESSAGE);
         });
     }, 500);
   }, []);

@@ -24,6 +24,7 @@ import { logger } from '@/utils/logger';
 import { PROFILE_NAME_MAX_LENGTH, sanitizeProfileName, validateProfileName } from '@/utils/profileName';
 import { AUTH_ROUTE } from '@/utils/routes';
 import {
+  USERNAME_AVAILABILITY_FALLBACK_MESSAGE,
   USERNAME_MAX_LENGTH,
   claimUsername,
   getUsernameAvailability,
@@ -160,7 +161,7 @@ export default function AccountScreen() {
           }
 
           setIsUsernameAvailable(null);
-          setUsernameHelper(availabilityResult.error ?? 'Could not verify availability right now.');
+          setUsernameHelper(availabilityResult.error ?? USERNAME_AVAILABILITY_FALLBACK_MESSAGE);
         })
         .catch((error: unknown) => {
           if (requestIdRef.current !== nextRequestId) {
@@ -170,7 +171,7 @@ export default function AccountScreen() {
           logger.warn('[Account] Username availability check failed:', error);
           setIsCheckingUsername(false);
           setIsUsernameAvailable(null);
-          setUsernameHelper('Could not verify availability right now.');
+          setUsernameHelper(USERNAME_AVAILABILITY_FALLBACK_MESSAGE);
         });
     }, 450);
   }, [currentSanitizedUsername, user?.id]);
