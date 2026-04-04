@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, type Href } from 'expo-router';
-import { Trophy, BookOpen, Compass, RotateCcw, Swords, Target, User } from 'lucide-react-native';
+import { Trophy, BookOpen, ChevronRight, Compass, RotateCcw, Swords, Target, User } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
@@ -148,9 +148,6 @@ export default function HomePage() {
     : levelPalette.badgeGradient[1];
   const actionShadowColor = isDark ? '#020617' : '#94a3b8';
   const actionBorderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.1)';
-  const smartActionBorderColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.2)';
-  const smartActionIconSurface = isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.18)';
-  const smartActionLabelColor = isDark ? 'rgba(226, 232, 240, 0.76)' : 'rgba(245, 243, 255, 0.84)';
   const homeActionGradients = useMemo(
     () => ({
       arena: isDark ? ['#ff6d10', '#ff6208'] as const : ['#ef7721', '#e46512'] as const,
@@ -472,6 +469,14 @@ export default function HomePage() {
       testID: 'home-community-decks-banner',
     };
   }, [smartActionGradients.explore, smartActions]);
+  const communityBannerBorderColor = isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.3)';
+  const communityBannerIconSurface = isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.22)';
+  const communityBannerBadgeSurface = isDark ? 'rgba(7, 18, 36, 0.22)' : 'rgba(255, 255, 255, 0.2)';
+  const communityBannerLabelColor = isDark ? 'rgba(240, 246, 255, 0.74)' : 'rgba(245, 247, 255, 0.82)';
+  const communityBannerSubtitleColor = isDark ? 'rgba(232, 240, 255, 0.86)' : 'rgba(245, 247, 255, 0.92)';
+  const communityBannerCtaSurface = isDark ? 'rgba(7, 18, 36, 0.22)' : 'rgba(255, 255, 255, 0.22)';
+  const communityBannerDecorColor = isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.18)';
+  const communityBannerAccentColor = isDark ? 'rgba(125, 211, 252, 0.14)' : 'rgba(255, 255, 255, 0.14)';
 
   const hasReviewPage = reviewSummary !== null;
 
@@ -899,7 +904,7 @@ export default function HomePage() {
               <View style={styles.smartActionsSection}>
                 <TouchableOpacity
                   style={[
-                    styles.smartActionCard,
+                    styles.exploreBanner,
                     {
                       width: Math.max(smartActionCardWidth, Math.min(availableContentWidth - 48, 520)),
                       alignSelf: 'center',
@@ -908,7 +913,7 @@ export default function HomePage() {
                       shadowOpacity: isDark ? 0.24 : 0.12,
                       shadowRadius: isDark ? 16 : 10,
                       elevation: isDark ? 8 : 5,
-                      borderColor: smartActionBorderColor,
+                      borderColor: communityBannerBorderColor,
                     },
                   ]}
                   onPress={() => router.push(communityDeckAction.route)}
@@ -919,25 +924,71 @@ export default function HomePage() {
                 >
                   <LinearGradient
                     colors={communityDeckAction.colors}
-                    start={{ x: 0.1, y: 0.08 }}
-                    end={{ x: 0.9, y: 0.92 }}
-                    style={styles.smartActionGradient}
-                  >
-                    <View style={styles.smartActionOrb} />
-                    <View style={styles.smartActionTopRow}>
-                      <View style={[styles.smartActionIconWrap, { backgroundColor: smartActionIconSurface }]}>
-                        {renderSmartActionIcon(communityDeckAction.kind)}
+                    start={{ x: 0.08, y: 0.12 }}
+                    end={{ x: 0.94, y: 0.9 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+                  <View pointerEvents="none" style={[styles.exploreBannerOrb, { backgroundColor: communityBannerDecorColor }]} />
+                  <View
+                    pointerEvents="none"
+                    style={[
+                      styles.exploreBannerOrb,
+                      {
+                        right: 72,
+                        top: 58,
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        backgroundColor: communityBannerAccentColor,
+                      },
+                    ]}
+                  />
+                  <View style={styles.exploreBannerContent}>
+                    <View
+                      style={[
+                        styles.exploreBannerIconWrap,
+                        {
+                          backgroundColor: communityBannerIconSurface,
+                          borderColor: communityBannerBorderColor,
+                        },
+                      ]}
+                    >
+                      {renderSmartActionIcon(communityDeckAction.kind)}
+                    </View>
+                    <View style={styles.exploreBannerCopy}>
+                      <View
+                        style={[
+                          styles.exploreBannerBadge,
+                          {
+                            backgroundColor: communityBannerBadgeSurface,
+                            borderColor: communityBannerBorderColor,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.exploreBannerBadgeText, { color: communityBannerLabelColor }]}>COMMUNITY PICKS</Text>
+                      </View>
+                      <View style={styles.exploreBannerTextWrap}>
+                        <Text style={[styles.exploreBannerTitle, { color: sectionTitleColor }]} numberOfLines={1}>
+                          Community decks
+                        </Text>
+                        <Text style={[styles.exploreBannerSubtitle, { color: communityBannerSubtitleColor }]} numberOfLines={2}>
+                          Fresh public decks you can save and study right away.
+                        </Text>
                       </View>
                     </View>
-                    <View style={styles.smartActionTextWrap}>
-                      <Text style={[styles.smartActionTitle, { color: sectionTitleColor }]} numberOfLines={2}>
-                        {communityDeckAction.title}
-                      </Text>
-                      <Text style={[styles.smartActionSubtitle, { color: smartActionLabelColor }]} numberOfLines={2}>
-                        {communityDeckAction.subtitle}
-                      </Text>
+                    <View
+                      style={[
+                        styles.exploreBannerCta,
+                        {
+                          backgroundColor: communityBannerCtaSurface,
+                          borderColor: communityBannerBorderColor,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.exploreBannerCtaText, { color: sectionTitleColor }]}>Browse</Text>
+                      <ChevronRight color={sectionTitleColor} size={16} strokeWidth={2.8} />
                     </View>
-                  </LinearGradient>
+                  </View>
                 </TouchableOpacity>
               </View>
             </>
@@ -1011,10 +1062,15 @@ const styles = StyleSheet.create<{
   exploreBanner: ViewStyle;
   exploreBannerOrb: ViewStyle;
   exploreBannerContent: ViewStyle;
+  exploreBannerCopy: ViewStyle;
+  exploreBannerBadge: ViewStyle;
+  exploreBannerBadgeText: TextStyle;
   exploreBannerIconWrap: ViewStyle;
   exploreBannerTextWrap: ViewStyle;
   exploreBannerTitle: TextStyle;
   exploreBannerSubtitle: TextStyle;
+  exploreBannerCta: ViewStyle;
+  exploreBannerCtaText: TextStyle;
   decksSection: ViewStyle;
   sectionTitle: TextStyle;
   decksScroll: ViewStyle;
@@ -1380,8 +1436,8 @@ const styles = StyleSheet.create<{
   exploreBanner: {
     marginTop: 26,
     marginHorizontal: 24,
-    minHeight: 108,
-    borderRadius: 24,
+    minHeight: 110,
+    borderRadius: 26,
     borderWidth: 1,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -1389,8 +1445,8 @@ const styles = StyleSheet.create<{
   },
   exploreBannerOrb: {
     position: 'absolute',
-    right: -22,
-    top: -26,
+    right: -18,
+    top: -22,
     width: 120,
     height: 120,
     borderRadius: 60,
@@ -1402,26 +1458,57 @@ const styles = StyleSheet.create<{
     paddingHorizontal: 18,
     paddingVertical: 18,
   },
+  exploreBannerCopy: {
+    flex: 1,
+    gap: 8,
+  },
+  exploreBannerBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  exploreBannerBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '800' as const,
+    letterSpacing: 1.1,
+  },
   exploreBannerIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
   exploreBannerTextWrap: {
-    flex: 1,
     gap: 4,
   },
   exploreBannerTitle: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '800' as const,
-    letterSpacing: -0.3,
+    letterSpacing: -0.34,
   },
   exploreBannerSubtitle: {
     fontSize: 13,
     fontWeight: '600' as const,
     lineHeight: 18,
+  },
+  exploreBannerCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginLeft: 8,
+  },
+  exploreBannerCtaText: {
+    fontSize: 13,
+    fontWeight: '800' as const,
+    letterSpacing: -0.12,
   },
   decksSection: {
     marginTop: 38,
