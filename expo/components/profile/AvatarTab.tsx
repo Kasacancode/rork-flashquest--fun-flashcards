@@ -131,7 +131,7 @@ export default function AvatarTab({
                   {({ pressed }) => (
                     <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
                       <Text style={optionVisual.symbolStyle}>{suit.symbol}</Text>
-                      <Text style={optionVisual.titleStyle} numberOfLines={1}>{suit.name}</Text>
+                      <Text style={optionVisual.titleStyle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{suit.name}</Text>
                       {isSelected ? (
                         <View style={optionVisual.checkStyle}>
                           <Check color="#fff" size={10} strokeWidth={3} />
@@ -175,7 +175,7 @@ export default function AvatarTab({
                   {({ pressed }) => (
                     <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
                       <View style={optionVisual.swatchStyle} />
-                      <Text style={optionVisual.titleStyle} numberOfLines={1}>{color.name}</Text>
+                      <Text style={optionVisual.titleStyle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{color.name}</Text>
                       {isSelected ? (
                         <View style={optionVisual.checkStyle}>
                           <Check color="#fff" size={10} strokeWidth={3} />

@@ -299,6 +299,17 @@ export default function ProfilePage() {
 const createStyles = (theme: Theme, isDark: boolean, width: number) => {
   const cardSurface = isDark ? 'rgba(15, 23, 42, 0.78)' : 'rgba(255, 255, 255, 0.94)';
   const stackUtilityCards = width < 390;
+  const screenHorizontalPadding = 20;
+  const profileCardPadding = 18;
+  const avatarGridGap = width < 360 ? 6 : width < 390 ? 8 : 10;
+  const profileContentWidth = width >= 768 ? 640 : width;
+  const avatarGridWidth = profileContentWidth - screenHorizontalPadding * 2 - profileCardPadding * 2;
+  const avatarOptionSize = Math.min(Math.max(Math.floor((avatarGridWidth - avatarGridGap * 3) / 4), 54), 90);
+  const avatarOptionMinHeight = avatarOptionSize < 60 ? 74 : avatarOptionSize < 70 ? 80 : 88;
+  const avatarSymbolSize = avatarOptionSize < 60 ? 24 : avatarOptionSize < 70 ? 27 : 30;
+  const avatarSwatchSize = avatarOptionSize < 60 ? 24 : avatarOptionSize < 70 ? 27 : 30;
+  const avatarCheckBadgeSize = avatarOptionSize < 60 ? 16 : 18;
+  const avatarTitleSize = avatarOptionSize < 60 ? 9 : avatarOptionSize < 70 ? 10 : 11;
 
   return StyleSheet.create({
     container: {
@@ -1188,25 +1199,25 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     optionGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      justifyContent: 'space-between',
-      gap: 10,
+      justifyContent: 'center',
+      gap: avatarGridGap,
     },
     optionPressable: {
-      width: '22.75%',
+      width: avatarOptionSize,
       borderRadius: 18,
     },
     optionCard: {
       width: '100%',
       borderRadius: 18,
-      paddingVertical: 10,
-      paddingHorizontal: 6,
+      paddingVertical: avatarOptionSize < 60 ? 8 : 10,
+      paddingHorizontal: avatarOptionSize < 60 ? 4 : 6,
       backgroundColor: cardSurface,
       borderWidth: 1.5,
       borderColor: isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(255, 255, 255, 0.38)',
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative',
-      minHeight: 88,
+      minHeight: avatarOptionMinHeight,
     },
     optionCardSelected: {
       shadowColor: '#000',
@@ -1219,21 +1230,21 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       transform: [{ scale: 0.97 }],
     },
     optionSymbol: {
-      fontSize: 30,
-      lineHeight: 34,
+      fontSize: avatarSymbolSize,
+      lineHeight: avatarSymbolSize + 4,
       marginBottom: 4,
     },
     colorSwatch: {
-      width: 30,
-      height: 30,
-      borderRadius: 10,
+      width: avatarSwatchSize,
+      height: avatarSwatchSize,
+      borderRadius: avatarSwatchSize < 28 ? 8 : 10,
       marginBottom: 6,
       borderWidth: 1.5,
       borderColor: 'rgba(255, 255, 255, 0.32)',
     },
     optionTitle: {
-      fontSize: 11,
-      lineHeight: 13,
+      fontSize: avatarTitleSize,
+      lineHeight: avatarTitleSize + 2,
       fontWeight: '700' as const,
       color: theme.text,
       textAlign: 'center' as const,
@@ -1251,9 +1262,9 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       position: 'absolute',
       top: 6,
       right: 6,
-      width: 18,
-      height: 18,
-      borderRadius: 9,
+      width: avatarCheckBadgeSize,
+      height: avatarCheckBadgeSize,
+      borderRadius: avatarCheckBadgeSize / 2,
       justifyContent: 'center',
       alignItems: 'center',
     },
