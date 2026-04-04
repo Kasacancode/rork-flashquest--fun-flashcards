@@ -21,6 +21,7 @@ import {
 } from '@/utils/achievements';
 import { computeLevel, computeLevelProgress, getLevelEntry } from '@/utils/levels';
 import { getPlayerNameValidationError } from '@/utils/playerName';
+import { openSupportContact } from '@/utils/support';
 
 export function useProfileScreenState() {
   const navigation = useRouter();
@@ -171,6 +172,10 @@ export function useProfileScreenState() {
     navigation.push(SETTINGS_ROUTE);
   }, [navigation]);
 
+  const handleOpenSupport = useCallback(() => {
+    void openSupportContact();
+  }, []);
+
   const handleOpenLeaderboard = useCallback(() => {
     navigation.push(LEADERBOARD_ROUTE);
   }, [navigation]);
@@ -282,6 +287,7 @@ export function useProfileScreenState() {
     handleOpenFAQ,
     handleOpenPrivacy,
     handleOpenSettings,
+    handleOpenSupport,
     handleOpenLeaderboard,
     handleOpenFlashcardInspector: canOpenFlashcardInspector ? handleOpenFlashcardInspector : undefined,
     handleSelectSuit,

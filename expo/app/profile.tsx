@@ -64,6 +64,8 @@ export default function ProfilePage() {
     handleSelectAchievementCategory,
     handleCloseLevels,
     handleOpenSettings,
+    handleOpenFAQ,
+    handleOpenSupport,
     handleOpenLeaderboard,
     handleSelectSuit,
     handleSelectColor,
@@ -191,6 +193,8 @@ export default function ProfilePage() {
               {activeTab === 'overview' && (
                 <OverviewTab
                   onOpenSettings={handleOpenSettings}
+                  onOpenFAQ={handleOpenFAQ}
+                  onOpenSupport={handleOpenSupport}
                   onOpenLeaderboard={handleOpenLeaderboard}
                   styles={styles}
                   theme={theme}
@@ -464,6 +468,66 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(15, 23, 42, 0.06)',
+    },
+    utilityRow: {
+      flexDirection: stackUtilityCards ? 'column' : 'row',
+      gap: 16,
+    },
+    utilityCard: {
+      flex: stackUtilityCards ? undefined : 1,
+      minHeight: 126,
+      paddingHorizontal: 18,
+      paddingVertical: 18,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(129, 140, 248, 0.18)' : 'rgba(99, 102, 241, 0.12)',
+      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.84)' : 'rgba(255, 255, 255, 0.95)',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: isDark ? 0.22 : 0.08,
+      shadowRadius: 18,
+      elevation: isDark ? 6 : 3,
+      gap: 14,
+    },
+    utilityCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    utilityIconWrap: {
+      width: 48,
+      height: 48,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(129, 140, 248, 0.18)' : 'rgba(99, 102, 241, 0.12)',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(165, 180, 252, 0.2)' : 'rgba(99, 102, 241, 0.16)',
+    },
+    utilityTextWrap: {
+      flex: 1,
+      gap: 4,
+    },
+    utilityTitle: {
+      fontSize: 17,
+      fontWeight: '800' as const,
+      color: theme.text,
+      letterSpacing: -0.4,
+    },
+    utilitySubtitle: {
+      fontSize: 13,
+      fontWeight: '600' as const,
+      color: theme.textSecondary,
+      lineHeight: 18,
+    },
+    utilityChevronWrap: {
+      width: 34,
+      height: 34,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(15, 23, 42, 0.05)',
     },
     heroCard: {
       borderRadius: 24,
@@ -858,54 +922,6 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       fontSize: 13,
       fontWeight: '700' as const,
       color: theme.text,
-    },
-    utilityGrid: {
-      flexDirection: stackUtilityCards ? 'column' : 'row',
-      gap: 12,
-    },
-    utilityCard: {
-      flex: 1,
-      borderRadius: 22,
-      overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: isDark ? 0.2 : 0.07,
-      shadowRadius: 16,
-      elevation: isDark ? 6 : 3,
-    },
-    utilityCardGradient: {
-      minHeight: 156,
-      padding: 16,
-      gap: 10,
-      justifyContent: 'space-between',
-    },
-    utilityIconWrap: {
-      width: 40,
-      height: 40,
-      borderRadius: 14,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: isDark ? 'rgba(129, 140, 248, 0.12)' : 'rgba(102, 126, 234, 0.1)',
-    },
-    utilityTitle: {
-      fontSize: 18,
-      fontWeight: '800' as const,
-      color: theme.text,
-      letterSpacing: -0.4,
-    },
-    utilityDescription: {
-      fontSize: 13,
-      fontWeight: '500' as const,
-      color: theme.textSecondary,
-      lineHeight: 18,
-      flex: 1,
-    },
-    utilityTag: {
-      fontSize: 11,
-      fontWeight: '800' as const,
-      color: theme.primary,
-      textTransform: 'uppercase' as const,
-      letterSpacing: 0.8,
     },
     sectionBanner: {
       flexDirection: width < 360 ? 'column' : 'row',

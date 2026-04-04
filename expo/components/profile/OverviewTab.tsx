@@ -1,4 +1,4 @@
-import { ChevronRight, Crown, Settings } from 'lucide-react-native';
+import { ChevronRight, CircleHelp, Crown, Mail, Settings } from 'lucide-react-native';
 import React from 'react';
 import { Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
@@ -9,6 +9,8 @@ type TextStyles<K extends string> = { [P in K]: StyleProp<TextStyle> };
 
 interface OverviewTabProps {
   onOpenSettings: () => void;
+  onOpenFAQ: () => void;
+  onOpenSupport: () => void;
   onOpenLeaderboard: () => void;
   styles: ViewStyles<
     | 'tabContent'
@@ -20,18 +22,28 @@ interface OverviewTabProps {
     | 'leaderboardIconWrap'
     | 'leaderboardTextWrap'
     | 'leaderboardChevronWrap'
+    | 'utilityRow'
+    | 'utilityCard'
+    | 'utilityCardHeader'
+    | 'utilityIconWrap'
+    | 'utilityTextWrap'
+    | 'utilityChevronWrap'
   > &
     TextStyles<
       | 'toggleTitle'
       | 'toggleSubtitle'
       | 'leaderboardButtonText'
       | 'leaderboardSubtitle'
+      | 'utilityTitle'
+      | 'utilitySubtitle'
     >;
   theme: Theme;
 }
 
 export default function OverviewTab({
   onOpenSettings,
+  onOpenFAQ,
+  onOpenSupport,
   onOpenLeaderboard,
   styles,
   theme,
@@ -80,6 +92,51 @@ export default function OverviewTab({
         </View>
       </TouchableOpacity>
 
+      <View style={styles.utilityRow}>
+        <TouchableOpacity
+          style={styles.utilityCard}
+          onPress={onOpenFAQ}
+          activeOpacity={0.76}
+          accessibilityRole="button"
+          accessibilityLabel="Open FAQ"
+          testID="profile-open-faq"
+        >
+          <View style={styles.utilityCardHeader}>
+            <View style={styles.utilityIconWrap}>
+              <CircleHelp color={theme.primary} size={18} strokeWidth={2.3} />
+            </View>
+            <View style={styles.utilityChevronWrap}>
+              <ChevronRight color={theme.textSecondary} size={17} strokeWidth={2.3} />
+            </View>
+          </View>
+          <View style={styles.utilityTextWrap}>
+            <Text style={styles.utilityTitle}>FAQ</Text>
+            <Text style={styles.utilitySubtitle} numberOfLines={2}>Quick answers and study guides.</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.utilityCard}
+          onPress={onOpenSupport}
+          activeOpacity={0.76}
+          accessibilityRole="button"
+          accessibilityLabel="Open support"
+          testID="profile-open-support"
+        >
+          <View style={styles.utilityCardHeader}>
+            <View style={styles.utilityIconWrap}>
+              <Mail color={theme.primary} size={18} strokeWidth={2.3} />
+            </View>
+            <View style={styles.utilityChevronWrap}>
+              <ChevronRight color={theme.textSecondary} size={17} strokeWidth={2.3} />
+            </View>
+          </View>
+          <View style={styles.utilityTextWrap}>
+            <Text style={styles.utilityTitle}>Support</Text>
+            <Text style={styles.utilitySubtitle} numberOfLines={2}>Get help with your account or decks.</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
