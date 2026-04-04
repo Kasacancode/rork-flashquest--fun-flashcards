@@ -190,6 +190,7 @@ export default function AccountScreen() {
       const usernameResult = await claimUsername(user.id, nextSanitizedUsername, {
         excludeUserId: user.id,
         currentUsername: username,
+        displayName: nextSanitizedProfileName,
         allowCurrentUsername: true,
       });
 

@@ -30,7 +30,7 @@ import {
 export default function ChooseUsernameScreen() {
   const router = useRouter();
   const { isDark, theme } = useTheme();
-  const { user, username: existingUsername, refreshUsername } = useAuth();
+  const { displayName, user, username: existingUsername, refreshUsername } = useAuth();
   const [username, setUsername] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [helperMessage, setHelperMessage] = useState<string | null>(null);
@@ -134,7 +134,9 @@ export default function ChooseUsernameScreen() {
 
     setIsSaving(true);
     setHelperMessage(null);
-    const result = await claimUsername(user.id, username);
+    const result = await claimUsername(user.id, username, {
+      displayName,
+    });
 
     if (!result.success) {
       setIsSaving(false);
@@ -148,7 +150,7 @@ export default function ChooseUsernameScreen() {
     await refreshUsername();
     setIsSaving(false);
     router.replace(HOME_ROUTE);
-  }, [isSaving, refreshUsername, router, user?.id, username]);
+  }, [displayName, isSaving, refreshUsername, router, user?.id, username]);
 
   const canSubmit = username.length >= 3 && !error && !isChecking && !isSaving;
   const backgroundGradient = useMemo<readonly [string, string, string]>(() => (
