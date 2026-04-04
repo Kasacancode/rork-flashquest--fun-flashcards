@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, type Href } from 'expo-router';
-import { Trophy, BookOpen, ChevronRight, Compass, RotateCcw, Swords, Target, User } from 'lucide-react-native';
+import { Trophy, BookOpen, Compass, RotateCcw, Swords, Target, User } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
@@ -80,7 +80,6 @@ export default function HomePage() {
   const [userInterests, setUserInterests] = useState<string[]>([]);
   const hasCustomDecks = useMemo<boolean>(() => decks.some((deck) => deck.isCustom), [decks]);
   const availableContentWidth = contentMaxWidth ?? screenWidth;
-  const smartActionCardWidth = Math.max(214, Math.min(252, Math.floor(availableContentWidth * 0.72)));
   const statsCardInnerWidth = Math.max(260, availableContentWidth - 80);
   const actionCardWidth = Math.max(140, Math.floor((availableContentWidth - 64) / 2));
   const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
@@ -125,7 +124,6 @@ export default function HomePage() {
   );
   const titleColor = isDark ? '#f8fbff' : '#ffffff';
   const subtitleColor = isDark ? 'rgba(229, 236, 248, 0.84)' : 'rgba(241, 236, 252, 0.88)';
-  const sectionTitleColor = isDark ? '#f8fafc' : 'rgba(255, 255, 255, 0.985)';
   const topGlowColor = isDark ? 'rgba(88, 97, 215, 0.075)' : 'rgba(97, 131, 255, 0.24)';
   const midGlowColor = isDark ? 'rgba(44, 166, 154, 0.038)' : 'rgba(133, 114, 237, 0.08)';
   const bottomGlowColor = isDark ? 'rgba(96, 72, 191, 0.035)' : 'rgba(220, 160, 228, 0.22)';
@@ -469,14 +467,16 @@ export default function HomePage() {
       testID: 'home-community-decks-banner',
     };
   }, [smartActionGradients.explore, smartActions]);
-  const communityBannerBorderColor = isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.3)';
-  const communityBannerIconSurface = isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.22)';
-  const communityBannerBadgeSurface = isDark ? 'rgba(7, 18, 36, 0.22)' : 'rgba(255, 255, 255, 0.2)';
-  const communityBannerLabelColor = isDark ? 'rgba(240, 246, 255, 0.74)' : 'rgba(245, 247, 255, 0.82)';
-  const communityBannerSubtitleColor = isDark ? 'rgba(232, 240, 255, 0.86)' : 'rgba(245, 247, 255, 0.92)';
-  const communityBannerCtaSurface = isDark ? 'rgba(7, 18, 36, 0.22)' : 'rgba(255, 255, 255, 0.22)';
-  const communityBannerDecorColor = isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.18)';
-  const communityBannerAccentColor = isDark ? 'rgba(125, 211, 252, 0.14)' : 'rgba(255, 255, 255, 0.14)';
+  const communityBannerBackground = isDark
+    ? ['rgba(18, 27, 43, 0.96)', 'rgba(11, 19, 33, 0.94)'] as const
+    : ['rgba(251, 252, 255, 0.98)', 'rgba(241, 246, 255, 0.96)'] as const;
+  const communityBannerBorderColor = isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(255, 255, 255, 0.58)';
+  const communityBannerIconSurface = isDark ? 'rgba(99, 102, 241, 0.16)' : '#EEF1FF';
+  const communityBannerIconColor = isDark ? '#A5B4FC' : '#6B6FF6';
+  const communityBannerTitleColor = isDark ? '#F8FAFC' : '#1C2742';
+  const communityBannerSubtitleColor = isDark ? 'rgba(226, 232, 240, 0.82)' : '#64748B';
+  const communityBannerDecorColor = isDark ? 'rgba(99, 102, 241, 0.12)' : 'rgba(198, 208, 255, 0.36)';
+  const communityBannerAccentColor = isDark ? 'rgba(129, 140, 248, 0.08)' : 'rgba(224, 231, 255, 0.82)';
 
   const hasReviewPage = reviewSummary !== null;
 
@@ -616,22 +616,6 @@ export default function HomePage() {
       </TouchableOpacity>
     );
   };
-
-  const renderSmartActionIcon = useCallback((kind: SmartActionKind) => {
-    switch (kind) {
-      case 'review':
-        return <RotateCcw color="#fff" size={20} strokeWidth={2.35} />;
-      case 'create':
-      case 'deck':
-        return <BookOpen color="#fff" size={20} strokeWidth={2.35} />;
-      case 'quest':
-        return <Target color="#fff" size={20} strokeWidth={2.35} />;
-      case 'battle':
-        return <Swords color="#fff" size={20} strokeWidth={2.15} />;
-      case 'explore':
-        return <Compass color="#fff" size={20} strokeWidth={2.35} />;
-    }
-  }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -906,26 +890,26 @@ export default function HomePage() {
                   style={[
                     styles.exploreBanner,
                     {
-                      width: Math.max(smartActionCardWidth, Math.min(availableContentWidth - 48, 520)),
+                      width: Math.min(availableContentWidth - 48, 520),
                       alignSelf: 'center',
-                      backgroundColor: communityDeckAction.colors[1],
+                      backgroundColor: isDark ? '#111b2f' : 'rgba(249, 251, 255, 0.98)',
                       shadowColor: actionShadowColor,
-                      shadowOpacity: isDark ? 0.24 : 0.12,
-                      shadowRadius: isDark ? 16 : 10,
+                      shadowOpacity: isDark ? 0.22 : 0.12,
+                      shadowRadius: isDark ? 18 : 10,
                       elevation: isDark ? 8 : 5,
                       borderColor: communityBannerBorderColor,
                     },
                   ]}
                   onPress={() => router.push(communityDeckAction.route)}
-                  activeOpacity={0.92}
+                  activeOpacity={0.9}
                   accessibilityLabel={communityDeckAction.accessibilityLabel}
                   accessibilityRole="button"
                   testID={communityDeckAction.testID}
                 >
                   <LinearGradient
-                    colors={communityDeckAction.colors}
-                    start={{ x: 0.08, y: 0.12 }}
-                    end={{ x: 0.94, y: 0.9 }}
+                    colors={communityBannerBackground}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
                     style={StyleSheet.absoluteFill}
                   />
                   <View pointerEvents="none" style={[styles.exploreBannerOrb, { backgroundColor: communityBannerDecorColor }]} />
@@ -934,11 +918,11 @@ export default function HomePage() {
                     style={[
                       styles.exploreBannerOrb,
                       {
-                        right: 72,
-                        top: 58,
-                        width: 44,
-                        height: 44,
-                        borderRadius: 22,
+                        right: -2,
+                        bottom: -28,
+                        width: 112,
+                        height: 112,
+                        borderRadius: 56,
                         backgroundColor: communityBannerAccentColor,
                       },
                     ]}
@@ -953,40 +937,15 @@ export default function HomePage() {
                         },
                       ]}
                     >
-                      {renderSmartActionIcon(communityDeckAction.kind)}
+                      <Compass color={communityBannerIconColor} size={22} strokeWidth={2.35} />
                     </View>
                     <View style={styles.exploreBannerCopy}>
-                      <View
-                        style={[
-                          styles.exploreBannerBadge,
-                          {
-                            backgroundColor: communityBannerBadgeSurface,
-                            borderColor: communityBannerBorderColor,
-                          },
-                        ]}
-                      >
-                        <Text style={[styles.exploreBannerBadgeText, { color: communityBannerLabelColor }]}>COMMUNITY PICKS</Text>
-                      </View>
-                      <View style={styles.exploreBannerTextWrap}>
-                        <Text style={[styles.exploreBannerTitle, { color: sectionTitleColor }]} numberOfLines={1}>
-                          Community decks
-                        </Text>
-                        <Text style={[styles.exploreBannerSubtitle, { color: communityBannerSubtitleColor }]} numberOfLines={2}>
-                          Fresh public decks you can save and study right away.
-                        </Text>
-                      </View>
-                    </View>
-                    <View
-                      style={[
-                        styles.exploreBannerCta,
-                        {
-                          backgroundColor: communityBannerCtaSurface,
-                          borderColor: communityBannerBorderColor,
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.exploreBannerCtaText, { color: sectionTitleColor }]}>Browse</Text>
-                      <ChevronRight color={sectionTitleColor} size={16} strokeWidth={2.8} />
+                      <Text style={[styles.exploreBannerTitle, { color: communityBannerTitleColor }]} numberOfLines={1}>
+                        Explore Community Decks
+                      </Text>
+                      <Text style={[styles.exploreBannerSubtitle, { color: communityBannerSubtitleColor }]} numberOfLines={2}>
+                        Discover decks from other FlashQuest players and save them offline.
+                      </Text>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -1446,21 +1405,21 @@ const styles = StyleSheet.create<{
   exploreBannerOrb: {
     position: 'absolute',
     right: -18,
-    top: -22,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    bottom: -44,
+    width: 144,
+    height: 144,
+    borderRadius: 72,
   },
   exploreBannerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
+    gap: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
   },
   exploreBannerCopy: {
     flex: 1,
-    gap: 8,
+    gap: 6,
   },
   exploreBannerBadge: {
     alignSelf: 'flex-start',
@@ -1475,8 +1434,8 @@ const styles = StyleSheet.create<{
     letterSpacing: 1.1,
   },
   exploreBannerIconWrap: {
-    width: 52,
-    height: 52,
+    width: 56,
+    height: 56,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1486,14 +1445,14 @@ const styles = StyleSheet.create<{
     gap: 4,
   },
   exploreBannerTitle: {
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: '800' as const,
-    letterSpacing: -0.34,
+    letterSpacing: -0.38,
   },
   exploreBannerSubtitle: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    lineHeight: 18,
+    fontSize: 12.5,
+    fontWeight: '700' as const,
+    lineHeight: 17,
   },
   exploreBannerCta: {
     flexDirection: 'row',
