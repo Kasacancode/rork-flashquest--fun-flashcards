@@ -1194,7 +1194,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     sectionSubtitle: {
       fontSize: 15,
       fontWeight: '500' as const,
-      color: theme.textSecondary,
+      color: isDark ? theme.textSecondary : '#667085',
       lineHeight: 22,
     },
     optionGrid: {
