@@ -29,8 +29,6 @@ import { ARENA_ROUTE, DECKS_ROUTE, EXPLORE_ROUTE, deckHubHref, questHref, studyH
 import { getUserInterests } from '@/utils/userInterests';
 import { useResponsiveLayout } from '@/utils/responsive';
 
-const smartActionCardGap = 14;
-
 type SmartActionKind = 'review' | 'create' | 'deck' | 'quest' | 'battle' | 'explore';
 
 interface SmartAction {
@@ -462,6 +460,18 @@ export default function HomePage() {
     stats.totalQuestSessions,
     userInterests,
   ]);
+  const communityDeckAction = useMemo<SmartAction>(() => {
+    return smartActions.find((action) => action.kind === 'explore') ?? {
+      key: 'community-decks-banner',
+      title: 'Scout community decks',
+      subtitle: 'Save a strong deck and jump in right away.',
+      route: EXPLORE_ROUTE,
+      colors: smartActionGradients.explore,
+      kind: 'explore',
+      accessibilityLabel: 'Explore community decks',
+      testID: 'home-community-decks-banner',
+    };
+  }, [smartActionGradients.explore, smartActions]);
 
   const hasReviewPage = reviewSummary !== null;
 
@@ -887,62 +897,48 @@ export default function HomePage() {
 
 
               <View style={styles.smartActionsSection}>
-                <View style={styles.smartActionsHeader}>
-                  <Text style={[styles.smartActionsEyebrow, { color: subtitleColor }]}>Next moves</Text>
-                  <Text style={[styles.smartActionsLead, { color: sectionTitleColor }]}>Picked for where you are right now.</Text>
-                </View>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={[styles.smartActionsScroll, { gap: smartActionCardGap }]}
-                  testID="home-smart-actions-scroll"
+                <TouchableOpacity
+                  style={[
+                    styles.smartActionCard,
+                    {
+                      width: Math.max(smartActionCardWidth, Math.min(availableContentWidth - 48, 520)),
+                      alignSelf: 'center',
+                      backgroundColor: communityDeckAction.colors[1],
+                      shadowColor: actionShadowColor,
+                      shadowOpacity: isDark ? 0.24 : 0.12,
+                      shadowRadius: isDark ? 16 : 10,
+                      elevation: isDark ? 8 : 5,
+                      borderColor: smartActionBorderColor,
+                    },
+                  ]}
+                  onPress={() => router.push(communityDeckAction.route)}
+                  activeOpacity={0.92}
+                  accessibilityLabel={communityDeckAction.accessibilityLabel}
+                  accessibilityRole="button"
+                  testID={communityDeckAction.testID}
                 >
-                  {smartActions.map((action, index) => (
-                    <TouchableOpacity
-                      key={action.key}
-                      style={[
-                        styles.smartActionCard,
-                        {
-                          width: smartActionCardWidth,
-                          backgroundColor: action.colors[1],
-                          shadowColor: actionShadowColor,
-                          shadowOpacity: isDark ? 0.24 : 0.12,
-                          shadowRadius: isDark ? 16 : 10,
-                          elevation: isDark ? 8 : 5,
-                          borderColor: smartActionBorderColor,
-                        },
-                      ]}
-                      onPress={() => router.push(action.route)}
-                      activeOpacity={0.92}
-                      accessibilityLabel={action.accessibilityLabel}
-                      accessibilityRole="button"
-                      testID={action.testID}
-                    >
-                      <LinearGradient
-                        colors={action.colors}
-                        start={{ x: 0.1, y: 0.08 }}
-                        end={{ x: 0.9, y: 0.92 }}
-                        style={styles.smartActionGradient}
-                      >
-                        <View style={styles.smartActionOrb} />
-                        <View style={styles.smartActionTopRow}>
-                          <View style={[styles.smartActionIconWrap, { backgroundColor: smartActionIconSurface }]}>
-                            {renderSmartActionIcon(action.kind)}
-                          </View>
-                          <Text style={[styles.smartActionIndex, { color: smartActionLabelColor }]}>{`0${index + 1}`}</Text>
-                        </View>
-                        <View style={styles.smartActionTextWrap}>
-                          <Text style={styles.smartActionTitle} numberOfLines={2}>
-                            {action.title}
-                          </Text>
-                          <Text style={[styles.smartActionSubtitle, { color: smartActionLabelColor }]} numberOfLines={2}>
-                            {action.subtitle}
-                          </Text>
-                        </View>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                  <LinearGradient
+                    colors={communityDeckAction.colors}
+                    start={{ x: 0.1, y: 0.08 }}
+                    end={{ x: 0.9, y: 0.92 }}
+                    style={styles.smartActionGradient}
+                  >
+                    <View style={styles.smartActionOrb} />
+                    <View style={styles.smartActionTopRow}>
+                      <View style={[styles.smartActionIconWrap, { backgroundColor: smartActionIconSurface }]}>
+                        {renderSmartActionIcon(communityDeckAction.kind)}
+                      </View>
+                    </View>
+                    <View style={styles.smartActionTextWrap}>
+                      <Text style={[styles.smartActionTitle, { color: sectionTitleColor }]} numberOfLines={2}>
+                        {communityDeckAction.title}
+                      </Text>
+                      <Text style={[styles.smartActionSubtitle, { color: smartActionLabelColor }]} numberOfLines={2}>
+                        {communityDeckAction.subtitle}
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
               </View>
             </>
           )}
