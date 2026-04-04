@@ -24,13 +24,31 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { computeLevel, getLevelBandPalette, getLevelEntry } from '@/utils/levels';
-import { computeDeckMastery, getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
-import { EXPLORE_ROUTE, studyHref } from '@/utils/routes';
+import { getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
+import { ARENA_ROUTE, DECKS_ROUTE, EXPLORE_ROUTE, deckHubHref, questHref, studyHref } from '@/utils/routes';
 import { getUserInterests } from '@/utils/userInterests';
 import { useResponsiveLayout } from '@/utils/responsive';
 
-const quickStartSectionPadding = 24;
-const quickStartCardGap = 14;
+const smartActionCardGap = 14;
+
+type SmartActionKind = 'review' | 'create' | 'deck' | 'quest' | 'battle' | 'explore';
+
+interface SmartAction {
+  key: string;
+  title: string;
+  subtitle: string;
+  route: Href;
+  colors: readonly [string, string];
+  kind: SmartActionKind;
+  accessibilityLabel: string;
+  testID: string;
+}
+
+function getSmartActionRouteKey(route: Href): string {
+  return typeof route === 'string'
+    ? route
+    : `${route.pathname}?${JSON.stringify(route.params ?? {})}`;
+}
 
 function AnimatedStatValue({ animValue, style }: { animValue: Animated.Value; style: StyleProp<TextStyle> }) {
   const [display, setDisplay] = React.useState<string>('0');
@@ -64,10 +82,7 @@ export default function HomePage() {
   const [userInterests, setUserInterests] = useState<string[]>([]);
   const hasCustomDecks = useMemo<boolean>(() => decks.some((deck) => deck.isCustom), [decks]);
   const availableContentWidth = contentMaxWidth ?? screenWidth;
-  const quickStartCardWidth = Math.max(
-    152,
-    Math.min(166, Math.floor((availableContentWidth - quickStartSectionPadding * 2 - quickStartCardGap - 2) / 2)),
-  );
+  const smartActionCardWidth = Math.max(214, Math.min(252, Math.floor(availableContentWidth * 0.72)));
   const statsCardInnerWidth = Math.max(260, availableContentWidth - 80);
   const actionCardWidth = Math.max(140, Math.floor((availableContentWidth - 64) / 2));
   const level = useMemo(() => computeLevel(stats.totalScore), [stats.totalScore]);
@@ -135,15 +150,9 @@ export default function HomePage() {
     : levelPalette.badgeGradient[1];
   const actionShadowColor = isDark ? '#020617' : '#94a3b8';
   const actionBorderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.1)';
-  const deckCardSurface = isDark ? 'rgba(9, 17, 31, 0.98)' : 'rgba(255, 255, 255, 0.99)';
-  const deckCardGradient = isDark
-    ? ['rgba(9, 18, 31, 0.995)', 'rgba(13, 21, 36, 0.995)'] as const
-    : ['rgba(255, 255, 255, 0.97)', 'rgba(250, 247, 255, 0.97)'] as const;
-  const deckCardBorderColor = isDark ? 'rgba(124, 140, 168, 0.14)' : 'rgba(148, 163, 184, 0.14)';
-  const deckCardShadowColor = isDark ? '#020617' : '#94a3b8';
-  const deckTrackColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(148, 163, 184, 0.16)';
-  const emptyStateSurface = isDark ? 'rgba(10, 17, 31, 0.96)' : 'rgba(255, 255, 255, 0.98)';
-  const emptyStateBorderColor = isDark ? 'rgba(124, 140, 168, 0.14)' : 'rgba(148, 163, 184, 0.14)';
+  const smartActionBorderColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.2)';
+  const smartActionIconSurface = isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.18)';
+  const smartActionLabelColor = isDark ? 'rgba(226, 232, 240, 0.76)' : 'rgba(245, 243, 255, 0.84)';
   const homeActionGradients = useMemo(
     () => ({
       arena: isDark ? ['#ff6d10', '#ff6208'] as const : ['#ef7721', '#e46512'] as const,
@@ -153,13 +162,17 @@ export default function HomePage() {
     }),
     [isDark],
   );
-  const exploreBannerGradient = isDark
-    ? ['rgba(99,102,241,0.26)', 'rgba(14,165,233,0.18)'] as const
-    : ['rgba(255,255,255,0.92)', 'rgba(237,242,255,0.96)'] as const;
-  const exploreBannerSurface = isDark ? 'rgba(11, 20, 37, 0.84)' : 'rgba(255, 255, 255, 0.94)';
-  const exploreBannerBorder = isDark ? 'rgba(129, 140, 248, 0.22)' : 'rgba(129, 140, 248, 0.2)';
-  const exploreBannerTitleColor = isDark ? '#F8FAFC' : '#1E293B';
-  const exploreBannerTextColor = isDark ? 'rgba(226,232,240,0.82)' : '#64748B';
+  const smartActionGradients = useMemo(
+    () => ({
+      review: isDark ? ['#5B6CF4', '#4F46E5'] as const : ['#6B7DFF', '#5967F1'] as const,
+      create: isDark ? ['#18B882', '#0E9F76'] as const : ['#24C08B', '#12A974'] as const,
+      deck: isDark ? ['#8B5CF6', '#7C3AED'] as const : ['#9C6FFF', '#7F56F5'] as const,
+      quest: isDark ? ['#935FF7', '#7D45EB'] as const : ['#8E63EF', '#7648DF'] as const,
+      battle: isDark ? ['#FF6D10', '#FF6208'] as const : ['#EF7721', '#E46512'] as const,
+      explore: isDark ? ['#0EA5E9', '#2563EB'] as const : ['#78A2FF', '#6B7DFF'] as const,
+    }),
+    [isDark],
+  );
 
   useEffect(() => {
     streakAnim.setValue(0);
@@ -243,6 +256,212 @@ export default function HomePage() {
     deckSummaries.sort((a, b) => b.reviewCount - a.reviewCount);
     return { deckSummaries, totalReviewCount };
   }, [decks, performance.cardStatsById]);
+
+  const primaryRecommendation = recommendations[0] ?? null;
+  const newestDeck = useMemo(() => {
+    if (decks.length === 0) {
+      return null;
+    }
+
+    return [...decks].sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+  }, [decks]);
+  const smartActions = useMemo<SmartAction[]>(() => {
+    const items: SmartAction[] = [];
+    const pushAction = (action: SmartAction) => {
+      if (items.some((existing) => existing.key === action.key)) {
+        return;
+      }
+
+      const nextRouteKey = getSmartActionRouteKey(action.route);
+      if (items.some((existing) => getSmartActionRouteKey(existing.route) === nextRouteKey)) {
+        return;
+      }
+
+      items.push(action);
+    };
+
+    if (!hasCustomDecks) {
+      const interestsCopy = userInterests
+        .slice(0, 2)
+        .map((interest) => interest.trim())
+        .filter(Boolean);
+      const interestHint = interestsCopy.length > 0
+        ? `Start with ${interestsCopy.join(' + ')}.`
+        : 'Scan notes or paste text to build one fast.';
+
+      pushAction({
+        key: 'create-first-deck',
+        title: 'Build your first deck',
+        subtitle: interestHint,
+        route: DECKS_ROUTE,
+        colors: smartActionGradients.create,
+        kind: 'create',
+        accessibilityLabel: 'Build your first deck',
+        testID: 'home-smart-create-deck',
+      });
+      pushAction({
+        key: 'explore-community-decks',
+        title: 'Scout community decks',
+        subtitle: 'Save a strong deck and jump in right away.',
+        route: EXPLORE_ROUTE,
+        colors: smartActionGradients.explore,
+        kind: 'explore',
+        accessibilityLabel: 'Explore community decks',
+        testID: 'home-smart-explore',
+      });
+
+      if (newestDeck) {
+        pushAction({
+          key: `starter-${newestDeck.id}`,
+          title: 'Warm up with a starter deck',
+          subtitle: `${newestDeck.name} is ready for a first run.`,
+          route: studyHref(newestDeck.id),
+          colors: smartActionGradients.review,
+          kind: 'review',
+          accessibilityLabel: `Study ${newestDeck.name}`,
+          testID: `home-smart-starter-${newestDeck.id}`,
+        });
+      }
+
+      if (items.length < 3) {
+        pushAction({
+          key: 'open-deck-lab',
+          title: 'Open your deck lab',
+          subtitle: 'Create, import, and organize your collection.',
+          route: DECKS_ROUTE,
+          colors: smartActionGradients.deck,
+          kind: 'deck',
+          accessibilityLabel: 'Open decks',
+          testID: 'home-smart-open-decks',
+        });
+      }
+
+      return items.slice(0, 3);
+    }
+
+    const topReviewDeck = reviewSummary?.deckSummaries[0] ?? null;
+    if (topReviewDeck) {
+      pushAction({
+        key: `review-${topReviewDeck.deckId}`,
+        title: `Review ${topReviewDeck.reviewCount} due`,
+        subtitle: `${topReviewDeck.name} is ready right now.`,
+        route: studyHref(topReviewDeck.deckId),
+        colors: smartActionGradients.review,
+        kind: 'review',
+        accessibilityLabel: `Review ${topReviewDeck.reviewCount} due cards in ${topReviewDeck.name}`,
+        testID: `home-smart-review-${topReviewDeck.deckId}`,
+      });
+    }
+
+    if (primaryRecommendation) {
+      const isNewDeck = /Not started yet/i.test(primaryRecommendation.message);
+      const isRustyDeck = /days ago/i.test(primaryRecommendation.message);
+      const recommendationTitle = isNewDeck
+        ? `Start ${primaryRecommendation.name}`
+        : isRustyDeck
+          ? `Return to ${primaryRecommendation.name}`
+          : `Sharpen ${primaryRecommendation.name}`;
+
+      pushAction({
+        key: `recommend-${primaryRecommendation.deckId}`,
+        title: recommendationTitle,
+        subtitle: primaryRecommendation.message,
+        route: studyHref(primaryRecommendation.deckId),
+        colors: smartActionGradients.deck,
+        kind: 'deck',
+        accessibilityLabel: `${recommendationTitle}. ${primaryRecommendation.message}`,
+        testID: `home-smart-recommend-${primaryRecommendation.deckId}`,
+      });
+    }
+
+    if (stats.currentStreak === 0 && stats.totalCardsStudied > 0) {
+      pushAction({
+        key: 'reignite-streak',
+        title: 'Reignite your streak',
+        subtitle: 'One quick run gets today back on the board.',
+        route: primaryRecommendation ? studyHref(primaryRecommendation.deckId) : questHref(),
+        colors: smartActionGradients.quest,
+        kind: 'quest',
+        accessibilityLabel: 'Reignite your streak',
+        testID: 'home-smart-streak',
+      });
+    } else if (stats.totalQuestSessions < 3) {
+      pushAction({
+        key: 'quick-quest',
+        title: 'Try a quick quest',
+        subtitle: 'Fast multiple-choice reps sharpen recall.',
+        route: primaryRecommendation ? questHref({ deckId: primaryRecommendation.deckId }) : questHref(),
+        colors: smartActionGradients.quest,
+        kind: 'quest',
+        accessibilityLabel: 'Try a quick quest',
+        testID: 'home-smart-quest',
+      });
+    } else if (stats.totalArenaBattles === 0 && stats.totalCardsStudied >= 20) {
+      pushAction({
+        key: 'first-battle',
+        title: 'Enter your first battle',
+        subtitle: 'You have enough reps to step into the arena.',
+        route: ARENA_ROUTE,
+        colors: smartActionGradients.battle,
+        kind: 'battle',
+        accessibilityLabel: 'Enter your first battle',
+        testID: 'home-smart-battle',
+      });
+    }
+
+    if (decks.length < 3) {
+      pushAction({
+        key: 'expand-deck-roster',
+        title: 'Scout more decks',
+        subtitle: 'Add a few more community decks for variety.',
+        route: EXPLORE_ROUTE,
+        colors: smartActionGradients.explore,
+        kind: 'explore',
+        accessibilityLabel: 'Explore more community decks',
+        testID: 'home-smart-expand-roster',
+      });
+    }
+
+    if (items.length < 3 && newestDeck) {
+      pushAction({
+        key: `open-${newestDeck.id}`,
+        title: `Open ${newestDeck.name}`,
+        subtitle: `${newestDeck.flashcards.length} cards ready whenever you are.`,
+        route: deckHubHref(newestDeck.id),
+        colors: smartActionGradients.deck,
+        kind: 'deck',
+        accessibilityLabel: `Open ${newestDeck.name}`,
+        testID: `home-smart-open-${newestDeck.id}`,
+      });
+    }
+
+    if (items.length < 3) {
+      pushAction({
+        key: 'deck-lineup',
+        title: 'Tune your deck lineup',
+        subtitle: 'Create, import, and organize your collection.',
+        route: DECKS_ROUTE,
+        colors: smartActionGradients.create,
+        kind: 'create',
+        accessibilityLabel: 'Open decks',
+        testID: 'home-smart-decks',
+      });
+    }
+
+    return items.slice(0, 3);
+  }, [
+    decks,
+    hasCustomDecks,
+    newestDeck,
+    primaryRecommendation,
+    reviewSummary,
+    smartActionGradients,
+    stats.currentStreak,
+    stats.totalArenaBattles,
+    stats.totalCardsStudied,
+    stats.totalQuestSessions,
+    userInterests,
+  ]);
 
   const hasReviewPage = reviewSummary !== null;
 
@@ -382,6 +601,22 @@ export default function HomePage() {
       </TouchableOpacity>
     );
   };
+
+  const renderSmartActionIcon = useCallback((kind: SmartActionKind) => {
+    switch (kind) {
+      case 'review':
+        return <RotateCcw color="#fff" size={20} strokeWidth={2.35} />;
+      case 'create':
+      case 'deck':
+        return <BookOpen color="#fff" size={20} strokeWidth={2.35} />;
+      case 'quest':
+        return <Target color="#fff" size={20} strokeWidth={2.35} />;
+      case 'battle':
+        return <Swords color="#fff" size={20} strokeWidth={2.15} />;
+      case 'explore':
+        return <Compass color="#fff" size={20} strokeWidth={2.35} />;
+    }
+  }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -650,184 +885,64 @@ export default function HomePage() {
                 })}
               </View>
 
-              <TouchableOpacity
-                style={[
-                  styles.exploreBanner,
-                  {
-                    backgroundColor: exploreBannerSurface,
-                    borderColor: exploreBannerBorder,
-                    shadowColor: deckCardShadowColor,
-                    shadowOpacity: isDark ? 0.2 : 0.12,
-                    shadowRadius: isDark ? 18 : 14,
-                    elevation: isDark ? 6 : 4,
-                  },
-                ]}
-                onPress={() => router.push(EXPLORE_ROUTE)}
-                activeOpacity={0.9}
-                accessibilityLabel="Explore community decks"
-                accessibilityRole="button"
-                testID="home-explore-banner"
-              >
-                <LinearGradient
-                  colors={exploreBannerGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-                <View style={[styles.exploreBannerOrb, { backgroundColor: isDark ? 'rgba(129,140,248,0.18)' : 'rgba(99,102,241,0.1)' }]} />
-                <View style={styles.exploreBannerContent}>
-                  <View style={[styles.exploreBannerIconWrap, { backgroundColor: isDark ? 'rgba(99,102,241,0.16)' : 'rgba(99,102,241,0.1)' }]}>
-                    <Compass color={isDark ? '#A5B4FC' : '#6366F1'} size={22} strokeWidth={2.3} />
-                  </View>
-                  <View style={styles.exploreBannerTextWrap}>
-                    <Text style={[styles.exploreBannerTitle, { color: exploreBannerTitleColor }]}>Explore Community Decks</Text>
-                    <Text style={[styles.exploreBannerSubtitle, { color: exploreBannerTextColor }]}>Discover decks from other FlashQuest players and save them offline.</Text>
-                  </View>
+
+              <View style={styles.smartActionsSection}>
+                <View style={styles.smartActionsHeader}>
+                  <Text style={[styles.smartActionsEyebrow, { color: subtitleColor }]}>Next moves</Text>
+                  <Text style={[styles.smartActionsLead, { color: sectionTitleColor }]}>Picked for where you are right now.</Text>
                 </View>
-              </TouchableOpacity>
-
-              <View style={styles.decksSection}>
-                <Text style={[styles.sectionTitle, { color: sectionTitleColor }]} accessibilityRole="header">
-              {'Quick Start'}
-            </Text>
-            {!hasCustomDecks ? (
-              <View
-                style={[
-                  styles.quickStartEmptyState,
-                  {
-                    backgroundColor: emptyStateSurface,
-                    borderColor: emptyStateBorderColor,
-                    shadowColor: deckCardShadowColor,
-                  },
-                ]}
-              >
-                <Text style={[styles.quickStartEmptyTitle, { color: theme.text }]}>No decks yet</Text>
-                <Text style={[styles.quickStartEmptySubtitle, { color: theme.textSecondary }]}>
-                  {userInterests.length > 0
-                    ? `Interested in ${userInterests.slice(0, 2).join(' and ')}? Scan your notes or paste some text to create your first deck.`
-                    : 'Create a deck to see it here.'}
-                </Text>
-                <TouchableOpacity
-                  style={[styles.quickStartEmptyButton, { backgroundColor: theme.primary }]}
-                  onPress={() => router.push('/decks' as Href)}
-                  activeOpacity={0.8}
-                  accessibilityLabel="Create deck"
-                  accessibilityRole="button"
-                  testID="home-empty-create-deck"
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={[styles.smartActionsScroll, { gap: smartActionCardGap }]}
+                  testID="home-smart-actions-scroll"
                 >
-                  <Text style={styles.quickStartEmptyButtonText}>Create Deck</Text>
-                </TouchableOpacity>
-              </View>
-            ) : recommendations.length > 0 ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.decksScroll}
-                testID="home-recommendations-scroll"
-              >
-                {recommendations.map((rec) => {
-                  const recDeck = decks.find((d) => d.id === rec.deckId);
-                  const recMastery = recDeck ? computeDeckMastery(recDeck.flashcards, performance.cardStatsById) : null;
-                  const recPct = recMastery && recMastery.total > 0 ? Math.round((recMastery.mastered / recMastery.total) * 100) : 0;
-
-                  return (
+                  {smartActions.map((action, index) => (
                     <TouchableOpacity
-                      key={rec.deckId}
+                      key={action.key}
                       style={[
-                        styles.deckCard,
+                        styles.smartActionCard,
                         {
-                          width: quickStartCardWidth,
-                          backgroundColor: deckCardSurface,
-                          borderWidth: 1,
-                          borderColor: deckCardBorderColor,
-                          shadowColor: deckCardShadowColor,
-                          shadowOpacity: isDark ? 0.18 : 0.14,
-                          shadowRadius: isDark ? 14 : 12,
-                          elevation: isDark ? 6 : 5,
+                          width: smartActionCardWidth,
+                          backgroundColor: action.colors[1],
+                          shadowColor: actionShadowColor,
+                          shadowOpacity: isDark ? 0.24 : 0.12,
+                          shadowRadius: isDark ? 16 : 10,
+                          elevation: isDark ? 8 : 5,
+                          borderColor: smartActionBorderColor,
                         },
                       ]}
-                      onPress={() => router.push({ pathname: '/deck-hub', params: { deckId: rec.deckId } } as Href)}
-                      activeOpacity={0.9}
-                      accessibilityLabel={`${rec.name}: ${rec.message}`}
+                      onPress={() => router.push(action.route)}
+                      activeOpacity={0.92}
+                      accessibilityLabel={action.accessibilityLabel}
                       accessibilityRole="button"
-                      testID={`home-recommendation-${rec.deckId}`}
+                      testID={action.testID}
                     >
                       <LinearGradient
-                        colors={deckCardGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={StyleSheet.absoluteFill}
-                      />
-                      <View style={[styles.deckCardFrame, { borderColor: deckCardBorderColor }]} />
-                      <View style={[styles.deckColorStrip, { backgroundColor: rec.color }]} />
-                      <View style={styles.deckContent}>
-                        <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={2}>{rec.name}</Text>
-                        <Text style={[styles.deckCards, { color: theme.textSecondary }]}>{recDeck?.flashcards.length ?? 0} cards · {recPct}%</Text>
-                        {recMastery && recMastery.total > 0 ? (
-                          <View style={[styles.deckMiniBar, { backgroundColor: deckTrackColor }]}>
-                            <View style={[styles.deckMiniBarFill, { width: `${recPct}%`, backgroundColor: rec.color }]} />
+                        colors={action.colors}
+                        start={{ x: 0.1, y: 0.08 }}
+                        end={{ x: 0.9, y: 0.92 }}
+                        style={styles.smartActionGradient}
+                      >
+                        <View style={styles.smartActionOrb} />
+                        <View style={styles.smartActionTopRow}>
+                          <View style={[styles.smartActionIconWrap, { backgroundColor: smartActionIconSurface }]}>
+                            {renderSmartActionIcon(action.kind)}
                           </View>
-                        ) : null}
-                      </View>
+                          <Text style={[styles.smartActionIndex, { color: smartActionLabelColor }]}>{`0${index + 1}`}</Text>
+                        </View>
+                        <View style={styles.smartActionTextWrap}>
+                          <Text style={styles.smartActionTitle} numberOfLines={2}>
+                            {action.title}
+                          </Text>
+                          <Text style={[styles.smartActionSubtitle, { color: smartActionLabelColor }]} numberOfLines={2}>
+                            {action.subtitle}
+                          </Text>
+                        </View>
+                      </LinearGradient>
                     </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.decksScroll}
-                testID="home-quick-start-scroll"
-              >
-                {decks.slice(0, 5).map((deck) => {
-                  const deckMastery = computeDeckMastery(deck.flashcards, performance.cardStatsById);
-                  const deckPct = deckMastery.total > 0 ? Math.round((deckMastery.mastered / deckMastery.total) * 100) : 0;
-
-                  return (
-                    <TouchableOpacity
-                      key={deck.id}
-                      style={[
-                        styles.deckCard,
-                        {
-                          width: quickStartCardWidth,
-                          backgroundColor: deckCardSurface,
-                          borderWidth: 1,
-                          borderColor: deckCardBorderColor,
-                          shadowColor: deckCardShadowColor,
-                          shadowOpacity: isDark ? 0.18 : 0.14,
-                          shadowRadius: isDark ? 14 : 12,
-                          elevation: isDark ? 6 : 5,
-                        },
-                      ]}
-                      onPress={() => router.push({ pathname: '/deck-hub', params: { deckId: deck.id } } as Href)}
-                      activeOpacity={0.9}
-                      testID={`home-quick-start-${deck.id}`}
-                    >
-                      <LinearGradient
-                        colors={deckCardGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={StyleSheet.absoluteFill}
-                      />
-                      <View style={[styles.deckCardFrame, { borderColor: deckCardBorderColor }]} />
-                      <View style={[styles.deckColorStrip, { backgroundColor: deck.color }]} />
-                      <View style={styles.deckContent}>
-                        <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={2}>
-                          {deck.name}
-                        </Text>
-                        <Text style={[styles.deckCards, { color: theme.textSecondary }]}>{deck.flashcards.length} cards · {deckPct}%</Text>
-                        {deckMastery.total > 0 ? (
-                          <View style={[styles.deckMiniBar, { backgroundColor: deckTrackColor }]}>
-                            <View style={[styles.deckMiniBarFill, { width: `${deckPct}%`, backgroundColor: deck.color }]} />
-                          </View>
-                        ) : null}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
+                  ))}
+                </ScrollView>
               </View>
             </>
           )}
@@ -883,6 +998,20 @@ const styles = StyleSheet.create<{
   actionContent: ViewStyle;
   actionIconSlot: ViewStyle;
   actionTitleMedium: TextStyle;
+  smartActionsSection: ViewStyle;
+  smartActionsHeader: ViewStyle;
+  smartActionsEyebrow: TextStyle;
+  smartActionsLead: TextStyle;
+  smartActionsScroll: ViewStyle;
+  smartActionCard: ViewStyle;
+  smartActionGradient: ViewStyle;
+  smartActionOrb: ViewStyle;
+  smartActionTopRow: ViewStyle;
+  smartActionIconWrap: ViewStyle;
+  smartActionIndex: TextStyle;
+  smartActionTextWrap: ViewStyle;
+  smartActionTitle: TextStyle;
+  smartActionSubtitle: TextStyle;
   exploreBanner: ViewStyle;
   exploreBannerOrb: ViewStyle;
   exploreBannerContent: ViewStyle;
@@ -1171,6 +1300,86 @@ const styles = StyleSheet.create<{
     marginTop: 0,
     textAlign: 'center',
     letterSpacing: -0.42,
+  },
+  smartActionsSection: {
+    marginTop: 26,
+  },
+  smartActionsHeader: {
+    paddingHorizontal: 24,
+    marginBottom: 14,
+  },
+  smartActionsEyebrow: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  smartActionsLead: {
+    fontSize: 22,
+    fontWeight: '800' as const,
+    letterSpacing: -0.5,
+  },
+  smartActionsScroll: {
+    paddingHorizontal: 24,
+    paddingBottom: 4,
+  },
+  smartActionCard: {
+    minHeight: 118,
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 12 },
+  },
+  smartActionGradient: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    justifyContent: 'space-between',
+  },
+  smartActionOrb: {
+    position: 'absolute',
+    right: -24,
+    top: -18,
+    width: 94,
+    height: 94,
+    borderRadius: 47,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  smartActionTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  smartActionIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  smartActionIndex: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    letterSpacing: 1.1,
+  },
+  smartActionTextWrap: {
+    gap: 6,
+  },
+  smartActionTitle: {
+    fontSize: 18,
+    fontWeight: '800' as const,
+    color: '#fff',
+    lineHeight: 22,
+    letterSpacing: -0.36,
+  },
+  smartActionSubtitle: {
+    fontSize: 12.5,
+    fontWeight: '600' as const,
+    lineHeight: 17,
   },
   exploreBanner: {
     marginTop: 26,
