@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronRight, Settings } from 'lucide-react-native';
+import { ChevronRight, Crown, Settings } from 'lucide-react-native';
 import React from 'react';
 import { Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
@@ -10,6 +10,7 @@ type TextStyles<K extends string> = { [P in K]: StyleProp<TextStyle> };
 
 interface OverviewTabProps {
   onOpenSettings: () => void;
+  onOpenLeaderboard: () => void;
   surfaceGradient: readonly [string, string];
   styles: ViewStyles<
     | 'tabContent'
@@ -22,18 +23,24 @@ interface OverviewTabProps {
     | 'toggleCard'
     | 'toggleLeadingIcon'
     | 'toggleTextWrap'
+    | 'leaderboardButton'
+    | 'leaderboardIconWrap'
+    | 'leaderboardTextWrap'
+    | 'leaderboardChevronWrap'
   > &
     TextStyles<
       | 'cardTitle'
-      | 'cardDescription'
       | 'toggleTitle'
       | 'toggleSubtitle'
+      | 'leaderboardButtonText'
+      | 'leaderboardSubtitle'
     >;
   theme: Theme;
 }
 
 export default function OverviewTab({
   onOpenSettings,
+  onOpenLeaderboard,
   surfaceGradient,
   styles,
   theme,
@@ -54,7 +61,6 @@ export default function OverviewTab({
               </View>
               <View style={styles.appearanceTextWrap}>
                 <Text style={styles.cardTitle}>App settings</Text>
-                <Text style={styles.cardDescription}>Study preferences, privacy, support, and backups live in one place.</Text>
               </View>
             </View>
           </View>
@@ -71,6 +77,28 @@ export default function OverviewTab({
           </TouchableOpacity>
         </LinearGradient>
       </View>
+
+      <TouchableOpacity
+        style={styles.leaderboardButton}
+        onPress={onOpenLeaderboard}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Open leaderboard"
+        testID="profile-overview-leaderboard"
+      >
+        <View style={styles.leaderboardIconWrap}>
+          <Crown color={theme.primary} size={20} strokeWidth={2.3} />
+        </View>
+        <View style={styles.leaderboardTextWrap}>
+          <Text style={styles.leaderboardButtonText}>Leaderboard</Text>
+          <Text style={styles.leaderboardSubtitle} numberOfLines={2}>
+            See the top arena players and track your climb.
+          </Text>
+        </View>
+        <View style={styles.leaderboardChevronWrap}>
+          <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
+        </View>
+      </TouchableOpacity>
     </View>
   );
 }

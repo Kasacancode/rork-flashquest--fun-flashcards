@@ -1,6 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { ArrowLeft, ChevronRight, Crown, UserRound } from 'lucide-react-native';
+import { ArrowLeft, UserRound } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,10 +19,8 @@ import { type Theme } from '@/constants/colors';
 import type { AvatarColorId, AvatarSuitId } from '@/types/avatar';
 import { ACHIEVEMENT_CATEGORIES } from '@/utils/achievements';
 import { LEVELS } from '@/utils/levels';
-import { LEADERBOARD_ROUTE } from '@/utils/routes';
 
 export default function ProfilePage() {
-  const router = useRouter();
   const { width } = useWindowDimensions();
   const {
     theme,
@@ -67,6 +64,7 @@ export default function ProfilePage() {
     handleSelectAchievementCategory,
     handleCloseLevels,
     handleOpenSettings,
+    handleOpenLeaderboard,
     handleSelectSuit,
     handleSelectColor,
     handleEditPlayerName,
@@ -182,28 +180,6 @@ export default function ProfilePage() {
                 theme={theme}
               />
 
-              <TouchableOpacity
-                onPress={() => router.push(LEADERBOARD_ROUTE)}
-                accessibilityLabel="Open leaderboard"
-                accessibilityRole="button"
-                style={styles.leaderboardButton}
-                activeOpacity={0.88}
-                testID="profile-leaderboard-button"
-              >
-                <View style={styles.leaderboardIconWrap}>
-                  <Crown color={isDark ? '#A5B4FC' : '#4F46E5'} size={20} strokeWidth={2.3} />
-                </View>
-                <View style={styles.leaderboardTextWrap}>
-                  <Text style={styles.leaderboardButtonText}>Leaderboard</Text>
-                  <Text style={styles.leaderboardSubtitle} numberOfLines={2}>
-                    See the top arena players and track your climb.
-                  </Text>
-                </View>
-                <View style={styles.leaderboardChevronWrap}>
-                  <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.4} />
-                </View>
-              </TouchableOpacity>
-
               <ProfileTabBar
                 activeTab={activeTab}
                 onSelectTab={handleSelectTab}
@@ -215,6 +191,7 @@ export default function ProfilePage() {
               {activeTab === 'overview' && (
                 <OverviewTab
                   onOpenSettings={handleOpenSettings}
+                  onOpenLeaderboard={handleOpenLeaderboard}
                   surfaceGradient={surfaceGradient}
                   styles={styles}
                   theme={theme}
