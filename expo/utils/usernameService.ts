@@ -1,3 +1,4 @@
+import { DEFAULT_AVATAR_IDENTITY } from '@/constants/avatar';
 import { supabase } from '@/lib/supabase';
 import { containsOffensiveLanguage } from '@/utils/contentSafety';
 import { logger } from '@/utils/logger';
@@ -159,12 +160,38 @@ export async function checkUsernameAvailable(username: string): Promise<boolean>
   return result.status === 'available';
 }
 
+function buildProfileInsertPayload(params: {
+  userId: string;
+  username: string;
+  timestamp: string;
+  displayName?: string | null;
+}): {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_key: string;
+  created_at: string;
+  updated_at: string;
+} {
+  const resolvedDisplayName = params.displayName?.trim() || params.username || 'Player';
+
+  return {
+    id: params.userId,
+    username: params.username,
+    display_name: resolvedDisplayName,
+    avatar_key: DEFAULT_AVATAR_IDENTITY.key,
+    created_at: params.timestamp,
+    updated_at: params.timestamp,
+  };
+}
+
 export async function claimUsername(
   userId: string,
   username: string,
   options?: {
     excludeUserId?: string | null;
     currentUsername?: string | null;
+    displayName?: string | null;
     allowCurrentUsername?: boolean;
   },
 ): Promise<{ success: boolean; error?: string }> {
@@ -194,21 +221,37 @@ export async function claimUsername(
       .maybeSingle();
 
     if (!error && !data) {
-      logger.warn('[Username] No profile row found during claim, attempting upsert for user', userId);
-      const fallbackResult = await supabase
+      logger.warn('[Username] No profile row found during claim, attempting insert for user', userId);
+      const insertPayload = buildProfileInsertPayload({
+        userId,
+        username: trimmed,
+        timestamp,
+        displayName: options?.displayName,
+      });
+      const fallbackInsertResult = await supabase
         .from('profiles')
-        .upsert({
-          id: userId,
-          username: trimmed,
-          updated_at: timestamp,
-        }, {
-          onConflict: 'id',
-        })
+        .insert(insertPayload)
         .select('id')
         .maybeSingle();
 
-      data = fallbackResult.data;
-      error = fallbackResult.error;
+      if (fallbackInsertResult.error && isUniqueViolationError(fallbackInsertResult.error)) {
+        logger.warn('[Username] Profile row appeared during claim, retrying update for user', userId);
+        const retryUpdateResult = await supabase
+          .from('profiles')
+          .update({
+            username: trimmed,
+            updated_at: timestamp,
+          })
+          .eq('id', userId)
+          .select('id')
+          .maybeSingle();
+
+        data = retryUpdateResult.data;
+        error = retryUpdateResult.error;
+      } else {
+        data = fallbackInsertResult.data;
+        error = fallbackInsertResult.error;
+      }
     }
 
     if (error) {
