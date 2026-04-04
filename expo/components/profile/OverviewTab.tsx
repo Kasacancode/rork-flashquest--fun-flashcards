@@ -111,7 +111,7 @@ export default function OverviewTab({
           </View>
           <View style={styles.utilityTextWrap}>
             <Text style={styles.utilityTitle}>FAQ</Text>
-            <Text style={styles.utilitySubtitle} numberOfLines={2}>Quick answers and study guides.</Text>
+            <Text style={styles.utilitySubtitle} numberOfLines={2}>Answers, guides, and feature tips.</Text>
           </View>
         </TouchableOpacity>
 
@@ -133,7 +133,7 @@ export default function OverviewTab({
           </View>
           <View style={styles.utilityTextWrap}>
             <Text style={styles.utilityTitle}>Support</Text>
-            <Text style={styles.utilitySubtitle} numberOfLines={2}>Get help with your account or decks.</Text>
+            <Text style={styles.utilitySubtitle} numberOfLines={2}>Account, deck, and app help.</Text>
           </View>
         </TouchableOpacity>
       </View>

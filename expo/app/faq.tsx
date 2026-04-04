@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, Mail, Sparkles, Target, Trophy } from 'lucide-react-native';
+import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, Mail, Settings, Sparkles, Target, Trophy, UserRound } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { LayoutAnimation, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { PRIVACY_LINKS } from '@/constants/privacy';
 import { useTheme } from '@/context/ThemeContext';
+import { SETTINGS_ROUTE } from '@/utils/routes';
 import { logger } from '@/utils/logger';
 import { openSupportContact } from '@/utils/support';
 
@@ -15,7 +16,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-type FAQGroupId = 'getting-started' | 'study-modes' | 'progress-review';
+type FAQGroupId = 'getting-started' | 'study-modes' | 'progress-review' | 'profile-settings';
 
 interface FAQItem {
   id: string;
@@ -38,33 +39,71 @@ interface FAQGroupVisuals {
   icon: React.ReactNode;
 }
 
+interface QuickStartStep {
+  id: string;
+  title: string;
+  description: string;
+}
+
+const QUICK_START_STEPS: readonly QuickStartStep[] = [
+  {
+    id: 'build',
+    title: 'Build or import a deck',
+    description: 'Create cards manually, paste notes, scan text, or import a shared deck code.',
+  },
+  {
+    id: 'study',
+    title: 'Pick the right mode',
+    description: 'Use Study for calm review, Quest for speed, Practice for AI pressure, or Arena for live battles.',
+  },
+  {
+    id: 'review',
+    title: 'Keep up with review',
+    description: 'Return to due cards and weak cards so FlashQuest can move your deck toward real mastery.',
+  },
+  {
+    id: 'track',
+    title: 'Track growth and tune settings',
+    description: 'Use profile, awards, stats, leaderboards, and settings to guide your routine and progress.',
+  },
+] as const;
+
 const FAQ_GROUPS: readonly FAQGroup[] = [
   {
     id: 'getting-started',
     title: 'Getting Started',
-    subtitle: 'Deck setup, your hub, and sharing basics.',
+    subtitle: 'Deck creation, editing, your deck hub, and sharing basics.',
     items: [
       {
         id: 'creating-decks',
         title: 'Creating your first deck',
-        summary: 'Start from scratch, paste notes, scan content, or import a shared deck.',
+        summary: 'Start from scratch, paste notes, scan content, or import a shared deck in a few taps.',
         content: [
           'Open Decks from the home screen, then tap the + button in the top right to create a deck.',
-          'You can build cards four ways: Manual entry, Scan Notes, Text to Deck, or Import from Clipboard.',
-          'Paste supports bulk import from lists using one card per line, separated by |, ;, or a tab.',
-          'If you want a quick example, start with one of the built-in decks to see how FlashQuest is structured.',
-          'Inside the editor you can reorder cards, clean up wording, and duplicate a deck later from its hub.',
+          'You can build cards in multiple ways: Manual entry, Scan Notes, Text to Deck, or Import from Clipboard.',
+          'Bulk paste works best with one card per line using separators like |, ;, or a tab between front and back.',
+          'If you want a quick example before building your own, open one of the built-in decks to see how a clean deck is structured.',
+        ],
+      },
+      {
+        id: 'editing-organizing',
+        title: 'Editing and organizing cards',
+        summary: 'Clean up wording, reorder cards, and keep decks easy to study later.',
+        content: [
+          'Open a deck in the editor when you want to revise card wording, fix mistakes, or add missing explanations.',
+          'Short, direct prompts usually study better than long paragraphs. Aim for one clear idea per card whenever possible.',
+          'You can reorder cards, duplicate content, and keep related material grouped so review feels more predictable.',
+          'If a card needs extra help, hints and explanations can make difficult material much easier to revisit later.',
         ],
       },
       {
         id: 'deck-hub',
         title: 'Understanding the deck hub',
-        summary: 'Your deck hub is the control center for progress, review, and quick actions.',
+        summary: 'The deck hub is the main control center for a single deck.',
         content: [
-          'Tap a deck name from your deck list to open its hub. This is the main home base for that deck.',
-          'The hub shows card status counts, accuracy, cards due for review, recent study activity, and your deck-level progress at a glance.',
-          'From here you can jump into Study, Quest, Practice, Drill Weak Cards, or review cards that are actually due.',
-          'The deck list still keeps a faster direct-study shortcut when you just want to start immediately.',
+          'Tap a deck from your deck list to open its hub. This is where you check progress, due cards, weak cards, and recent activity for that deck.',
+          'The hub gives you quick actions for starting study sessions, running quests, practicing, or drilling weak cards without digging through menus.',
+          'When you are not sure what to do next, the hub is usually the best place to start because it surfaces the most important actions first.',
         ],
       },
       {
@@ -72,9 +111,9 @@ const FAQ_GROUPS: readonly FAQGroup[] = [
         title: 'Sharing and importing decks',
         summary: 'Move decks between friends without rebuilding them by hand.',
         content: [
-          'To share a deck, open it in the editor and tap the share icon in the header. FlashQuest copies a shareable deck code to your clipboard.',
-          'To import, tap the + button from the deck list and choose Import from Clipboard.',
-          'Shared decks can include the full card set, including hints and explanations when those exist.',
+          'To share a deck, open it in the editor and use the share action to copy a deck code.',
+          'To import one, return to the deck list, tap +, and choose the import option that reads from your clipboard.',
+          'Shared decks can carry the full study structure, which makes collaboration and class sharing much faster.',
         ],
       },
     ],
@@ -82,110 +121,154 @@ const FAQ_GROUPS: readonly FAQGroup[] = [
   {
     id: 'study-modes',
     title: 'Study Modes',
-    subtitle: 'How each mode works and when to use it.',
+    subtitle: 'When to use each mode and what happens inside a session.',
     items: [
       {
         id: 'study-mode',
         title: 'Study mode',
-        summary: 'Best for calm review, familiarization, and confidence-based refreshers.',
+        summary: 'Best for calm review, familiarization, and lightweight repetition.',
         content: [
-          'Study mode lets you flip through cards at your own pace. Tap to reveal the answer, swipe up for the next card, swipe left for a hint, and swipe right for an explanation.',
-          'If a card is missing a hint or explanation, you can generate one with AI from the overlay action.',
-          'After review, you can optionally rate how the card felt with Easy, Okay, Hard, or Forgot. If you ignore it, FlashQuest still keeps the session moving.',
-          'Study mode is designed to feel lightweight, so it improves your review data without turning each card into a quiz ritual.',
+          'Study mode lets you move through cards at your own pace. Reveal the answer, move forward, and explore hints or explanations when you need them.',
+          'It is the best choice when you are learning fresh material, refreshing before class, or reviewing without time pressure.',
+          'After a card, you can mark how it felt with ratings like Easy, Okay, Hard, or Forgot, which helps FlashQuest understand your memory strength.',
         ],
       },
       {
         id: 'quest-mode',
         title: 'Quest mode',
-        summary: 'Fast multiple-choice runs for speed, accuracy, and XP.',
+        summary: 'Fast multiple-choice runs built for speed, accuracy, and XP.',
         content: [
-          'Quest is FlashQuest’s multiple-choice mode. Each question shows four answer cards and you tap the correct one as quickly as you can.',
-          'Learn mode is more forgiving, while Test mode is tighter and more score-focused.',
-          'You can choose round length, timer pressure, and whether to focus on weak cards.',
-          'Quest stays fast on purpose, so confidence grading is mostly inferred behind the scenes instead of interrupting every answer.',
-          'Your quest score converts into XP, and missed cards can be drilled afterward for recovery.',
+          'Quest gives you rapid multiple-choice questions with four answers on screen at once.',
+          'Use Learn mode for lower pressure and Test mode when you want a more score-focused run.',
+          'Quest is excellent when you want to warm up quickly, test recall speed, or earn XP in short bursts.',
+          'Missed cards can be drilled afterward so mistakes become targeted review instead of wasted runs.',
         ],
       },
       {
         id: 'practice-ai',
         title: 'Practice vs AI',
-        summary: 'Head-to-head pressure with a smarter review layer after each round.',
+        summary: 'Head-to-head sessions against an adaptive opponent.',
         content: [
           'Practice mode matches you against an AI opponent answering the same questions.',
-          'The AI adapts to your performance to keep the match competitive rather than flat or predictable.',
-          'After a correct answer, you can quickly mark Easy, Okay, or Hard to sharpen future review timing. Incorrect answers are treated as forgot automatically.',
-          'Wins award more XP, but even losses still contribute progress and review data.',
+          'It adds pressure without needing another real player, so it is a great middle ground between solo study and multiplayer.',
+          'Correct answers still help your review model, and faster, stronger runs usually earn better XP outcomes.',
         ],
       },
       {
         id: 'battle-arena',
         title: 'Battle Arena multiplayer',
-        summary: 'Real-time deck battles with shared questions and room codes.',
+        summary: 'Real-time deck battles with room codes, shared questions, and live pressure.',
         content: [
-          'One player creates a room and shares the room code. The other joins using that code.',
-          'The host controls the lobby setup, including deck choice, round count, and timer settings.',
-          'Both players see the same question at the same time, so speed and accuracy both matter.',
-          'Battle results can feed into leaderboard-style competition and award XP based on performance.',
+          'One player hosts a room and shares the room code. The other player joins with that code.',
+          'Both players get the same questions, so Arena rewards fast recall and accuracy rather than luck.',
+          'Arena is the right choice when you want competition, bragging rights, or a fun way to study with friends.',
+          'Strong Arena results can feed into your profile growth and the wider competitive feel of FlashQuest.',
         ],
       },
     ],
   },
   {
     id: 'progress-review',
-    title: 'Progress & Review',
-    subtitle: 'Mastery, due cards, XP, streaks, and long-term growth.',
+    title: 'Progress & Competition',
+    subtitle: 'Mastery, due cards, XP, streaks, stats, awards, and leaderboards.',
     items: [
       {
         id: 'mastery',
         title: 'Card mastery and smart review',
-        summary: 'FlashQuest tracks learning, forgetting, and review strength more intelligently now.',
+        summary: 'FlashQuest tracks learning strength, not just shallow streaks.',
         content: [
-          'FlashQuest uses a lightweight memory model for each card instead of relying on a single simple streak.',
-          'Cards can fall into five statuses: New, Learning, Reviewing, Mastered, and Lapsed.',
-          'New means you have barely engaged with the card. Learning means the memory is still unstable. Reviewing means the card is in active spaced review. Mastered means it has held up across longer intervals. Lapsed means you used to know it, but it slipped and needs recovery.',
-          'Review timing is based on memory strength and timing, not just raw streak count, so due cards and weak cards are more meaningful.',
-          'Drill Weak Cards prioritizes genuinely vulnerable cards, especially lapsed cards, hard cards, low-recall cards, and repeated misses.',
+          'Each card moves through learning states such as New, Learning, Reviewing, Mastered, and Lapsed.',
+          'Due cards are cards FlashQuest believes are ready for another review. Weak cards are the ones most likely to slip if ignored.',
+          'If you are not sure what to study, review due cards first and then use weak-card drills to patch the gaps that matter most.',
         ],
       },
       {
-        id: 'xp-levels',
-        title: 'XP and levels',
-        summary: 'Progression ties together all your study activity without getting in the way.',
+        id: 'xp-levels-awards',
+        title: 'XP, levels, and awards',
+        summary: 'Your progress turns study activity into visible growth across the app.',
         content: [
-          'Every main mode earns XP, including Study, Quest, Practice, and Battle.',
-          'XP builds toward your level, and the app uses level progression to make your stats and profile feel more rewarding over time.',
-          'You can track level progress from the profile and stats areas without needing to manage anything manually.',
+          'Study, Quest, Practice, and Arena all contribute XP, so almost every real study session moves your account forward.',
+          'XP increases your level, and your current level is shown clearly on your profile card.',
+          'Awards unlock automatically when you hit milestones for consistency, deck creation, wins, collection growth, and other achievements.',
+          'If you want a motivating overview of how far you have come, check the Awards tab on your profile.',
         ],
       },
       {
-        id: 'achievements',
-        title: 'Achievements',
-        summary: 'Extra milestones for consistency, wins, deck building, and collection growth.',
+        id: 'streaks-stats',
+        title: 'Streaks and stats',
+        summary: 'Use stats to understand consistency, not just single-session performance.',
         content: [
-          'Achievements unlock automatically when you hit built-in milestones across study, streaks, XP, questing, battles, accuracy, deck creation, and collection growth.',
-          'Each achievement awards bonus XP and appears in the Awards area on your profile.',
-          'They are designed as passive rewards, so you do not need to opt in or micromanage them.',
+          'Your streak counts active study days in a row, so even a short session can help keep momentum alive.',
+          'The Stats areas pull together level progress, mode performance, activity history, and deck-level progress.',
+          'If something feels harder than expected, stats can help you spot weak patterns like low accuracy or missed review days.',
         ],
       },
       {
-        id: 'streaks',
-        title: 'Streaks and daily activity',
-        summary: 'Consistency matters, but FlashQuest keeps it lightweight.',
+        id: 'leaderboards',
+        title: 'Leaderboards and ranking',
+        summary: 'See how you compare globally and check whether your habits are paying off.',
         content: [
-          'Your streak counts how many days in a row you have used FlashQuest with any real activity, including Study, Quest, Practice, or Battle.',
-          'Current and longest streaks appear in your profile and stats views.',
-          'Daily reminders can help protect your streak without turning the app into a nagging system.',
+          'The leaderboard screen shows global rankings with filters like all time and weekly performance.',
+          'Sign in if you want your account to appear in global ranking lists and to track your personal rank directly.',
+          'Leaderboard progress is driven by real XP and study activity, so the fastest way up is consistent studying across your main modes.',
+          'If you are not ranked yet, keep studying and refreshing the screen later to see when you break into the visible list.',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'profile-settings',
+    title: 'Profile, Settings & Support',
+    subtitle: 'Profile tabs, appearance, goals, reminders, privacy, backups, and help.',
+    items: [
+      {
+        id: 'profile-tabs',
+        title: 'Profile overview, avatar, and awards',
+        summary: 'Your profile is the main home for identity, milestones, and quick utilities.',
+        content: [
+          'Overview holds quick entry points like Leaderboard, Settings, FAQ, and Support.',
+          'Avatar lets you customize your profile look so your account feels personal and recognizable.',
+          'Awards shows milestone progress and completed achievement badges in one organized place.',
         ],
       },
       {
-        id: 'stats',
-        title: 'Stats and progress tracking',
-        summary: 'A cleaner big-picture view of how you are improving across decks and modes.',
+        id: 'appearance-goals',
+        title: 'Dark mode and study goals',
+        summary: 'Tune the app to your routine without overcomplicating things.',
         content: [
-          'The Stats screen brings together your level progress, study history, activity calendar, mode performance, and deck-level progress in one place.',
-          'Mastery counts and due-for-review sections are powered by the smarter card memory system, so they are meant to reflect real learning state rather than shallow streak math.',
-          'Most deck data, progress, and settings stay on your device. Some features, including AI tools, multiplayer, and optional analytics, use remote services when you choose to use them.',
+          'Open Settings when you want to toggle dark mode for a lower-glare study experience.',
+          'Your daily study goal also lives in Settings, where you can set a realistic target for how many cards you want to review each day.',
+          'If you are building a habit, pick a goal you can hit consistently before raising it.',
+        ],
+      },
+      {
+        id: 'feedback-controls',
+        title: 'Reminders, sound, and haptics',
+        summary: 'Control how much feedback FlashQuest gives you during daily use.',
+        content: [
+          'Settings includes streak reminders if you want a daily nudge to keep your study habit alive.',
+          'You can also turn sound effects and haptic feedback on or off depending on how quiet or tactile you want sessions to feel.',
+          'These controls are optional, so the app can stay simple if you prefer a cleaner experience.',
+        ],
+      },
+      {
+        id: 'privacy-backup',
+        title: 'Privacy, backup, and restore',
+        summary: 'Know what stays local, what syncs, and how to protect your data.',
+        content: [
+          'Privacy & Data is where you review policies and control privacy-related settings.',
+          'Backup tools in Settings let you export your decks, progress, and stats, then restore them later if needed.',
+          'Restore will replace current local data with the backup file, so it is best used carefully when moving devices or recovering progress.',
+        ],
+      },
+      {
+        id: 'faq-support',
+        title: 'FAQ and support',
+        summary: 'Use the right help channel depending on whether you need guidance or direct assistance.',
+        content: [
+          'Use Help Center when you want to learn how a feature works, compare modes, or understand what a screen is for.',
+          'Use Support when something seems broken, you cannot access something important, or you need direct account or deck help.',
+          `Support contact currently routes to ${PRIVACY_LINKS.supportEmail}.`,
         ],
       },
     ],
@@ -223,6 +306,12 @@ export default function FAQScreen() {
       gradient: ['rgba(167,139,250,0.18)', 'rgba(139,92,246,0.04)'],
       icon: <Trophy color="#A78BFA" size={20} strokeWidth={2.2} />,
     },
+    'profile-settings': {
+      accent: '#34D399',
+      softAccent: 'rgba(52,211,153,0.14)',
+      gradient: ['rgba(52,211,153,0.18)', 'rgba(16,185,129,0.04)'],
+      icon: <UserRound color="#34D399" size={20} strokeWidth={2.2} />,
+    },
   }), []);
 
   const cardBg = isDark ? 'rgba(15,23,42,0.76)' : 'rgba(255,255,255,0.94)';
@@ -245,6 +334,11 @@ export default function FAQScreen() {
     logger.log('[FAQ] Toggling item:', itemId, 'expanded:', nextItemId === itemId);
     setExpandedItemId(nextItemId);
   }, [animateLayout, expandedItemId]);
+
+  const handleOpenSettings = useCallback(() => {
+    logger.log('[FAQ] Opening settings from help center');
+    router.push(SETTINGS_ROUTE);
+  }, [router]);
 
   return (
     <View style={styles.container}>
@@ -283,143 +377,196 @@ export default function FAQScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <ResponsiveContainer>
             <LinearGradient
-            colors={isDark ? ['rgba(15,23,42,0.56)', 'rgba(15,23,42,0.82)'] : ['rgba(67,56,202,0.34)', 'rgba(79,70,229,0.44)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.heroCard, { borderColor: heroBorder }]}
-          >
-            <View style={styles.heroBadge}>
-              <Sparkles color="#FFFFFF" size={15} strokeWidth={2.4} />
-              <Text style={styles.heroBadgeText}>FlashQuest Guide</Text>
+              colors={isDark ? ['rgba(15,23,42,0.56)', 'rgba(15,23,42,0.82)'] : ['rgba(67,56,202,0.34)', 'rgba(79,70,229,0.44)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.heroCard, { borderColor: heroBorder }]}
+            >
+              <View style={styles.heroBadge}>
+                <Sparkles color="#FFFFFF" size={15} strokeWidth={2.4} />
+                <Text style={styles.heroBadgeText}>FlashQuest Guide</Text>
+              </View>
+              <Text style={styles.heroTitle}>How FlashQuest works</Text>
+              <Text style={styles.heroSubtitle}>
+                Start here if you are new, confused, or just want a full refresher. This guide covers decks, study modes,
+                review, profile tools, settings, leaderboards, and where to go when you need help.
+              </Text>
+            </LinearGradient>
+
+            <View style={[styles.quickStartCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+              <View style={styles.quickStartHeader}>
+                <Text style={[styles.quickStartTitle, { color: theme.text }]}>New here? Start with these 4 steps</Text>
+                <Text style={[styles.quickStartSubtitle, { color: theme.textSecondary }]}>A simple path that works well for most beginners.</Text>
+              </View>
+              <View style={styles.quickStartList}>
+                {QUICK_START_STEPS.map((step, index) => (
+                  <View key={step.id} style={[styles.quickStartRow, { borderColor: nestedCardBorder, backgroundColor: nestedCardBg }]}>
+                    <View style={[styles.quickStartIndexWrap, { backgroundColor: index === 0 ? 'rgba(96,165,250,0.14)' : index === 1 ? 'rgba(129,140,248,0.14)' : index === 2 ? 'rgba(167,139,250,0.14)' : 'rgba(52,211,153,0.14)' }]}>
+                      <Text
+                        style={[
+                          styles.quickStartIndexText,
+                          { color: index === 0 ? '#60A5FA' : index === 1 ? '#818CF8' : index === 2 ? '#A78BFA' : '#34D399' },
+                        ]}
+                      >
+                        {index + 1}
+                      </Text>
+                    </View>
+                    <View style={styles.quickStartCopy}>
+                      <Text style={[styles.quickStartStepTitle, { color: theme.text }]}>{step.title}</Text>
+                      <Text style={[styles.quickStartStepDescription, { color: theme.textSecondary }]}>{step.description}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
             </View>
-            <Text style={styles.heroTitle}>Help Center</Text>
-            <Text style={styles.heroSubtitle}>
-              Browse the main sections to understand decks, study modes, mastery, and progress. Privacy controls and legal documents live in Privacy & Data.
-            </Text>
-          </LinearGradient>
 
-          <View style={styles.groupList}>
-            {FAQ_GROUPS.map((group) => {
-              const visuals = groupVisuals[group.id];
-              const isGroupExpanded = expandedGroupId === group.id;
-              return (
-                <View
-                  key={group.id}
-                  style={[
-                    styles.groupCard,
-                    {
-                      backgroundColor: cardBg,
-                      borderColor: isGroupExpanded ? visuals.accent : cardBorder,
-                    },
-                  ]}
-                >
-                  <LinearGradient
-                    colors={visuals.gradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.groupAccentBar}
-                  />
-                  <TouchableOpacity
-                    style={styles.groupHeader}
-                    onPress={() => toggleGroup(group)}
-                    activeOpacity={0.82}
-                    testID={`faq-group-${group.id}`}
+            <View style={styles.groupList}>
+              {FAQ_GROUPS.map((group) => {
+                const visuals = groupVisuals[group.id];
+                const isGroupExpanded = expandedGroupId === group.id;
+                return (
+                  <View
+                    key={group.id}
+                    style={[
+                      styles.groupCard,
+                      {
+                        backgroundColor: cardBg,
+                        borderColor: isGroupExpanded ? visuals.accent : cardBorder,
+                      },
+                    ]}
                   >
-                    <View style={[styles.groupIconWrap, { backgroundColor: visuals.softAccent }]}>
-                      {visuals.icon}
-                    </View>
-                    <View style={styles.groupTextWrap}>
-                      <Text style={[styles.groupTitle, { color: theme.text }]}>{group.title}</Text>
-                      <Text style={[styles.groupSubtitle, { color: theme.textSecondary }]}>{group.subtitle}</Text>
-                    </View>
-                    <View style={styles.groupMeta}>
-                      <View style={[styles.countPill, { backgroundColor: visuals.softAccent }]}>
-                        <Text style={[styles.countPillText, { color: visuals.accent }]}>{group.items.length} topics</Text>
+                    <LinearGradient
+                      colors={visuals.gradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.groupAccentBar}
+                    />
+                    <TouchableOpacity
+                      style={styles.groupHeader}
+                      onPress={() => toggleGroup(group)}
+                      activeOpacity={0.82}
+                      testID={`faq-group-${group.id}`}
+                    >
+                      <View style={[styles.groupIconWrap, { backgroundColor: visuals.softAccent }]}>
+                        {visuals.icon}
                       </View>
-                      {isGroupExpanded ? (
-                        <ChevronUp color={visuals.accent} size={18} strokeWidth={2.4} />
-                      ) : (
-                        <ChevronDown color={theme.textSecondary} size={18} strokeWidth={2.4} />
-                      )}
-                    </View>
-                  </TouchableOpacity>
+                      <View style={styles.groupTextWrap}>
+                        <Text style={[styles.groupTitle, { color: theme.text }]}>{group.title}</Text>
+                        <Text style={[styles.groupSubtitle, { color: theme.textSecondary }]}>{group.subtitle}</Text>
+                      </View>
+                      <View style={styles.groupMeta}>
+                        <View style={[styles.countPill, { backgroundColor: visuals.softAccent }]}>
+                          <Text style={[styles.countPillText, { color: visuals.accent }]}>{group.items.length} topics</Text>
+                        </View>
+                        {isGroupExpanded ? (
+                          <ChevronUp color={visuals.accent} size={18} strokeWidth={2.4} />
+                        ) : (
+                          <ChevronDown color={theme.textSecondary} size={18} strokeWidth={2.4} />
+                        )}
+                      </View>
+                    </TouchableOpacity>
 
-                  {isGroupExpanded ? (
-                    <View style={styles.itemList}>
-                      {group.items.map((item, index) => {
-                        const isItemExpanded = expandedItemId === item.id;
-                        return (
-                          <View
-                            key={item.id}
-                            style={[
-                              styles.itemCard,
-                              {
-                                backgroundColor: nestedCardBg,
-                                borderColor: isItemExpanded ? visuals.accent : nestedCardBorder,
-                              },
-                            ]}
-                          >
-                            <TouchableOpacity
-                              style={styles.itemHeader}
-                              onPress={() => toggleItem(item.id)}
-                              activeOpacity={0.82}
-                              testID={`faq-item-${item.id}`}
+                    {isGroupExpanded ? (
+                      <View style={styles.itemList}>
+                        {group.items.map((item, index) => {
+                          const isItemExpanded = expandedItemId === item.id;
+                          return (
+                            <View
+                              key={item.id}
+                              style={[
+                                styles.itemCard,
+                                {
+                                  backgroundColor: nestedCardBg,
+                                  borderColor: isItemExpanded ? visuals.accent : nestedCardBorder,
+                                },
+                              ]}
                             >
-                              <View style={[styles.itemIndexWrap, { backgroundColor: visuals.softAccent }]}> 
-                                <Text style={[styles.itemIndexText, { color: visuals.accent }]}>{String(index + 1).padStart(2, '0')}</Text>
-                              </View>
-                              <View style={styles.itemTextWrap}>
-                                <Text style={[styles.itemTitle, { color: theme.text }]}>{item.title}</Text>
-                                <Text style={[styles.itemSummary, { color: theme.textSecondary }]}>{item.summary}</Text>
-                              </View>
+                              <TouchableOpacity
+                                style={styles.itemHeader}
+                                onPress={() => toggleItem(item.id)}
+                                activeOpacity={0.82}
+                                testID={`faq-item-${item.id}`}
+                              >
+                                <View style={[styles.itemIndexWrap, { backgroundColor: visuals.softAccent }]}>
+                                  <Text style={[styles.itemIndexText, { color: visuals.accent }]}>{String(index + 1).padStart(2, '0')}</Text>
+                                </View>
+                                <View style={styles.itemTextWrap}>
+                                  <Text style={[styles.itemTitle, { color: theme.text }]}>{item.title}</Text>
+                                  <Text style={[styles.itemSummary, { color: theme.textSecondary }]}>{item.summary}</Text>
+                                </View>
+                                {isItemExpanded ? (
+                                  <ChevronUp color={visuals.accent} size={18} strokeWidth={2.4} />
+                                ) : (
+                                  <ChevronDown color={theme.textSecondary} size={18} strokeWidth={2.4} />
+                                )}
+                              </TouchableOpacity>
+
                               {isItemExpanded ? (
-                                <ChevronUp color={visuals.accent} size={18} strokeWidth={2.4} />
-                              ) : (
-                                <ChevronDown color={theme.textSecondary} size={18} strokeWidth={2.4} />
-                              )}
-                            </TouchableOpacity>
+                                <View style={styles.itemBody}>
+                                  {item.content.map((line, lineIndex) => {
+                                    const isBullet = line.startsWith('• ');
+                                    const contentText = isBullet ? line.slice(2) : line;
+                                    return (
+                                      <View key={`${item.id}-${lineIndex}`} style={styles.bodyRow}>
+                                        {isBullet ? <View style={[styles.bodyBullet, { backgroundColor: visuals.accent }]} /> : null}
+                                        <Text style={[styles.bodyText, { color: theme.textSecondary }]}>{contentText}</Text>
+                                      </View>
+                                    );
+                                  })}
+                                </View>
+                              ) : null}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
 
-                            {isItemExpanded ? (
-                              <View style={styles.itemBody}>
-                                {item.content.map((line, lineIndex) => {
-                                  const isBullet = line.startsWith('• ');
-                                  const contentText = isBullet ? line.slice(2) : line;
-                                  return (
-                                    <View key={`${item.id}-${lineIndex}`} style={styles.bodyRow}>
-                                      {isBullet ? <View style={[styles.bodyBullet, { backgroundColor: visuals.accent }]} /> : null}
-                                      <Text style={[styles.bodyText, { color: theme.textSecondary }]}>{contentText}</Text>
-                                    </View>
-                                  );
-                                })}
-                              </View>
-                            ) : null}
-                          </View>
-                        );
-                      })}
-                    </View>
-                  ) : null}
-                </View>
-              );
-            })}
-          </View>
+            <View style={[styles.supportCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+              <Text style={[styles.supportTitle, { color: theme.text }]}>Still need help?</Text>
+              <Text style={[styles.supportBody, { color: theme.textSecondary }]}>
+                Use Settings for appearance, goals, reminders, privacy, and backups. Use support when you need direct help with your account,
+                decks, or something that is not behaving correctly.
+              </Text>
 
-          <View style={[styles.supportCard, { backgroundColor: cardBg, borderColor: cardBorder }]}> 
-            <Text style={[styles.supportTitle, { color: theme.text }]}>Still need help?</Text>
-            <Text style={[styles.supportBody, { color: theme.textSecondary }]}>Use support for account, deck, or app questions. Privacy controls and legal documents are kept in Privacy & Data.</Text>
+              <View style={styles.supportRows}>
+                <TouchableOpacity
+                  style={[styles.supportRow, { borderColor: nestedCardBorder, backgroundColor: nestedCardBg }]}
+                  onPress={handleOpenSettings}
+                  activeOpacity={0.82}
+                  testID="faq-open-settings"
+                >
+                  <View style={[styles.supportIconWrap, { backgroundColor: isDark ? 'rgba(52,211,153,0.16)' : 'rgba(52,211,153,0.1)' }]}>
+                    <Settings color="#34D399" size={18} strokeWidth={2.2} />
+                  </View>
+                  <View style={styles.supportCopy}>
+                    <Text style={[styles.supportRowTitle, { color: theme.text }]}>Open settings</Text>
+                    <Text style={[styles.supportRowSubtitle, { color: theme.textSecondary }]}>Appearance, study goals, reminders, privacy, and backup tools.</Text>
+                  </View>
+                </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.supportRow, { borderColor: nestedCardBorder, backgroundColor: nestedCardBg }]} onPress={() => void openSupportContact()} activeOpacity={0.82} testID="faq-open-support-contact">
-              <View style={[styles.supportIconWrap, { backgroundColor: isDark ? 'rgba(59,130,246,0.16)' : 'rgba(59,130,246,0.1)' }]}>
-                <Mail color="#3B82F6" size={18} strokeWidth={2.2} />
+                <TouchableOpacity
+                  style={[styles.supportRow, { borderColor: nestedCardBorder, backgroundColor: nestedCardBg }]}
+                  onPress={() => void openSupportContact()}
+                  activeOpacity={0.82}
+                  testID="faq-open-support-contact"
+                >
+                  <View style={[styles.supportIconWrap, { backgroundColor: isDark ? 'rgba(59,130,246,0.16)' : 'rgba(59,130,246,0.1)' }]}>
+                    <Mail color="#3B82F6" size={18} strokeWidth={2.2} />
+                  </View>
+                  <View style={styles.supportCopy}>
+                    <Text style={[styles.supportRowTitle, { color: theme.text }]}>Contact support</Text>
+                    <Text style={[styles.supportRowSubtitle, { color: theme.textSecondary }]}>{`Support: ${PRIVACY_LINKS.supportEmail}`}</Text>
+                  </View>
+                </TouchableOpacity>
               </View>
-              <View style={styles.supportCopy}>
-                <Text style={[styles.supportRowTitle, { color: theme.text }]}>Contact support</Text>
-                <Text style={[styles.supportRowSubtitle, { color: theme.textSecondary }]}>{`Support: ${PRIVACY_LINKS.supportEmail}`}</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+            </View>
 
             <View style={styles.footer}>
-              <Text style={[styles.footerText, { color: isDark ? 'rgba(226,232,240,0.72)' : 'rgba(255,255,255,0.86)' }]}>FlashQuest guide</Text>
+              <Text style={[styles.footerText, { color: isDark ? 'rgba(226,232,240,0.72)' : 'rgba(255,255,255,0.86)' }]}>FlashQuest help guide</Text>
             </View>
           </ResponsiveContainer>
         </ScrollView>
@@ -496,6 +643,61 @@ const styles = StyleSheet.create({
     color: 'rgba(241,245,249,0.92)',
     fontSize: 14,
     lineHeight: 21,
+    fontWeight: '500' as const,
+  },
+  quickStartCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 16,
+    gap: 14,
+  },
+  quickStartHeader: {
+    gap: 4,
+  },
+  quickStartTitle: {
+    fontSize: 18,
+    fontWeight: '800' as const,
+    letterSpacing: -0.3,
+  },
+  quickStartSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500' as const,
+  },
+  quickStartList: {
+    gap: 10,
+  },
+  quickStartRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  quickStartIndexWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickStartIndexText: {
+    fontSize: 13,
+    fontWeight: '800' as const,
+  },
+  quickStartCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  quickStartStepTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  quickStartStepDescription: {
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '500' as const,
   },
   groupList: {
@@ -627,6 +829,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '500' as const,
+  },
+  supportRows: {
+    gap: 10,
   },
   supportRow: {
     flexDirection: 'row',
