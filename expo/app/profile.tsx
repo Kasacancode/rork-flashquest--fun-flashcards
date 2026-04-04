@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, UserRound } from 'lucide-react-native';
+import { ArrowLeft, Moon, Sun, UserRound } from 'lucide-react-native';
 import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ResponsiveContainer from '@/components/ResponsiveContainer';
@@ -181,6 +181,29 @@ export default function ProfilePage() {
                 theme={theme}
               />
 
+              <View style={styles.toggleCard} testID="profile-dark-mode-row">
+                <View style={styles.toggleLeadingIcon}>
+                  {isDark ? <Moon color={theme.primary} size={20} strokeWidth={2.3} /> : <Sun color={theme.primary} size={20} strokeWidth={2.3} />}
+                </View>
+                <View style={styles.toggleTextWrap}>
+                  <Text style={styles.toggleTitle}>Dark mode</Text>
+                  <Text style={styles.toggleSubtitle}>{isDark ? 'Dark theme active' : 'Light theme active'}</Text>
+                </View>
+                <View style={styles.toggleRight}>
+                  <Switch
+                    value={isDark}
+                    onValueChange={toggleTheme}
+                    style={styles.themeSwitch}
+                    trackColor={{ false: isDark ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1', true: theme.primary }}
+                    thumbColor="#fff"
+                    ios_backgroundColor={isDark ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1'}
+                    accessibilityLabel="Dark mode"
+                    accessibilityRole="switch"
+                    testID="profile-dark-mode-switch"
+                  />
+                </View>
+              </View>
+
               <ProfileTabBar
                 activeTab={activeTab}
                 onSelectTab={handleSelectTab}
@@ -191,12 +214,10 @@ export default function ProfilePage() {
 
               {activeTab === 'overview' && (
                 <OverviewTab
-                  isDark={isDark}
                   onOpenSettings={handleOpenSettings}
                   onOpenLeaderboard={handleOpenLeaderboard}
                   styles={styles}
                   theme={theme}
-                  toggleTheme={toggleTheme}
                 />
               )}
 

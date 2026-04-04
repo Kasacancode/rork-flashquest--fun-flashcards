@@ -1,6 +1,6 @@
-import { ChevronRight, Crown, Moon, Settings, Sun } from 'lucide-react-native';
+import { ChevronRight, Crown, Settings } from 'lucide-react-native';
 import React from 'react';
-import { Switch, Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import { Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
 import type { Theme } from '@/constants/colors';
 
@@ -8,7 +8,6 @@ type ViewStyles<K extends string> = { [P in K]: StyleProp<ViewStyle> };
 type TextStyles<K extends string> = { [P in K]: StyleProp<TextStyle> };
 
 interface OverviewTabProps {
-  isDark: boolean;
   onOpenSettings: () => void;
   onOpenLeaderboard: () => void;
   styles: ViewStyles<
@@ -16,9 +15,7 @@ interface OverviewTabProps {
     | 'toggleCard'
     | 'toggleLeadingIcon'
     | 'toggleTextWrap'
-    | 'toggleRight'
     | 'toggleChevronWrap'
-    | 'themeSwitch'
     | 'leaderboardButton'
     | 'leaderboardIconWrap'
     | 'leaderboardTextWrap'
@@ -31,16 +28,13 @@ interface OverviewTabProps {
       | 'leaderboardSubtitle'
     >;
   theme: Theme;
-  toggleTheme: () => void;
 }
 
 export default function OverviewTab({
-  isDark,
   onOpenSettings,
   onOpenLeaderboard,
   styles,
   theme,
-  toggleTheme,
 }: OverviewTabProps) {
   return (
     <View style={styles.tabContent}>
@@ -79,28 +73,6 @@ export default function OverviewTab({
         </View>
       </TouchableOpacity>
 
-      <View style={styles.toggleCard} testID="profile-dark-mode-row">
-        <View style={styles.toggleLeadingIcon}>
-          {isDark ? <Moon color={theme.primary} size={20} strokeWidth={2.3} /> : <Sun color={theme.primary} size={20} strokeWidth={2.3} />}
-        </View>
-        <View style={styles.toggleTextWrap}>
-          <Text style={styles.toggleTitle}>Dark mode</Text>
-          <Text style={styles.toggleSubtitle}>{isDark ? 'Dark theme active' : 'Light theme active'}</Text>
-        </View>
-        <View style={styles.toggleRight}>
-          <Switch
-            value={isDark}
-            onValueChange={toggleTheme}
-            style={styles.themeSwitch}
-            trackColor={{ false: isDark ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1', true: theme.primary }}
-            thumbColor="#fff"
-            ios_backgroundColor={isDark ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1'}
-            accessibilityLabel="Dark mode"
-            accessibilityRole="switch"
-            testID="profile-dark-mode-switch"
-          />
-        </View>
-      </View>
     </View>
   );
 }
