@@ -9,7 +9,6 @@ import {
   Bell,
   BellOff,
   BookOpen,
-  Check,
   ChevronRight,
   Cloud,
   Download,
@@ -224,12 +223,8 @@ export default function SettingsScreen() {
     setAnalyticsConsent(value ? 'granted' : 'declined');
   }, [setAnalyticsConsent]);
 
-  const handleSetLightTheme = useCallback(() => {
-    setTheme('light');
-  }, [setTheme]);
-
-  const handleSetDarkTheme = useCallback(() => {
-    setTheme('dark');
+  const handleToggleDarkMode = useCallback((value: boolean) => {
+    setTheme(value ? 'dark' : 'light');
   }, [setTheme]);
 
   const handleSignOut = useCallback(() => {
@@ -447,23 +442,24 @@ export default function SettingsScreen() {
             <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Appearance</Text>
             <View style={[styles.card, { backgroundColor: surfaceBg }]}> 
               <SettingsRow
-                icon={<Sun color={isDark ? theme.textTertiary : theme.primary} size={20} strokeWidth={2.2} />}
-                label="Light mode"
-                subtitle="Bright interface for daytime study"
-                right={!isDark ? <Check color={theme.primary} size={18} strokeWidth={2.6} /> : undefined}
-                onPress={handleSetLightTheme}
-                theme={theme}
-                testID="settings-theme-light-row"
-              />
-              <Divider color={theme.border} />
-              <SettingsRow
-                icon={<Moon color={isDark ? theme.primary : theme.textTertiary} size={20} strokeWidth={2.2} />}
+                icon={isDark
+                  ? <Moon color={theme.primary} size={20} strokeWidth={2.2} />
+                  : <Sun color={theme.primary} size={20} strokeWidth={2.2} />}
                 label="Dark mode"
-                subtitle="Dimmer look for late-night sessions"
-                right={isDark ? <Check color={theme.primary} size={18} strokeWidth={2.6} /> : undefined}
-                onPress={handleSetDarkTheme}
+                subtitle={isDark ? 'On for a lower-glare study view' : 'Off for a brighter study view'}
+                right={
+                  <Switch
+                    value={isDark}
+                    onValueChange={handleToggleDarkMode}
+                    trackColor={{ false: theme.border, true: theme.primary }}
+                    thumbColor="#fff"
+                    accessibilityLabel="Dark mode"
+                    accessibilityRole="switch"
+                    testID="settings-theme-switch"
+                  />
+                }
                 theme={theme}
-                testID="settings-theme-dark-row"
+                testID="settings-theme-row"
               />
             </View>
 
