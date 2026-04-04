@@ -8,6 +8,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Modal,
   Animated,
   RefreshControl,
   PanResponder,
@@ -78,6 +79,7 @@ export default function HomePage() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [statsPage, setStatsPage] = useState<number>(0);
   const [userInterests, setUserInterests] = useState<string[]>([]);
+  const [showReviewSheet, setShowReviewSheet] = useState<boolean>(false);
   const hasCustomDecks = useMemo<boolean>(() => decks.some((deck) => deck.isCustom), [decks]);
   const availableContentWidth = contentMaxWidth ?? screenWidth;
   const isCompactHomeLayout = availableContentWidth < 390;
@@ -339,7 +341,7 @@ export default function HomePage() {
         key: `review-${topReviewDeck.deckId}`,
         title: `Review ${topReviewDeck.reviewCount} due`,
         subtitle: `${topReviewDeck.name} is ready right now.`,
-        route: studyHref(topReviewDeck.deckId),
+        route: studyHref(topReviewDeck.deckId, 'due'),
         colors: smartActionGradients.review,
         kind: 'review',
         accessibilityLabel: `Review ${topReviewDeck.reviewCount} due cards in ${topReviewDeck.name}`,
@@ -788,7 +790,7 @@ export default function HomePage() {
                     <View style={[styles.reviewPage, { width: statsCardInnerWidth }]}>
                       <TouchableOpacity
                         style={styles.reviewPageSummaryButton}
-                        onPress={() => router.push(studyHref(reviewSummary!.deckSummaries[0].deckId))}
+                        onPress={() => setShowReviewSheet(true)}
                         activeOpacity={0.85}
                         accessibilityLabel={`${reviewSummary!.totalReviewCount} cards ready for review across ${reviewSummary!.deckSummaries.length} decks`}
                         accessibilityRole="button"
@@ -814,7 +816,7 @@ export default function HomePage() {
                             key={entry.deckId}
                             style={[styles.reviewChip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}
                             onPress={() => {
-                              router.push(studyHref(entry.deckId));
+                              router.push(studyHref(entry.deckId, 'due'));
                             }}
                             activeOpacity={0.75}
                             accessibilityLabel={`${entry.name}: ${entry.reviewCount} cards due for review`}
@@ -993,6 +995,95 @@ export default function HomePage() {
           )}
           </ResponsiveContainer>
         </ScrollView>
+
+        <Modal
+          visible={showReviewSheet && reviewSummary !== null}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowReviewSheet(false)}
+          testID="review-hub-sheet"
+        >
+          <TouchableOpacity
+            style={styles.reviewSheetBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowReviewSheet(false)}
+          >
+            <View style={styles.reviewSheetAvoidDismiss} onStartShouldSetResponder={() => true}>
+              <View style={[styles.reviewSheet, { backgroundColor: isDark ? '#0F172A' : '#FFFFFF' }]}>
+                <View style={styles.reviewSheetHandle}>
+                  <View
+                    style={[
+                      styles.reviewSheetHandleBar,
+                      { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)' },
+                    ]}
+                  />
+                </View>
+
+                <Text style={[styles.reviewSheetTitle, { color: theme.text }]}>Due for Review</Text>
+                <Text style={[styles.reviewSheetSubtitle, { color: theme.textSecondary }]}> 
+                  {reviewSummary?.totalReviewCount ?? 0} cards across {reviewSummary?.deckSummaries.length ?? 0} decks
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.reviewAllButton}
+                  onPress={() => {
+                    setShowReviewSheet(false);
+                    if (reviewSummary && reviewSummary.deckSummaries.length > 0) {
+                      router.push(studyHref(reviewSummary.deckSummaries[0].deckId, 'due'));
+                    }
+                  }}
+                  activeOpacity={0.85}
+                  testID="review-all-button"
+                >
+                  <RotateCcw color="#FFFFFF" size={18} strokeWidth={2.5} />
+                  <Text style={styles.reviewAllButtonText}>Start Reviewing</Text>
+                </TouchableOpacity>
+
+                <ScrollView
+                  style={styles.reviewSheetList}
+                  showsVerticalScrollIndicator={false}
+                  bounces={false}
+                >
+                  {(reviewSummary?.deckSummaries ?? []).map((entry, index) => (
+                    <TouchableOpacity
+                      key={entry.deckId}
+                      style={[
+                        styles.reviewSheetRow,
+                        index < (reviewSummary?.deckSummaries.length ?? 0) - 1
+                          ? [
+                              styles.reviewSheetRowBorder,
+                              { borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' },
+                            ]
+                          : null,
+                      ]}
+                      onPress={() => {
+                        setShowReviewSheet(false);
+                        router.push(studyHref(entry.deckId, 'due'));
+                      }}
+                      activeOpacity={0.8}
+                      testID={`review-sheet-deck-${entry.deckId}`}
+                    >
+                      <View style={[styles.reviewSheetDot, { backgroundColor: entry.color }]} />
+                      <Text style={[styles.reviewSheetDeckName, { color: theme.text }]} numberOfLines={1}>
+                        {entry.name}
+                      </Text>
+                      <View
+                        style={[
+                          styles.reviewSheetCountBadge,
+                          { backgroundColor: isDark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.1)' },
+                        ]}
+                      >
+                        <Text style={[styles.reviewSheetCountText, { color: isDark ? '#818CF8' : '#6366F1' }]}> 
+                          {entry.reviewCount}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </SafeAreaView>
     </View>
   );
@@ -1036,6 +1127,22 @@ const styles = StyleSheet.create<{
   reviewChipDot: ViewStyle;
   reviewChipName: TextStyle;
   reviewChipCount: TextStyle;
+  reviewSheetBackdrop: ViewStyle;
+  reviewSheetAvoidDismiss: ViewStyle;
+  reviewSheet: ViewStyle;
+  reviewSheetHandle: ViewStyle;
+  reviewSheetHandleBar: ViewStyle;
+  reviewSheetTitle: TextStyle;
+  reviewSheetSubtitle: TextStyle;
+  reviewAllButton: ViewStyle;
+  reviewAllButtonText: TextStyle;
+  reviewSheetList: ViewStyle;
+  reviewSheetRow: ViewStyle;
+  reviewSheetRowBorder: ViewStyle;
+  reviewSheetDot: ViewStyle;
+  reviewSheetDeckName: TextStyle;
+  reviewSheetCountBadge: ViewStyle;
+  reviewSheetCountText: TextStyle;
   actionsGrid: ViewStyle;
   actionCard: ViewStyle;
   actionCardMedium: ViewStyle;
@@ -1306,6 +1413,86 @@ const styles = StyleSheet.create<{
   reviewChipCount: {
     fontSize: 11,
     fontWeight: '700' as const,
+  },
+  reviewSheetBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  reviewSheetAvoidDismiss: {
+    maxHeight: '70%',
+  },
+  reviewSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 40,
+  },
+  reviewSheetHandle: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  reviewSheetHandleBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+  },
+  reviewSheetTitle: {
+    fontSize: 22,
+    fontWeight: '800' as const,
+    marginBottom: 4,
+  },
+  reviewSheetSubtitle: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    marginBottom: 20,
+  },
+  reviewAllButton: {
+    backgroundColor: '#6366F1',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    height: 52,
+    borderRadius: 16,
+    marginBottom: 20,
+  },
+  reviewAllButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800' as const,
+  },
+  reviewSheetList: {
+    maxHeight: 300,
+  },
+  reviewSheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 12,
+  },
+  reviewSheetRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  reviewSheetDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  reviewSheetDeckName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  reviewSheetCountBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  reviewSheetCountText: {
+    fontSize: 14,
+    fontWeight: '800' as const,
   },
   actionsGrid: {
     paddingHorizontal: 24,

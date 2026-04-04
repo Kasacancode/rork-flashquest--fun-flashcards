@@ -43,8 +43,12 @@ export function createFlashcardHref(deckId?: string): Href {
     : CREATE_FLASHCARD_ROUTE;
 }
 
-export function studyHref(deckId: string): Href {
-  return { pathname: STUDY_ROUTE, params: { deckId } };
+export function studyHref(deckId: string, mode?: string): Href {
+  const params: Record<string, string> = { deckId };
+  if (mode) {
+    params.initialMode = mode;
+  }
+  return { pathname: STUDY_ROUTE, params } as Href;
 }
 
 export function deckHubHref(deckId: string): Href {

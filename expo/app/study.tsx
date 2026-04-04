@@ -134,10 +134,12 @@ function getDeckStudySummary(
 
 export default function StudyPage() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ deckId?: string }>();
+  const params = useLocalSearchParams<{ deckId?: string; initialMode?: string }>();
   const { decks, stats, updateFlashcard, recordSessionResult } = useFlashQuest();
   const { performance } = usePerformance();
   const { theme, isDark } = useTheme();
+  const validModes: StudyMode[] = ['all', 'due', 'quick-5', 'quick-10', 'quick-15', 'weak'];
+  const initialMode = validModes.includes(params.initialMode as StudyMode) ? (params.initialMode as StudyMode) : null;
 
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(!params.deckId);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(params.deckId || null);
@@ -145,7 +147,7 @@ export default function StudyPage() {
   const [showResults, setShowResults] = useState<boolean>(false);
   const [sessionXp, setSessionXp] = useState<number>(0);
   const [reversed, setReversed] = useState<boolean>(false);
-  const [studyMode, setStudyMode] = useState<StudyMode | null>(null);
+  const [studyMode, setStudyMode] = useState<StudyMode | null>(initialMode);
   const trackedStudyDeckIdRef = useRef<string | null>(null);
   const sessionStartRef = useRef<number>(Date.now());
   const sessionResolvedRef = useRef<number>(0);
