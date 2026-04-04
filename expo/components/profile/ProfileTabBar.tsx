@@ -46,8 +46,8 @@ function ProfileTabBarComponent({ activeTab, onSelectTab, tabActiveGradient, sty
             ) : null}
             <View style={styles.tabContentWrap}>
               <Icon
-                color={isActive ? theme.profileTabActiveText : theme.profileTabIconInactive}
-                size={15}
+                color={isActive ? theme.profileTabActiveText : theme.textSecondary}
+                size={17}
                 strokeWidth={2.3}
               />
               <Text style={[styles.tabText, isActive ? styles.tabTextActive : null]} numberOfLines={1}>

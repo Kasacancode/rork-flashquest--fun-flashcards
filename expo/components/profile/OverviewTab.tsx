@@ -17,6 +17,8 @@ interface OverviewTabProps {
     | 'toggleLeadingIcon'
     | 'toggleTextWrap'
     | 'toggleRight'
+    | 'toggleChevronWrap'
+    | 'themeSwitch'
     | 'leaderboardButton'
     | 'leaderboardIconWrap'
     | 'leaderboardTextWrap'
@@ -66,20 +68,20 @@ export default function OverviewTab({
 
       <TouchableOpacity style={styles.toggleCard} onPress={onOpenSettings} activeOpacity={0.7} testID="profile-open-settings">
         <View style={styles.toggleLeadingIcon}>
-          <Settings color={theme.primary} size={17} strokeWidth={2.3} />
+          <Settings color={theme.primary} size={20} strokeWidth={2.3} />
         </View>
         <View style={styles.toggleTextWrap}>
           <Text style={styles.toggleTitle}>Settings</Text>
-          <Text style={styles.toggleSubtitle}>Goals, reminders, privacy, and more.</Text>
+          <Text style={styles.toggleSubtitle} numberOfLines={2}>Goals, reminders, privacy, and more.</Text>
         </View>
-        <View style={styles.toggleRight}>
-          <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
+        <View style={styles.toggleChevronWrap}>
+          <ChevronRight color={theme.textSecondary} size={20} strokeWidth={2.5} />
         </View>
       </TouchableOpacity>
 
       <View style={styles.toggleCard} testID="profile-dark-mode-row">
         <View style={styles.toggleLeadingIcon}>
-          {isDark ? <Moon color={theme.primary} size={17} strokeWidth={2.3} /> : <Sun color={theme.primary} size={17} strokeWidth={2.3} />}
+          {isDark ? <Moon color={theme.primary} size={20} strokeWidth={2.3} /> : <Sun color={theme.primary} size={20} strokeWidth={2.3} />}
         </View>
         <View style={styles.toggleTextWrap}>
           <Text style={styles.toggleTitle}>Dark mode</Text>
@@ -89,8 +91,10 @@ export default function OverviewTab({
           <Switch
             value={isDark}
             onValueChange={toggleTheme}
-            trackColor={{ false: theme.border, true: theme.primary }}
+            style={styles.themeSwitch}
+            trackColor={{ false: isDark ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1', true: theme.primary }}
             thumbColor="#fff"
+            ios_backgroundColor={isDark ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1'}
             accessibilityLabel="Dark mode"
             accessibilityRole="switch"
             testID="profile-dark-mode-switch"
