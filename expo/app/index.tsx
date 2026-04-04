@@ -478,10 +478,8 @@ export default function HomePage() {
   const communityBannerSubtitleColor = isDark ? 'rgba(226, 232, 240, 0.82)' : '#64748B';
   const communityBannerDecorColor = isDark ? 'rgba(99, 102, 241, 0.12)' : 'rgba(198, 208, 255, 0.36)';
   const communityBannerAccentColor = isDark ? 'rgba(129, 140, 248, 0.08)' : 'rgba(224, 231, 255, 0.82)';
-  const communityBannerTitle = 'Community Decks';
-  const communityBannerSubtitle = isCompactHomeLayout
-    ? 'Browse popular decks from other players and save them offline.'
-    : 'Browse popular decks from other FlashQuest players and save them offline.';
+  const communityBannerTitle = 'Explore Community Decks';
+  const communityBannerSubtitle = 'Discover decks from other FlashQuest players and save them offline.';
 
   const hasReviewPage = reviewSummary !== null;
 
@@ -903,8 +901,7 @@ export default function HomePage() {
                       shadowRadius: isDark ? 18 : 10,
                       elevation: isDark ? 8 : 5,
                       borderColor: communityBannerBorderColor,
-                      marginTop: isCompactHomeLayout ? 22 : 24,
-                      minHeight: isCompactHomeLayout ? 96 : 102,
+                      minHeight: isCompactHomeLayout ? 94 : 98,
                     },
                   ]}
                   onPress={() => router.push(communityDeckAction.route)}
@@ -938,10 +935,10 @@ export default function HomePage() {
                     style={[
                       styles.exploreBannerContent,
                       {
-                        paddingHorizontal: isCompactHomeLayout ? 18 : 22,
-                        paddingVertical: isCompactHomeLayout ? 16 : 18,
+                        paddingHorizontal: isCompactHomeLayout ? 18 : 20,
+                        paddingVertical: isCompactHomeLayout ? 14 : 16,
                         gap: isCompactHomeLayout ? 12 : 14,
-                        alignItems: isCompactHomeLayout ? 'flex-start' : 'center',
+                        alignItems: 'center',
                       },
                     ]}
                   >
@@ -951,13 +948,13 @@ export default function HomePage() {
                         {
                           backgroundColor: communityBannerIconSurface,
                           borderColor: communityBannerBorderColor,
-                          width: isCompactHomeLayout ? 48 : 52,
-                          height: isCompactHomeLayout ? 48 : 52,
-                          borderRadius: isCompactHomeLayout ? 16 : 17,
+                          width: isCompactHomeLayout ? 42 : 44,
+                          height: isCompactHomeLayout ? 42 : 44,
+                          borderRadius: isCompactHomeLayout ? 14 : 15,
                         },
                       ]}
                     >
-                      <Compass color={communityBannerIconColor} size={isCompactHomeLayout ? 20 : 21} strokeWidth={2.35} />
+                      <Compass color={communityBannerIconColor} size={isCompactHomeLayout ? 18 : 19} strokeWidth={2.35} />
                     </View>
                     <View style={[styles.exploreBannerCopy, { gap: isCompactHomeLayout ? 4 : 5 }]}>
                       <Text
@@ -965,13 +962,13 @@ export default function HomePage() {
                           styles.exploreBannerTitle,
                           {
                             color: communityBannerTitleColor,
-                            fontSize: isCompactHomeLayout ? 16 : 17,
-                            lineHeight: isCompactHomeLayout ? 20 : 21,
+                            fontSize: isCompactHomeLayout ? 15.5 : 16.5,
+                            lineHeight: isCompactHomeLayout ? 19 : 20,
                           },
                         ]}
                         numberOfLines={1}
                         adjustsFontSizeToFit
-                        minimumFontScale={0.88}
+                        minimumFontScale={0.82}
                       >
                         {communityBannerTitle}
                       </Text>
@@ -980,8 +977,8 @@ export default function HomePage() {
                           styles.exploreBannerSubtitle,
                           {
                             color: communityBannerSubtitleColor,
-                            fontSize: isCompactHomeLayout ? 11.5 : 12,
-                            lineHeight: isCompactHomeLayout ? 15 : 16,
+                            fontSize: isCompactHomeLayout ? 11.5 : 12.5,
+                            lineHeight: isCompactHomeLayout ? 15 : 17,
                           },
                         ]}
                         numberOfLines={2}
@@ -1100,7 +1097,7 @@ const styles = StyleSheet.create<{
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 50,
+    paddingBottom: 26,
   },
   topGlow: {
     position: 'absolute',
@@ -1355,7 +1352,7 @@ const styles = StyleSheet.create<{
     letterSpacing: -0.42,
   },
   smartActionsSection: {
-    marginTop: 26,
+    marginTop: 22,
   },
   smartActionsHeader: {
     paddingHorizontal: 24,
@@ -1435,10 +1432,10 @@ const styles = StyleSheet.create<{
     lineHeight: 17,
   },
   exploreBanner: {
-    marginTop: 26,
+    marginTop: 0,
     marginHorizontal: 24,
-    minHeight: 110,
-    borderRadius: 26,
+    minHeight: 98,
+    borderRadius: 24,
     borderWidth: 1,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -1455,9 +1452,9 @@ const styles = StyleSheet.create<{
   exploreBannerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 20,
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   exploreBannerCopy: {
     flex: 1,
@@ -1476,9 +1473,9 @@ const styles = StyleSheet.create<{
     letterSpacing: 1.1,
   },
   exploreBannerIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -1487,9 +1484,9 @@ const styles = StyleSheet.create<{
     gap: 4,
   },
   exploreBannerTitle: {
-    fontSize: 18,
+    fontSize: 16.5,
     fontWeight: '800' as const,
-    letterSpacing: -0.38,
+    letterSpacing: -0.32,
   },
   exploreBannerSubtitle: {
     fontSize: 12.5,
