@@ -198,7 +198,6 @@ export default function ProfilePage() {
                   <Crown color={isDark ? '#A5B4FC' : '#4F46E5'} size={20} strokeWidth={2.3} />
                 </View>
                 <View style={styles.leaderboardTextWrap}>
-                  <Text style={styles.leaderboardEyebrow}>Competitive play</Text>
                   <Text style={styles.leaderboardButtonText}>Leaderboard</Text>
                   <Text style={styles.leaderboardSubtitle} numberOfLines={2}>
                     See the top arena players and track your climb.
@@ -299,7 +298,6 @@ export default function ProfilePage() {
 
 const createStyles = (theme: Theme, isDark: boolean, width: number) => {
   const cardSurface = isDark ? 'rgba(15, 23, 42, 0.78)' : 'rgba(255, 255, 255, 0.94)';
-  const optionWidth = Math.min(Math.max((width - 56) / 2, 138), 220);
   const stackUtilityCards = width < 390;
 
   return StyleSheet.create({
@@ -1190,24 +1188,25 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     optionGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 12,
       justifyContent: 'space-between',
+      gap: 10,
     },
     optionPressable: {
-      borderRadius: 20,
+      width: '22.75%',
+      borderRadius: 18,
     },
     optionCard: {
-      width: optionWidth,
-      borderRadius: 20,
-      paddingVertical: 18,
-      paddingHorizontal: 14,
+      width: '100%',
+      borderRadius: 18,
+      paddingVertical: 10,
+      paddingHorizontal: 6,
       backgroundColor: cardSurface,
       borderWidth: 1.5,
       borderColor: isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(255, 255, 255, 0.38)',
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative',
-      minHeight: 126,
+      minHeight: 88,
     },
     optionCardSelected: {
       shadowColor: '#000',
@@ -1217,26 +1216,27 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       elevation: isDark ? 6 : 3,
     },
     optionCardPressed: {
-      transform: [{ scale: 0.985 }],
+      transform: [{ scale: 0.97 }],
     },
     optionSymbol: {
-      fontSize: 44,
-      lineHeight: 50,
-      marginBottom: 8,
+      fontSize: 30,
+      lineHeight: 34,
+      marginBottom: 4,
     },
     colorSwatch: {
-      width: 48,
-      height: 48,
-      borderRadius: 15,
-      marginBottom: 10,
-      borderWidth: 2,
+      width: 30,
+      height: 30,
+      borderRadius: 10,
+      marginBottom: 6,
+      borderWidth: 1.5,
       borderColor: 'rgba(255, 255, 255, 0.32)',
     },
     optionTitle: {
-      fontSize: 16,
+      fontSize: 11,
+      lineHeight: 13,
       fontWeight: '700' as const,
       color: theme.text,
-      marginBottom: 4,
+      textAlign: 'center' as const,
     },
     optionTitleSelected: {
       fontWeight: '800' as const,
@@ -1249,11 +1249,11 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     optionCheckBadge: {
       position: 'absolute',
-      top: 12,
-      right: 12,
-      width: 22,
-      height: 22,
-      borderRadius: 11,
+      top: 6,
+      right: 6,
+      width: 18,
+      height: 18,
+      borderRadius: 9,
       justifyContent: 'center',
       alignItems: 'center',
     },

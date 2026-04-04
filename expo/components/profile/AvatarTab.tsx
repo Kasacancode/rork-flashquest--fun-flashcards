@@ -113,8 +113,6 @@ export default function AvatarTab({
             <Text style={styles.sectionTitle} accessibilityRole="header">Choose a suit</Text>
             <Text style={styles.sectionSubtitle}>Select the symbol shown on your player badge.</Text>
           </View>
-          <Text style={styles.cardDescription}>Your suit appears on your hero card, menus, and arena profile.</Text>
-
           <View style={styles.optionGrid}>
             {AVATAR_SUITS.map((suit) => {
               const isSelected = selectedSuit === suit.id;
@@ -133,8 +131,7 @@ export default function AvatarTab({
                   {({ pressed }) => (
                     <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
                       <Text style={optionVisual.symbolStyle}>{suit.symbol}</Text>
-                      <Text style={optionVisual.titleStyle}>{suit.name}</Text>
-                      <Text style={styles.optionDescription}>Tap to equip</Text>
+                      <Text style={optionVisual.titleStyle} numberOfLines={1}>{suit.name}</Text>
                       {isSelected ? (
                         <View style={optionVisual.checkStyle}>
                           <Check color="#fff" size={10} strokeWidth={3} />
@@ -160,8 +157,6 @@ export default function AvatarTab({
             <Text style={styles.sectionTitle} accessibilityRole="header">Choose a color</Text>
             <Text style={styles.sectionSubtitle}>Your hero card adapts to the color you equip.</Text>
           </View>
-          <Text style={styles.cardDescription}>Use color to make your profile easier to recognize at a glance.</Text>
-
           <View style={styles.optionGrid}>
             {AVATAR_COLORS.map((color) => {
               const isSelected = selectedColor === color.id;
@@ -180,8 +175,7 @@ export default function AvatarTab({
                   {({ pressed }) => (
                     <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
                       <View style={optionVisual.swatchStyle} />
-                      <Text style={optionVisual.titleStyle}>{color.name}</Text>
-                      <Text style={styles.optionDescription}>Tap to equip</Text>
+                      <Text style={optionVisual.titleStyle} numberOfLines={1}>{color.name}</Text>
                       {isSelected ? (
                         <View style={optionVisual.checkStyle}>
                           <Check color="#fff" size={10} strokeWidth={3} />
