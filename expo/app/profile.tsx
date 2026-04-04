@@ -28,7 +28,6 @@ export default function ProfilePage() {
   const {
     theme,
     isDark,
-    toggleTheme,
     activeTab,
     activeAchievementCategory,
     showLevels,
@@ -67,10 +66,7 @@ export default function ProfilePage() {
     handleOpenLevels,
     handleSelectAchievementCategory,
     handleCloseLevels,
-    handleOpenFAQ,
-    handleOpenPrivacy,
     handleOpenSettings,
-    handleOpenFlashcardInspector,
     handleSelectSuit,
     handleSelectColor,
     handleEditPlayerName,
@@ -218,12 +214,7 @@ export default function ProfilePage() {
 
               {activeTab === 'overview' && (
                 <OverviewTab
-                  isDark={isDark}
-                  toggleTheme={toggleTheme}
-                  onOpenFAQ={handleOpenFAQ}
-                  onOpenPrivacy={handleOpenPrivacy}
                   onOpenSettings={handleOpenSettings}
-                  onOpenFlashcardInspector={handleOpenFlashcardInspector}
                   surfaceGradient={surfaceGradient}
                   styles={styles}
                   theme={theme}
