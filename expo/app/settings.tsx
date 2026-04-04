@@ -433,7 +433,7 @@ export default function SettingsScreen() {
               )}
             </View>
 
-            <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Appearance</Text>
+            <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Study Goals</Text>
           <View style={[styles.card, { backgroundColor: surfaceBg }]}> 
             <SettingsRow
               icon={<Target color={theme.textSecondary} size={20} strokeWidth={2.2} />}

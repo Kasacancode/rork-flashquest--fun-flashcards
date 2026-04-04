@@ -194,7 +194,6 @@ export default function ProfilePage() {
                   isDark={isDark}
                   onOpenSettings={handleOpenSettings}
                   onOpenLeaderboard={handleOpenLeaderboard}
-                  surfaceGradient={surfaceGradient}
                   styles={styles}
                   theme={theme}
                   toggleTheme={toggleTheme}

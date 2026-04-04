@@ -1,4 +1,3 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronRight, Crown, Moon, Settings, Sun } from 'lucide-react-native';
 import React from 'react';
 import { Switch, Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
@@ -12,11 +11,8 @@ interface OverviewTabProps {
   isDark: boolean;
   onOpenSettings: () => void;
   onOpenLeaderboard: () => void;
-  surfaceGradient: readonly [string, string];
   styles: ViewStyles<
     | 'tabContent'
-    | 'cardShell'
-    | 'appearanceCard'
     | 'toggleCard'
     | 'toggleLeadingIcon'
     | 'toggleTextWrap'
@@ -40,7 +36,6 @@ export default function OverviewTab({
   isDark,
   onOpenSettings,
   onOpenLeaderboard,
-  surfaceGradient,
   styles,
   theme,
   toggleTheme,
@@ -69,44 +64,38 @@ export default function OverviewTab({
         </View>
       </TouchableOpacity>
 
-      <View style={styles.cardShell}>
-        <LinearGradient
-          colors={surfaceGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.appearanceCard}
-        >
-          <TouchableOpacity style={styles.toggleCard} onPress={onOpenSettings} activeOpacity={0.7} testID="profile-open-settings">
-            <View style={styles.toggleLeadingIcon}>
-              <Settings color={theme.primary} size={17} strokeWidth={2.3} />
-            </View>
-            <View style={styles.toggleTextWrap}>
-              <Text style={styles.toggleTitle}>Settings</Text>
-            </View>
-            <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
-          </TouchableOpacity>
+      <TouchableOpacity style={styles.toggleCard} onPress={onOpenSettings} activeOpacity={0.7} testID="profile-open-settings">
+        <View style={styles.toggleLeadingIcon}>
+          <Settings color={theme.primary} size={17} strokeWidth={2.3} />
+        </View>
+        <View style={styles.toggleTextWrap}>
+          <Text style={styles.toggleTitle}>Settings</Text>
+          <Text style={styles.toggleSubtitle}>Goals, reminders, privacy, and more.</Text>
+        </View>
+        <View style={styles.toggleRight}>
+          <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
+        </View>
+      </TouchableOpacity>
 
-          <View style={styles.toggleCard} testID="profile-dark-mode-row">
-            <View style={styles.toggleLeadingIcon}>
-              {isDark ? <Moon color={theme.primary} size={17} strokeWidth={2.3} /> : <Sun color={theme.primary} size={17} strokeWidth={2.3} />}
-            </View>
-            <View style={styles.toggleTextWrap}>
-              <Text style={styles.toggleTitle}>Dark mode</Text>
-              <Text style={styles.toggleSubtitle}>{isDark ? 'Dark theme active' : 'Light theme active'}</Text>
-            </View>
-            <View style={styles.toggleRight}>
-              <Switch
-                value={isDark}
-                onValueChange={toggleTheme}
-                trackColor={{ false: theme.border, true: theme.primary }}
-                thumbColor="#fff"
-                accessibilityLabel="Dark mode"
-                accessibilityRole="switch"
-                testID="profile-dark-mode-switch"
-              />
-            </View>
-          </View>
-        </LinearGradient>
+      <View style={styles.toggleCard} testID="profile-dark-mode-row">
+        <View style={styles.toggleLeadingIcon}>
+          {isDark ? <Moon color={theme.primary} size={17} strokeWidth={2.3} /> : <Sun color={theme.primary} size={17} strokeWidth={2.3} />}
+        </View>
+        <View style={styles.toggleTextWrap}>
+          <Text style={styles.toggleTitle}>Dark mode</Text>
+          <Text style={styles.toggleSubtitle}>{isDark ? 'Dark theme active' : 'Light theme active'}</Text>
+        </View>
+        <View style={styles.toggleRight}>
+          <Switch
+            value={isDark}
+            onValueChange={toggleTheme}
+            trackColor={{ false: theme.border, true: theme.primary }}
+            thumbColor="#fff"
+            accessibilityLabel="Dark mode"
+            accessibilityRole="switch"
+            testID="profile-dark-mode-switch"
+          />
+        </View>
       </View>
     </View>
   );
