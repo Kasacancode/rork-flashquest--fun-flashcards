@@ -8,6 +8,7 @@ const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/;
 const USERNAME_LOOKUP_RETRY_COUNT = 3;
 const USERNAME_LOOKUP_RETRY_DELAY_MS = 250;
 export const USERNAME_AVAILABILITY_FALLBACK_MESSAGE = 'Live availability check is unavailable right now. You can still claim it. Saving will still enforce uniqueness.';
+export const USERNAME_SCHEMA_MISSING_MESSAGE = 'Username setup is incomplete in Supabase. Add the username column to public.profiles, then try again.';
 
 interface UsernameAvailabilityResult {
   status: UsernameAvailabilityStatus;
@@ -30,6 +31,11 @@ function getCanonicalUsername(value: string): string {
 function isUniqueViolationError(error: { code?: string; message?: string } | null | undefined): boolean {
   const message = error?.message?.toLowerCase() ?? '';
   return error?.code === '23505' || message.includes('duplicate key');
+}
+
+function isMissingUsernameColumnError(error: { code?: string; message?: string } | null | undefined): boolean {
+  const message = error?.message?.toLowerCase() ?? '';
+  return error?.code === '42703' || message.includes('column "username" does not exist');
 }
 
 async function pause(durationMs: number): Promise<void> {
@@ -71,6 +77,13 @@ async function lookupUsernameOwners(canonicalUsername: string): Promise<{
       message: error.message,
       username: canonicalUsername,
     });
+
+    if (isMissingUsernameColumnError(error)) {
+      return {
+        data: null,
+        error: USERNAME_SCHEMA_MISSING_MESSAGE,
+      };
+    }
 
     if (attempt < USERNAME_LOOKUP_RETRY_COUNT - 1) {
       await pause(USERNAME_LOOKUP_RETRY_DELAY_MS * (attempt + 1));
@@ -203,6 +216,10 @@ export async function claimUsername(
         return { success: false, error: 'This username was just taken. Try another.' };
       }
 
+      if (isMissingUsernameColumnError(error)) {
+        return { success: false, error: USERNAME_SCHEMA_MISSING_MESSAGE };
+      }
+
       logger.warn('[Username] Claim failed:', {
         code: error.code,
         details: error.details,
@@ -268,7 +285,8 @@ export async function fetchUsername(userId: string): Promise<string | null> {
 
     const canonicalUsername = getCanonicalUsername(data.username);
     return canonicalUsername.length > 0 ? canonicalUsername : null;
-  } catch {
+  } catch (error) {
+    logger.warn('[Username] Failed to fetch username:', error);
     return null;
   }
 }
