@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Moon, Sun, UserRound } from 'lucide-react-native';
+import { ArrowLeft, UserRound } from 'lucide-react-native';
 import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ResponsiveContainer from '@/components/ResponsiveContainer';
@@ -25,7 +25,6 @@ export default function ProfilePage() {
   const {
     theme,
     isDark,
-    toggleTheme,
     activeTab,
     activeAchievementCategory,
     showLevels,
@@ -180,29 +179,6 @@ export default function ProfilePage() {
                 styles={styles}
                 theme={theme}
               />
-
-              <View style={styles.toggleCard} testID="profile-dark-mode-row">
-                <View style={styles.toggleLeadingIcon}>
-                  {isDark ? <Moon color={theme.primary} size={20} strokeWidth={2.3} /> : <Sun color={theme.primary} size={20} strokeWidth={2.3} />}
-                </View>
-                <View style={styles.toggleTextWrap}>
-                  <Text style={styles.toggleTitle}>Dark mode</Text>
-                  <Text style={styles.toggleSubtitle}>{isDark ? 'Dark theme active' : 'Light theme active'}</Text>
-                </View>
-                <View style={styles.toggleRight}>
-                  <Switch
-                    value={isDark}
-                    onValueChange={toggleTheme}
-                    style={styles.themeSwitch}
-                    trackColor={{ false: isDark ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1', true: theme.primary }}
-                    thumbColor="#fff"
-                    ios_backgroundColor={isDark ? 'rgba(148, 163, 184, 0.45)' : '#CBD5E1'}
-                    accessibilityLabel="Dark mode"
-                    accessibilityRole="switch"
-                    testID="profile-dark-mode-switch"
-                  />
-                </View>
-              </View>
 
               <ProfileTabBar
                 activeTab={activeTab}
@@ -831,65 +807,6 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       fontSize: 13,
       fontWeight: '700' as const,
       color: theme.text,
-    },
-    toggleCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 14,
-      minHeight: 92,
-      borderRadius: 22,
-      paddingVertical: 18,
-      paddingHorizontal: 18,
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(148, 163, 184, 0.22)' : 'rgba(255, 255, 255, 0.46)',
-      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.82)' : 'rgba(255, 255, 255, 0.92)',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: isDark ? 0.18 : 0.08,
-      shadowRadius: 18,
-      elevation: isDark ? 6 : 3,
-    },
-    toggleLeadingIcon: {
-      width: 48,
-      height: 48,
-      borderRadius: 16,
-      backgroundColor: isDark ? 'rgba(129, 140, 248, 0.22)' : 'rgba(102, 126, 234, 0.14)',
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(165, 180, 252, 0.24)' : 'rgba(102, 126, 234, 0.16)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    toggleTextWrap: {
-      flex: 1,
-      gap: 4,
-    },
-    toggleRight: {
-      width: 60,
-      justifyContent: 'center',
-      alignItems: 'flex-end',
-    },
-    toggleChevronWrap: {
-      width: 40,
-      height: 40,
-      borderRadius: 14,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(15, 23, 42, 0.06)',
-    },
-    themeSwitch: {
-      transform: [{ scaleX: 1.04 }, { scaleY: 1.04 }],
-    },
-    toggleTitle: {
-      fontSize: 17,
-      fontWeight: '800' as const,
-      color: theme.text,
-      letterSpacing: -0.3,
-    },
-    toggleSubtitle: {
-      fontSize: 14,
-      fontWeight: '600' as const,
-      color: theme.textSecondary,
-      lineHeight: 20,
     },
     utilityGrid: {
       flexDirection: stackUtilityCards ? 'column' : 'row',

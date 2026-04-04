@@ -28,7 +28,7 @@ export function useProfileScreenState() {
   const { performance } = usePerformance();
   const { playerName, updatePlayerName, isPlayerNameReady, leaderboard } = useArena();
   const { displayName, isSignedIn, username } = useAuth();
-  const { theme, isDark, toggleTheme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { selectedSuit, selectedColor, setSelectedSuit, setSelectedColor } = useAvatar();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [activeAchievementCategory, setActiveAchievementCategory] = useState<AchievementCategoryId>(ACHIEVEMENT_CATEGORIES[0].id);
@@ -241,7 +241,6 @@ export function useProfileScreenState() {
   return {
     theme,
     isDark,
-    toggleTheme,
     activeTab,
     activeAchievementCategory,
     showLevels,

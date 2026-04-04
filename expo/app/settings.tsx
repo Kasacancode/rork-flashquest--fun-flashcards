@@ -9,14 +9,18 @@ import {
   Bell,
   BellOff,
   BookOpen,
+  Check,
   ChevronRight,
+  Cloud,
   Download,
   HelpCircle,
   Info,
   LogIn,
   LogOut,
+  Moon,
   ShieldCheck,
   SmartphoneNfc,
+  Sun,
   Target,
   Trash2,
   Upload,
@@ -24,7 +28,6 @@ import {
   Vibrate,
   Volume2,
   VolumeX,
-  Cloud,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
@@ -126,7 +129,7 @@ function SettingsRow({
 export default function SettingsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { theme, isDark } = useTheme();
+  const { theme, isDark, setTheme } = useTheme();
   const { analyticsEnabled, setAnalyticsConsent } = usePrivacy();
   const { isSignedIn, displayName, username, user, signOut } = useAuth();
   const { decks, stats } = useFlashQuest();
@@ -220,6 +223,14 @@ export default function SettingsScreen() {
   const handleToggleAnalytics = useCallback((value: boolean) => {
     setAnalyticsConsent(value ? 'granted' : 'declined');
   }, [setAnalyticsConsent]);
+
+  const handleSetLightTheme = useCallback(() => {
+    setTheme('light');
+  }, [setTheme]);
+
+  const handleSetDarkTheme = useCallback(() => {
+    setTheme('dark');
+  }, [setTheme]);
 
   const handleSignOut = useCallback(() => {
     Alert.alert(
@@ -431,6 +442,29 @@ export default function SettingsScreen() {
                   testID="settings-signin-row"
                 />
               )}
+            </View>
+
+            <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Appearance</Text>
+            <View style={[styles.card, { backgroundColor: surfaceBg }]}> 
+              <SettingsRow
+                icon={<Sun color={isDark ? theme.textTertiary : theme.primary} size={20} strokeWidth={2.2} />}
+                label="Light mode"
+                subtitle="Bright interface for daytime study"
+                right={!isDark ? <Check color={theme.primary} size={18} strokeWidth={2.6} /> : undefined}
+                onPress={handleSetLightTheme}
+                theme={theme}
+                testID="settings-theme-light-row"
+              />
+              <Divider color={theme.border} />
+              <SettingsRow
+                icon={<Moon color={isDark ? theme.primary : theme.textTertiary} size={20} strokeWidth={2.2} />}
+                label="Dark mode"
+                subtitle="Dimmer look for late-night sessions"
+                right={isDark ? <Check color={theme.primary} size={18} strokeWidth={2.6} /> : undefined}
+                onPress={handleSetDarkTheme}
+                theme={theme}
+                testID="settings-theme-dark-row"
+              />
             </View>
 
             <Text style={[styles.sectionLabel, { color: sectionLabelColor }]} accessibilityRole="header">Study Goals</Text>
