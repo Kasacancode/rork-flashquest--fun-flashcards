@@ -39,6 +39,8 @@ interface AwardsTabProps {
   surfaceGradient: readonly [string, string];
   styles: ViewStyles<
     | 'tabContent'
+    | 'cardShell'
+    | 'appearanceCard'
     | 'sectionBanner'
     | 'sectionBannerTextWrap'
     | 'sectionBannerBadge'
@@ -61,6 +63,7 @@ interface AwardsTabProps {
     | 'achievementCompletedPill'
   > &
     TextStyles<
+      | 'cardDescription'
       | 'sectionBannerEyebrow'
       | 'sectionBannerTitle'
       | 'sectionBannerSubtitle'
@@ -98,50 +101,70 @@ export default function AwardsTab({
 
   return (
     <View style={styles.tabContent}>
-      <View style={styles.sectionBanner}>
-        <View style={styles.sectionBannerTextWrap}>
-          <Text style={styles.sectionBannerEyebrow}>Milestones</Text>
-          <Text style={styles.sectionBannerTitle}>Awards</Text>
-          <Text style={styles.sectionBannerSubtitle}>
-            {nextAchievement ? `Next up: ${nextAchievement.name}` : 'Every current award is unlocked.'}
-          </Text>
-        </View>
-        <View style={styles.sectionBannerBadge}>
-          <Text style={styles.sectionBannerBadgeText}>{completedAchievements}/{achievements.length}</Text>
-        </View>
+      <View style={styles.cardShell}>
+        <LinearGradient
+          colors={baseSurfaceGradient as [string, string]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.appearanceCard}
+        >
+          <View style={styles.sectionBanner}>
+            <View style={styles.sectionBannerTextWrap}>
+              <Text style={styles.sectionBannerEyebrow}>Milestones</Text>
+              <Text style={styles.sectionBannerTitle}>Awards</Text>
+              <Text style={styles.sectionBannerSubtitle}>
+                {nextAchievement ? `Next up: ${nextAchievement.name}` : 'Every current award is unlocked.'}
+              </Text>
+            </View>
+            <View style={styles.sectionBannerBadge}>
+              <Text style={styles.sectionBannerBadgeText}>{completedAchievements}/{achievements.length}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.cardDescription}>Track every unlock, challenge, and mastery marker across FlashQuest.</Text>
+
+          <View style={styles.achievementCategorySummary}>
+            <Text style={styles.achievementCategorySummaryText}>
+              {activeCategoryCompletedAchievements}/{activeCategoryAchievements.length} in {activeAchievementCategoryLabel}
+            </Text>
+          </View>
+        </LinearGradient>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.achievementCategoryScroll}
-        contentContainerStyle={styles.achievementCategoryScrollContent}
-      >
-        {achievementCategories.map((category) => {
-          const isActive = activeAchievementCategory === category.id;
+      <View style={styles.cardShell}>
+        <LinearGradient
+          colors={baseSurfaceGradient as [string, string]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.appearanceCard}
+        >
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.achievementCategoryScroll}
+            contentContainerStyle={styles.achievementCategoryScrollContent}
+          >
+            {achievementCategories.map((category) => {
+              const isActive = activeAchievementCategory === category.id;
 
-          return (
-            <TouchableOpacity
-              key={category.id}
-              onPress={() => onSelectAchievementCategory(category.id)}
-              activeOpacity={0.84}
-              accessibilityLabel={category.label}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isActive }}
-              style={[styles.achievementCategoryPill, isActive && styles.achievementCategoryPillActive]}
-            >
-              <Text style={[styles.achievementCategoryPillText, isActive && styles.achievementCategoryPillTextActive]}>
-                {category.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      <View style={styles.achievementCategorySummary}>
-        <Text style={styles.achievementCategorySummaryText}>
-          {activeCategoryCompletedAchievements}/{activeCategoryAchievements.length} in {activeAchievementCategoryLabel}
-        </Text>
+              return (
+                <TouchableOpacity
+                  key={category.id}
+                  onPress={() => onSelectAchievementCategory(category.id)}
+                  activeOpacity={0.84}
+                  accessibilityLabel={category.label}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isActive }}
+                  style={[styles.achievementCategoryPill, isActive && styles.achievementCategoryPillActive]}
+                >
+                  <Text style={[styles.achievementCategoryPillText, isActive && styles.achievementCategoryPillTextActive]}>
+                    {category.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </LinearGradient>
       </View>
 
       <Animated.View style={[styles.achievementCategoryCards, { opacity: achievementCategoryFade }]}>

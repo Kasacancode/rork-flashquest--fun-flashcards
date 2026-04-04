@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Crown, UserRound } from 'lucide-react-native';
+import { ArrowLeft, ChevronRight, Crown, UserRound } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -167,97 +167,105 @@ export default function ProfilePage() {
           showsVerticalScrollIndicator={false}
         >
           <ResponsiveContainer>
-            <ProfileHeroCard
-              profileDisplayName={profileDisplayName}
-              usernameLabel={usernameLabel}
-              selectedSuitData={selectedSuitData}
-              selectedColorData={selectedColorData}
-              heroGradient={heroGradient}
-              level={level}
-              levelEntry={levelEntry}
-              progress={levelProgress}
-              isPlayerNameReady={isPlayerNameReady}
-              canEditPlayerName={canEditPlayerName}
-              onEditPlayerName={handleEditPlayerName}
-              onOpenLevels={handleOpenLevels}
-              selectedColorValue={selectedColorValue}
-              styles={styles}
-              theme={theme}
-            />
+            <View style={styles.contentStack}>
+              <ProfileHeroCard
+                profileDisplayName={profileDisplayName}
+                usernameLabel={usernameLabel}
+                selectedSuitData={selectedSuitData}
+                selectedColorData={selectedColorData}
+                heroGradient={heroGradient}
+                level={level}
+                levelEntry={levelEntry}
+                progress={levelProgress}
+                isPlayerNameReady={isPlayerNameReady}
+                canEditPlayerName={canEditPlayerName}
+                onEditPlayerName={handleEditPlayerName}
+                onOpenLevels={handleOpenLevels}
+                selectedColorValue={selectedColorValue}
+                styles={styles}
+                theme={theme}
+              />
 
-          <TouchableOpacity
-            onPress={() => router.push(LEADERBOARD_ROUTE)}
-            accessibilityLabel="Open leaderboard"
-            accessibilityRole="button"
-            style={[
-              styles.leaderboardButton,
-              {
-                backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)',
-                borderColor: isDark ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.15)',
-              },
-            ]}
-            activeOpacity={0.84}
-            testID="profile-leaderboard-button"
-          >
-            <Crown color={isDark ? '#818CF8' : '#6366F1'} size={18} strokeWidth={2.2} />
-            <Text style={[styles.leaderboardButtonText, { color: isDark ? '#818CF8' : '#6366F1' }]}>Leaderboard</Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push(LEADERBOARD_ROUTE)}
+                accessibilityLabel="Open leaderboard"
+                accessibilityRole="button"
+                style={styles.leaderboardButton}
+                activeOpacity={0.88}
+                testID="profile-leaderboard-button"
+              >
+                <View style={styles.leaderboardIconWrap}>
+                  <Crown color={isDark ? '#A5B4FC' : '#4F46E5'} size={20} strokeWidth={2.3} />
+                </View>
+                <View style={styles.leaderboardTextWrap}>
+                  <Text style={styles.leaderboardEyebrow}>Competitive play</Text>
+                  <Text style={styles.leaderboardButtonText}>Leaderboard</Text>
+                  <Text style={styles.leaderboardSubtitle} numberOfLines={2}>
+                    See the top arena players and track your climb.
+                  </Text>
+                </View>
+                <View style={styles.leaderboardChevronWrap}>
+                  <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.4} />
+                </View>
+              </TouchableOpacity>
 
-          <ProfileTabBar
-            activeTab={activeTab}
-            onSelectTab={handleSelectTab}
-            tabActiveGradient={tabActiveGradient}
-            styles={styles}
-            theme={theme}
-          />
+              <ProfileTabBar
+                activeTab={activeTab}
+                onSelectTab={handleSelectTab}
+                tabActiveGradient={tabActiveGradient}
+                styles={styles}
+                theme={theme}
+              />
 
-          {activeTab === 'overview' && (
-            <OverviewTab
-              isDark={isDark}
-              toggleTheme={toggleTheme}
-              onOpenFAQ={handleOpenFAQ}
-              onOpenPrivacy={handleOpenPrivacy}
-              onOpenSettings={handleOpenSettings}
-              onOpenFlashcardInspector={handleOpenFlashcardInspector}
-              surfaceGradient={surfaceGradient}
-              styles={styles}
-              theme={theme}
-            />
-          )}
+              {activeTab === 'overview' && (
+                <OverviewTab
+                  isDark={isDark}
+                  toggleTheme={toggleTheme}
+                  onOpenFAQ={handleOpenFAQ}
+                  onOpenPrivacy={handleOpenPrivacy}
+                  onOpenSettings={handleOpenSettings}
+                  onOpenFlashcardInspector={handleOpenFlashcardInspector}
+                  surfaceGradient={surfaceGradient}
+                  styles={styles}
+                  theme={theme}
+                />
+              )}
 
-          {activeTab === 'avatar' && (
-            <AvatarTab
-              selectedSuit={selectedSuit}
-              selectedColor={selectedColor}
-              selectedSuitData={selectedSuitData}
-              selectedColorData={selectedColorData}
-              suitOptionVisuals={suitOptionVisuals}
-              colorOptionVisuals={colorOptionVisuals}
-              avatarShowcaseGradient={avatarShowcaseGradient}
-              onSelectSuit={handleSelectSuit}
-              onSelectColor={handleSelectColor}
-              styles={styles}
-            />
-          )}
+              {activeTab === 'avatar' && (
+                <AvatarTab
+                  selectedSuit={selectedSuit}
+                  selectedColor={selectedColor}
+                  selectedSuitData={selectedSuitData}
+                  selectedColorData={selectedColorData}
+                  suitOptionVisuals={suitOptionVisuals}
+                  colorOptionVisuals={colorOptionVisuals}
+                  avatarShowcaseGradient={avatarShowcaseGradient}
+                  surfaceGradient={surfaceGradient}
+                  onSelectSuit={handleSelectSuit}
+                  onSelectColor={handleSelectColor}
+                  styles={styles}
+                />
+              )}
 
-          {activeTab === 'awards' && (
-            <AwardsTab
-              achievements={achievements}
-              completedAchievements={completedAchievements}
-              nextAchievement={nextAchievement}
-              achievementCategories={ACHIEVEMENT_CATEGORIES}
-              activeAchievementCategory={activeAchievementCategory}
-              activeAchievementCategoryLabel={activeAchievementCategoryEntry.label}
-              activeCategoryAchievements={activeCategoryAchievements}
-              activeCategoryCompletedAchievements={activeCategoryCompletedAchievements}
-              onSelectAchievementCategory={handleSelectAchievementCategory}
-              achievementCategoryFade={achievementCategoryFade}
-              isDark={isDark}
-              surfaceGradient={surfaceGradient}
-              styles={styles}
-              theme={theme}
-            />
-          )}
+              {activeTab === 'awards' && (
+                <AwardsTab
+                  achievements={achievements}
+                  completedAchievements={completedAchievements}
+                  nextAchievement={nextAchievement}
+                  achievementCategories={ACHIEVEMENT_CATEGORIES}
+                  activeAchievementCategory={activeAchievementCategory}
+                  activeAchievementCategoryLabel={activeAchievementCategoryEntry.label}
+                  activeCategoryAchievements={activeCategoryAchievements}
+                  activeCategoryCompletedAchievements={activeCategoryCompletedAchievements}
+                  onSelectAchievementCategory={handleSelectAchievementCategory}
+                  achievementCategoryFade={achievementCategoryFade}
+                  isDark={isDark}
+                  surfaceGradient={surfaceGradient}
+                  styles={styles}
+                  theme={theme}
+                />
+              )}
+            </View>
           </ResponsiveContainer>
         </ScrollView>
       </SafeAreaView>
@@ -369,23 +377,67 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     scrollContent: {
       paddingHorizontal: 20,
-      paddingBottom: 32,
-      gap: 14,
+      paddingBottom: 36,
+    },
+    contentStack: {
+      gap: 16,
     },
     leaderboardButton: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-      borderRadius: 14,
+      gap: 14,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      borderRadius: 22,
       borderWidth: 1,
-      marginTop: -2,
+      borderColor: isDark ? 'rgba(99, 102, 241, 0.18)' : 'rgba(99, 102, 241, 0.12)',
+      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.78)' : 'rgba(255, 255, 255, 0.9)',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: isDark ? 0.22 : 0.08,
+      shadowRadius: 18,
+      elevation: isDark ? 7 : 3,
+    },
+    leaderboardIconWrap: {
+      width: 48,
+      height: 48,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(99, 102, 241, 0.16)' : 'rgba(99, 102, 241, 0.1)',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(129, 140, 248, 0.2)' : 'rgba(99, 102, 241, 0.12)',
+    },
+    leaderboardTextWrap: {
+      flex: 1,
+      gap: 2,
+    },
+    leaderboardEyebrow: {
+      fontSize: 11,
+      fontWeight: '700' as const,
+      color: theme.primary,
+      letterSpacing: 0.9,
+      textTransform: 'uppercase' as const,
     },
     leaderboardButtonText: {
-      fontSize: 15,
-      fontWeight: '700' as const,
+      fontSize: 18,
+      fontWeight: '800' as const,
+      color: theme.text,
+      letterSpacing: -0.4,
+    },
+    leaderboardSubtitle: {
+      fontSize: 13,
+      fontWeight: '500' as const,
+      color: theme.textSecondary,
+      lineHeight: 18,
+    },
+    leaderboardChevronWrap: {
+      width: 34,
+      height: 34,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.05)',
     },
     heroCard: {
       borderRadius: 24,
@@ -573,7 +625,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       color: theme.profileTabActiveText,
     },
     tabContent: {
-      gap: 12,
+      gap: 16,
     },
     cardShell: {
       borderRadius: 24,
@@ -858,11 +910,10 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       letterSpacing: 0.8,
     },
     sectionBanner: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
+      flexDirection: width < 360 ? 'column' : 'row',
+      alignItems: width < 360 ? 'flex-start' : 'center',
       justifyContent: 'space-between',
       gap: 12,
-      marginTop: 2,
     },
     sectionBannerTextWrap: {
       flex: 1,
@@ -871,34 +922,34 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     sectionBannerEyebrow: {
       fontSize: 11,
       fontWeight: '700' as const,
-      color: 'rgba(255, 255, 255, 0.72)',
+      color: theme.primary,
       textTransform: 'uppercase' as const,
       letterSpacing: 0.9,
     },
     sectionBannerTitle: {
       fontSize: 24,
       fontWeight: '800' as const,
-      color: '#fff',
+      color: theme.text,
       letterSpacing: -0.6,
     },
     sectionBannerSubtitle: {
       fontSize: 13,
       fontWeight: '500' as const,
-      color: 'rgba(255, 255, 255, 0.76)',
+      color: theme.textSecondary,
       lineHeight: 18,
     },
     sectionBannerBadge: {
       paddingHorizontal: 12,
       paddingVertical: 7,
       borderRadius: 999,
-      backgroundColor: 'rgba(255, 255, 255, 0.14)',
+      backgroundColor: isDark ? 'rgba(99, 102, 241, 0.16)' : 'rgba(99, 102, 241, 0.1)',
       borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.16)',
+      borderColor: isDark ? 'rgba(129, 140, 248, 0.18)' : 'rgba(99, 102, 241, 0.12)',
     },
     sectionBannerBadgeText: {
       fontSize: 12,
       fontWeight: '700' as const,
-      color: '#fff',
+      color: theme.primary,
     },
     achievementCategoryScroll: {
       marginTop: 4,
@@ -931,12 +982,18 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       color: '#fff',
     },
     achievementCategorySummary: {
-      marginTop: 12,
+      alignSelf: 'flex-start',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 999,
+      backgroundColor: isDark ? 'rgba(2, 6, 23, 0.18)' : 'rgba(99, 102, 241, 0.08)',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(99, 102, 241, 0.08)',
     },
     achievementCategorySummaryText: {
       fontSize: 13,
       fontWeight: '700' as const,
-      color: isDark ? 'rgba(226, 232, 240, 0.84)' : 'rgba(255, 255, 255, 0.975)',
+      color: theme.text,
     },
     achievementCategoryCards: {
       marginTop: 12,
@@ -1054,9 +1111,9 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       gap: 14,
     },
     avatarShowcaseHeader: {
-      flexDirection: 'row',
+      flexDirection: width < 370 ? 'column' : 'row',
       justifyContent: 'space-between',
-      alignItems: 'center',
+      alignItems: width < 370 ? 'flex-start' : 'center',
       gap: 12,
     },
     avatarShowcaseBadge: {
@@ -1076,11 +1133,12 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       fontSize: 12,
       fontWeight: '600' as const,
       color: 'rgba(255, 255, 255, 0.86)',
-      textAlign: 'right' as const,
+      textAlign: 'left' as const,
+      flexShrink: 1,
     },
     avatarShowcaseBody: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: width < 370 ? 'column' : 'row',
+      alignItems: width < 370 ? 'flex-start' : 'center',
       gap: 14,
     },
     avatarShowcaseTile: {
@@ -1115,25 +1173,25 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       lineHeight: 19,
     },
     sectionHeader: {
-      gap: 3,
-      marginTop: 2,
+      gap: 4,
     },
     sectionTitle: {
       fontSize: 20,
       fontWeight: '800' as const,
-      color: '#fff',
+      color: theme.text,
       letterSpacing: -0.4,
     },
     sectionSubtitle: {
       fontSize: 13,
       fontWeight: '500' as const,
-      color: 'rgba(255, 255, 255, 0.74)',
+      color: theme.textSecondary,
       lineHeight: 18,
     },
     optionGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 12,
+      justifyContent: 'space-between',
     },
     optionPressable: {
       borderRadius: 20,
@@ -1141,7 +1199,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     optionCard: {
       width: optionWidth,
       borderRadius: 20,
-      paddingVertical: 16,
+      paddingVertical: 18,
       paddingHorizontal: 14,
       backgroundColor: cardSurface,
       borderWidth: 1.5,

@@ -67,6 +67,7 @@ export default function OverviewTab({
               </View>
               <View style={styles.appearanceTextWrap}>
                 <Text style={styles.cardTitle}>Appearance</Text>
+                <Text style={styles.cardDescription}>Tune the look and feel of FlashQuest while you study.</Text>
               </View>
             </View>
           </View>
@@ -111,6 +112,7 @@ export default function OverviewTab({
               </View>
               <View style={styles.appearanceTextWrap}>
                 <Text style={styles.cardTitle}>Help & trust</Text>
+                <Text style={styles.cardDescription}>Support, privacy, and account controls in one place.</Text>
               </View>
             </View>
           </View>

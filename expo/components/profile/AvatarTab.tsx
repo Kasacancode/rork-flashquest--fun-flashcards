@@ -25,10 +25,13 @@ interface AvatarTabProps {
   suitOptionVisuals: Record<AvatarSuitId, AvatarOptionVisual>;
   colorOptionVisuals: Record<AvatarColorId, AvatarOptionVisual>;
   avatarShowcaseGradient: readonly [string, string, string];
+  surfaceGradient: readonly [string, string];
   onSelectSuit: (suitId: AvatarSuitId) => void;
   onSelectColor: (colorId: AvatarColorId) => void;
   styles: ViewStyles<
     | 'tabContent'
+    | 'cardShell'
+    | 'appearanceCard'
     | 'avatarShowcaseCard'
     | 'avatarShowcaseGradient'
     | 'avatarShowcaseHeader'
@@ -42,6 +45,7 @@ interface AvatarTabProps {
     | 'optionCardPressed'
   > &
     TextStyles<
+      | 'cardDescription'
       | 'avatarShowcaseBadgeText'
       | 'avatarShowcaseHint'
       | 'avatarShowcaseSymbol'
@@ -61,6 +65,7 @@ export default function AvatarTab({
   suitOptionVisuals,
   colorOptionVisuals,
   avatarShowcaseGradient,
+  surfaceGradient,
   onSelectSuit,
   onSelectColor,
   styles,
@@ -97,78 +102,98 @@ export default function AvatarTab({
         </LinearGradient>
       </View>
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle} accessibilityRole="header">Choose a suit</Text>
-        <Text style={styles.sectionSubtitle}>Select the symbol shown on your player badge.</Text>
-      </View>
+      <View style={styles.cardShell}>
+        <LinearGradient
+          colors={surfaceGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.appearanceCard}
+        >
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle} accessibilityRole="header">Choose a suit</Text>
+            <Text style={styles.sectionSubtitle}>Select the symbol shown on your player badge.</Text>
+          </View>
+          <Text style={styles.cardDescription}>Your suit appears on your hero card, menus, and arena profile.</Text>
 
-      <View style={styles.optionGrid}>
-        {AVATAR_SUITS.map((suit) => {
-          const isSelected = selectedSuit === suit.id;
-          const optionVisual = suitOptionVisuals[suit.id];
+          <View style={styles.optionGrid}>
+            {AVATAR_SUITS.map((suit) => {
+              const isSelected = selectedSuit === suit.id;
+              const optionVisual = suitOptionVisuals[suit.id];
 
-          return (
-            <Pressable
-              key={suit.id}
-              style={styles.optionPressable}
-              onPress={() => onSelectSuit(suit.id)}
-              accessibilityLabel={`${suit.name} card identity`}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isSelected }}
-              testID={`profile-avatar-suit-${suit.id}`}
-            >
-              {({ pressed }) => (
-                <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
-                  <Text style={optionVisual.symbolStyle}>{suit.symbol}</Text>
-                  <Text style={optionVisual.titleStyle}>{suit.name}</Text>
-                  <Text style={styles.optionDescription}>Tap to equip</Text>
-                  {isSelected ? (
-                    <View style={optionVisual.checkStyle}>
-                      <Check color="#fff" size={10} strokeWidth={3} />
+              return (
+                <Pressable
+                  key={suit.id}
+                  style={styles.optionPressable}
+                  onPress={() => onSelectSuit(suit.id)}
+                  accessibilityLabel={`${suit.name} card identity`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  testID={`profile-avatar-suit-${suit.id}`}
+                >
+                  {({ pressed }) => (
+                    <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
+                      <Text style={optionVisual.symbolStyle}>{suit.symbol}</Text>
+                      <Text style={optionVisual.titleStyle}>{suit.name}</Text>
+                      <Text style={styles.optionDescription}>Tap to equip</Text>
+                      {isSelected ? (
+                        <View style={optionVisual.checkStyle}>
+                          <Check color="#fff" size={10} strokeWidth={3} />
+                        </View>
+                      ) : null}
                     </View>
-                  ) : null}
-                </View>
-              )}
-            </Pressable>
-          );
-        })}
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+        </LinearGradient>
       </View>
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle} accessibilityRole="header">Choose a color</Text>
-        <Text style={styles.sectionSubtitle}>Your hero card adapts to the color you equip.</Text>
-      </View>
+      <View style={styles.cardShell}>
+        <LinearGradient
+          colors={surfaceGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.appearanceCard}
+        >
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle} accessibilityRole="header">Choose a color</Text>
+            <Text style={styles.sectionSubtitle}>Your hero card adapts to the color you equip.</Text>
+          </View>
+          <Text style={styles.cardDescription}>Use color to make your profile easier to recognize at a glance.</Text>
 
-      <View style={styles.optionGrid}>
-        {AVATAR_COLORS.map((color) => {
-          const isSelected = selectedColor === color.id;
-          const optionVisual = colorOptionVisuals[color.id];
+          <View style={styles.optionGrid}>
+            {AVATAR_COLORS.map((color) => {
+              const isSelected = selectedColor === color.id;
+              const optionVisual = colorOptionVisuals[color.id];
 
-          return (
-            <Pressable
-              key={color.id}
-              style={styles.optionPressable}
-              onPress={() => onSelectColor(color.id)}
-              accessibilityLabel={`${color.name} color theme`}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isSelected }}
-              testID={`profile-avatar-color-${color.id}`}
-            >
-              {({ pressed }) => (
-                <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
-                  <View style={optionVisual.swatchStyle} />
-                  <Text style={optionVisual.titleStyle}>{color.name}</Text>
-                  <Text style={styles.optionDescription}>Tap to equip</Text>
-                  {isSelected ? (
-                    <View style={optionVisual.checkStyle}>
-                      <Check color="#fff" size={10} strokeWidth={3} />
+              return (
+                <Pressable
+                  key={color.id}
+                  style={styles.optionPressable}
+                  onPress={() => onSelectColor(color.id)}
+                  accessibilityLabel={`${color.name} color theme`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  testID={`profile-avatar-color-${color.id}`}
+                >
+                  {({ pressed }) => (
+                    <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
+                      <View style={optionVisual.swatchStyle} />
+                      <Text style={optionVisual.titleStyle}>{color.name}</Text>
+                      <Text style={styles.optionDescription}>Tap to equip</Text>
+                      {isSelected ? (
+                        <View style={optionVisual.checkStyle}>
+                          <Check color="#fff" size={10} strokeWidth={3} />
+                        </View>
+                      ) : null}
                     </View>
-                  ) : null}
-                </View>
-              )}
-            </Pressable>
-          );
-        })}
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+        </LinearGradient>
       </View>
     </View>
   );
