@@ -25,29 +25,23 @@ interface AvatarTabProps {
   suitOptionVisuals: Record<AvatarSuitId, AvatarOptionVisual>;
   colorOptionVisuals: Record<AvatarColorId, AvatarOptionVisual>;
   avatarShowcaseGradient: readonly [string, string, string];
-  surfaceGradient: readonly [string, string];
   onSelectSuit: (suitId: AvatarSuitId) => void;
   onSelectColor: (colorId: AvatarColorId) => void;
   styles: ViewStyles<
     | 'tabContent'
-    | 'cardShell'
-    | 'appearanceCard'
     | 'avatarShowcaseCard'
     | 'avatarShowcaseGradient'
-    | 'avatarShowcaseHeader'
-    | 'avatarShowcaseBadge'
     | 'avatarShowcaseBody'
     | 'avatarShowcaseTile'
     | 'avatarShowcaseTextBlock'
+    | 'optionSection'
     | 'sectionHeader'
     | 'optionGrid'
     | 'optionPressable'
     | 'optionCardPressed'
+    | 'optionCardContent'
   > &
     TextStyles<
-      | 'cardDescription'
-      | 'avatarShowcaseBadgeText'
-      | 'avatarShowcaseHint'
       | 'avatarShowcaseSymbol'
       | 'avatarShowcaseTitle'
       | 'avatarShowcaseDescription'
@@ -65,7 +59,6 @@ export default function AvatarTab({
   suitOptionVisuals,
   colorOptionVisuals,
   avatarShowcaseGradient,
-  surfaceGradient,
   onSelectSuit,
   onSelectColor,
   styles,
@@ -75,23 +68,16 @@ export default function AvatarTab({
       <View style={styles.avatarShowcaseCard}>
         <LinearGradient
           colors={avatarShowcaseGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          start={{ x: 0, y: 0.1 }}
+          end={{ x: 1, y: 0.9 }}
           style={styles.avatarShowcaseGradient}
         >
-          <View style={styles.avatarShowcaseHeader}>
-            <View style={styles.avatarShowcaseBadge}>
-              <Text style={styles.avatarShowcaseBadgeText}>Equipped</Text>
-            </View>
-            <Text style={styles.avatarShowcaseHint}>Used across FlashQuest menus</Text>
-          </View>
-
           <View style={styles.avatarShowcaseBody}>
             <View style={styles.avatarShowcaseTile}>
               <Text style={styles.avatarShowcaseSymbol}>{selectedSuitData.symbol}</Text>
             </View>
             <View style={styles.avatarShowcaseTextBlock}>
-              <Text style={styles.avatarShowcaseTitle}>
+              <Text style={styles.avatarShowcaseTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.88}>
                 {selectedColorData.name} {selectedSuitData.name}
               </Text>
               <Text style={styles.avatarShowcaseDescription}>
@@ -102,92 +88,92 @@ export default function AvatarTab({
         </LinearGradient>
       </View>
 
-      <View style={styles.cardShell}>
-        <LinearGradient
-          colors={surfaceGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.appearanceCard}
-        >
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle} accessibilityRole="header">Choose a suit</Text>
-            <Text style={styles.sectionSubtitle}>Select the symbol shown on your player badge.</Text>
-          </View>
-          <View style={styles.optionGrid}>
-            {AVATAR_SUITS.map((suit) => {
-              const isSelected = selectedSuit === suit.id;
-              const optionVisual = suitOptionVisuals[suit.id];
+      <View style={styles.optionSection}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            Choose a suit
+          </Text>
+          <Text style={styles.sectionSubtitle}>Select the symbol shown on your player badge.</Text>
+        </View>
+        <View style={styles.optionGrid}>
+          {AVATAR_SUITS.map((suit) => {
+            const isSelected = selectedSuit === suit.id;
+            const optionVisual = suitOptionVisuals[suit.id];
 
-              return (
-                <Pressable
-                  key={suit.id}
-                  style={styles.optionPressable}
-                  onPress={() => onSelectSuit(suit.id)}
-                  accessibilityLabel={`${suit.name} card identity`}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isSelected }}
-                  testID={`profile-avatar-suit-${suit.id}`}
-                >
-                  {({ pressed }) => (
-                    <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
+            return (
+              <Pressable
+                key={suit.id}
+                style={styles.optionPressable}
+                onPress={() => onSelectSuit(suit.id)}
+                accessibilityLabel={`${suit.name} card identity`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+                testID={`profile-avatar-suit-${suit.id}`}
+              >
+                {({ pressed }) => (
+                  <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
+                    <View style={styles.optionCardContent}>
                       <Text style={optionVisual.symbolStyle}>{suit.symbol}</Text>
-                      <Text style={optionVisual.titleStyle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{suit.name}</Text>
-                      {isSelected ? (
-                        <View style={optionVisual.checkStyle}>
-                          <Check color="#fff" size={10} strokeWidth={3} />
-                        </View>
-                      ) : null}
+                      <Text style={optionVisual.titleStyle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.92}>
+                        {suit.name}
+                      </Text>
+                      <Text style={styles.optionDescription}>Tap to equip</Text>
                     </View>
-                  )}
-                </Pressable>
-              );
-            })}
-          </View>
-        </LinearGradient>
+                    {isSelected ? (
+                      <View style={optionVisual.checkStyle}>
+                        <Check color="#fff" size={18} strokeWidth={3} />
+                      </View>
+                    ) : null}
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
-      <View style={styles.cardShell}>
-        <LinearGradient
-          colors={surfaceGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.appearanceCard}
-        >
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle} accessibilityRole="header">Choose a color</Text>
-            <Text style={styles.sectionSubtitle}>Your hero card adapts to the color you equip.</Text>
-          </View>
-          <View style={styles.optionGrid}>
-            {AVATAR_COLORS.map((color) => {
-              const isSelected = selectedColor === color.id;
-              const optionVisual = colorOptionVisuals[color.id];
+      <View style={styles.optionSection}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            Choose a color
+          </Text>
+          <Text style={styles.sectionSubtitle}>Your hero card adapts to the color you equip.</Text>
+        </View>
+        <View style={styles.optionGrid}>
+          {AVATAR_COLORS.map((color) => {
+            const isSelected = selectedColor === color.id;
+            const optionVisual = colorOptionVisuals[color.id];
 
-              return (
-                <Pressable
-                  key={color.id}
-                  style={styles.optionPressable}
-                  onPress={() => onSelectColor(color.id)}
-                  accessibilityLabel={`${color.name} color theme`}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isSelected }}
-                  testID={`profile-avatar-color-${color.id}`}
-                >
-                  {({ pressed }) => (
-                    <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
+            return (
+              <Pressable
+                key={color.id}
+                style={styles.optionPressable}
+                onPress={() => onSelectColor(color.id)}
+                accessibilityLabel={`${color.name} color theme`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+                testID={`profile-avatar-color-${color.id}`}
+              >
+                {({ pressed }) => (
+                  <View style={[optionVisual.cardStyle, pressed ? styles.optionCardPressed : null]}>
+                    <View style={styles.optionCardContent}>
                       <View style={optionVisual.swatchStyle} />
-                      <Text style={optionVisual.titleStyle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{color.name}</Text>
-                      {isSelected ? (
-                        <View style={optionVisual.checkStyle}>
-                          <Check color="#fff" size={10} strokeWidth={3} />
-                        </View>
-                      ) : null}
+                      <Text style={optionVisual.titleStyle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.92}>
+                        {color.name}
+                      </Text>
+                      <Text style={styles.optionDescription}>Tap to equip</Text>
                     </View>
-                  )}
-                </Pressable>
-              );
-            })}
-          </View>
-        </LinearGradient>
+                    {isSelected ? (
+                      <View style={optionVisual.checkStyle}>
+                        <Check color="#fff" size={18} strokeWidth={3} />
+                      </View>
+                    ) : null}
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
     </View>
   );

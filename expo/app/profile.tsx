@@ -239,7 +239,6 @@ export default function ProfilePage() {
                   suitOptionVisuals={suitOptionVisuals}
                   colorOptionVisuals={colorOptionVisuals}
                   avatarShowcaseGradient={avatarShowcaseGradient}
-                  surfaceGradient={surfaceGradient}
                   onSelectSuit={handleSelectSuit}
                   onSelectColor={handleSelectColor}
                   styles={styles}
@@ -300,16 +299,15 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
   const cardSurface = isDark ? 'rgba(15, 23, 42, 0.78)' : 'rgba(255, 255, 255, 0.94)';
   const stackUtilityCards = width < 390;
   const screenHorizontalPadding = 20;
-  const profileCardPadding = 18;
-  const avatarGridGap = width < 360 ? 6 : width < 390 ? 8 : 10;
-  const profileContentWidth = width >= 768 ? 640 : width;
-  const avatarGridWidth = profileContentWidth - screenHorizontalPadding * 2 - profileCardPadding * 2;
-  const avatarOptionSize = Math.min(Math.max(Math.floor((avatarGridWidth - avatarGridGap * 3) / 4), 54), 90);
-  const avatarOptionMinHeight = avatarOptionSize < 60 ? 74 : avatarOptionSize < 70 ? 80 : 88;
-  const avatarSymbolSize = avatarOptionSize < 60 ? 24 : avatarOptionSize < 70 ? 27 : 30;
-  const avatarSwatchSize = avatarOptionSize < 60 ? 24 : avatarOptionSize < 70 ? 27 : 30;
-  const avatarCheckBadgeSize = avatarOptionSize < 60 ? 16 : 18;
-  const avatarTitleSize = avatarOptionSize < 60 ? 9 : avatarOptionSize < 70 ? 10 : 11;
+  const avatarGridGap = width < 360 ? 12 : 16;
+  const profileContentWidth = width >= 768 ? 640 : width - screenHorizontalPadding * 2;
+  const avatarGridWidth = Math.max(profileContentWidth, 300);
+  const avatarOptionWidth = Math.min(Math.max(Math.floor((avatarGridWidth - avatarGridGap) / 2), 148), 220);
+  const avatarOptionMinHeight = Math.min(Math.max(Math.floor(avatarOptionWidth * 0.78), 132), 170);
+  const avatarSymbolSize = avatarOptionWidth < 170 ? 52 : 58;
+  const avatarSwatchSize = avatarOptionWidth < 170 ? 72 : 80;
+  const avatarCheckBadgeSize = avatarOptionWidth < 170 ? 38 : 42;
+  const avatarTitleSize = avatarOptionWidth < 170 ? 18 : 21;
 
   return StyleSheet.create({
     container: {
@@ -1107,31 +1105,25 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       color: '#fff',
     },
     avatarShowcaseCard: {
-      borderRadius: 24,
+      borderRadius: 28,
       overflow: 'hidden',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 14 },
-      shadowOpacity: isDark ? 0.3 : 0.12,
-      shadowRadius: 20,
-      elevation: isDark ? 9 : 4,
+      shadowOffset: { width: 0, height: 18 },
+      shadowOpacity: isDark ? 0.32 : 0.12,
+      shadowRadius: 24,
+      elevation: isDark ? 10 : 4,
     },
     avatarShowcaseGradient: {
-      padding: 18,
-      gap: 14,
+      minHeight: 140,
+      paddingHorizontal: 20,
+      paddingVertical: 18,
+      justifyContent: 'center',
     },
     avatarShowcaseHeader: {
-      flexDirection: width < 370 ? 'column' : 'row',
-      justifyContent: 'space-between',
-      alignItems: width < 370 ? 'flex-start' : 'center',
-      gap: 12,
+      display: 'none',
     },
     avatarShowcaseBadge: {
-      paddingHorizontal: 12,
-      paddingVertical: 7,
-      borderRadius: 999,
-      backgroundColor: 'rgba(255, 255, 255, 0.16)',
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.2)',
+      display: 'none',
     },
     avatarShowcaseBadgeText: {
       fontSize: 12,
@@ -1146,106 +1138,118 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       flexShrink: 1,
     },
     avatarShowcaseBody: {
-      flexDirection: width < 370 ? 'column' : 'row',
-      alignItems: width < 370 ? 'flex-start' : 'center',
-      gap: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 18,
     },
     avatarShowcaseTile: {
-      width: 76,
-      height: 76,
-      borderRadius: 22,
+      width: width < 390 ? 106 : 118,
+      height: width < 390 ? 106 : 118,
+      marginLeft: -8,
+      borderRadius: 32,
       backgroundColor: 'rgba(255, 255, 255, 0.16)',
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.18)',
+      borderWidth: 1.5,
+      borderColor: 'rgba(255, 255, 255, 0.2)',
       justifyContent: 'center',
       alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.18,
+      shadowRadius: 18,
     },
     avatarShowcaseSymbol: {
-      fontSize: 46,
-      lineHeight: 52,
+      fontSize: width < 390 ? 56 : 64,
+      lineHeight: width < 390 ? 64 : 72,
       color: '#fff',
     },
     avatarShowcaseTextBlock: {
       flex: 1,
-      gap: 5,
+      gap: 6,
+      paddingRight: 6,
     },
     avatarShowcaseTitle: {
-      fontSize: 21,
+      fontSize: width < 390 ? 19 : 22,
       fontWeight: '800' as const,
       color: '#fff',
-      letterSpacing: -0.5,
+      letterSpacing: -0.6,
     },
     avatarShowcaseDescription: {
-      fontSize: 13,
+      fontSize: width < 390 ? 15 : 16,
       fontWeight: '500' as const,
-      color: 'rgba(255, 255, 255, 0.84)',
-      lineHeight: 19,
+      color: 'rgba(255, 255, 255, 0.9)',
+      lineHeight: 24,
+    },
+    optionSection: {
+      gap: 14,
     },
     sectionHeader: {
-      gap: 4,
+      gap: 6,
     },
     sectionTitle: {
-      fontSize: 20,
+      fontSize: 27,
       fontWeight: '800' as const,
       color: theme.text,
-      letterSpacing: -0.4,
+      letterSpacing: -0.8,
     },
     sectionSubtitle: {
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '500' as const,
       color: theme.textSecondary,
-      lineHeight: 18,
+      lineHeight: 22,
     },
     optionGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      justifyContent: 'center',
+      justifyContent: 'space-between',
       gap: avatarGridGap,
     },
     optionPressable: {
-      width: avatarOptionSize,
-      borderRadius: 18,
+      width: avatarOptionWidth,
+      borderRadius: 28,
     },
     optionCard: {
       width: '100%',
-      borderRadius: 18,
-      paddingVertical: avatarOptionSize < 60 ? 8 : 10,
-      paddingHorizontal: avatarOptionSize < 60 ? 4 : 6,
-      backgroundColor: cardSurface,
-      borderWidth: 1.5,
-      borderColor: isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(255, 255, 255, 0.38)',
-      alignItems: 'center',
-      justifyContent: 'center',
-      position: 'relative',
       minHeight: avatarOptionMinHeight,
+      borderRadius: 28,
+      paddingHorizontal: 18,
+      paddingVertical: 18,
+      backgroundColor: isDark ? 'rgba(13, 20, 39, 0.98)' : cardSurface,
+      borderWidth: 2,
+      borderColor: isDark ? 'rgba(45, 58, 92, 0.9)' : 'rgba(226, 232, 240, 0.92)',
+      position: 'relative',
+      overflow: 'hidden',
     },
     optionCardSelected: {
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: isDark ? 0.24 : 0.1,
-      shadowRadius: 16,
-      elevation: isDark ? 6 : 3,
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: isDark ? 0.28 : 0.12,
+      shadowRadius: 18,
+      elevation: isDark ? 7 : 3,
     },
     optionCardPressed: {
-      transform: [{ scale: 0.97 }],
+      transform: [{ scale: 0.985 }],
+    },
+    optionCardContent: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
     },
     optionSymbol: {
       fontSize: avatarSymbolSize,
-      lineHeight: avatarSymbolSize + 4,
-      marginBottom: 4,
+      lineHeight: avatarSymbolSize + 6,
     },
     colorSwatch: {
       width: avatarSwatchSize,
       height: avatarSwatchSize,
-      borderRadius: avatarSwatchSize < 28 ? 8 : 10,
-      marginBottom: 6,
-      borderWidth: 1.5,
-      borderColor: 'rgba(255, 255, 255, 0.32)',
+      borderRadius: 24,
+      borderWidth: 4,
+      borderColor: 'rgba(255, 255, 255, 0.28)',
     },
     optionTitle: {
       fontSize: avatarTitleSize,
-      lineHeight: avatarTitleSize + 2,
-      fontWeight: '700' as const,
+      lineHeight: avatarTitleSize + 4,
+      fontWeight: '800' as const,
       color: theme.text,
       textAlign: 'center' as const,
     },
@@ -1253,20 +1257,26 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       fontWeight: '800' as const,
     },
     optionDescription: {
-      fontSize: 12,
+      fontSize: 14,
       fontWeight: '500' as const,
       color: theme.textSecondary,
       textAlign: 'center' as const,
+      lineHeight: 20,
     },
     optionCheckBadge: {
       position: 'absolute',
-      top: 6,
-      right: 6,
+      top: 14,
+      right: 14,
       width: avatarCheckBadgeSize,
       height: avatarCheckBadgeSize,
       borderRadius: avatarCheckBadgeSize / 2,
       justifyContent: 'center',
       alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.18,
+      shadowRadius: 14,
+      elevation: 5,
     },
     modalOverlay: {
       flex: 1,
