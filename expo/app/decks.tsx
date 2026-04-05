@@ -487,7 +487,7 @@ export default function DecksPage() {
           </TouchableOpacity>
         </View>
 
-        <ResponsiveContainer>
+        <ResponsiveContainer fill style={styles.contentShell}>
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -657,6 +657,8 @@ export default function DecksPage() {
               style={styles.scrollView}
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              removeClippedSubviews={false}
               refreshControl={
                 <RefreshControl
                   refreshing={refreshing}
@@ -666,7 +668,6 @@ export default function DecksPage() {
                 />
               }
               testID="decks-flat-list"
-              removeClippedSubviews
               initialNumToRender={6}
               maxToRenderPerBatch={8}
               windowSize={7}
@@ -996,6 +997,7 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+    minHeight: 0,
   },
   topGlow: {
     position: 'absolute',
@@ -1112,8 +1114,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600' as const,
   },
+  contentShell: {
+    flex: 1,
+    minHeight: 0,
+  },
   listSection: {
     flex: 1,
+    minHeight: 0,
   },
   scrollView: {
     flex: 1,

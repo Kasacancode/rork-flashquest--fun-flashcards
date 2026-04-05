@@ -7,19 +7,20 @@ interface ResponsiveContainerProps {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   maxWidth?: number;
+  fill?: boolean;
 }
 
-export default function ResponsiveContainer({ children, style, maxWidth }: ResponsiveContainerProps) {
+export default function ResponsiveContainer({ children, style, maxWidth, fill = false }: ResponsiveContainerProps) {
   const { contentMaxWidth } = useResponsiveLayout();
   const effectiveMaxWidth = maxWidth ?? contentMaxWidth;
 
   if (!effectiveMaxWidth) {
-    return <View style={style}>{children}</View>;
+    return <View style={[fill ? styles.fill : null, style]}>{children}</View>;
   }
 
   return (
-    <View style={[styles.outer, style]}>
-      <View style={[styles.inner, { maxWidth: effectiveMaxWidth }]}>{children}</View>
+    <View style={[styles.outer, fill ? styles.fill : null, style]}>
+      <View style={[styles.inner, fill ? styles.fill : null, { maxWidth: effectiveMaxWidth }]}>{children}</View>
     </View>
   );
 }
@@ -31,5 +32,9 @@ const styles = StyleSheet.create({
   },
   inner: {
     width: '100%',
+  },
+  fill: {
+    flex: 1,
+    minHeight: 0,
   },
 });
