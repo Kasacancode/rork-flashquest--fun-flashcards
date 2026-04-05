@@ -207,7 +207,9 @@ export default function StudyPage() {
   const trackedStudyDeckIdRef = useRef<string | null>(null);
   const sessionStartRef = useRef<number>(Date.now());
   const sessionResolvedRef = useRef<number>(0);
-  const allowDismissToHomeRef = useRef<boolean>(false);
+  const allowExitRedirectRef = useRef<boolean>(false);
+
+  const exitRoute = launchedFromReviewHub ? HOME_ROUTE : DECKS_ROUTE;
 
   const isCrossDeckReview = selectedDeckId === CROSS_DECK_REVIEW_DECK_ID;
 
@@ -436,55 +438,51 @@ export default function StudyPage() {
     setReversed((prev) => !prev);
   }, []);
 
-  const handleDismissToHome = useCallback(() => {
-    allowDismissToHomeRef.current = true;
-    logger.debug('[Study] Returning review flow to home');
-    router.dismissTo(HOME_ROUTE);
-  }, [router]);
+  const handleExitStudy = useCallback(() => {
+    allowExitRedirectRef.current = true;
+
+    if (launchedFromReviewHub) {
+      logger.debug('[Study] Exiting study to home');
+      router.dismissTo(HOME_ROUTE);
+      return;
+    }
+
+    logger.debug('[Study] Exiting study to decks');
+    router.replace(DECKS_ROUTE);
+  }, [launchedFromReviewHub, router]);
 
   const handleBackFromStudy = useCallback(() => {
-    if (launchedFromReviewHub) {
-      handleDismissToHome();
-      return;
-    }
-
-    setStudyMode(null);
-  }, [handleDismissToHome, launchedFromReviewHub]);
+    handleExitStudy();
+  }, [handleExitStudy]);
 
   const handleResultsBack = useCallback(() => {
-    if (launchedFromReviewHub) {
-      handleDismissToHome();
-      return;
-    }
-
-    router.back();
-  }, [handleDismissToHome, launchedFromReviewHub, router]);
+    handleExitStudy();
+  }, [handleExitStudy]);
 
   useEffect(() => {
-    if (!launchedFromReviewHub) {
-      return;
-    }
-
     const unsubscribe = navigation.addListener('beforeRemove', (event) => {
-      if (allowDismissToHomeRef.current) {
-        allowDismissToHomeRef.current = false;
+      if (allowExitRedirectRef.current) {
+        allowExitRedirectRef.current = false;
         return;
       }
 
       const actionType = event.data.action.type;
-      const shouldRedirectHome = actionType === 'GO_BACK' || actionType === 'POP' || actionType === 'POP_TO_TOP';
+      const shouldRedirectExit = actionType === 'GO_BACK' || actionType === 'POP' || actionType === 'POP_TO_TOP';
 
-      if (!shouldRedirectHome) {
+      if (!shouldRedirectExit) {
         return;
       }
 
-      logger.debug('[Study] Redirecting back action to home', { actionType });
+      logger.debug('[Study] Redirecting back action to exit route', {
+        actionType,
+        target: exitRoute,
+      });
       event.preventDefault();
-      handleDismissToHome();
+      handleExitStudy();
     });
 
     return unsubscribe;
-  }, [handleDismissToHome, launchedFromReviewHub, navigation]);
+  }, [exitRoute, handleExitStudy, navigation]);
 
   if (!syncReady) {
     return (
@@ -722,7 +720,7 @@ export default function StudyPage() {
 
         <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => (launchedFromReviewHub ? handleDismissToHome() : router.back())} style={styles.backButton} accessibilityLabel="Go back" accessibilityRole="button">
+            <TouchableOpacity onPress={handleExitStudy} style={styles.backButton} accessibilityLabel={launchedFromReviewHub ? 'Back to home' : 'Back to decks'} accessibilityRole="button">
               <ArrowLeft color="#fff" size={28} strokeWidth={2.5} />
             </TouchableOpacity>
             <Text style={styles.headerTitle} accessibilityRole="header">Study Mode</Text>
@@ -746,11 +744,7 @@ export default function StudyPage() {
           transparent
           onRequestClose={() => {
             if (!selectedDeckId) {
-              if (launchedFromReviewHub) {
-                handleDismissToHome();
-              } else {
-                router.back();
-              }
+              handleExitStudy();
             } else {
               setShowDeckSelector(false);
             }
@@ -763,11 +757,7 @@ export default function StudyPage() {
                 <TouchableOpacity
                   onPress={() => {
                     if (!selectedDeckId) {
-                      if (launchedFromReviewHub) {
-                        handleDismissToHome();
-                      } else {
-                        router.back();
-                      }
+                      handleExitStudy();
                     } else {
                       setShowDeckSelector(false);
                     }
@@ -866,7 +856,7 @@ export default function StudyPage() {
               style={styles.modePickerBackButton}
               onPress={() => {
                 if (launchedFromReviewHub) {
-                  handleDismissToHome();
+                  handleExitStudy();
                   return;
                 }
 
