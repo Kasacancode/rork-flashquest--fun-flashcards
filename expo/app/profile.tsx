@@ -187,6 +187,7 @@ export default function ProfilePage() {
                 activeTab={activeTab}
                 onSelectTab={handleSelectTab}
                 tabActiveGradient={tabActiveGradient}
+                tabIconSize={width < 390 ? 16 : 17}
                 styles={styles}
                 theme={theme}
               />
@@ -271,10 +272,24 @@ export default function ProfilePage() {
 const createStyles = (theme: Theme, isDark: boolean, width: number) => {
   const cardSurface = isDark ? 'rgba(15, 23, 42, 0.78)' : 'rgba(255, 255, 255, 0.94)';
   const stackUtilityCards = width < 390;
+  const isCompactProfileLayout = width < 390;
   const screenHorizontalPadding = 20;
   const avatarGridGap = width < 360 ? 12 : 16;
   const profileContentWidth = width >= 768 ? 640 : width - screenHorizontalPadding * 2;
   const avatarGridWidth = Math.max(profileContentWidth, 300);
+  const profileTabGap = isCompactProfileLayout ? 6 : 8;
+  const profileTabHorizontalPadding = isCompactProfileLayout ? 8 : 12;
+  const profileTabMinHeight = isCompactProfileLayout ? 54 : 58;
+  const profileTabFontSize = isCompactProfileLayout ? 13 : 14;
+  const overviewCardGap = isCompactProfileLayout ? 14 : 16;
+  const overviewCardPaddingHorizontal = isCompactProfileLayout ? 16 : 18;
+  const overviewCardPaddingVertical = isCompactProfileLayout ? 16 : 18;
+  const overviewCardMinHeight = isCompactProfileLayout ? 96 : 102;
+  const overviewLeadingIconSize = isCompactProfileLayout ? 50 : 54;
+  const overviewLeadingIconRadius = isCompactProfileLayout ? 16 : 18;
+  const overviewChevronSize = isCompactProfileLayout ? 38 : 40;
+  const utilityTitleFontSize = isCompactProfileLayout ? 15 : 16;
+  const utilitySubtitleFontSize = isCompactProfileLayout ? 11.5 : 12;
   const avatarOptionWidth = Math.min(Math.max(Math.floor((avatarGridWidth - avatarGridGap) / 2), 148), 220);
   const avatarOptionMinHeight = Math.min(Math.max(Math.floor(avatarOptionWidth * 0.78), 132), 170);
   const avatarSymbolSize = avatarOptionWidth < 170 ? 52 : 58;
@@ -365,10 +380,10 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     leaderboardButton: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 16,
-      minHeight: 102,
-      paddingVertical: 18,
-      paddingHorizontal: 18,
+      gap: overviewCardGap,
+      minHeight: overviewCardMinHeight,
+      paddingVertical: overviewCardPaddingVertical,
+      paddingHorizontal: overviewCardPaddingHorizontal,
       borderRadius: 24,
       borderWidth: 1,
       borderColor: isDark ? 'rgba(129, 140, 248, 0.24)' : 'rgba(99, 102, 241, 0.16)',
@@ -380,9 +395,9 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       elevation: isDark ? 8 : 4,
     },
     leaderboardIconWrap: {
-      width: 54,
-      height: 54,
-      borderRadius: 18,
+      width: overviewLeadingIconSize,
+      height: overviewLeadingIconSize,
+      borderRadius: overviewLeadingIconRadius,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: isDark ? 'rgba(129, 140, 248, 0.2)' : 'rgba(99, 102, 241, 0.14)',
@@ -391,6 +406,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     leaderboardTextWrap: {
       flex: 1,
+      minWidth: 0,
       gap: 4,
     },
     leaderboardEyebrow: {
@@ -407,15 +423,15 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       letterSpacing: -0.5,
     },
     leaderboardSubtitle: {
-      fontSize: 14,
+      fontSize: isCompactProfileLayout ? 13 : 14,
       fontWeight: '600' as const,
       color: theme.textSecondary,
-      lineHeight: 20,
+      lineHeight: isCompactProfileLayout ? 18 : 20,
     },
     leaderboardChevronWrap: {
-      width: 40,
-      height: 40,
-      borderRadius: 14,
+      width: overviewChevronSize,
+      height: overviewChevronSize,
+      borderRadius: isCompactProfileLayout ? 13 : 14,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(15, 23, 42, 0.06)',
@@ -423,10 +439,10 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     toggleCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 16,
-      minHeight: 102,
-      paddingVertical: 18,
-      paddingHorizontal: 18,
+      gap: overviewCardGap,
+      minHeight: overviewCardMinHeight,
+      paddingVertical: overviewCardPaddingVertical,
+      paddingHorizontal: overviewCardPaddingHorizontal,
       borderRadius: 24,
       borderWidth: 1,
       borderColor: isDark ? 'rgba(129, 140, 248, 0.24)' : 'rgba(99, 102, 241, 0.16)',
@@ -438,9 +454,9 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       elevation: isDark ? 8 : 4,
     },
     toggleLeadingIcon: {
-      width: 54,
-      height: 54,
-      borderRadius: 18,
+      width: overviewLeadingIconSize,
+      height: overviewLeadingIconSize,
+      borderRadius: overviewLeadingIconRadius,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: isDark ? 'rgba(129, 140, 248, 0.2)' : 'rgba(99, 102, 241, 0.14)',
@@ -449,24 +465,25 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     toggleTextWrap: {
       flex: 1,
+      minWidth: 0,
       gap: 4,
     },
     toggleTitle: {
-      fontSize: 19,
+      fontSize: isCompactProfileLayout ? 18 : 19,
       fontWeight: '800' as const,
       color: theme.text,
       letterSpacing: -0.5,
     },
     toggleSubtitle: {
-      fontSize: 14,
+      fontSize: isCompactProfileLayout ? 13 : 14,
       fontWeight: '600' as const,
       color: theme.textSecondary,
-      lineHeight: 20,
+      lineHeight: isCompactProfileLayout ? 18 : 20,
     },
     toggleChevronWrap: {
-      width: 40,
-      height: 40,
-      borderRadius: 14,
+      width: overviewChevronSize,
+      height: overviewChevronSize,
+      borderRadius: isCompactProfileLayout ? 13 : 14,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(15, 23, 42, 0.06)',
@@ -509,19 +526,20 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     utilityTextWrap: {
       flex: 1,
+      minWidth: 0,
       gap: 4,
     },
     utilityTitle: {
-      fontSize: 16,
+      fontSize: utilityTitleFontSize,
       fontWeight: '800' as const,
       color: theme.text,
       letterSpacing: -0.4,
     },
     utilitySubtitle: {
-      fontSize: 12,
+      fontSize: utilitySubtitleFontSize,
       fontWeight: '600' as const,
       color: theme.textSecondary,
-      lineHeight: 17,
+      lineHeight: isCompactProfileLayout ? 16 : 17,
     },
     utilityChevronWrap: {
       width: 32,
@@ -681,9 +699,9 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     tabs: {
       flexDirection: 'row',
       backgroundColor: isDark ? 'rgba(15, 23, 42, 0.84)' : 'rgba(255, 255, 255, 0.78)',
-      padding: 6,
+      padding: isCompactProfileLayout ? 5 : 6,
       borderRadius: 22,
-      gap: 8,
+      gap: profileTabGap,
       borderWidth: 1,
       borderColor: isDark ? 'rgba(148, 163, 184, 0.22)' : 'rgba(255, 255, 255, 0.52)',
       shadowColor: '#000',
@@ -695,7 +713,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     tab: {
       flex: 1,
       minWidth: 0,
-      minHeight: 58,
+      minHeight: profileTabMinHeight,
       borderRadius: 18,
       overflow: 'hidden',
       position: 'relative',
@@ -704,16 +722,16 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       ...StyleSheet.absoluteFillObject,
     },
     tabContentWrap: {
-      minHeight: 58,
-      paddingHorizontal: 12,
+      minHeight: profileTabMinHeight,
+      paddingHorizontal: profileTabHorizontalPadding,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 8,
+      gap: isCompactProfileLayout ? 5 : 8,
     },
     tabText: {
       flexShrink: 1,
-      fontSize: 14,
+      fontSize: profileTabFontSize,
       fontWeight: '700' as const,
       color: theme.textSecondary,
       textAlign: 'center' as const,

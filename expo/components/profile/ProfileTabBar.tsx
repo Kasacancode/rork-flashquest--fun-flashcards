@@ -13,12 +13,13 @@ interface ProfileTabBarProps {
   activeTab: TabType;
   onSelectTab: (tab: TabType) => void;
   tabActiveGradient: [string, string];
+  tabIconSize: number;
   styles: ViewStyles<'tabs' | 'tab' | 'tabActiveBackground' | 'tabContentWrap'> &
     TextStyles<'tabText' | 'tabTextActive'>;
   theme: Theme;
 }
 
-function ProfileTabBarComponent({ activeTab, onSelectTab, tabActiveGradient, styles, theme }: ProfileTabBarProps) {
+function ProfileTabBarComponent({ activeTab, onSelectTab, tabActiveGradient, tabIconSize, styles, theme }: ProfileTabBarProps) {
   return (
     <View style={styles.tabs}>
       {PROFILE_TABS.map((tab) => {
@@ -47,7 +48,7 @@ function ProfileTabBarComponent({ activeTab, onSelectTab, tabActiveGradient, sty
             <View style={styles.tabContentWrap}>
               <Icon
                 color={isActive ? theme.profileTabActiveText : theme.textSecondary}
-                size={17}
+                size={tabIconSize}
                 strokeWidth={2.3}
               />
               <Text style={[styles.tabText, isActive ? styles.tabTextActive : null]} numberOfLines={1}>

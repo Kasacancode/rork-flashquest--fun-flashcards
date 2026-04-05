@@ -66,7 +66,7 @@ export default function OverviewTab({
         <View style={styles.leaderboardTextWrap}>
           <Text style={styles.leaderboardButtonText}>Leaderboard</Text>
           <Text style={styles.leaderboardSubtitle} numberOfLines={2}>
-            See the top arena players and track your climb.
+            See the top arena players and track your climb
           </Text>
         </View>
         <View style={styles.leaderboardChevronWrap}>
@@ -87,7 +87,7 @@ export default function OverviewTab({
         </View>
         <View style={styles.toggleTextWrap}>
           <Text style={styles.toggleTitle}>Friends</Text>
-          <Text style={styles.toggleSubtitle} numberOfLines={2}>Add friends, accept requests, and compare your streaks.</Text>
+          <Text style={styles.toggleSubtitle} numberOfLines={2}>Add friends, accept requests, and compare streaks</Text>
         </View>
         <View style={styles.toggleChevronWrap}>
           <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
@@ -107,7 +107,7 @@ export default function OverviewTab({
         </View>
         <View style={styles.toggleTextWrap}>
           <Text style={styles.toggleTitle}>Settings</Text>
-          <Text style={styles.toggleSubtitle} numberOfLines={2}>Appearance, goals, privacy, and backup.</Text>
+          <Text style={styles.toggleSubtitle} numberOfLines={2}>Appearance, goals, privacy, and backup</Text>
         </View>
         <View style={styles.toggleChevronWrap}>
           <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
@@ -133,7 +133,7 @@ export default function OverviewTab({
           </View>
           <View style={styles.utilityTextWrap}>
             <Text style={styles.utilityTitle}>FAQ</Text>
-            <Text style={styles.utilitySubtitle} numberOfLines={2}>Answers, guides, and feature tips.</Text>
+            <Text style={styles.utilitySubtitle} numberOfLines={2}>Answers, guides, and feature tips</Text>
           </View>
         </TouchableOpacity>
 
@@ -155,7 +155,7 @@ export default function OverviewTab({
           </View>
           <View style={styles.utilityTextWrap}>
             <Text style={styles.utilityTitle}>Support</Text>
-            <Text style={styles.utilitySubtitle} numberOfLines={2}>Account, deck, and app help.</Text>
+            <Text style={styles.utilitySubtitle} numberOfLines={2}>Account, deck, and app help</Text>
           </View>
         </TouchableOpacity>
       </View>
