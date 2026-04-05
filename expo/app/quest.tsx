@@ -14,19 +14,36 @@ import { usePerformance } from '@/context/PerformanceContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { QuestMode, QuestSettings } from '@/types/performance';
-import { serializeQuestSettings } from '@/utils/questParams';
+import { parseDrillCardIdsParam, serializeQuestSettings } from '@/utils/questParams';
 import { DATA_PRIVACY_ROUTE, DECKS_ROUTE, questSessionHref } from '@/utils/routes';
 import { getFirstRouteParam } from '@/utils/safeJson';
 
 type RunLength = 5 | 10 | 20;
 type TimerOption = 0 | 5 | 10;
 
+function getFocusedRunLength(cardCount: number): RunLength {
+  if (cardCount >= 20) {
+    return 20;
+  }
+
+  if (cardCount >= 10) {
+    return 10;
+  }
+
+  return 5;
+}
+
+interface PendingQuestLaunch {
+  settings: QuestSettings;
+  drillCardIds?: string[];
+}
+
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.65;
 
 export default function QuestMenuScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ deckId?: string | string[]; focusWeak?: string | string[] }>();
+  const params = useLocalSearchParams<{ deckId?: string | string[]; focusWeak?: string | string[]; drillCardIds?: string | string[] }>();
   const { theme, isDark } = useTheme();
   const { decks } = useFlashQuest();
   const { performance, getLastQuestSettings, getDeckAccuracy, getOverallQuestAccuracy, saveLastQuestSettings } = usePerformance();
@@ -36,6 +53,7 @@ export default function QuestMenuScreen() {
 
   const requestedDeckId = getFirstRouteParam(params.deckId);
   const focusWeakParam = getFirstRouteParam(params.focusWeak);
+  const requestedDrillCardIds = useMemo(() => parseDrillCardIdsParam(params.drillCardIds), [params.drillCardIds]);
 
   const [selectedDeckId, setSelectedDeckId] = useState<string>(requestedDeckId || lastSettings?.deckId || decks[0]?.id || '');
   const [mode, setMode] = useState<QuestMode>(lastSettings?.mode || 'learn');
@@ -47,12 +65,24 @@ export default function QuestMenuScreen() {
   const [secondChanceEnabled, setSecondChanceEnabled] = useState<boolean>(lastSettings?.secondChanceEnabled || false);
 
   const [sheetVisible, setSheetVisible] = useState<boolean>(false);
-  const [pendingQuestSettings, setPendingQuestSettings] = useState<QuestSettings | null>(null);
+  const [pendingQuestLaunch, setPendingQuestLaunch] = useState<PendingQuestLaunch | null>(null);
   const slideAnim = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
+  const weakDrillPresetAppliedRef = useRef<boolean>(false);
 
   const selectedDeck = useMemo(() => decks.find(d => d.id === selectedDeckId), [decks, selectedDeckId]);
   const hasDecks = decks.length > 0;
+  const focusedDrillCardIds = useMemo(() => {
+    if (!selectedDeck || selectedDeck.id !== requestedDeckId || !requestedDrillCardIds?.length) {
+      return [] as string[];
+    }
+
+    const availableCardIds = new Set(selectedDeck.flashcards.map((card) => card.id));
+    return requestedDrillCardIds.filter((cardId) => availableCardIds.has(cardId));
+  }, [requestedDeckId, requestedDrillCardIds, selectedDeck]);
+  const focusedDrillCount = focusedDrillCardIds.length;
+  const isWeakDrillEntry = focusedDrillCount > 0;
+  const focusedDrillRunLength = useMemo<RunLength>(() => getFocusedRunLength(focusedDrillCount), [focusedDrillCount]);
 
   useEffect(() => {
     if (requestedDeckId && decks.some((deck) => deck.id === requestedDeckId)) {
@@ -62,6 +92,26 @@ export default function QuestMenuScreen() {
       setFocusWeakOnly(true);
     }
   }, [decks, focusWeakParam, requestedDeckId]);
+
+  useEffect(() => {
+    if (weakDrillPresetAppliedRef.current || !requestedDeckId || !requestedDrillCardIds?.length) {
+      return;
+    }
+
+    if (!decks.some((deck) => deck.id === requestedDeckId)) {
+      return;
+    }
+
+    weakDrillPresetAppliedRef.current = true;
+    setSelectedDeckId(requestedDeckId);
+    setMode('learn');
+    setRunLength(getFocusedRunLength(requestedDrillCardIds.length));
+    setTimerSeconds(0);
+    setFocusWeakOnly(false);
+    setHintsEnabled(true);
+    setExplanationsEnabled(true);
+    setSecondChanceEnabled(false);
+  }, [decks, requestedDeckId, requestedDrillCardIds]);
 
   const overallAccuracy = getOverallQuestAccuracy();
   const deckAccuracy = selectedDeckId ? getDeckAccuracy(selectedDeckId) : null;
@@ -112,9 +162,12 @@ export default function QuestMenuScreen() {
     }
   };
 
-  const launchQuest = useCallback((settings: QuestSettings) => {
-    saveLastQuestSettings(settings);
-    router.push(questSessionHref({ settings: serializeQuestSettings(settings) }));
+  const launchQuest = useCallback((launchPayload: PendingQuestLaunch) => {
+    saveLastQuestSettings(launchPayload.settings);
+    router.push(questSessionHref({
+      settings: serializeQuestSettings(launchPayload.settings),
+      drillCardIds: launchPayload.drillCardIds ? JSON.stringify(launchPayload.drillCardIds) : undefined,
+    }));
   }, [router, saveLastQuestSettings]);
 
   const handleStartQuest = useCallback(() => {
@@ -122,23 +175,25 @@ export default function QuestMenuScreen() {
       return;
     }
 
-    const settings: QuestSettings = {
-      deckId: selectedDeckId,
-      mode,
-      runLength,
-      timerSeconds,
-      focusWeakOnly,
-      hintsEnabled,
-      explanationsEnabled,
-      secondChanceEnabled,
+    const launchPayload: PendingQuestLaunch = {
+      settings: {
+        deckId: selectedDeckId,
+        mode,
+        runLength,
+        timerSeconds,
+        focusWeakOnly,
+        hintsEnabled,
+        explanationsEnabled,
+        secondChanceEnabled,
+      },
     };
 
     if (!hasAcknowledgedAIDisclosure('gameplayAssist')) {
-      setPendingQuestSettings(settings);
+      setPendingQuestLaunch(launchPayload);
       return;
     }
 
-    launchQuest(settings);
+    launchQuest(launchPayload);
   }, [
     explanationsEnabled,
     focusWeakOnly,
@@ -152,32 +207,72 @@ export default function QuestMenuScreen() {
     timerSeconds,
   ]);
 
+  const handleStartWeakCardsQuest = useCallback(() => {
+    if (!selectedDeckId || focusedDrillCardIds.length === 0) {
+      return;
+    }
+
+    const launchPayload: PendingQuestLaunch = {
+      settings: {
+        deckId: selectedDeckId,
+        mode,
+        runLength: focusedDrillRunLength,
+        timerSeconds,
+        focusWeakOnly: false,
+        hintsEnabled,
+        explanationsEnabled,
+        secondChanceEnabled,
+      },
+      drillCardIds: focusedDrillCardIds,
+    };
+
+    if (!hasAcknowledgedAIDisclosure('gameplayAssist')) {
+      setPendingQuestLaunch(launchPayload);
+      return;
+    }
+
+    launchQuest(launchPayload);
+  }, [
+    explanationsEnabled,
+    focusedDrillCardIds,
+    focusedDrillRunLength,
+    hasAcknowledgedAIDisclosure,
+    hintsEnabled,
+    launchQuest,
+    mode,
+    secondChanceEnabled,
+    selectedDeckId,
+    timerSeconds,
+  ]);
+
   const handleQuickResume = useCallback(() => {
     if (!lastSettings) {
       return;
     }
 
+    const launchPayload: PendingQuestLaunch = { settings: lastSettings };
+
     if (!hasAcknowledgedAIDisclosure('gameplayAssist')) {
-      setPendingQuestSettings(lastSettings);
+      setPendingQuestLaunch(launchPayload);
       return;
     }
 
-    launchQuest(lastSettings);
+    launchQuest(launchPayload);
   }, [hasAcknowledgedAIDisclosure, lastSettings, launchQuest]);
 
   const handleAcceptGameplayDisclosure = useCallback(() => {
-    if (!pendingQuestSettings) {
+    if (!pendingQuestLaunch) {
       return;
     }
 
-    const nextSettings = pendingQuestSettings;
-    setPendingQuestSettings(null);
+    const nextLaunch = pendingQuestLaunch;
+    setPendingQuestLaunch(null);
     acknowledgeAIDisclosure('gameplayAssist');
-    launchQuest(nextSettings);
-  }, [acknowledgeAIDisclosure, launchQuest, pendingQuestSettings]);
+    launchQuest(nextLaunch);
+  }, [acknowledgeAIDisclosure, launchQuest, pendingQuestLaunch]);
 
   const handleDismissGameplayDisclosure = useCallback(() => {
-    setPendingQuestSettings(null);
+    setPendingQuestLaunch(null);
   }, []);
 
   const smallDeckWarning = selectedDeck && selectedDeck.flashcards.length < 8;
@@ -208,16 +303,22 @@ export default function QuestMenuScreen() {
   const topGlowColor = isDark ? 'rgba(99, 102, 241, 0.16)' : 'rgba(99, 121, 255, 0.22)';
   const midGlowColor = isDark ? 'rgba(45, 212, 191, 0.08)' : 'rgba(128, 109, 241, 0.1)';
   const bottomGlowColor = isDark ? 'rgba(45, 212, 191, 0.1)' : 'rgba(204, 168, 240, 0.18)';
+  const focusedQuestSurface = isDark ? 'rgba(120, 53, 15, 0.24)' : 'rgba(255, 247, 237, 0.92)';
+  const focusedQuestInset = isDark ? 'rgba(251, 191, 36, 0.16)' : 'rgba(255, 255, 255, 0.76)';
+  const focusedQuestBorder = isDark ? 'rgba(251, 191, 36, 0.2)' : 'rgba(245, 158, 11, 0.18)';
+  const focusedQuestAccent = isDark ? '#FBBF24' : '#D97706';
 
   const settingsLabel = useMemo(() => {
     const parts: string[] = [];
-    parts.push(`${runLength} cards`);
+    parts.push(isWeakDrillEntry ? `${focusedDrillCount} weak cards only` : `${runLength} cards`);
     if (timerSeconds > 0) parts.push(`${timerSeconds}s timer`);
     if (focusWeakOnly) parts.push('weak focus');
     if (hintsEnabled) parts.push('hints');
     if (secondChanceEnabled) parts.push('2nd chance');
     return parts.join(' · ');
-  }, [runLength, timerSeconds, focusWeakOnly, hintsEnabled, secondChanceEnabled]);
+  }, [focusedDrillCount, focusWeakOnly, hintsEnabled, isWeakDrillEntry, runLength, secondChanceEnabled, timerSeconds]);
+
+  const startButtonLabel = isWeakDrillEntry ? 'Start Weak Cards Quest' : 'Start Quest';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -313,6 +414,50 @@ export default function QuestMenuScreen() {
             ]}
             accentColor={theme.primary}
           />
+
+          {isWeakDrillEntry ? (
+            <View
+              style={[
+                styles.focusedQuestCard,
+                {
+                  backgroundColor: focusedQuestSurface,
+                  borderColor: focusedQuestBorder,
+                  shadowOpacity: isDark ? 0.18 : 0.08,
+                  shadowRadius: isDark ? 14 : 8,
+                  elevation: isDark ? 5 : 2,
+                },
+              ]}
+              testID="questWeakDrillCard"
+            >
+              <View style={styles.focusedQuestHeader}>
+                <View style={[styles.focusedQuestIconWrap, { backgroundColor: focusedQuestInset, borderColor: focusedQuestBorder }]}> 
+                  <Flame color={focusedQuestAccent} size={20} strokeWidth={2.3} />
+                </View>
+                <View style={styles.focusedQuestCopy}>
+                  <Text style={[styles.focusedQuestEyebrow, { color: focusedQuestAccent }]}>Custom quest</Text>
+                  <Text style={[styles.focusedQuestTitle, { color: theme.text }]}>Drill Weak Cards</Text>
+                </View>
+              </View>
+
+              <Text style={[styles.focusedQuestDescription, { color: theme.textSecondary }]}> 
+                {(selectedDeck?.name ?? 'This deck')} has {focusedDrillCount} card{focusedDrillCount === 1 ? '' : 's'} queued for extra reps. Start a custom quest that only pulls from those practice cards.
+              </Text>
+
+              <View style={styles.focusedQuestPills}>
+                <View style={[styles.focusedQuestPill, { backgroundColor: focusedQuestInset }]}> 
+                  <Text style={[styles.focusedQuestPillText, { color: focusedQuestAccent }]}>{focusedDrillCount} card{focusedDrillCount === 1 ? '' : 's'} only</Text>
+                </View>
+                <View style={[styles.focusedQuestPill, { backgroundColor: focusedQuestInset }]}> 
+                  <Text style={[styles.focusedQuestPillText, { color: focusedQuestAccent }]}>{mode === 'learn' ? 'Learn mode' : 'Test mode'}</Text>
+                </View>
+                {timerSeconds > 0 ? (
+                  <View style={[styles.focusedQuestPill, { backgroundColor: focusedQuestInset }]}> 
+                    <Text style={[styles.focusedQuestPillText, { color: focusedQuestAccent }]}>{timerSeconds}s timer</Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
 
           {!hasDecks ? (
             <View style={[styles.emptyState, { backgroundColor: sectionSurface, borderColor: surfaceBorderColor }]}> 
@@ -525,11 +670,12 @@ export default function QuestMenuScreen() {
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={[styles.startButton, !selectedDeckId && styles.disabledButton]}
-              onPress={handleStartQuest}
+              onPress={isWeakDrillEntry ? handleStartWeakCardsQuest : handleStartQuest}
               activeOpacity={0.8}
               disabled={!selectedDeckId}
-              accessibilityLabel="Start quest"
+              accessibilityLabel={isWeakDrillEntry ? 'Start weak cards quest' : 'Start quest'}
               accessibilityRole="button"
+              testID={isWeakDrillEntry ? 'questStartWeakCardsButton' : 'questStartButton'}
             >
               <LinearGradient
                 colors={theme.questGradient}
@@ -538,7 +684,7 @@ export default function QuestMenuScreen() {
                 style={styles.startButtonGradient}
               >
                 <Play color="#fff" size={24} fill="#fff" />
-                <Text style={styles.startButtonText}>Start Quest</Text>
+                <Text style={styles.startButtonText}>{startButtonLabel}</Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -639,7 +785,7 @@ export default function QuestMenuScreen() {
         </View>
       </Modal>
       <ConsentSheet
-        visible={pendingQuestSettings !== null}
+        visible={pendingQuestLaunch !== null}
         title="Use AI-assisted question mode?"
         description="Quest sends the active question and answer to an AI processing service to generate stronger distractors and keep rounds feeling sharp."
         bullets={[
@@ -878,6 +1024,65 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     marginLeft: 8,
+  },
+  focusedQuestCard: {
+    borderRadius: 24,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+    gap: 14,
+  },
+  focusedQuestHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  focusedQuestIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  focusedQuestCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  focusedQuestEyebrow: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.8,
+  },
+  focusedQuestTitle: {
+    fontSize: 22,
+    fontWeight: '800' as const,
+    letterSpacing: -0.5,
+  },
+  focusedQuestDescription: {
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '500' as const,
+  },
+  focusedQuestPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  focusedQuestPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  focusedQuestPillText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
   },
   emptyState: {
     minHeight: 420,

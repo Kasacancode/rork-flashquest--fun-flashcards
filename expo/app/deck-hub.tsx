@@ -17,7 +17,7 @@ import { fetchFriends, type Friendship } from '@/utils/friendsService';
 import { computeDeckMastery } from '@/utils/mastery';
 import { checkDeckPublished, publishDeck, unpublishDeck } from '@/utils/marketplaceService';
 import { serializeQuestSettings } from '@/utils/questParams';
-import { DECKS_ROUTE, editDeckHref, focusedQuestSessionHref, questSessionHref } from '@/utils/routes';
+import { DECKS_ROUTE, editDeckHref, focusedQuestSessionHref, questHref, questSessionHref } from '@/utils/routes';
 import { shareTextWithFallback } from '@/utils/share';
 import { generateUUID } from '@/utils/uuid';
 
@@ -148,17 +148,19 @@ export default function DeckHubScreen() {
 
   const accuracy = useMemo(() => (deckId ? getDeckAccuracy(deckId) : null), [deckId, getDeckAccuracy]);
 
-  const weakCardCount = useMemo(() => {
+  const weakCardIds = useMemo(() => {
     if (!deck) {
-      return 0;
+      return [] as string[];
     }
 
     const weakIds = getWeakCards(deck.id, deck.flashcards, 50);
     return weakIds.filter((id) => {
       const stats = performance.cardStatsById[id];
       return Boolean(stats && stats.attempts > 0);
-    }).length;
+    });
   }, [deck, getWeakCards, performance.cardStatsById]);
+
+  const weakCardCount = weakCardIds.length;
 
   const dueForReviewCount = useMemo(() => {
     if (!deck) {
@@ -811,8 +813,9 @@ export default function DeckHubScreen() {
                   borderColor: 'rgba(245,158,11,0.24)',
                 },
               ]}
-              onPress={() => router.push({ pathname: '/quest', params: { deckId: deck.id, focusWeak: 'true' } } as Href)}
+              onPress={() => router.push(questHref({ deckId: deck.id, drillCardIds: JSON.stringify(weakCardIds) }))}
               activeOpacity={0.85}
+              testID="deckHubDrillWeakCardsButton"
             >
               <AlertTriangle color="#F59E0B" size={22} strokeWidth={2.2} />
               <View style={styles.actionText}>

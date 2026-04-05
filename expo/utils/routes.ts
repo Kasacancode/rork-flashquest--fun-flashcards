@@ -102,8 +102,8 @@ export function flashcardDebugHref(params?: {
   return { pathname: FLASHCARD_DEBUG_ROUTE as unknown as string, params: nextParams } as Href;
 }
 
-export function questHref(params?: { deckId?: string; focusWeak?: 'true' }): Href {
-  if (!params?.deckId && !params?.focusWeak) {
+export function questHref(params?: { deckId?: string; focusWeak?: 'true'; drillCardIds?: string }): Href {
+  if (!params?.deckId && !params?.focusWeak && !params?.drillCardIds) {
     return QUEST_ROUTE;
   }
 
@@ -115,6 +115,10 @@ export function questHref(params?: { deckId?: string; focusWeak?: 'true' }): Hre
 
   if (params.focusWeak) {
     nextParams.focusWeak = params.focusWeak;
+  }
+
+  if (params.drillCardIds) {
+    nextParams.drillCardIds = params.drillCardIds;
   }
 
   return { pathname: QUEST_ROUTE, params: nextParams };
