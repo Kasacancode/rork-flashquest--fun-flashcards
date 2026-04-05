@@ -67,6 +67,7 @@ export default function ProfilePage() {
     handleOpenFAQ,
     handleOpenSupport,
     handleOpenLeaderboard,
+    handleOpenFriends,
     handleSelectSuit,
     handleSelectColor,
     handleEditPlayerName,
@@ -196,6 +197,7 @@ export default function ProfilePage() {
                   onOpenFAQ={handleOpenFAQ}
                   onOpenSupport={handleOpenSupport}
                   onOpenLeaderboard={handleOpenLeaderboard}
+                  onOpenFriends={handleOpenFriends}
                   styles={styles}
                   theme={theme}
                 />
