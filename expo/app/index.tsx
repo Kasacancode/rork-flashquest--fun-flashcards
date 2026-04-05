@@ -521,7 +521,7 @@ export default function HomePage() {
   const communityBannerDecorColor = isDark ? 'rgba(99, 102, 241, 0.12)' : 'rgba(198, 208, 255, 0.36)';
   const communityBannerAccentColor = isDark ? 'rgba(129, 140, 248, 0.08)' : 'rgba(224, 231, 255, 0.82)';
   const communityBannerTitle = 'Explore Community Decks';
-  const communityBannerSubtitle = 'Discover decks from other FlashQuest players and save them offline.';
+  const communityBannerSubtitle = 'Discover decks from other FlashQuest players and save them offline';
 
   const hasReviewPage = decks.length > 0;
 
