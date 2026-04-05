@@ -37,6 +37,34 @@ export const lightTheme = {
   achievementBaseGradient: ['#E0E7FF', '#C7D2FE'] as const,
   achievementCompletedGradient: ['#D1FAE5', '#A7F3D0'] as const,
   sheetHandle: 'rgba(15, 23, 42, 0.12)',
+  homeGradient: ['#7490f6', '#8b87ef', '#b193ec', '#d8aaed'] as const,
+  homeShadow: '#94a3b8',
+  homeStatsValue: '#13233f',
+  homeIconColor: '#334155',
+  homeCardBg: 'rgba(255, 255, 255, 0.99)',
+  homeDotActive: '#6366f1',
+  homeDotInactive: 'rgba(0,0,0,0.15)',
+  homeReviewAccent: '#5b63f6',
+  homeReviewCount: '#4F46E5',
+  homeReviewChip: '#5967f1',
+  homeReviewDot: '#10B981',
+  homeReviewIcon: '#6366f1',
+  homeReviewSecondaryIcon: '#475569',
+  communityIconSurface: '#EEF1FF',
+  communityIconColor: '#6B6FF6',
+  communityTitle: '#1C2742',
+  communitySubtitle: '#64748B',
+  homeArenaGradient: ['#ef7721', '#e46512'] as const,
+  homeQuestGradient: ['#8e63ef', '#7648df'] as const,
+  homeStatsGradient: ['#18b382', '#109f76'] as const,
+  homeDecksGradient: ['#6870eb', '#5860df'] as const,
+  homeSmartReviewGradient: ['#6B7DFF', '#5967F1'] as const,
+  homeSmartCreateGradient: ['#24C08B', '#12A974'] as const,
+  homeSmartDeckGradient: ['#9C6FFF', '#7F56F5'] as const,
+  homeSmartQuestGradient: ['#8E63EF', '#7648DF'] as const,
+  homeSmartBattleGradient: ['#EF7721', '#E46512'] as const,
+  homeSmartExploreGradient: ['#78A2FF', '#6B7DFF'] as const,
+  homeSmartReviewCardGradient: ['rgba(129, 140, 248, 0.12)', 'rgba(255, 255, 255, 0.08)'] as const,
 };
 
 export const darkTheme = {
@@ -78,6 +106,34 @@ export const darkTheme = {
   achievementBaseGradient: ['#1f2937', '#111827'] as const,
   achievementCompletedGradient: ['#134e4a', '#0f766e'] as const,
   sheetHandle: 'rgba(148, 163, 184, 0.35)',
+  homeGradient: ['#08111f', '#0c1730', '#09111d'] as const,
+  homeShadow: '#020617',
+  homeStatsValue: '#f8fafc',
+  homeIconColor: '#f8fafc',
+  homeCardBg: '#111b2f',
+  homeDotActive: '#a5b4fc',
+  homeDotInactive: 'rgba(255,255,255,0.2)',
+  homeReviewAccent: '#a5b4fc',
+  homeReviewCount: '#E0E7FF',
+  homeReviewChip: '#c7d2fe',
+  homeReviewDot: '#34D399',
+  homeReviewIcon: '#a5b4fc',
+  homeReviewSecondaryIcon: '#cbd5e1',
+  communityIconSurface: 'rgba(99, 102, 241, 0.16)',
+  communityIconColor: '#A5B4FC',
+  communityTitle: '#F8FAFC',
+  communitySubtitle: 'rgba(226, 232, 240, 0.82)',
+  homeArenaGradient: ['#ff6d10', '#ff6208'] as const,
+  homeQuestGradient: ['#935ff7', '#7d45eb'] as const,
+  homeStatsGradient: ['#12b985', '#0ea678'] as const,
+  homeDecksGradient: ['#6870f1', '#565ee7'] as const,
+  homeSmartReviewGradient: ['#5B6CF4', '#4F46E5'] as const,
+  homeSmartCreateGradient: ['#18B882', '#0E9F76'] as const,
+  homeSmartDeckGradient: ['#8B5CF6', '#7C3AED'] as const,
+  homeSmartQuestGradient: ['#935FF7', '#7D45EB'] as const,
+  homeSmartBattleGradient: ['#FF6D10', '#FF6208'] as const,
+  homeSmartExploreGradient: ['#0EA5E9', '#2563EB'] as const,
+  homeSmartReviewCardGradient: ['rgba(99, 102, 241, 0.16)', 'rgba(30, 41, 59, 0.04)'] as const,
 };
 
 export type Theme = {
@@ -119,4 +175,32 @@ export type Theme = {
   arenaSurface: string;
   arenaTableSurface: string;
   arenaOverlay: string;
+  homeGradient: readonly [string, string, ...string[]];
+  homeShadow: string;
+  homeStatsValue: string;
+  homeIconColor: string;
+  homeCardBg: string;
+  homeDotActive: string;
+  homeDotInactive: string;
+  homeReviewAccent: string;
+  homeReviewCount: string;
+  homeReviewChip: string;
+  homeReviewDot: string;
+  homeReviewIcon: string;
+  homeReviewSecondaryIcon: string;
+  communityIconSurface: string;
+  communityIconColor: string;
+  communityTitle: string;
+  communitySubtitle: string;
+  homeArenaGradient: readonly [string, string];
+  homeQuestGradient: readonly [string, string];
+  homeStatsGradient: readonly [string, string];
+  homeDecksGradient: readonly [string, string];
+  homeSmartReviewGradient: readonly [string, string];
+  homeSmartCreateGradient: readonly [string, string];
+  homeSmartDeckGradient: readonly [string, string];
+  homeSmartQuestGradient: readonly [string, string];
+  homeSmartBattleGradient: readonly [string, string];
+  homeSmartExploreGradient: readonly [string, string];
+  homeSmartReviewCardGradient: readonly [string, string];
 };

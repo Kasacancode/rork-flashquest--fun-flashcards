@@ -123,14 +123,7 @@ export default function HomePage() {
     void loadIncomingChallenges();
   }, [loadIncomingChallenges]);
 
-  const backgroundGradient = useMemo(
-    () => (
-      isDark
-        ? ['#08111f', '#0c1730', '#09111d'] as const
-        : ['#7490f6', '#8b87ef', '#b193ec', '#d8aaed'] as const
-    ),
-    [isDark],
-  );
+  const backgroundGradient = theme.homeGradient;
   const upperAtmosphereGradient = useMemo(
     () => (
       isDark
@@ -155,7 +148,7 @@ export default function HomePage() {
     ),
     [isDark],
   );
-  const titleColor = isDark ? '#f8fbff' : '#ffffff';
+  const titleColor = theme.white;
   const subtitleColor = isDark ? 'rgba(229, 236, 248, 0.84)' : 'rgba(241, 236, 252, 0.88)';
   const topGlowColor = isDark ? 'rgba(88, 97, 215, 0.075)' : 'rgba(97, 131, 255, 0.24)';
   const midGlowColor = isDark ? 'rgba(44, 166, 154, 0.038)' : 'rgba(133, 114, 237, 0.08)';
@@ -165,39 +158,46 @@ export default function HomePage() {
   const profileGradient = isDark
     ? ['rgba(40, 52, 74, 0.98)', 'rgba(31, 41, 60, 0.98)'] as const
     : ['rgba(255, 255, 255, 0.98)', 'rgba(245, 248, 252, 0.98)'] as const;
-  const profileIconColor = isDark ? '#f8fafc' : '#334155';
+  const profileIconColor = theme.homeIconColor;
   const statsCardGradient = isDark
     ? ['rgba(18, 28, 45, 0.99)', 'rgba(14, 22, 37, 0.99)'] as const
     : ['rgba(255, 255, 255, 0.97)', 'rgba(248, 245, 255, 0.97)'] as const;
   const statsBorderColor = isDark ? 'rgba(110, 130, 162, 0.18)' : 'rgba(148, 163, 184, 0.16)';
   const statsDividerColor = isDark ? 'rgba(112, 132, 163, 0.24)' : 'rgba(148, 163, 184, 0.22)';
-  const statsShadowColor = isDark ? '#020617' : '#94a3b8';
-  const statsValueColor = isDark ? '#f8fafc' : '#13233f';
+  const statsShadowColor = theme.homeShadow;
+  const statsValueColor = theme.homeStatsValue;
   const statsLabelColor = isDark ? 'rgba(203, 213, 225, 0.86)' : 'rgba(71, 85, 105, 0.86)';
   const statsLevelColor = isDark && levelPalette.band === 'early'
     ? levelPalette.badgeGradient[0]
     : levelPalette.badgeGradient[1];
-  const actionShadowColor = isDark ? '#020617' : '#94a3b8';
+  const actionShadowColor = theme.homeShadow;
   const actionBorderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.1)';
-  const homeActionGradients = useMemo(
+  const actionGradients = useMemo(
     () => ({
-      arena: isDark ? ['#ff6d10', '#ff6208'] as const : ['#ef7721', '#e46512'] as const,
-      quest: isDark ? ['#935ff7', '#7d45eb'] as const : ['#8e63ef', '#7648df'] as const,
-      stats: isDark ? ['#12b985', '#0ea678'] as const : ['#18b382', '#109f76'] as const,
-      decks: isDark ? ['#6870f1', '#565ee7'] as const : ['#6870eb', '#5860df'] as const,
+      arena: theme.homeArenaGradient,
+      quest: theme.homeQuestGradient,
+      stats: theme.homeStatsGradient,
+      decks: theme.homeDecksGradient,
     }),
-    [isDark],
+    [theme.homeArenaGradient, theme.homeDecksGradient, theme.homeQuestGradient, theme.homeStatsGradient],
   );
   const smartActionGradients = useMemo(
     () => ({
-      review: isDark ? ['#5B6CF4', '#4F46E5'] as const : ['#6B7DFF', '#5967F1'] as const,
-      create: isDark ? ['#18B882', '#0E9F76'] as const : ['#24C08B', '#12A974'] as const,
-      deck: isDark ? ['#8B5CF6', '#7C3AED'] as const : ['#9C6FFF', '#7F56F5'] as const,
-      quest: isDark ? ['#935FF7', '#7D45EB'] as const : ['#8E63EF', '#7648DF'] as const,
-      battle: isDark ? ['#FF6D10', '#FF6208'] as const : ['#EF7721', '#E46512'] as const,
-      explore: isDark ? ['#0EA5E9', '#2563EB'] as const : ['#78A2FF', '#6B7DFF'] as const,
+      review: theme.homeSmartReviewGradient,
+      create: theme.homeSmartCreateGradient,
+      deck: theme.homeSmartDeckGradient,
+      quest: theme.homeSmartQuestGradient,
+      battle: theme.homeSmartBattleGradient,
+      explore: theme.homeSmartExploreGradient,
     }),
-    [isDark],
+    [
+      theme.homeSmartBattleGradient,
+      theme.homeSmartCreateGradient,
+      theme.homeSmartDeckGradient,
+      theme.homeSmartExploreGradient,
+      theme.homeSmartQuestGradient,
+      theme.homeSmartReviewGradient,
+    ],
   );
 
   useEffect(() => {
@@ -514,14 +514,15 @@ export default function HomePage() {
     ? ['rgba(18, 27, 43, 0.96)', 'rgba(11, 19, 33, 0.94)'] as const
     : ['rgba(251, 252, 255, 0.98)', 'rgba(241, 246, 255, 0.96)'] as const;
   const communityBannerBorderColor = isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(255, 255, 255, 0.58)';
-  const communityBannerIconSurface = isDark ? 'rgba(99, 102, 241, 0.16)' : '#EEF1FF';
-  const communityBannerIconColor = isDark ? '#A5B4FC' : '#6B6FF6';
-  const communityBannerTitleColor = isDark ? '#F8FAFC' : '#1C2742';
-  const communityBannerSubtitleColor = isDark ? 'rgba(226, 232, 240, 0.82)' : '#64748B';
+  const communityBannerIconSurface = theme.communityIconSurface;
+  const communityBannerIconColor = theme.communityIconColor;
+  const communityBannerTitleColor = theme.communityTitle;
+  const communityBannerSubtitleColor = theme.communitySubtitle;
   const communityBannerDecorColor = isDark ? 'rgba(99, 102, 241, 0.12)' : 'rgba(198, 208, 255, 0.36)';
   const communityBannerAccentColor = isDark ? 'rgba(129, 140, 248, 0.08)' : 'rgba(224, 231, 255, 0.82)';
   const communityBannerTitle = 'Explore Community Decks';
   const communityBannerSubtitle = 'Discover decks from other FlashQuest players and save them offline';
+  const reviewChevronColor = isDark ? 'rgba(255,255,255,0.7)' : theme.homeReviewAccent;
 
   const hasReviewPage = decks.length > 0;
 
@@ -813,7 +814,7 @@ export default function HomePage() {
         >
           <View style={styles.actionContent}>
             <View style={styles.actionIconSlot}>{icon}</View>
-            <Text style={styles.actionTitleMedium}>{title}</Text>
+            <Text style={[styles.actionTitleMedium, { color: theme.white }]}>{title}</Text>
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -863,7 +864,7 @@ export default function HomePage() {
               refreshing={refreshing}
               onRefresh={handleRefresh}
               tintColor="rgba(255,255,255,0.7)"
-              colors={['#667eea']}
+              colors={[theme.primary]}
             />
           }
           testID="home-scroll-view"
@@ -918,7 +919,7 @@ export default function HomePage() {
                 style={[
                   styles.statsCard,
                   {
-                    backgroundColor: isDark ? '#111b2f' : 'rgba(255, 255, 255, 0.99)',
+                    backgroundColor: theme.homeCardBg,
                     borderWidth: 1,
                     borderColor: statsBorderColor,
                     shadowColor: statsShadowColor,
@@ -992,7 +993,7 @@ export default function HomePage() {
                           {
                             backgroundColor: isDark ? 'rgba(19, 31, 52, 0.96)' : 'rgba(247, 248, 255, 0.98)',
                             borderColor: isDark ? 'rgba(129, 140, 248, 0.18)' : 'rgba(99, 102, 241, 0.12)',
-                            shadowColor: isDark ? '#020617' : '#94a3b8',
+                            shadowColor: theme.homeShadow,
                             shadowOpacity: isDark ? 0.28 : 0.12,
                             shadowRadius: isDark ? 18 : 10,
                             elevation: isDark ? 8 : 4,
@@ -1007,7 +1008,7 @@ export default function HomePage() {
                         testID="stats-card-review-page"
                       >
                         <LinearGradient
-                          colors={isDark ? ['rgba(99, 102, 241, 0.16)', 'rgba(30, 41, 59, 0.04)'] as const : ['rgba(129, 140, 248, 0.12)', 'rgba(255, 255, 255, 0.08)'] as const}
+                          colors={theme.homeSmartReviewCardGradient}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 1 }}
                           style={StyleSheet.absoluteFill}
@@ -1015,9 +1016,9 @@ export default function HomePage() {
                       <View style={styles.reviewPageHeader}>
                         <View style={[styles.reviewIconWrap, { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)' }]}>
                           {reviewSummary ? (
-                            <RotateCcw color={isDark ? '#a5b4fc' : '#6366f1'} size={15} strokeWidth={2.4} />
+                            <RotateCcw color={theme.homeReviewIcon} size={15} strokeWidth={2.4} />
                           ) : (
-                            <BookOpen color={isDark ? '#cbd5e1' : '#475569'} size={15} strokeWidth={2.4} />
+                            <BookOpen color={theme.homeReviewSecondaryIcon} size={15} strokeWidth={2.4} />
                           )}
                         </View>
                         <View style={styles.reviewPageText}>
@@ -1028,7 +1029,7 @@ export default function HomePage() {
                             {reviewPageSubtitle}
                           </Text>
                         </View>
-                        <ChevronRight color={isDark ? 'rgba(255,255,255,0.7)' : '#6366f1'} size={17} strokeWidth={2.4} />
+                        <ChevronRight color={reviewChevronColor} size={17} strokeWidth={2.4} />
                       </View>
                       </TouchableOpacity>
                       <View style={styles.reviewChips}>
@@ -1058,7 +1059,7 @@ export default function HomePage() {
                                 accessibilityRole="button"
                                 testID="review-chip-more"
                               >
-                                <Text style={[styles.reviewChipCount, { color: isDark ? '#c7d2fe' : '#5967f1' }]}>+{remainingReviewDeckCount} more</Text>
+                                <Text style={[styles.reviewChipCount, { color: theme.homeReviewChip }]}>+{remainingReviewDeckCount} more</Text>
                               </TouchableOpacity>
                             ) : null}
                           </>
@@ -1071,7 +1072,7 @@ export default function HomePage() {
                             accessibilityRole="button"
                             testID="review-chip-caught-up"
                           >
-                            <View style={[styles.reviewChipDot, { backgroundColor: isDark ? '#34D399' : '#10B981' }]} />
+                            <View style={[styles.reviewChipDot, { backgroundColor: theme.homeReviewDot }]} />
                             <Text style={[styles.reviewChipName, { color: statsValueColor }]}>All clear</Text>
                             <Text style={[styles.reviewChipCount, { color: statsLabelColor }]}>{decks.length}</Text>
                           </TouchableOpacity>
@@ -1091,7 +1092,7 @@ export default function HomePage() {
                       hitSlop={8}
                       testID="stats-page-dot-0"
                     >
-                      <View style={[styles.statsPageDot, { backgroundColor: statsPage === 0 ? (isDark ? '#a5b4fc' : '#6366f1') : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)') }]} />
+                      <View style={[styles.statsPageDot, { backgroundColor: statsPage === 0 ? theme.homeDotActive : theme.homeDotInactive }]} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.statsPageDotButton}
@@ -1100,7 +1101,7 @@ export default function HomePage() {
                       hitSlop={8}
                       testID="stats-page-dot-1"
                     >
-                      <View style={[styles.statsPageDot, { backgroundColor: statsPage === 1 ? (isDark ? '#a5b4fc' : '#6366f1') : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)') }]} />
+                      <View style={[styles.statsPageDot, { backgroundColor: statsPage === 1 ? theme.homeDotActive : theme.homeDotInactive }]} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -1109,30 +1110,30 @@ export default function HomePage() {
               <View style={styles.actionsGrid}>
                 {renderActionCard({
                   route: '/arena' as Href,
-                  colors: homeActionGradients.arena,
+                  colors: actionGradients.arena,
                   title: 'Battle',
-                  icon: <Swords color="#fff" size={40} strokeWidth={2.15} />,
+                  icon: <Swords color={theme.white} size={40} strokeWidth={2.15} />,
                   testID: 'home-action-battle',
                 })}
                 {renderActionCard({
                   route: '/quest' as Href,
-                  colors: homeActionGradients.quest,
+                  colors: actionGradients.quest,
                   title: 'Quest',
-                  icon: <Target color="#fff" size={40} strokeWidth={2.15} />,
+                  icon: <Target color={theme.white} size={40} strokeWidth={2.15} />,
                   testID: 'home-action-quest',
                 })}
                 {renderActionCard({
                   route: '/stats' as Href,
-                  colors: homeActionGradients.stats,
+                  colors: actionGradients.stats,
                   title: 'Stats',
-                  icon: <Trophy color="#fff" size={40} strokeWidth={2.15} />,
+                  icon: <Trophy color={theme.white} size={40} strokeWidth={2.15} />,
                   testID: 'home-action-stats',
                 })}
                 {renderActionCard({
                   route: '/decks' as Href,
-                  colors: homeActionGradients.decks,
+                  colors: actionGradients.decks,
                   title: 'Decks',
-                  icon: <BookOpen color="#fff" size={40} strokeWidth={2.15} />,
+                  icon: <BookOpen color={theme.white} size={40} strokeWidth={2.15} />,
                   testID: 'home-action-decks',
                 })}
               </View>
@@ -1150,7 +1151,7 @@ export default function HomePage() {
                   testID="home-incoming-challenge-card"
                 >
                   <View style={styles.challengeCardHeader}>
-                    <Swords color="#F59E0B" size={18} strokeWidth={2.2} />
+                    <Swords color={theme.warning} size={18} strokeWidth={2.2} />
                     <Text style={[styles.challengeCardTitle, { color: theme.text }]} numberOfLines={1}>
                       Challenge from @{incomingChallenges[0]?.challengerUsername || incomingChallenges[0]?.challengerDisplayName || 'friend'}
                     </Text>
@@ -1159,7 +1160,7 @@ export default function HomePage() {
                     {incomingChallenges[0]?.deckName} · Beat their score of {incomingChallenges[0]?.challengerScore}!
                   </Text>
                   <TouchableOpacity
-                    style={styles.challengeAcceptButton}
+                    style={[styles.challengeAcceptButton, { backgroundColor: theme.warning }]}
                     onPress={() => {
                       const challenge = incomingChallenges[0];
                       if (!challenge) {
@@ -1192,7 +1193,7 @@ export default function HomePage() {
                     activeOpacity={0.85}
                     testID="home-accept-challenge-button"
                   >
-                    <Text style={styles.challengeAcceptText}>Accept Challenge</Text>
+                    <Text style={[styles.challengeAcceptText, { color: theme.white }]}>Accept Challenge</Text>
                   </TouchableOpacity>
                   {incomingChallenges.length > 1 ? (
                     <Text style={[styles.challengeMoreText, { color: theme.textTertiary }]}>
@@ -1209,7 +1210,7 @@ export default function HomePage() {
                     {
                       width: Math.min(availableContentWidth - 48, 520),
                       alignSelf: 'center',
-                      backgroundColor: isDark ? '#111b2f' : 'rgba(249, 251, 255, 0.98)',
+                      backgroundColor: isDark ? theme.homeCardBg : 'rgba(249, 251, 255, 0.98)',
                       shadowColor: actionShadowColor,
                       shadowOpacity: isDark ? 0.22 : 0.12,
                       shadowRadius: isDark ? 18 : 10,
@@ -1337,7 +1338,7 @@ export default function HomePage() {
                 { transform: [{ translateY: reviewSheetTranslateY }] },
               ]}
             >
-              <View style={[styles.reviewSheet, { backgroundColor: isDark ? '#0F172A' : '#FFFFFF' }]}> 
+              <View style={[styles.reviewSheet, { backgroundColor: isDark ? theme.background : theme.white, shadowColor: theme.homeShadow }]}> 
                 <View style={styles.reviewSheetHandle} {...reviewSheetPanResponder.panHandlers}>
                   <View
                     style={[
@@ -1371,27 +1372,27 @@ export default function HomePage() {
                   >
                     <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: topReviewDeck.color }} />
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: isDark ? '#a5b4fc' : '#5b63f6', fontSize: 11, fontWeight: '800' as const, textTransform: 'uppercase', letterSpacing: 0.7 }}>Up first</Text>
+                      <Text style={{ color: theme.homeReviewAccent, fontSize: 11, fontWeight: '800' as const, textTransform: 'uppercase', letterSpacing: 0.7 }}>Up first</Text>
                       <Text style={{ color: theme.text, fontSize: 17, fontWeight: '800' as const, marginTop: 3 }} numberOfLines={1}>{topReviewDeck.name}</Text>
                     </View>
                     <View style={[styles.reviewSheetCountBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.78)' }]}> 
-                      <Text style={[styles.reviewSheetCountText, { color: isDark ? '#E0E7FF' : '#4F46E5' }]}>{topReviewDeck.reviewCount}</Text>
+                      <Text style={[styles.reviewSheetCountText, { color: theme.homeReviewCount }]}>{topReviewDeck.reviewCount}</Text>
                     </View>
                   </View>
                 ) : null}
 
                 <TouchableOpacity
-                  style={styles.reviewAllButton}
+                  style={[styles.reviewAllButton, { backgroundColor: theme.primary, shadowColor: theme.primaryDark }]}
                   onPress={reviewSummary ? handleStartReviewing : handleOpenDecksFromReviewSheet}
                   activeOpacity={0.88}
                   testID="review-all-button"
                 >
                   {reviewSummary ? (
-                    <RotateCcw color="#FFFFFF" size={18} strokeWidth={2.5} />
+                    <RotateCcw color={theme.white} size={18} strokeWidth={2.5} />
                   ) : (
-                    <BookOpen color="#FFFFFF" size={18} strokeWidth={2.5} />
+                    <BookOpen color={theme.white} size={18} strokeWidth={2.5} />
                   )}
-                  <Text style={styles.reviewAllButtonText}>{reviewSummary ? 'Start Reviewing' : 'Browse Decks'}</Text>
+                  <Text style={[styles.reviewAllButtonText, { color: theme.white }]}>{reviewSummary ? 'Start Reviewing' : 'Browse Decks'}</Text>
                 </TouchableOpacity>
 
                 <ScrollView
@@ -1431,7 +1432,7 @@ export default function HomePage() {
                             { backgroundColor: isDark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.1)' },
                           ]}
                         >
-                          <Text style={[styles.reviewSheetCountText, { color: isDark ? '#818CF8' : '#6366F1' }]}>
+                          <Text style={[styles.reviewSheetCountText, { color: theme.homeDotActive }]}>
                             {entry.reviewCount}
                           </Text>
                         </View>
@@ -1631,7 +1632,6 @@ const styles = StyleSheet.create<{
   title: {
     fontSize: 44,
     fontWeight: '800' as const,
-    color: '#fff',
     marginBottom: 3,
     letterSpacing: -1.1,
   },
@@ -1705,13 +1705,11 @@ const styles = StyleSheet.create<{
   statValue: {
     fontSize: 32,
     fontWeight: '800' as const,
-    color: '#667eea',
     marginBottom: 4,
     letterSpacing: -0.8,
   },
   statLabel: {
     fontSize: 12.5,
-    color: '#666',
     fontWeight: '700' as const,
     textAlign: 'center',
     letterSpacing: 0.08,
@@ -1727,7 +1725,6 @@ const styles = StyleSheet.create<{
   statDivider: {
     width: 1,
     height: 56,
-    backgroundColor: '#e0e0e0',
   },
   reviewPage: {
     justifyContent: 'center',
@@ -1809,7 +1806,6 @@ const styles = StyleSheet.create<{
     paddingHorizontal: 24,
     paddingTop: 12,
     paddingBottom: 40,
-    shadowColor: '#020617',
     shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.18,
     shadowRadius: 24,
@@ -1837,7 +1833,6 @@ const styles = StyleSheet.create<{
     lineHeight: 19,
   },
   reviewAllButton: {
-    backgroundColor: '#6366F1',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1845,14 +1840,12 @@ const styles = StyleSheet.create<{
     height: 54,
     borderRadius: 18,
     marginBottom: 18,
-    shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.24,
     shadowRadius: 18,
     elevation: 8,
   },
   reviewAllButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800' as const,
   },
@@ -1943,7 +1936,6 @@ const styles = StyleSheet.create<{
   actionTitleMedium: {
     fontSize: 18.5,
     fontWeight: '800' as const,
-    color: '#fff',
     marginTop: 0,
     textAlign: 'center',
     letterSpacing: -0.42,
@@ -1972,14 +1964,12 @@ const styles = StyleSheet.create<{
     marginBottom: 12,
   },
   challengeAcceptButton: {
-    backgroundColor: '#F59E0B',
     height: 44,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   challengeAcceptText: {
-    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800' as const,
   },
@@ -2060,7 +2050,6 @@ const styles = StyleSheet.create<{
   smartActionTitle: {
     fontSize: 18,
     fontWeight: '800' as const,
-    color: '#fff',
     lineHeight: 22,
     letterSpacing: -0.36,
   },
@@ -2153,7 +2142,6 @@ const styles = StyleSheet.create<{
   sectionTitle: {
     fontSize: 24,
     fontWeight: '800' as const,
-    color: '#fff',
     marginBottom: 16,
     letterSpacing: -0.5,
   },
@@ -2178,7 +2166,6 @@ const styles = StyleSheet.create<{
   quickStartEmptyTitle: {
     fontSize: 18,
     fontWeight: '800' as const,
-    color: '#fff',
     marginBottom: 8,
   },
   quickStartEmptySubtitle: {
@@ -2197,7 +2184,6 @@ const styles = StyleSheet.create<{
   quickStartEmptyButtonText: {
     fontSize: 14,
     fontWeight: '800' as const,
-    color: '#fff',
   },
   deckCard: {
     height: 124,
@@ -2228,14 +2214,12 @@ const styles = StyleSheet.create<{
   deckName: {
     fontSize: 15.5,
     fontWeight: '800' as const,
-    color: '#333',
     marginBottom: 5,
     lineHeight: 20,
     letterSpacing: -0.24,
   },
   deckCards: {
     fontSize: 12,
-    color: '#666',
     fontWeight: '700' as const,
     letterSpacing: 0.08,
   },
