@@ -12,11 +12,10 @@ import {
   Plus,
   Sparkles,
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import {
   Alert,
-  Animated,
   FlatList,
   Modal,
   Pressable,
@@ -62,15 +61,10 @@ import {
   TEXT_TO_DECK_ROUTE,
 } from '@/utils/routes';
 
-interface PendingDelete {
-  id: string;
-  name: string;
-}
-
 export default function DecksPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { decks, deleteDeck, addDeck, deckCategories, isLoading } = useFlashQuest();
+  const { decks, deleteDeck, reorderDecks, addDeck, deckCategories, isLoading } = useFlashQuest();
   const { cleanupDeck } = useArena();
   const { performance, getCardsDueForReview } = usePerformance();
   const { theme, isDark } = useTheme();
@@ -84,11 +78,7 @@ export default function DecksPage() {
   const [activeCategory, setActiveCategory] = useState<string>(ALL_DECK_CATEGORIES_LABEL);
   const [sortBy, setSortBy] = useState<'name' | 'newest' | 'cards'>('newest');
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
-
-  const pendingDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingDeleteRef = useRef<PendingDelete | null>(null);
-  const undoToastAnimation = useRef(new Animated.Value(0)).current;
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
 
   const categoryCounts = useMemo(() => {
     const counts = decks.reduce<Record<string, number>>((accumulator, deck) => {
@@ -114,7 +104,7 @@ export default function DecksPage() {
   }, [categoryCounts, deckCategories]);
 
   const filteredDecks = useMemo(() => {
-    let result = pendingDelete ? decks.filter((deck) => deck.id !== pendingDelete.id) : decks;
+    let result = decks;
 
     if (activeCategory !== ALL_DECK_CATEGORIES_LABEL) {
       result = result.filter((deck) => sanitizeDeckCategory(deck.category) === activeCategory);
@@ -123,6 +113,10 @@ export default function DecksPage() {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     if (normalizedQuery) {
       result = result.filter((deck) => deck.name.toLowerCase().includes(normalizedQuery));
+    }
+
+    if (isEditMode) {
+      return result;
     }
 
     const sorted = [...result];
@@ -135,15 +129,21 @@ export default function DecksPage() {
     }
 
     return sorted;
-  }, [decks, activeCategory, pendingDelete, searchQuery, sortBy]);
+  }, [activeCategory, decks, isEditMode, searchQuery, sortBy]);
 
   const filteredDeckSummaries = useMemo(() => {
     return getDeckListSummaries(filteredDecks, performance.cardStatsById, getCardsDueForReview);
   }, [filteredDecks, getCardsDueForReview, performance.cardStatsById]);
 
-  const visibleDeckCount = pendingDelete ? decks.filter((deck) => deck.id !== pendingDelete.id).length : decks.length;
-  const hasNoDecks = visibleDeckCount === 0;
-  const hasNoSearchResults = visibleDeckCount > 0 && filteredDeckSummaries.length === 0;
+  const visibleDeckIndices = useMemo(() => {
+    return filteredDeckSummaries.reduce<Record<string, number>>((accumulator, summary, index) => {
+      accumulator[summary.deck.id] = index;
+      return accumulator;
+    }, {});
+  }, [filteredDeckSummaries]);
+
+  const hasNoDecks = decks.length === 0;
+  const hasNoSearchResults = decks.length > 0 && filteredDeckSummaries.length === 0;
 
   useEffect(() => {
     if (!categories.includes(activeCategory)) {
@@ -270,15 +270,17 @@ export default function DecksPage() {
     }
   }, [queryClient]);
 
-  const clearPendingDeleteTimer = useCallback(() => {
-    if (pendingDeleteTimerRef.current) {
-      clearTimeout(pendingDeleteTimerRef.current);
-      pendingDeleteTimerRef.current = null;
-    }
+  const handleToggleEditMode = useCallback(() => {
+    setIsEditMode((current) => {
+      const next = !current;
+      logger.debug('[Decks] Toggling edit mode:', next);
+      return next;
+    });
   }, []);
 
   const persistDeckDeletion = useCallback(async (deckId: string) => {
     try {
+      logger.debug('[Decks] Deleting deck:', deckId);
       await deleteDeck(deckId);
       cleanupDeck(deckId);
     } catch (error) {
@@ -287,42 +289,73 @@ export default function DecksPage() {
     }
   }, [cleanupDeck, deleteDeck]);
 
-  const commitPendingDelete = useCallback((entry: PendingDelete) => {
-    clearPendingDeleteTimer();
-
-    if (pendingDeleteRef.current?.id === entry.id) {
-      pendingDeleteRef.current = null;
-      setPendingDelete((current) => (current?.id === entry.id ? null : current));
-    }
-
-    void persistDeckDeletion(entry.id);
-  }, [clearPendingDeleteTimer, persistDeckDeletion]);
-
   const handleDeleteDeck = useCallback((deckId: string) => {
     const deck = decks.find((item) => item.id === deckId);
     if (!deck) {
       return;
     }
 
-    const currentPendingDelete = pendingDeleteRef.current;
-    if (currentPendingDelete) {
-      commitPendingDelete(currentPendingDelete);
+    Alert.alert(
+      'Delete Deck',
+      `Are you sure you want to delete "${deck.name}"? This action can't be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void persistDeckDeletion(deck.id);
+          },
+        },
+      ],
+    );
+  }, [decks, persistDeckDeletion]);
+
+  const handleMoveDeck = useCallback((deckId: string, direction: 'up' | 'down') => {
+    const visibleDeckIds = filteredDecks.map((deck) => deck.id);
+    const currentIndex = visibleDeckIds.indexOf(deckId);
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= visibleDeckIds.length) {
+      return;
     }
 
-    const nextPendingDelete: PendingDelete = { id: deck.id, name: deck.name };
-    pendingDeleteRef.current = nextPendingDelete;
-    setPendingDelete(nextPendingDelete);
-    pendingDeleteTimerRef.current = setTimeout(() => {
-      pendingDeleteTimerRef.current = null;
-      commitPendingDelete(nextPendingDelete);
-    }, 4000);
-  }, [commitPendingDelete, decks]);
+    const reorderedVisibleIds = [...visibleDeckIds];
+    const [movedDeckId] = reorderedVisibleIds.splice(currentIndex, 1);
+    reorderedVisibleIds.splice(targetIndex, 0, movedDeckId ?? deckId);
 
-  const handleUndoDelete = useCallback(() => {
-    clearPendingDeleteTimer();
-    pendingDeleteRef.current = null;
-    setPendingDelete(null);
-  }, [clearPendingDeleteTimer]);
+    const reorderedVisibleIdSet = new Set(reorderedVisibleIds);
+    const visibleDeckMap = new Map(filteredDecks.map((deck) => [deck.id, deck]));
+    const reorderedVisibleDecks = reorderedVisibleIds
+      .map((id) => visibleDeckMap.get(id))
+      .filter((deck): deck is Deck => Boolean(deck));
+
+    let reorderedVisibleIndex = 0;
+    const nextDecks = decks.reduce<Deck[]>((accumulator, deck) => {
+      if (!reorderedVisibleIdSet.has(deck.id)) {
+        accumulator.push(deck);
+        return accumulator;
+      }
+
+      const nextDeck = reorderedVisibleDecks[reorderedVisibleIndex];
+      reorderedVisibleIndex += 1;
+      if (nextDeck) {
+        accumulator.push(nextDeck);
+      }
+      return accumulator;
+    }, []);
+
+    logger.debug('[Decks] Reordering deck:', deckId, direction);
+    reorderDecks(nextDecks.map((deck) => deck.id));
+  }, [decks, filteredDecks, reorderDecks]);
+
+  const handleMoveDeckUp = useCallback((deckId: string) => {
+    handleMoveDeck(deckId, 'up');
+  }, [handleMoveDeck]);
+
+  const handleMoveDeckDown = useCallback((deckId: string) => {
+    handleMoveDeck(deckId, 'down');
+  }, [handleMoveDeck]);
 
   const handleSelectCategory = useCallback((category: string) => {
     setActiveCategory(category);
@@ -333,35 +366,6 @@ export default function DecksPage() {
     setShowMenu(false);
     setShowCategoryManager(true);
   }, []);
-
-  useEffect(() => {
-    if (pendingDelete) {
-      undoToastAnimation.setValue(0);
-      Animated.spring(undoToastAnimation, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 18,
-        bounciness: 6,
-      }).start();
-      return;
-    }
-
-    undoToastAnimation.setValue(0);
-  }, [pendingDelete, undoToastAnimation]);
-
-  useEffect(() => {
-    return () => {
-      const currentPendingDelete = pendingDeleteRef.current;
-      if (!currentPendingDelete || !pendingDeleteTimerRef.current) {
-        return;
-      }
-
-      clearTimeout(pendingDeleteTimerRef.current);
-      pendingDeleteTimerRef.current = null;
-      pendingDeleteRef.current = null;
-      void persistDeckDeletion(currentPendingDelete.id);
-    };
-  }, [persistDeckDeletion]);
 
   const backgroundGradient = useMemo(
     () => (
@@ -552,52 +556,85 @@ export default function DecksPage() {
           })}
         </ScrollView>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.sortRow}
-          contentContainerStyle={styles.sortRowContent}
-        >
-          {[
-            { key: 'newest', label: 'Newest' },
-            { key: 'name', label: 'A–Z' },
-            { key: 'cards', label: 'Most Cards' },
-          ].map((option) => {
-            const isActive = sortBy === option.key;
+        {isEditMode ? (
+          <View style={[styles.editModeBanner, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}> 
+            <Text style={[styles.editModeTitle, { color: theme.text }]}>Edit mode is on</Text>
+            <Text style={[styles.editModeSubtitle, { color: theme.textSecondary }]}>Use the arrows to reorder decks and tap trash to delete them</Text>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.sortRow}
+            contentContainerStyle={styles.sortRowContent}
+          >
+            {[
+              { key: 'newest', label: 'Newest' },
+              { key: 'name', label: 'A–Z' },
+              { key: 'cards', label: 'Most Cards' },
+            ].map((option) => {
+              const isActive = sortBy === option.key;
 
-            return (
-              <TouchableOpacity
-                key={option.key}
-                onPress={() => setSortBy(option.key as 'name' | 'newest' | 'cards')}
-                activeOpacity={0.84}
-                accessibilityLabel={`Sort by ${option.label}`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isActive }}
-                style={[
-                  styles.sortChip,
-                  {
-                    backgroundColor: isActive ? quietSurface : 'transparent',
-                    borderColor: isActive ? subtleBorderColor : 'transparent',
-                  },
-                ]}
-                testID={`deck-sort-chip-${option.key}`}
-              >
-                <ArrowUpDown color={isActive ? theme.primary : theme.textTertiary} size={14} strokeWidth={2.2} />
-                <Text style={[
-                  styles.sortChipText,
-                  { color: isActive ? theme.text : theme.textSecondary },
-                ]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+              return (
+                <TouchableOpacity
+                  key={option.key}
+                  onPress={() => setSortBy(option.key as 'name' | 'newest' | 'cards')}
+                  activeOpacity={0.84}
+                  accessibilityLabel={`Sort by ${option.label}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isActive }}
+                  style={[
+                    styles.sortChip,
+                    {
+                      backgroundColor: isActive ? quietSurface : 'transparent',
+                      borderColor: isActive ? subtleBorderColor : 'transparent',
+                    },
+                  ]}
+                  testID={`deck-sort-chip-${option.key}`}
+                >
+                  <ArrowUpDown color={isActive ? theme.primary : theme.textTertiary} size={14} strokeWidth={2.2} />
+                  <Text style={[
+                    styles.sortChipText,
+                    { color: isActive ? theme.text : theme.textSecondary },
+                  ]}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
 
         <View style={styles.listSection}>
-          <Text style={[styles.deckCount, { color: theme.textSecondary }]}> 
-            {filteredDeckSummaries.length} {filteredDeckSummaries.length === 1 ? 'deck' : 'decks'} {activeCategory === ALL_DECK_CATEGORIES_LABEL ? 'total' : `in ${activeCategory}`}
-          </Text>
+          <View style={styles.listHeaderRow}>
+            <View style={styles.listHeaderCopy}>
+              <Text style={[styles.deckCount, { color: theme.textSecondary }]}> 
+                {filteredDeckSummaries.length} {filteredDeckSummaries.length === 1 ? 'deck' : 'decks'} {activeCategory === ALL_DECK_CATEGORIES_LABEL ? 'total' : `in ${activeCategory}`}
+              </Text>
+              {isEditMode ? (
+                <Text style={[styles.editModeHint, { color: theme.textTertiary }]}>Built-in and custom decks can both be removed here</Text>
+              ) : null}
+            </View>
+
+            {filteredDeckSummaries.length > 0 ? (
+              <TouchableOpacity
+                style={[
+                  styles.editToggleButton,
+                  {
+                    backgroundColor: isEditMode ? (isDark ? 'rgba(127, 29, 29, 0.34)' : 'rgba(254, 226, 226, 0.95)') : quietSurface,
+                    borderColor: isEditMode ? (isDark ? 'rgba(248, 113, 113, 0.25)' : 'rgba(248, 113, 113, 0.22)') : subtleBorderColor,
+                  },
+                ]}
+                onPress={handleToggleEditMode}
+                activeOpacity={0.82}
+                accessibilityLabel={isEditMode ? 'Finish editing decks' : 'Edit decks'}
+                accessibilityRole="button"
+                testID="decks-edit-toggle"
+              >
+                <Text style={styles.editToggleButtonText}>{isEditMode ? 'Done' : 'Edit'}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
 
           {isLoading && decks.length === 0 ? (
             <View style={{ paddingHorizontal: 20, paddingTop: 12, gap: 12 }}>
@@ -643,6 +680,7 @@ export default function DecksPage() {
                     summary={item}
                     theme={theme}
                     isDark={isDark}
+                    isEditMode={isEditMode}
                     deckSurface={deckSurface}
                     quietSurface={quietSurface}
                     subtleBorderColor={subtleBorderColor}
@@ -651,6 +689,10 @@ export default function DecksPage() {
                     onStudyDeck={handleStudyDeck}
                     onEditDeck={handleEditDeck}
                     onDeleteDeck={handleDeleteDeck}
+                    onMoveDeckUp={handleMoveDeckUp}
+                    onMoveDeckDown={handleMoveDeckDown}
+                    canMoveUp={(visibleDeckIndices[item.deck.id] ?? 0) > 0}
+                    canMoveDown={(visibleDeckIndices[item.deck.id] ?? 0) < filteredDeckSummaries.length - 1}
                   />
                 </View>
               )}
@@ -677,38 +719,6 @@ export default function DecksPage() {
         </View>
         </ResponsiveContainer>
       </SafeAreaView>
-
-      {pendingDelete ? (
-        <Animated.View
-          style={[
-            styles.undoToast,
-            {
-              backgroundColor: isDark ? 'rgba(15, 23, 42, 0.92)' : 'rgba(30, 41, 59, 0.95)',
-              opacity: undoToastAnimation,
-              transform: [
-                {
-                  translateY: undoToastAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [80, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-          testID="deck-delete-undo-toast"
-        >
-          <Text style={styles.undoToastText} numberOfLines={1}>
-            &quot;{pendingDelete.name}&quot; deleted
-          </Text>
-          <TouchableOpacity
-            onPress={handleUndoDelete}
-            activeOpacity={0.78}
-            testID="deck-delete-undo-button"
-          >
-            <Text style={styles.undoToastAction}>Undo</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      ) : null}
 
       <Modal
         visible={showMenu}
@@ -1138,12 +1148,61 @@ const styles = StyleSheet.create({
   deckListColumnItem: {
     flex: 1,
   },
+  listHeaderRow: {
+    marginHorizontal: 20,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  listHeaderCopy: {
+    flex: 1,
+    gap: 4,
+  },
   deckCount: {
     fontSize: 13,
     fontWeight: '700' as const,
-    marginHorizontal: 20,
-    marginBottom: 14,
     letterSpacing: 0.2,
+  },
+  editToggleButton: {
+    minWidth: 74,
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editToggleButtonText: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: '800' as const,
+    letterSpacing: 0.2,
+  },
+  editModeBanner: {
+    marginHorizontal: 20,
+    marginBottom: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 4,
+  },
+  editModeTitle: {
+    fontSize: 14,
+    fontWeight: '800' as const,
+    letterSpacing: -0.2,
+  },
+  editModeSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600' as const,
+  },
+  editModeHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600' as const,
   },
   deckCard: {
     backgroundColor: '#fff',
@@ -1365,36 +1424,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700' as const,
     color: '#fff',
-  },
-  undoToast: {
-    position: 'absolute',
-    bottom: 32,
-    left: 20,
-    right: 20,
-    zIndex: 100,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    gap: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.22,
-    shadowRadius: 18,
-    elevation: 10,
-  },
-  undoToastText: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600' as const,
-  },
-  undoToastAction: {
-    color: '#818cf8',
-    fontSize: 14,
-    fontWeight: '700' as const,
   },
   menuOverlay: {
     flex: 1,

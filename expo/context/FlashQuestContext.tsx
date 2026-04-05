@@ -1054,6 +1054,33 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     });
   }, [enqueuePersistenceTask, getHydratedDecks, getHydratedHiddenDeckIds, getHydratedProgress, queryClient, saveDecksMutateAsync, saveHiddenDeckIdsMutateAsync, saveProgressMutateAsync]);
 
+  const reorderDecks = useCallback((deckIds: string[]) => {
+    void enqueuePersistenceTask('reorderDecks', async () => {
+      const currentDecks = await getHydratedDecks();
+      const requestedDeckIds = new Set(deckIds);
+      const decksById = new Map(currentDecks.map((deck) => [deck.id, deck]));
+      const orderedDecks = deckIds
+        .map((deckId) => decksById.get(deckId))
+        .filter((deck): deck is Deck => Boolean(deck));
+      const remainingDecks = currentDecks.filter((deck) => !requestedDeckIds.has(deck.id));
+      const nextDecks = [...orderedDecks, ...remainingDecks];
+      const reconciledDecks = reconcileDeckCatalog(nextDecks, 'deck_update', hiddenDeckIdsRef.current).decks;
+
+      logger.debug('[FlashQuest] Reordering decks. Requested:', deckIds.length, 'Resolved:', reconciledDecks.length);
+      queryClient.setQueryData(['decks'], reconciledDecks);
+
+      try {
+        await saveDecksMutateAsync(reconciledDecks);
+      } catch (error) {
+        queryClient.setQueryData(['decks'], currentDecks);
+        logger.error('[FlashQuest] Failed to persist reordered decks, rolled back cache', error);
+        throw error;
+      }
+    }).catch((error) => {
+      logger.error('[FlashQuest] reorderDecks task failed', error);
+    });
+  }, [enqueuePersistenceTask, getHydratedDecks, queryClient, saveDecksMutateAsync]);
+
   const createDeckCategory = useCallback(async (categoryName: string) => {
     return enqueuePersistenceTask('createDeckCategory', async () => {
       const currentCategories = await getHydratedCategories();
@@ -1237,6 +1264,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     updateFlashcard,
     deleteFlashcard,
     deleteDeck,
+    reorderDecks,
     updateProgress,
     recordSessionResult,
   }), [
@@ -1257,6 +1285,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
     updateFlashcard,
     deleteFlashcard,
     deleteDeck,
+    reorderDecks,
     updateProgress,
     recordSessionResult,
   ]);
