@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Join FlashQuest Arena</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg-1: #0f172a;
+        --bg-2: #1e293b;
+        --card: rgba(15, 23, 42, 0.86);
+        --border: rgba(148, 163, 184, 0.18);
+        --text: #f8fafc;
+        --muted: #cbd5e1;
+        --accent: #8b5cf6;
+        --accent-2: #6366f1;
+        --success: #10b981;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top, rgba(99, 102, 241, 0.32), transparent 35%),
+          radial-gradient(circle at bottom right, rgba(139, 92, 246, 0.26), transparent 30%),
+          linear-gradient(160deg, var(--bg-1), var(--bg-2));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .card {
+        width: min(100%, 420px);
+        border-radius: 28px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        box-shadow: 0 24px 80px rgba(2, 6, 23, 0.45);
+        padding: 28px;
+        backdrop-filter: blur(18px);
+      }
+
+      .eyebrow {
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: #c4b5fd;
+        margin: 0 0 12px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 32px;
+        line-height: 1.02;
+        letter-spacing: -0.04em;
+      }
+
+      p {
+        margin: 14px 0 0;
+        color: var(--muted);
+        line-height: 1.5;
+        font-size: 15px;
+      }
+
+      .code-shell {
+        margin-top: 24px;
+        padding: 18px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        text-align: center;
+      }
+
+      .code-label {
+        margin: 0 0 8px;
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: #94a3b8;
+        font-weight: 800;
+      }
+
+      .code {
+        margin: 0;
+        font-size: 34px;
+        font-weight: 900;
+        letter-spacing: 0.24em;
+      }
+
+      .status {
+        margin-top: 16px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #e2e8f0;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--success);
+        box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.14);
+        animation: pulse 1.4s infinite;
+      }
+
+      .actions {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 24px;
+      }
+
+      .button {
+        appearance: none;
+        border: 0;
+        border-radius: 16px;
+        padding: 16px 18px;
+        font-size: 15px;
+        font-weight: 800;
+        text-decoration: none;
+        text-align: center;
+        cursor: pointer;
+      }
+
+      .button-primary {
+        color: white;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      }
+
+      .button-secondary {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .footnote {
+        margin-top: 14px;
+        font-size: 12px;
+        color: #94a3b8;
+        text-align: center;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.1); opacity: 0.75; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <p class="eyebrow">FlashQuest Arena</p>
+      <h1>Opening your battle…</h1>
+      <p id="subtitle">We’re sending you straight into the lobby.</p>
+
+      <section class="code-shell">
+        <p class="code-label">Room code</p>
+        <p class="code" id="room-code">----</p>
+        <div class="status" id="status">
+          <span class="dot"></span>
+          <span id="status-text">Launching FlashQuest</span>
+        </div>
+      </section>
+
+      <div class="actions">
+        <a class="button button-primary" id="open-app-button" href="flashquest://arena">Open FlashQuest</a>
+        <button class="button button-secondary hidden" id="copy-code-button" type="button">Copy room code</button>
+        <a class="button button-secondary hidden" id="web-fallback-button" href="/arena">Continue in browser</a>
+      </div>
+
+      <p class="footnote">If the app does not open right away, tap Open FlashQuest.</p>
+    </main>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const roomCode = (params.get('code') || '').trim().toUpperCase().slice(0, 8);
+      const encodedCode = encodeURIComponent(roomCode);
+      const deepLink = roomCode ? `flashquest://arena/join?code=${encodedCode}` : 'flashquest://arena';
+      const webFallback = roomCode ? `/arena?joinCode=${encodedCode}` : '/arena';
+
+      const roomCodeEl = document.getElementById('room-code');
+      const subtitleEl = document.getElementById('subtitle');
+      const statusTextEl = document.getElementById('status-text');
+      const openAppButton = document.getElementById('open-app-button');
+      const copyCodeButton = document.getElementById('copy-code-button');
+      const webFallbackButton = document.getElementById('web-fallback-button');
+
+      roomCodeEl.textContent = roomCode || '----';
+      openAppButton.href = deepLink;
+      webFallbackButton.href = webFallback;
+
+      if (!roomCode) {
+        subtitleEl.textContent = 'This invite is missing a room code.';
+        statusTextEl.textContent = 'Invite link unavailable';
+        openAppButton.textContent = 'Open FlashQuest';
+        webFallbackButton.classList.remove('hidden');
+      } else {
+        subtitleEl.textContent = `Room ${roomCode} is ready. Opening FlashQuest now.`;
+        copyCodeButton.classList.remove('hidden');
+        webFallbackButton.classList.remove('hidden');
+      }
+
+      const openApp = () => {
+        window.location.href = deepLink;
+      };
+
+      if (roomCode) {
+        window.setTimeout(openApp, 120);
+        window.setTimeout(() => {
+          statusTextEl.textContent = 'Tap below if FlashQuest did not open';
+        }, 1400);
+      }
+
+      openAppButton.addEventListener('click', () => {
+        statusTextEl.textContent = 'Trying again…';
+      });
+
+      copyCodeButton.addEventListener('click', async () => {
+        if (!roomCode) {
+          return;
+        }
+
+        try {
+          if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(roomCode);
+            copyCodeButton.textContent = 'Copied room code';
+            return;
+          }
+        } catch {}
+
+        copyCodeButton.textContent = 'Copy unavailable';
+      });
+    </script>
+  </body>
+</html>

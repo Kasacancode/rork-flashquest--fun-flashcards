@@ -93,6 +93,21 @@ function isExploreDeepLink(url: string): boolean {
 }
 
 function isAuthCallbackUrl(url: string): boolean {
+  if (url.includes('arena/join') || url.includes('joinCode=') || url.includes('join.html')) {
+    return false;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    if (parsedUrl.pathname === '/join' || parsedUrl.pathname === 'join' || parsedUrl.hostname === 'join') {
+      return false;
+    }
+  } catch {
+    if (url.includes('flashquest://join')) {
+      return false;
+    }
+  }
+
   return isKnownAuthCallbackUrl(url)
     || url.includes('access_token=')
     || url.includes('refresh_token=')

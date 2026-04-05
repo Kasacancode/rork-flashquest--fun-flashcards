@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, ChevronRight, Flame, Settings, Swords, Target, Trophy, Users, Wifi } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,6 +11,7 @@ import { useArena } from '@/context/ArenaContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { ArenaLeaderboardEntry } from '@/types/arena';
 import { PLAYER_NAME_MAX_LENGTH, sanitizePlayerName } from '@/utils/playerName';
+import { logger } from '@/utils/logger';
 import { ARENA_LOBBY_ROUTE, PROFILE_ROUTE } from '@/utils/routes';
 
 const ARENA_ACCENT_LIGHT = '#eb6a1a';
@@ -65,6 +66,7 @@ function getBattleStats(entries: ArenaLeaderboardEntry[], savedPlayerName: strin
 
 export default function ArenaMenuScreen() {
   const router = useRouter();
+  const { joinCode } = useLocalSearchParams<{ joinCode?: string | string[] }>();
   const { theme, isDark } = useTheme();
   const {
     leaderboard,
@@ -88,6 +90,8 @@ export default function ArenaMenuScreen() {
   const [nameInput, setNameInput] = useState<string>('');
   const [codeInput, setCodeInput] = useState<string>('');
   const [pendingAction, setPendingAction] = useState<'create' | 'join' | null>(null);
+  const [codeFromDeepLink, setCodeFromDeepLink] = useState<boolean>(false);
+  const [pendingDeepLinkCode, setPendingDeepLinkCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (savedPlayerName) {
@@ -96,10 +100,61 @@ export default function ArenaMenuScreen() {
   }, [savedPlayerName]);
 
   useEffect(() => {
+    const rawJoinCode = Array.isArray(joinCode) ? joinCode[0] : joinCode;
+    if (!rawJoinCode || rawJoinCode.length === 0) {
+      return;
+    }
+
+    const normalizedCode = normalizeRoomCodeInput(rawJoinCode);
+    if (!normalizedCode) {
+      return;
+    }
+
+    logger.log('[Arena] Received arena join deep link:', normalizedCode);
+    setCodeFromDeepLink(true);
+    setCodeInput(normalizedCode);
+    setPendingDeepLinkCode(normalizedCode);
+  }, [joinCode]);
+
+  useEffect(() => {
+    if (!pendingDeepLinkCode || pendingAction === 'join') {
+      return;
+    }
+
+    if (roomCode) {
+      logger.log('[Arena] Ignoring deep link join because a room is already active:', roomCode);
+      setPendingDeepLinkCode(null);
+      setCodeFromDeepLink(false);
+      return;
+    }
+
+    if (isConnecting || !isPlayerNameReady) {
+      return;
+    }
+
+    setCodeInput(pendingDeepLinkCode);
+
+    if (savedPlayerName) {
+      logger.log('[Arena] Auto-joining battle from deep link as:', savedPlayerName);
+      setPendingAction('join');
+      setPendingDeepLinkCode(null);
+      joinRoom(pendingDeepLinkCode, savedPlayerName);
+      return;
+    }
+
+    logger.log('[Arena] Opening join modal from deep link:', pendingDeepLinkCode);
+    setNameInput('');
+    setShowJoinModal(true);
+    setPendingDeepLinkCode(null);
+  }, [isConnecting, isPlayerNameReady, joinRoom, pendingAction, pendingDeepLinkCode, roomCode, savedPlayerName]);
+
+  useEffect(() => {
     if (roomCode && pendingAction) {
       setPendingAction(null);
       setShowCreateModal(false);
       setShowJoinModal(false);
+      setCodeFromDeepLink(false);
+      setPendingDeepLinkCode(null);
       router.push(ARENA_LOBBY_ROUTE);
     }
   }, [pendingAction, roomCode, router]);
@@ -111,6 +166,8 @@ export default function ArenaMenuScreen() {
       setPendingAction(null);
       setShowCreateModal(false);
       setShowJoinModal(false);
+      setCodeFromDeepLink(false);
+      setPendingDeepLinkCode(null);
       Alert.alert('Connection Error', nextMessage);
     }
   }, [clearError, connectionError, pendingAction]);
@@ -232,6 +289,8 @@ export default function ArenaMenuScreen() {
       return;
     }
 
+    setCodeFromDeepLink(false);
+    setPendingDeepLinkCode(null);
     setNameInput(savedPlayerName);
     setCodeInput('');
     setShowJoinModal(true);
@@ -246,6 +305,12 @@ export default function ArenaMenuScreen() {
     setPendingAction('create');
     createRoom(nextPlayerName);
   };
+
+  const handleCloseJoinModal = useCallback(() => {
+    setShowJoinModal(false);
+    setCodeFromDeepLink(false);
+    setPendingDeepLinkCode(null);
+  }, []);
 
   const handleConfirmJoin = () => {
     const nextPlayerName = hasSavedPlayerName ? savedPlayerName : sanitizePlayerName(nameInput);
@@ -681,7 +746,7 @@ export default function ArenaMenuScreen() {
         transparent
         onRequestClose={() => {
           if (!isConnecting) {
-            setShowJoinModal(false);
+            handleCloseJoinModal();
           }
         }}
       >
@@ -696,7 +761,9 @@ export default function ArenaMenuScreen() {
             ]}
           >
             <Text style={[styles.modalTitle, { color: theme.text }]}>Join Battle</Text>
-            <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>Enter a room code to join a live match with your battle profile.</Text>
+            <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>
+              {codeFromDeepLink ? 'You were invited to a live match. Finish your join to jump straight into the lobby.' : 'Enter a room code to join a live match with your battle profile.'}
+            </Text>
             {hasSavedPlayerName ? (
               <View
                 style={[
@@ -732,14 +799,19 @@ export default function ArenaMenuScreen() {
                 testID="battle-join-name-input"
               />
             )}
+            {codeFromDeepLink ? (
+              <Text style={[styles.deepLinkHint, { color: theme.success }]}>Room code from invite link</Text>
+            ) : null}
             <TextInput
               style={[
                 styles.modalInput,
                 styles.codeInput,
                 {
-                  backgroundColor: secondarySurface,
+                  backgroundColor: codeFromDeepLink
+                    ? (isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.08)')
+                    : secondarySurface,
                   color: theme.text,
-                  borderColor: subtleBorderColor,
+                  borderColor: codeFromDeepLink ? theme.success : subtleBorderColor,
                 },
               ]}
               placeholder="M4X9"
@@ -750,8 +822,8 @@ export default function ArenaMenuScreen() {
               autoCapitalize="characters"
               autoCorrect={false}
               maxLength={ROOM_CODE_LENGTH}
-              editable={!isConnecting}
-              autoFocus={hasSavedPlayerName}
+              editable={!isConnecting && !codeFromDeepLink}
+              autoFocus={hasSavedPlayerName && !codeFromDeepLink}
               testID="battle-room-code-input"
             />
             <View style={styles.modalButtons}>
@@ -763,7 +835,7 @@ export default function ArenaMenuScreen() {
                     borderColor: subtleBorderColor,
                   },
                 ]}
-                onPress={() => setShowJoinModal(false)}
+                onPress={handleCloseJoinModal}
                 disabled={isConnecting}
                 testID="battle-join-cancel-button"
               >
@@ -1264,6 +1336,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 12,
     fontWeight: '600' as const,
+  },
+  deepLinkHint: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    textAlign: 'center',
+    marginBottom: 4,
   },
   codeInput: {
     textAlign: 'center',
