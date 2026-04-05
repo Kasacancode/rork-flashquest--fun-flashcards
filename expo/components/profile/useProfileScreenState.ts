@@ -12,7 +12,15 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { canAccessDebugFeature } from '@/utils/debugTooling';
-import { ACCOUNT_ROUTE, DATA_PRIVACY_ROUTE, FAQ_ROUTE, LEADERBOARD_ROUTE, SETTINGS_ROUTE, flashcardDebugHref } from '@/utils/routes';
+import {
+  ACCOUNT_ROUTE,
+  DATA_PRIVACY_ROUTE,
+  FAQ_ROUTE,
+  FRIENDS_ROUTE,
+  LEADERBOARD_ROUTE,
+  SETTINGS_ROUTE,
+  flashcardDebugHref,
+} from '@/utils/routes';
 import {
   ACHIEVEMENT_CATEGORIES,
   computeAchievements,
@@ -180,6 +188,10 @@ export function useProfileScreenState() {
     navigation.push(LEADERBOARD_ROUTE);
   }, [navigation]);
 
+  const handleOpenFriends = useCallback(() => {
+    navigation.push(FRIENDS_ROUTE);
+  }, [navigation]);
+
   const handleOpenFlashcardInspector = useCallback(() => {
     if (!canOpenFlashcardInspector) {
       return;
@@ -289,6 +301,7 @@ export function useProfileScreenState() {
     handleOpenSettings,
     handleOpenSupport,
     handleOpenLeaderboard,
+    handleOpenFriends,
     handleOpenFlashcardInspector: canOpenFlashcardInspector ? handleOpenFlashcardInspector : undefined,
     handleSelectSuit,
     handleSelectColor,

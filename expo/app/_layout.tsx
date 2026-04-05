@@ -79,6 +79,7 @@ function RootLayoutNav() {
       <Stack.Screen name="stats" options={{ headerShown: false }} />
       <Stack.Screen name="leaderboard" options={{ headerShown: false, gestureEnabled: true }} />
       <Stack.Screen name="profile" options={{ headerShown: false }} />
+      <Stack.Screen name="friends" options={{ headerShown: false, gestureEnabled: true }} />
       <Stack.Screen name="decks" options={{ headerShown: false }} />
       <Stack.Screen name="explore" options={{ headerShown: false, gestureEnabled: true }} />
       <Stack.Screen name="practice" options={{ headerShown: false }} />

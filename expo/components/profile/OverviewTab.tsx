@@ -1,4 +1,4 @@
-import { ChevronRight, CircleHelp, Crown, Mail, Settings } from 'lucide-react-native';
+import { ChevronRight, CircleHelp, Crown, Mail, Settings, Users } from 'lucide-react-native';
 import React from 'react';
 import { Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
@@ -12,6 +12,7 @@ interface OverviewTabProps {
   onOpenFAQ: () => void;
   onOpenSupport: () => void;
   onOpenLeaderboard: () => void;
+  onOpenFriends: () => void;
   styles: ViewStyles<
     | 'tabContent'
     | 'toggleCard'
@@ -45,6 +46,7 @@ export default function OverviewTab({
   onOpenFAQ,
   onOpenSupport,
   onOpenLeaderboard,
+  onOpenFriends,
   styles,
   theme,
 }: OverviewTabProps) {
@@ -68,6 +70,26 @@ export default function OverviewTab({
           </Text>
         </View>
         <View style={styles.leaderboardChevronWrap}>
+          <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.toggleCard}
+        onPress={onOpenFriends}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Open friends"
+        testID="profile-open-friends"
+      >
+        <View style={styles.toggleLeadingIcon}>
+          <Users color={theme.primary} size={20} strokeWidth={2.3} />
+        </View>
+        <View style={styles.toggleTextWrap}>
+          <Text style={styles.toggleTitle}>Friends</Text>
+          <Text style={styles.toggleSubtitle} numberOfLines={2}>Add friends, accept requests, and compare your streaks.</Text>
+        </View>
+        <View style={styles.toggleChevronWrap}>
           <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
         </View>
       </TouchableOpacity>
