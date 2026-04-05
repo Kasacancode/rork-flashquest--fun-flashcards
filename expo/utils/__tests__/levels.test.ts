@@ -1,15 +1,13 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 
 import {
   computeLevel,
   computeLevelProgress,
+  formatLevelRankRange,
   getLevelBand,
   getLevelEntry,
   getLevelRankBandInfo,
-  getLevelRankBandLabel,
-  getLevelRankBandProgress,
   isLevelRankBandStart,
-  formatLevelRankRange,
   LEVEL_RANK_BANDS,
 } from '../levels';
 
@@ -115,23 +113,23 @@ describe('rank bands', () => {
   });
 
   it('assigns level 1 to Foundation band', () => {
-    expect(getLevelRankBandLabel(1)).toBe('Foundation');
+    expect(getLevelRankBandInfo(1).label).toBe('Foundation');
   });
 
   it('assigns level 5 to Momentum band', () => {
-    expect(getLevelRankBandLabel(5)).toBe('Momentum');
+    expect(getLevelRankBandInfo(5).label).toBe('Momentum');
   });
 
   it('assigns level 10 to Established band', () => {
-    expect(getLevelRankBandLabel(10)).toBe('Established');
+    expect(getLevelRankBandInfo(10).label).toBe('Established');
   });
 
   it('assigns level 15 to Advanced band', () => {
-    expect(getLevelRankBandLabel(15)).toBe('Advanced');
+    expect(getLevelRankBandInfo(15).label).toBe('Advanced');
   });
 
   it('assigns level 20 to Prestige band', () => {
-    expect(getLevelRankBandLabel(20)).toBe('Prestige');
+    expect(getLevelRankBandInfo(20).label).toBe('Prestige');
   });
 
   it('marks level 1 as a band start', () => {
@@ -144,16 +142,6 @@ describe('rank bands', () => {
 
   it('does not mark level 5 as a band start', () => {
     expect(isLevelRankBandStart(5)).toBe(false);
-  });
-
-  it('computes progress within a band', () => {
-    const progress = getLevelRankBandProgress(1);
-    expect(progress).toBe(0);
-  });
-
-  it('returns 1 for max level in Prestige band', () => {
-    const progress = getLevelRankBandProgress(20);
-    expect(progress).toBe(1);
   });
 
   it('formats range correctly for bounded bands', () => {

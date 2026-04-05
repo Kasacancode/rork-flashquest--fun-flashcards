@@ -2,11 +2,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { ArrowDownToLine, ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, Globe, MoreHorizontal, Pencil, QrCode, RotateCcw, Trash2, Upload } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import CardScheduleList from '@/components/CardScheduleList';
 import DeckQRSheet from '@/components/DeckQRSheet';
+import PublishDeckSheet from '@/components/PublishDeckSheet';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useAuth } from '@/context/AuthContext';
 import { useDeckContext } from '@/context/DeckContext';
@@ -106,11 +107,6 @@ export default function DeckHubScreen() {
   const [isUnpublishing, setIsUnpublishing] = useState<boolean>(false);
   const [showFriendPicker, setShowFriendPicker] = useState<boolean>(false);
   const [showPublishSheet, setShowPublishSheet] = useState<boolean>(false);
-  const [publishFields, setPublishFields] = useState<{ name: string; description: string; category: string }>({
-    name: '',
-    description: '',
-    category: 'General',
-  });
   const [friendsList, setFriendsList] = useState<Friendship[]>([]);
   const [isLoadingFriends, setIsLoadingFriends] = useState<boolean>(false);
   const menuBtnRef = useRef<View>(null);
@@ -442,21 +438,16 @@ export default function DeckHubScreen() {
       return;
     }
 
-    setPublishFields({
-      name: publishedDeckName?.trim().length ? publishedDeckName : deck.name,
-      description: deck.description || '',
-      category: deck.category || 'General',
-    });
     setShowPublishSheet(true);
-  }, [deck, isPublished, isSignedIn, publishedDeckName, router, user?.id]);
+  }, [deck, isPublished, isSignedIn, router, user?.id]);
 
-  const handleConfirmPublish = useCallback(async () => {
+  const handleConfirmPublish = useCallback(async (fields: { name: string; description: string; category: string }) => {
     if (!deck || !user?.id || isPublishing) {
       return;
     }
 
-    const trimmedName = publishFields.name.trim();
-    const trimmedDescription = publishFields.description.trim();
+    const trimmedName = fields.name.trim();
+    const trimmedDescription = fields.description.trim();
 
     if (trimmedName.length < 2) {
       Alert.alert('Name Required', 'Give your deck a name (at least 2 characters).');
@@ -503,7 +494,7 @@ export default function DeckHubScreen() {
       const result = await publishDeck(user.id, publisherName, {
         name: trimmedName,
         description: trimmedDescription,
-        category: publishFields.category,
+        category: fields.category,
         color: deck.color,
         icon: deck.icon,
         flashcards: deck.flashcards.map((card) => ({
@@ -532,7 +523,7 @@ export default function DeckHubScreen() {
     } finally {
       setIsPublishing(false);
     }
-  }, [deck, displayName, isPublished, isPublishing, publishFields, user, username]);
+  }, [deck, displayName, isPublished, isPublishing, user, username]);
 
   const handleUnpublishDeck = useCallback(() => {
     if (!deck || !isSignedIn || !user?.id) {
@@ -1114,109 +1105,17 @@ export default function DeckHubScreen() {
           </View>
         </Modal>
 
-        <Modal visible={showPublishSheet} transparent animationType="slide" onRequestClose={() => setShowPublishSheet(false)}>
-          <View style={styles.publishBackdrop}>
-            <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowPublishSheet(false)} />
-            <Pressable
-              style={[styles.publishSheet, { backgroundColor: isDark ? 'rgba(10,17,34,0.98)' : theme.cardBackground }]}
-              onPress={() => {}}
-            >
-              <View style={[styles.publishHandle, { backgroundColor: theme.sheetHandle }]} />
-              <Text style={[styles.publishTitle, { color: theme.text }]}>
-                {isPublished ? 'Update Published Deck' : 'Publish to Community'}
-              </Text>
-              <Text style={[styles.publishSubtitle, { color: theme.textSecondary }]}> 
-                {deck.flashcards.length} cards will be shared with the FlashQuest community. Your username will appear as the author.
-              </Text>
-
-              <Text style={[styles.publishLabel, { color: theme.textSecondary }]}>Deck Name</Text>
-              <TextInput
-                style={[
-                  styles.publishInput,
-                  {
-                    color: theme.text,
-                    backgroundColor: isDark ? 'rgba(148,163,184,0.08)' : 'rgba(0,0,0,0.03)',
-                    borderColor: isDark ? 'rgba(148,163,184,0.15)' : 'rgba(0,0,0,0.08)',
-                  },
-                ]}
-                value={publishFields.name}
-                onChangeText={(text) => setPublishFields((prev) => ({ ...prev, name: text }))}
-                placeholder="e.g., AP Biology Chapter 5"
-                placeholderTextColor={theme.textTertiary}
-                maxLength={80}
-                testID="publish-deck-name-input"
-              />
-
-              <Text style={[styles.publishLabel, { color: theme.textSecondary }]}>Description</Text>
-              <TextInput
-                style={[
-                  styles.publishInput,
-                  styles.publishTextArea,
-                  {
-                    color: theme.text,
-                    backgroundColor: isDark ? 'rgba(148,163,184,0.08)' : 'rgba(0,0,0,0.03)',
-                    borderColor: isDark ? 'rgba(148,163,184,0.15)' : 'rgba(0,0,0,0.08)',
-                  },
-                ]}
-                value={publishFields.description}
-                onChangeText={(text) => setPublishFields((prev) => ({ ...prev, description: text }))}
-                placeholder="Brief description of what this deck covers..."
-                placeholderTextColor={theme.textTertiary}
-                multiline
-                numberOfLines={3}
-                maxLength={300}
-                textAlignVertical="top"
-                testID="publish-deck-description-input"
-              />
-
-              <Text style={[styles.publishLabel, { color: theme.textSecondary }]}>Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.publishCategoryScroll}>
-                {['Science', 'Math', 'Languages', 'History', 'Geography', 'Arts', 'Technology', 'Business', 'General'].map((cat) => (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[
-                      styles.publishCategoryPill,
-                      {
-                        backgroundColor: publishFields.category === cat
-                          ? (isDark ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.12)')
-                          : (isDark ? 'rgba(148,163,184,0.08)' : 'rgba(0,0,0,0.03)'),
-                        borderColor: publishFields.category === cat
-                          ? (isDark ? 'rgba(99,102,241,0.4)' : 'rgba(99,102,241,0.3)')
-                          : (isDark ? 'rgba(148,163,184,0.15)' : 'rgba(0,0,0,0.08)'),
-                      },
-                    ]}
-                    onPress={() => setPublishFields((prev) => ({ ...prev, category: cat }))}
-                    activeOpacity={0.8}
-                    testID={`publish-category-${cat.toLowerCase()}`}
-                  >
-                    <Text
-                      style={[
-                        styles.publishCategoryText,
-                        { color: publishFields.category === cat ? theme.primary : theme.textSecondary },
-                      ]}
-                    >
-                      {cat}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              <TouchableOpacity
-                style={[styles.publishButton, { backgroundColor: theme.primary, opacity: isPublishing ? 0.6 : 1 }]}
-                onPress={() => {
-                  void handleConfirmPublish();
-                }}
-                disabled={isPublishing}
-                activeOpacity={0.8}
-                testID="publish-confirm-button"
-              >
-                <Text style={styles.publishButtonText}>
-                  {isPublishing ? 'Publishing...' : isPublished ? 'Update Deck' : 'Publish'}
-                </Text>
-              </TouchableOpacity>
-            </Pressable>
-          </View>
-        </Modal>
+        <PublishDeckSheet
+          visible={showPublishSheet}
+          onClose={() => setShowPublishSheet(false)}
+          onPublish={handleConfirmPublish}
+          isPublishing={isPublishing}
+          isUpdate={isPublished}
+          cardCount={deck.flashcards.length}
+          initialName={publishedDeckName?.trim().length ? publishedDeckName : deck.name}
+          initialDescription={deck.description ?? ''}
+          initialCategory={deck.category ?? 'General'}
+        />
 
         <DeckQRSheet
           visible={showQR}
@@ -1477,79 +1376,5 @@ const styles = StyleSheet.create({
   friendPickerLevel: {
     fontSize: 14,
     fontWeight: '600' as const,
-  },
-  publishBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  publishSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 12,
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  publishHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  publishTitle: {
-    fontSize: 20,
-    fontWeight: '800' as const,
-    marginBottom: 6,
-  },
-  publishSubtitle: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 20,
-  },
-  publishLabel: {
-    fontSize: 12,
-    fontWeight: '700' as const,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase' as const,
-    marginBottom: 6,
-    marginTop: 12,
-  },
-  publishInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    fontWeight: '600' as const,
-  },
-  publishTextArea: {
-    minHeight: 72,
-    paddingTop: 12,
-  },
-  publishCategoryScroll: {
-    marginVertical: 8,
-  },
-  publishCategoryPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginRight: 8,
-  },
-  publishCategoryText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-  },
-  publishButton: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderRadius: 14,
-    marginTop: 20,
-  },
-  publishButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800' as const,
   },
 });

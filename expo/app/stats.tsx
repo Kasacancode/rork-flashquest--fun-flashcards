@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertCircle, Award, BarChart3, BookOpen, Calendar, CheckCircle, ChevronDown, ChevronRight, Clock, Flame, Star, Swords, Target, TrendingUp, Zap } from 'lucide-react-native';
+import { BookOpen, Calendar, ChevronDown, Flame, Star, Swords, Target, TrendingUp, Zap } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LayoutAnimation, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,14 @@ import ResponsiveContainer from '@/components/ResponsiveContainer';
 import StatsRankEmblem from '@/components/StatsRankEmblem';
 import LevelsModal from '@/components/profile/LevelsModal';
 import StatsDeckProgressList from '@/components/stats/StatsDeckProgressList';
+import ActivityInsights from '@/components/stats/insights/ActivityInsights';
+import GoalInsights from '@/components/stats/insights/GoalInsights';
+import MasteryInsights from '@/components/stats/insights/MasteryInsights';
+import PerformanceInsights from '@/components/stats/insights/PerformanceInsights';
+import RecapInsights from '@/components/stats/insights/RecapInsights';
+import TrendInsights from '@/components/stats/insights/TrendInsights';
+import WeekInsights from '@/components/stats/insights/WeekInsights';
+import type { InsightThemeColors } from '@/components/stats/insights/insightTypes';
 import StatsHeader from '@/components/stats/StatsHeader';
 import StatsScreenBackground from '@/components/stats/StatsScreenBackground';
 import { useStatsScreenState } from '@/components/stats/useStatsScreenState';
@@ -18,7 +26,7 @@ import type { Theme } from '@/constants/colors';
 import { getDailyGoalTarget, getDailyProgress } from '@/utils/dailyGoal';
 import { LEVELS } from '@/utils/levels';
 import { computeDeckMastery, type MasteryBreakdown } from '@/utils/mastery';
-import { deckHubHref, LEADERBOARD_ROUTE, STATS_ROUTE, studyHref } from '@/utils/routes';
+import { LEADERBOARD_ROUTE, STATS_ROUTE, studyHref } from '@/utils/routes';
 
 type ThemeValues = Theme;
 type ExpandableStatsPanel = 'goal' | 'week' | 'recap' | 'activity' | 'mastery' | 'performance' | 'trend' | 'deckProgress';
@@ -118,82 +126,6 @@ export default function StatsPage() {
     router.push(LEADERBOARD_ROUTE);
   }, [router]);
 
-  const currentDateKey = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const weekInsightData = useMemo(() => {
-    const referenceDate = new Date();
-    const dayOfWeek = referenceDate.getDay();
-    const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const todayTime = referenceDate.getTime();
-    const activeDates = new Set<string>(stats.studyDates ?? []);
-
-    if (stats.lastActiveDate) {
-      activeDates.add(stats.lastActiveDate);
-    }
-
-    return ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => {
-      const dayDate = new Date(referenceDate);
-      dayDate.setHours(0, 0, 0, 0);
-      dayDate.setDate(referenceDate.getDate() - mondayOffset + index);
-
-      const dateKey = dayDate.toISOString().slice(0, 10);
-
-      return {
-        key: `${label}-${dateKey}`,
-        label,
-        isToday: dateKey === currentDateKey,
-        isActive: activeDates.has(dateKey),
-        isFuture: dayDate.getTime() > todayTime,
-      };
-    });
-  }, [currentDateKey, stats.lastActiveDate, stats.studyDates]);
-
-  const studyPatternInsight = useMemo(() => {
-    const dates = stats.studyDates ?? [];
-    if (dates.length < 3) {
-      return null;
-    }
-
-    const dayCounts = [0, 0, 0, 0, 0, 0, 0];
-    for (const dateStr of dates) {
-      const day = new Date(dateStr).getDay();
-      dayCounts[day] += 1;
-    }
-
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const maxDay = dayCounts.indexOf(Math.max(...dayCounts));
-    const weekdayTotal = dayCounts[1] + dayCounts[2] + dayCounts[3] + dayCounts[4] + dayCounts[5];
-    const weekendTotal = dayCounts[0] + dayCounts[6];
-    const totalDays = dates.length;
-
-    const mostActiveDay = dayNames[maxDay] ?? 'Monday';
-    const isWeekdayFocused = weekdayTotal > weekendTotal * 2;
-    const isWeekendFocused = weekendTotal > weekdayTotal;
-
-    const pattern = isWeekdayFocused
-      ? 'You study mostly on weekdays. Weekend sessions could boost retention.'
-      : isWeekendFocused
-        ? 'You lean toward weekends. Adding one weekday session would smooth your rhythm.'
-        : 'Good balance between weekdays and weekends.';
-
-    const weekCounts = new Map<string, number>();
-    for (const dateStr of dates) {
-      const d = new Date(dateStr);
-      const weekStart = new Date(d);
-      weekStart.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-      const key = weekStart.toISOString().slice(0, 10);
-      weekCounts.set(key, (weekCounts.get(key) ?? 0) + 1);
-    }
-
-    let bestWeekDays = 0;
-    for (const count of weekCounts.values()) {
-      if (count > bestWeekDays) {
-        bestWeekDays = count;
-      }
-    }
-
-    return { mostActiveDay, pattern, bestWeekDays, totalDays };
-  }, [stats.studyDates]);
-
   const accuracyTrendContext = useMemo(() => {
     const recentEntries = [...accuracyTrend].reverse();
     const populatedEntries = recentEntries.filter((entry) => entry.accuracy !== null);
@@ -236,6 +168,42 @@ export default function StatsPage() {
       totalCards,
     };
   }, [deckProgressSummaries]);
+
+  const insightColors = useMemo<InsightThemeColors>(() => ({
+    border: theme.border,
+    text: theme.text,
+    textSecondary: theme.textSecondary,
+    textTertiary: theme.textTertiary,
+    success: theme.success,
+    warning: theme.warning,
+    error: theme.error,
+    primary: theme.primary,
+    statsAccent,
+  }), [statsAccent, theme]);
+
+  const insightStyles = useMemo(() => ({
+    insightSection: styles.insightSection,
+    insightDivider: styles.insightDivider,
+    insightRow: styles.insightRow,
+    insightText: styles.insightText,
+    insightAction: styles.insightAction,
+    insightActionText: styles.insightActionText,
+    weekDayRow: styles.weekDayRow,
+    weekDayItem: styles.weekDayItem,
+    weekDayLabel: styles.weekDayLabel,
+    weekDayDot: styles.weekDayDot,
+    deckMiniBarSection: styles.deckMiniBarSection,
+    deckMiniRow: styles.deckMiniRow,
+    deckMiniName: styles.deckMiniName,
+    deckMiniBarTrack: styles.deckMiniBarTrack,
+    deckMiniBarFill: styles.deckMiniBarFill,
+    deckMiniPct: styles.deckMiniPct,
+    trendWeekRow: styles.trendWeekRow,
+    trendWeekLabel: styles.trendWeekLabel,
+    trendWeekRight: styles.trendWeekRight,
+    trendWeekBar: styles.trendWeekBar,
+    trendWeekPct: styles.trendWeekPct,
+  }), [styles]);
 
   const togglePanel = useCallback((panel: ExpandableStatsPanel) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -412,52 +380,15 @@ export default function StatsPage() {
             </TouchableOpacity>
 
             {expandedPanel === 'goal' ? (
-              <View style={styles.insightSection}>
-                <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
-                <View style={styles.insightRow}>
-                  <Flame color={theme.warning} size={15} />
-                  <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
-                    {stats.currentStreak > 0
-                      ? `${stats.currentStreak}-day streak. Study tomorrow to keep it going.`
-                      : 'Start a streak today. Study a few cards to begin.'}
-                  </Text>
-                </View>
-
-                {dailyGoalProgress >= dailyGoalTarget && dailyGoalProgress > dailyGoalTarget * 2 ? (
-                  <View style={styles.insightRow}>
-                    <TrendingUp color={theme.success} size={15} />
-                    <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
-                      You hit {dailyGoalProgress} cards today, well over your goal of {dailyGoalTarget}. Consider raising your daily goal.
-                    </Text>
-                  </View>
-                ) : dailyGoalProgress < dailyGoalTarget && dailyGoalProgress > 0 ? (
-                  <View style={styles.insightRow}>
-                    <Target color={statsAccent} size={15} />
-                    <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
-                      {dailyGoalTarget - dailyGoalProgress} more cards to hit your goal. A quick study session will get you there.
-                    </Text>
-                  </View>
-                ) : dailyGoalProgress === 0 ? (
-                  <View style={styles.insightRow}>
-                    <BookOpen color={statsAccent} size={15} />
-                    <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
-                      You haven't studied yet today. Even 5 cards makes a difference.
-                    </Text>
-                  </View>
-                ) : null}
-
-                <TouchableOpacity
-                  style={[styles.insightAction, { backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)' }]}
-                  onPress={() => router.push(studyHref(undefined, undefined, 'stats', undefined, STATS_ROUTE))}
-                  activeOpacity={0.8}
-                  testID="stats-goal-insight-action"
-                >
-                  <Text style={[styles.insightActionText, { color: statsAccent }]}> 
-                    {dailyGoalProgress >= dailyGoalTarget ? 'Keep studying' : 'Start studying'}
-                  </Text>
-                  <ChevronRight color={statsAccent} size={14} />
-                </TouchableOpacity>
-              </View>
+              <GoalInsights
+                currentStreak={stats.currentStreak}
+                dailyGoalProgress={dailyGoalProgress}
+                dailyGoalTarget={dailyGoalTarget}
+                colors={insightColors}
+                styles={insightStyles}
+                isDark={isDark}
+                onStudy={() => router.push(studyHref(undefined, undefined, 'stats', undefined, STATS_ROUTE))}
+              />
             ) : null}
           </View>
 
@@ -552,56 +483,15 @@ export default function StatsPage() {
             </TouchableOpacity>
 
             {expandedPanel === 'week' ? (
-              <View style={styles.insightSection}>
-                <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
-                <View style={styles.weekDayRow}>
-                  {weekInsightData.map((day) => (
-                    <View key={day.key} style={styles.weekDayItem}>
-                      <Text style={[styles.weekDayLabel, { color: theme.textTertiary }]}>{day.label}</Text>
-                      <View
-                        style={[
-                          styles.weekDayDot,
-                          {
-                            backgroundColor: day.isFuture
-                              ? 'transparent'
-                              : day.isActive
-                                ? theme.success
-                                : (isDark ? 'rgba(148,163,184,0.15)' : 'rgba(0,0,0,0.06)'),
-                            borderWidth: day.isToday ? 2 : 0,
-                            borderColor: day.isToday ? statsAccent : 'transparent',
-                          },
-                        ]}
-                      />
-                    </View>
-                  ))}
-                </View>
-
-                {weeklySummary.currentWeekAccuracy !== null ? (
-                  <View style={styles.insightRow}>
-                    <Target color={weeklySummary.currentWeekAccuracy >= 80 ? theme.success : theme.warning} size={15} />
-                    <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
-                      {weeklySummary.currentWeekAccuracy >= 90
-                        ? `${weeklySummary.currentWeekAccuracy}% accuracy. You're retaining almost everything.`
-                        : weeklySummary.currentWeekAccuracy >= 70
-                          ? `${weeklySummary.currentWeekAccuracy}% accuracy. Solid, but reviewing weak cards could push it higher.`
-                          : `${weeklySummary.currentWeekAccuracy}% accuracy. Try focusing on fewer decks and reviewing weak cards.`}
-                    </Text>
-                  </View>
-                ) : null}
-
-                <View style={styles.insightRow}>
-                  <Calendar color={statsAccent} size={15} />
-                  <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
-                    {weeklySummary.thisWeekDays >= 5
-                      ? 'Exceptional consistency. Keep this rhythm and watch your recall improve.'
-                      : weeklySummary.thisWeekDays >= 3
-                        ? `${weeklySummary.thisWeekDays} days this week. Try for one more day to build a stronger habit.`
-                        : weeklySummary.thisWeekDays >= 1
-                          ? `Only ${weeklySummary.thisWeekDays} day this week. Aim for at least 3 days for better retention.`
-                          : 'No study days yet this week. Start today and build momentum.'}
-                  </Text>
-                </View>
-              </View>
+              <WeekInsights
+                thisWeekDays={weeklySummary.thisWeekDays}
+                currentWeekAccuracy={weeklySummary.currentWeekAccuracy}
+                studyDates={stats.studyDates ?? []}
+                lastActiveDate={stats.lastActiveDate ?? ''}
+                colors={insightColors}
+                styles={insightStyles}
+                isDark={isDark}
+              />
             ) : null}
           </View>
 
@@ -659,78 +549,15 @@ export default function StatsPage() {
               </TouchableOpacity>
 
               {expandedPanel === 'recap' ? (
-                <View style={styles.insightSection}>
-                  <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
-                  {displaySessions.study + displaySessions.quest + displaySessions.practice + displaySessions.arena > 0 ? (
-                    <View style={styles.insightRow}>
-                      <BarChart3 color={statsAccent} size={15} />
-                      <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
-                        {(() => {
-                          const total = displaySessions.study + displaySessions.quest + displaySessions.practice + displaySessions.arena;
-                          const parts: string[] = [];
-
-                          if (displaySessions.study > 0) {
-                            parts.push(`${Math.round((displaySessions.study / total) * 100)}% Study`);
-                          }
-
-                          if (displaySessions.quest > 0) {
-                            parts.push(`${Math.round((displaySessions.quest / total) * 100)}% Quest`);
-                          }
-
-                          if (displaySessions.practice > 0) {
-                            parts.push(`${Math.round((displaySessions.practice / total) * 100)}% Practice`);
-                          }
-
-                          if (displaySessions.arena > 0) {
-                            parts.push(`${Math.round((displaySessions.arena / total) * 100)}% Arena`);
-                          }
-
-                          return `Session split: ${parts.join(', ')}.`;
-                        })()}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {weeklyRecap.accuracy !== null ? (
-                    <View style={styles.insightRow}>
-                      <TrendingUp color={weeklyRecap.comparedToLastWeek === 'better' ? theme.success : theme.textSecondary} size={15} />
-                      <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
-                        {weeklyRecap.comparedToLastWeek === 'better'
-                          ? `Up from ${weeklyRecap.lastWeekCards} cards last week. You're building momentum.`
-                          : weeklyRecap.comparedToLastWeek === 'worse'
-                            ? `Down from ${weeklyRecap.lastWeekCards} cards last week. Try setting a smaller daily goal to rebuild consistency.`
-                            : weeklyRecap.comparedToLastWeek === 'first_week'
-                              ? 'This is your first tracked week. Come back next week to see your trend.'
-                              : 'Same as last week. Push for one extra session to level up.'}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {displaySessions.quest === 0 && displaySessions.study > 0 ? (
-                    <View style={styles.insightRow}>
-                      <Zap color={theme.warning} size={15} />
-                      <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
-                        You haven't tried Quest mode this week. It tests recall under pressure and earns more XP.
-                      </Text>
-                    </View>
-                  ) : displaySessions.arena === 0 && displaySessions.study + displaySessions.quest > 3 ? (
-                    <View style={styles.insightRow}>
-                      <Swords color={theme.warning} size={15} />
-                      <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
-                        Try Arena mode. Competing against others sharpens your recall speed.
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {formattedStudyTime !== '' ? (
-                    <View style={styles.insightRow}>
-                      <Clock color={statsAccent} size={15} />
-                      <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
-                        {formattedStudyTime} total study time this week. {((stats.totalStudyTimeMs ?? 0) > 1800000) ? 'Great commitment.' : 'Even 5 more minutes a day adds up.'}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
+                <RecapInsights
+                  weeklyRecap={weeklyRecap}
+                  displaySessions={displaySessions}
+                  formattedStudyTime={formattedStudyTime}
+                  totalStudyTimeMs={stats.totalStudyTimeMs ?? 0}
+                  colors={insightColors}
+                  styles={insightStyles}
+                  isDark={isDark}
+                />
               ) : null}
             </View>
           ) : null}
@@ -831,49 +658,14 @@ export default function StatsPage() {
             </TouchableOpacity>
 
             {expandedPanel === 'activity' ? (
-              <View style={styles.insightSection}>
-                <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
-
-                {studyPatternInsight ? (
-                  <View style={styles.insightRow}>
-                    <Calendar color={statsAccent} size={15} />
-                    <Text style={[styles.insightText, { color: theme.textSecondary }]}>
-                      Your most active day is {studyPatternInsight.mostActiveDay}. You've studied on {studyPatternInsight.totalDays} total days.
-                    </Text>
-                  </View>
-                ) : null}
-
-                {studyPatternInsight ? (
-                  <View style={styles.insightRow}>
-                    <TrendingUp color={statsAccent} size={15} />
-                    <Text style={[styles.insightText, { color: theme.textSecondary }]}>
-                      {studyPatternInsight.pattern}
-                    </Text>
-                  </View>
-                ) : null}
-
-                <View style={styles.insightRow}>
-                  <Flame color={theme.warning} size={15} />
-                  <Text style={[styles.insightText, { color: theme.textSecondary }]}>
-                    {stats.currentStreak >= stats.longestStreak && stats.currentStreak > 1
-                      ? `You're on your longest streak ever (${stats.currentStreak} days). Every day you study extends the record.`
-                      : stats.currentStreak > 0 && stats.longestStreak > stats.currentStreak
-                        ? `Current streak: ${stats.currentStreak}. Your record is ${stats.longestStreak} days. ${stats.longestStreak - stats.currentStreak} more to beat it.`
-                        : stats.longestStreak > 0
-                          ? `Your best streak was ${stats.longestStreak} days. Start studying today to build a new one.`
-                          : 'Study today to start your first streak.'}
-                  </Text>
-                </View>
-
-                {studyPatternInsight && studyPatternInsight.bestWeekDays > 0 ? (
-                  <View style={styles.insightRow}>
-                    <Award color={theme.success} size={15} />
-                    <Text style={[styles.insightText, { color: theme.textSecondary }]}>
-                      Your best week had {studyPatternInsight.bestWeekDays} active days. {weeklySummary.thisWeekDays >= studyPatternInsight.bestWeekDays ? 'You\'re matching that this week.' : `This week you have ${weeklySummary.thisWeekDays} so far.`}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
+              <ActivityInsights
+                studyDates={stats.studyDates ?? []}
+                currentStreak={stats.currentStreak}
+                longestStreak={stats.longestStreak}
+                thisWeekDays={weeklySummary.thisWeekDays}
+                colors={insightColors}
+                styles={insightStyles}
+              />
             ) : null}
           </View>
 
@@ -973,82 +765,14 @@ export default function StatsPage() {
             </TouchableOpacity>
 
             {expandedPanel === 'mastery' ? (
-              <View style={styles.insightSection}>
-                <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
-
-                <View style={styles.insightRow}>
-                  <Target color={statsAccent} size={15} />
-                  <Text style={[styles.insightText, { color: theme.textSecondary }]}>
-                    {(() => {
-                      const total = masteryOverview.totalCards;
-                      const mastered = masteryOverview.mastered;
-                      if (total === 0) {
-                        return 'Add some decks to start tracking mastery.';
-                      }
-                      const pct = Math.round((mastered / total) * 100);
-                      const nextMilestone = [10, 25, 50, 75, 100].find((milestone) => milestone > pct) ?? 100;
-                      const cardsNeeded = Math.ceil((nextMilestone / 100) * total) - mastered;
-                      if (pct >= 100 || cardsNeeded <= 0) {
-                        return '100% overall mastery. Every tracked card is mastered right now.';
-                      }
-                      return `${pct}% overall mastery. Master ${cardsNeeded} more card${cardsNeeded === 1 ? '' : 's'} to reach ${nextMilestone}%.`;
-                    })()}
-                  </Text>
-                </View>
-
-                {masteryOverview.lapsed > 0 ? (
-                  <View style={styles.insightRow}>
-                    <AlertCircle color={theme.error} size={15} />
-                    <Text style={[styles.insightText, { color: theme.textSecondary }]}>
-                      {masteryOverview.lapsed} card{masteryOverview.lapsed === 1 ? ' has' : 's have'} lapsed. A quick review session will bring them back.
-                    </Text>
-                  </View>
-                ) : null}
-
-                <View style={styles.deckMiniBarSection}>
-                  {deckProgressSummaries
-                    .filter((deck) => deck.total > 0)
-                    .sort((a, b) => b.pct - a.pct)
-                    .slice(0, 5)
-                    .map((deck) => (
-                      <TouchableOpacity
-                        key={deck.id}
-                        style={styles.deckMiniRow}
-                        onPress={() => router.push(deckHubHref(deck.id, 'stats'))}
-                        activeOpacity={0.8}
-                        testID={`stats-mastery-deck-${deck.id}`}
-                      >
-                        <Text style={[styles.deckMiniName, { color: theme.text }]} numberOfLines={1}>{deck.name}</Text>
-                        <View style={[styles.deckMiniBarTrack, { backgroundColor: isDark ? 'rgba(148,163,184,0.1)' : 'rgba(0,0,0,0.04)' }]}>
-                          <View style={[styles.deckMiniBarFill, { width: `${Math.max(deck.pct, 2)}%`, backgroundColor: deck.pct >= 50 ? theme.success : statsAccent }]} />
-                        </View>
-                        <Text style={[styles.deckMiniPct, { color: theme.textSecondary }]}>{deck.pct}%</Text>
-                      </TouchableOpacity>
-                    ))}
-                </View>
-
-                {(() => {
-                  const weakest = deckProgressSummaries
-                    .filter((deck) => deck.total >= 4 && deck.pct < 50)
-                    .sort((a, b) => a.pct - b.pct)[0];
-
-                  if (!weakest) {
-                    return null;
-                  }
-
-                  return (
-                    <TouchableOpacity
-                      style={[styles.insightAction, { backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)' }]}
-                      onPress={() => router.push(studyHref(weakest.id, undefined, 'stats', undefined, STATS_ROUTE))}
-                      activeOpacity={0.8}
-                      testID="stats-mastery-insight-action"
-                    >
-                      <Text style={[styles.insightActionText, { color: statsAccent }]}>Study {weakest.name}</Text>
-                      <ChevronRight color={statsAccent} size={14} />
-                    </TouchableOpacity>
-                  );
-                })()}
-              </View>
+              <MasteryInsights
+                masteryOverview={masteryOverview}
+                deckProgressSummaries={deckProgressSummaries}
+                colors={insightColors}
+                styles={insightStyles}
+                isDark={isDark}
+                onStudyDeck={(deckId) => router.push(studyHref(deckId, undefined, 'stats', undefined, STATS_ROUTE))}
+              />
             ) : null}
           </View>
 
@@ -1126,80 +850,16 @@ export default function StatsPage() {
             </TouchableOpacity>
 
             {expandedPanel === 'performance' ? (
-              <View style={styles.insightSection}>
-                <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
-
-                <View style={styles.insightRow}>
-                  <Star color={theme.warning} size={15} />
-                  <Text style={[styles.insightText, { color: theme.textSecondary }]}>
-                    {stats.totalScore.toLocaleString()} total XP. Level {level}. {levelProgress.percent >= 1 ? 'Max level reached.' : `${(levelProgress.required - levelProgress.current).toLocaleString()} XP to next level.`}
-                  </Text>
-                </View>
-
-                {(() => {
-                  const total = displaySessions.study + displaySessions.quest + displaySessions.practice + displaySessions.arena;
-                  if (total === 0) {
-                    return null;
-                  }
-
-                  const modes = [
-                    { name: 'Study', count: displaySessions.study },
-                    { name: 'Quest', count: displaySessions.quest },
-                    { name: 'Practice', count: displaySessions.practice },
-                    { name: 'Arena', count: displaySessions.arena },
-                  ].sort((a, b) => b.count - a.count);
-                  const top = modes[0];
-                  const topPct = Math.round((top.count / total) * 100);
-
-                  return (
-                    <View style={styles.insightRow}>
-                      <BarChart3 color={statsAccent} size={15} />
-                      <Text style={[styles.insightText, { color: theme.textSecondary }]}>
-                        {topPct >= 80
-                          ? `${top.name} mode dominates at ${topPct}% of sessions. Mixing in other modes improves retention.`
-                          : topPct >= 50
-                            ? `${top.name} is your go-to mode (${topPct}%). A healthy balance across modes.`
-                            : `Sessions are well-distributed. ${top.name} leads slightly at ${topPct}%.`}
-                      </Text>
-                    </View>
-                  );
-                })()}
-
-                {lifetimeAccuracy !== null ? (
-                  <View style={styles.insightRow}>
-                    <CheckCircle color={lifetimeAccuracy >= 80 ? theme.success : theme.warning} size={15} />
-                    <Text style={[styles.insightText, { color: theme.textSecondary }]}>
-                      {lifetimeAccuracy >= 90
-                        ? `${lifetimeAccuracy}% lifetime accuracy. Exceptional recall across all modes.`
-                        : lifetimeAccuracy >= 75
-                          ? `${lifetimeAccuracy}% lifetime accuracy. Strong, with room to tighten up on weak cards.`
-                          : `${lifetimeAccuracy}% lifetime accuracy. Focus on reviewing weak cards before adding new ones.`}
-                    </Text>
-                  </View>
-                ) : null}
-
-                {displaySessions.quest === 0 && displaySessions.study > 0 ? (
-                  <TouchableOpacity
-                    style={[styles.insightAction, { backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)' }]}
-                    onPress={() => router.push('/quest')}
-                    activeOpacity={0.8}
-                    testID="stats-performance-quest-action"
-                  >
-                    <Text style={[styles.insightActionText, { color: statsAccent }]}>Try Quest Mode</Text>
-                    <ChevronRight color={statsAccent} size={14} />
-                  </TouchableOpacity>
-                ) : displaySessions.arena === 0 && displaySessions.study + displaySessions.quest > 5 ? (
-                  <TouchableOpacity
-                    style={[styles.insightAction, { backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)' }]}
-                    onPress={() => router.push('/arena')}
-                    activeOpacity={0.8}
-                    testID="stats-performance-arena-action"
-                  >
-                    <Text style={[styles.insightActionText, { color: statsAccent }]}>Try Arena Mode</Text>
-                    <ChevronRight color={statsAccent} size={14} />
-                  </TouchableOpacity>
-                ) : null}
-              </View>
+              <PerformanceInsights
+                totalScore={stats.totalScore}
+                displaySessions={displaySessions}
+                lifetimeAccuracy={lifetimeAccuracy}
+                colors={insightColors}
+                styles={insightStyles}
+                isDark={isDark}
+                onTryQuest={() => router.push('/quest')}
+                onTryArena={() => router.push('/arena')}
+              />
             ) : null}
           </View>
 
@@ -1297,35 +957,11 @@ export default function StatsPage() {
               </Text>
 
               {expandedPanel === 'trend' ? (
-                <View style={styles.insightSection}>
-                  <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
-
-                  {accuracyTrendContext.recentEntries.map((entry, index) => {
-                    const weekLabel = index === 0 ? 'This week' : index === 1 ? 'Last week' : `${index} weeks ago`;
-
-                    return (
-                      <View key={entry.week} style={styles.trendWeekRow}>
-                        <Text style={[styles.trendWeekLabel, { color: theme.textSecondary }]}>{weekLabel}</Text>
-                        {entry.accuracy !== null ? (
-                          <View style={styles.trendWeekRight}>
-                            <View
-                              style={[
-                                styles.trendWeekBar,
-                                {
-                                  width: `${entry.accuracy}%`,
-                                  backgroundColor: entry.accuracy >= 80 ? theme.success : entry.accuracy >= 60 ? theme.warning : theme.error,
-                                },
-                              ]}
-                            />
-                            <Text style={[styles.trendWeekPct, { color: theme.text }]}>{entry.accuracy}%</Text>
-                          </View>
-                        ) : (
-                          <Text style={[styles.trendWeekPct, { color: theme.textTertiary }]}>No data</Text>
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
+                <TrendInsights
+                  accuracyTrend={accuracyTrendContext.recentEntries}
+                  colors={insightColors}
+                  styles={insightStyles}
+                />
               ) : null}
             </TouchableOpacity>
           ) : null}
