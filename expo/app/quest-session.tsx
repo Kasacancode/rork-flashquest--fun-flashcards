@@ -111,6 +111,7 @@ export default function QuestSessionScreen() {
   const usedCardIdsRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const explanationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const advanceRoundRef = useRef<() => void>(() => {});
   const finishSessionEarlyRef = useRef<() => void>(() => {});
   const performanceRef = useRef(performance);
@@ -329,6 +330,9 @@ export default function QuestSessionScreen() {
   useEffect(() => {
     return () => {
       clearAdvanceTimeout();
+      if (explanationTimeoutRef.current) {
+        clearTimeout(explanationTimeoutRef.current);
+      }
     };
   }, [clearAdvanceTimeout]);
 
@@ -453,7 +457,7 @@ export default function QuestSessionScreen() {
       triggerNotification(NotificationFeedbackType.Success);
 
       if (settings.explanationsEnabled && currentCard.explanation) {
-        setTimeout(() => setShowExplanation(true), 600);
+        explanationTimeoutRef.current = setTimeout(() => setShowExplanation(true), 600);
       } else {
         scheduleAdvance(1000);
       }
@@ -500,7 +504,7 @@ export default function QuestSessionScreen() {
       triggerNotification(NotificationFeedbackType.Error);
 
       if (settings.explanationsEnabled && currentCard.explanation) {
-        setTimeout(() => setShowExplanation(true), 600);
+        explanationTimeoutRef.current = setTimeout(() => setShowExplanation(true), 600);
       } else {
         scheduleAdvance(1200);
       }

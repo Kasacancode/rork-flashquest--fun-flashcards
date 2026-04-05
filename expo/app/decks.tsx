@@ -12,7 +12,7 @@ import {
   Plus,
   Sparkles,
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import {
   Alert,
@@ -80,6 +80,7 @@ export default function DecksPage() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
   const [editModeDeckOrderIds, setEditModeDeckOrderIds] = useState<string[] | null>(null);
+  const submenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyDeckOrder = useCallback((sourceDecks: Deck[], orderedDeckIds: string[]): Deck[] => {
     const deckMap = new Map(sourceDecks.map((deck) => [deck.id, deck]));
@@ -197,6 +198,14 @@ export default function DecksPage() {
       setActiveCategory(ALL_DECK_CATEGORIES_LABEL);
     }
   }, [activeCategory, categories]);
+
+  useEffect(() => {
+    return () => {
+      if (submenuTimeoutRef.current) {
+        clearTimeout(submenuTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleCreateManual = useCallback(() => {
     setShowMenu(false);
@@ -781,7 +790,7 @@ export default function DecksPage() {
               style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(139,92,246,0.1)' : 'rgba(102,126,234,0.08)' }]}
               onPress={() => {
                 setShowMenu(false);
-                setTimeout(() => setShowCreateSubmenu(true), 200);
+                submenuTimeoutRef.current = setTimeout(() => setShowCreateSubmenu(true), 200);
               }}
               activeOpacity={0.8}
               accessibilityLabel="Create a new deck"
@@ -801,7 +810,7 @@ export default function DecksPage() {
               style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(14,165,233,0.1)' : 'rgba(14,165,233,0.08)' }]}
               onPress={() => {
                 setShowMenu(false);
-                setTimeout(() => setShowImportSubmenu(true), 200);
+                submenuTimeoutRef.current = setTimeout(() => setShowImportSubmenu(true), 200);
               }}
               activeOpacity={0.8}
               accessibilityLabel="Import a deck"

@@ -97,6 +97,7 @@ export default function ArenaLobbyScreen() {
   const [showLeaveModal, setShowLeaveModal] = useState<boolean>(false);
   const [codeCopied, setCodeCopied] = useState<boolean>(false);
   const [qrSvg, setQrSvg] = useState<string>('');
+  const copyFeedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const playerCountPulse = useRef(new Animated.Value(1)).current;
   const playerEntryAnimationsRef = useRef<Record<string, Animated.Value>>({});
@@ -147,6 +148,14 @@ export default function ArenaLobbyScreen() {
   }, [pulseAnim]);
 
   useEffect(() => {
+    return () => {
+      if (copyFeedbackTimeoutRef.current) {
+        clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     if (!room?.code) {
@@ -185,7 +194,8 @@ export default function ArenaLobbyScreen() {
     try {
       await Clipboard.setStringAsync(roomCode);
       setCodeCopied(true);
-      setTimeout(() => setCodeCopied(false), 2000);
+      if (copyFeedbackTimeoutRef.current) clearTimeout(copyFeedbackTimeoutRef.current);
+      copyFeedbackTimeoutRef.current = setTimeout(() => setCodeCopied(false), 2000);
     } catch {
       logger.log('[Lobby] Copy failed');
     }

@@ -99,6 +99,7 @@ export default function ArenaSessionScreen() {
   const prevQuestionSnapshotKeyRef = useRef<string>('no-question');
   const leaderAtQuestionStartRef = useRef<string | null>(null);
   const hasNavigatedToResults = useRef(false);
+  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPlayedRevealSoundKeyRef = useRef<string | null>(null);
 
   const cardAnimations = useRef([
@@ -361,7 +362,7 @@ export default function ArenaSessionScreen() {
       hasNavigatedToResults.current = true;
       logger.log('[Session] Game finished, navigating to results');
       triggerNotification(NotificationFeedbackType.Success);
-      setTimeout(() => {
+      navigationTimeoutRef.current = setTimeout(() => {
         router.replace(ARENA_RESULTS_ROUTE);
       }, 500);
       return;
@@ -388,6 +389,14 @@ export default function ArenaSessionScreen() {
       ]);
     }
   }, [connectionError, clearError, router]);
+
+  useEffect(() => {
+    return () => {
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (questionRoundSnapshotKey !== prevQuestionSnapshotKeyRef.current) {

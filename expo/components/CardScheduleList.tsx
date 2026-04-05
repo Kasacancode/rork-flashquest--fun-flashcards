@@ -5,6 +5,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-nativ
 import { useTheme } from '@/context/ThemeContext';
 import type { Flashcard } from '@/types/flashcard';
 import type { CardMemoryStatus, CardStats } from '@/types/performance';
+import { logger } from '@/utils/logger';
 import { getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
 
 interface CardScheduleListProps {
@@ -122,7 +123,7 @@ export default function CardScheduleList({ flashcards, cardStatsById }: CardSche
 
   const handleToggle = useCallback(() => {
     const nextExpanded = !isExpanded;
-    console.log('[CardScheduleList] Toggling schedule section', {
+    logger.debug('[CardScheduleList] Toggling schedule section', {
       nextExpanded,
       dueNowCount,
       totalEntries: entries.length,
@@ -135,7 +136,7 @@ export default function CardScheduleList({ flashcards, cardStatsById }: CardSche
       return;
     }
 
-    console.log('[CardScheduleList] Measured expanded content height', { height });
+    logger.debug('[CardScheduleList] Measured expanded content height', { height });
     setContentHeight(height);
   }, [contentHeight]);
 
