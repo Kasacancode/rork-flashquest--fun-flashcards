@@ -780,6 +780,11 @@ export default function StudyFeed({
   }, [currentIndex, flashcards.length]);
 
   const shouldShowQuestionImage = Boolean(currentCard?.imageUrl) && ((reversed && isRevealed) || (!reversed && !isRevealed));
+  const cardAccessibilityLabel = isRevealed
+    ? `Answer: ${currentCard?.answer ?? ''}${currentCard?.explanation ? `. Explanation: ${currentCard.explanation}` : ''}`
+    : `Question: ${currentCard?.question ?? ''}. Tap to flip.`;
+  const cardAccessibilityHint = isRevealed ? 'Swipe up to go to next card' : 'Double tap to reveal the answer';
+  const cardAccessibilityRole = Platform.OS === 'web' ? undefined : 'button';
 
   if (!currentCard) {
     return (
@@ -816,9 +821,9 @@ export default function StudyFeed({
           testID="study-card-surface"
           {...panResponder.panHandlers}
           accessible={true}
-          accessibilityLabel={isRevealed ? `Answer: ${currentCard.answer}${currentCard.explanation ? `. Explanation: ${currentCard.explanation}` : ''}` : `Question: ${currentCard.question}. Tap to flip.`}
-          accessibilityHint={isRevealed ? 'Swipe up to go to next card' : 'Double tap to reveal the answer'}
-          accessibilityRole="button"
+          accessibilityLabel={cardAccessibilityLabel}
+          accessibilityHint={cardAccessibilityHint}
+          accessibilityRole={cardAccessibilityRole}
           style={[
             styles.cardWrapper,
             {

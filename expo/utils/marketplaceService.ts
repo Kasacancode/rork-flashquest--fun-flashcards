@@ -295,3 +295,43 @@ export async function publishDeck(
     return { success: false, error: 'An unexpected error occurred.' };
   }
 }
+
+export async function checkDeckPublished(userId: string, deckName: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('public_decks')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('name', deckName)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return data.id;
+  } catch {
+    return null;
+  }
+}
+
+export async function unpublishDeck(userId: string, deckName: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('public_decks')
+      .delete()
+      .eq('user_id', userId)
+      .eq('name', deckName);
+
+    if (error) {
+      logger.warn('[Marketplace] Unpublish failed:', error.message);
+      return { success: false, error: error.message };
+    }
+
+    logger.log('[Marketplace] Unpublished deck:', deckName);
+    return { success: true };
+  } catch (error) {
+    logger.warn('[Marketplace] Unpublish error:', error);
+    return { success: false, error: 'An unexpected error occurred.' };
+  }
+}

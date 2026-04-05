@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, Globe, MoreHorizontal, Pencil, QrCode, RotateCcw, Trash2, Upload } from 'lucide-react-native';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,7 +14,7 @@ import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { exportDeckToSharePayload } from '@/utils/deckImport';
 import { computeDeckMastery } from '@/utils/mastery';
-import { publishDeck } from '@/utils/marketplaceService';
+import { checkDeckPublished, publishDeck, unpublishDeck } from '@/utils/marketplaceService';
 import { DECKS_ROUTE, editDeckHref, focusedQuestSessionHref } from '@/utils/routes';
 import { shareTextWithFallback } from '@/utils/share';
 import { generateUUID } from '@/utils/uuid';
@@ -87,10 +87,39 @@ export default function DeckHubScreen() {
   const [menuVisible, setMenuVisible] = useState<boolean>(false);
   const [showQR, setShowQR] = useState<boolean>(false);
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
+  const [isPublished, setIsPublished] = useState<boolean>(false);
+  const [isUnpublishing, setIsUnpublishing] = useState<boolean>(false);
   const menuBtnRef = useRef<View>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
 
   const deck = useMemo(() => decks.find((item) => item.id === deckId), [decks, deckId]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!isSignedIn || !user?.id || !deck) {
+      setIsPublished(false);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    checkDeckPublished(user.id, deck.name)
+      .then((publishedId) => {
+        if (isActive) {
+          setIsPublished(publishedId !== null);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setIsPublished(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [deck, isSignedIn, user?.id]);
 
   const mastery = useMemo(() => {
     if (!deck) {
@@ -307,6 +336,7 @@ export default function DeckHubScreen() {
                   ? `"${deck.name}" has been updated in the community marketplace.`
                   : `"${deck.name}" is now available for anyone to download on the Explore screen.`,
               );
+              setIsPublished(true);
             } else {
               Alert.alert('Publish Failed', result.error ?? 'Could not publish the deck. Please try again.');
             }
@@ -315,6 +345,38 @@ export default function DeckHubScreen() {
       ],
     );
   }, [deck, displayName, isPublishing, isSignedIn, router, user, username]);
+
+  const handleUnpublishDeck = useCallback(() => {
+    if (!deck || !isSignedIn || !user?.id) {
+      return;
+    }
+
+    setMenuVisible(false);
+
+    Alert.alert(
+      'Unpublish Deck',
+      `Remove "${deck.name}" from the community marketplace? Anyone who already downloaded it will keep their copy.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unpublish',
+          style: 'destructive',
+          onPress: async () => {
+            setIsUnpublishing(true);
+            const result = await unpublishDeck(user.id, deck.name);
+            setIsUnpublishing(false);
+
+            if (result.success) {
+              setIsPublished(false);
+              Alert.alert('Deck Unpublished', `"${deck.name}" has been removed from the community marketplace.`);
+            } else {
+              Alert.alert('Unpublish Failed', result.error ?? 'Could not unpublish the deck. Please try again.');
+            }
+          },
+        },
+      ],
+    );
+  }, [deck, isSignedIn, user?.id]);
 
   const handleResetProgress = useCallback(() => {
     if (!deck) {
@@ -736,10 +798,23 @@ export default function DeckHubScreen() {
                 testID="publishDeckButton"
               >
                 <Globe color={isPublishing ? theme.textTertiary : '#6366F1'} size={18} strokeWidth={2.2} />
-                <Text style={[styles.menuItemText, { color: isPublishing ? theme.textTertiary : theme.text }]}>
+                <Text style={[styles.menuItemText, { color: isPublishing ? theme.textTertiary : theme.text }]}> 
                   {isPublishing ? 'Publishing...' : 'Publish to Community'}
                 </Text>
               </TouchableOpacity>
+              {isPublished && isSignedIn ? (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={handleUnpublishDeck}
+                  activeOpacity={0.75}
+                  testID="unpublishDeckButton"
+                >
+                  <Globe color={isUnpublishing ? theme.textTertiary : theme.error} size={18} strokeWidth={2.2} />
+                  <Text style={[styles.menuItemText, { color: isUnpublishing ? theme.textTertiary : theme.error }]}> 
+                    {isUnpublishing ? 'Unpublishing...' : 'Unpublish from Community'}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
               <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
               <TouchableOpacity
                 style={styles.menuItem}
