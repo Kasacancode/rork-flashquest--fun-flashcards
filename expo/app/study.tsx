@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -182,6 +183,8 @@ export default function StudyPage() {
   const { decks, stats, updateFlashcard, recordSessionResult } = useFlashQuest();
   const { performance } = usePerformance();
   const { theme, isDark } = useTheme();
+  const { height: windowHeight } = useWindowDimensions();
+  const isCompactResults = windowHeight < 780;
   const validModes: StudyMode[] = ['all', 'due', 'quick-5', 'quick-10', 'quick-15', 'weak'];
   const initialMode = validModes.includes(params.initialMode as StudyMode) ? (params.initialMode as StudyMode) : null;
   const launchedFromReviewHub = params.source === 'review-hub';
@@ -393,6 +396,15 @@ export default function StudyPage() {
     setStudyMode(null);
   }, [handleDismissToHome, launchedFromReviewHub]);
 
+  const handleResultsBack = useCallback(() => {
+    if (launchedFromReviewHub) {
+      handleDismissToHome();
+      return;
+    }
+
+    router.back();
+  }, [handleDismissToHome, launchedFromReviewHub, router]);
+
   useEffect(() => {
     if (!launchedFromReviewHub) {
       return;
@@ -431,146 +443,178 @@ export default function StudyPage() {
         />
 
         <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-          <ScrollView contentContainerStyle={styles.resultsScrollContent} showsVerticalScrollIndicator={false} bounces={false}>
-            <View style={styles.resultsContainer}>
-              <View
-                style={[
-                  styles.resultsEyebrow,
-                  { backgroundColor: studyMode === 'due' ? 'rgba(16, 185, 129, 0.16)' : 'rgba(255, 255, 255, 0.16)' },
-                ]}
-              >
-                {studyMode === 'due' ? (
-                  <RefreshCw color="#6EE7B7" size={14} strokeWidth={2.3} />
-                ) : (
-                  <BookOpen color="#E9D5FF" size={14} strokeWidth={2.3} />
-                )}
-                <Text style={styles.resultsEyebrowText}>
-                  {studyMode === 'due' ? 'Review complete' : 'Study session complete'}
-                </Text>
+          <ScrollView
+            contentContainerStyle={[
+              styles.resultsScrollContent,
+              isCompactResults ? styles.resultsScrollContentCompact : null,
+            ]}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <View
+              style={[
+                styles.resultsContainer,
+                isCompactResults ? styles.resultsContainerCompact : null,
+              ]}
+            >
+              <View style={styles.resultsTopBar}>
+                <TouchableOpacity
+                  style={styles.resultsTopBackButton}
+                  onPress={handleResultsBack}
+                  accessibilityLabel={launchedFromReviewHub ? 'Back to home' : 'Go back'}
+                  accessibilityRole="button"
+                  testID="study-results-top-back-button"
+                >
+                  <ArrowLeft color="#FFFFFF" size={20} strokeWidth={2.5} />
+                </TouchableOpacity>
               </View>
 
-              <Text style={styles.resultsTitle}>
-                {studyMode === 'due'
-                  ? remainingDueCount === 0 ? 'You’re all caught up' : 'Nice progress'
-                  : 'Deck Complete!'}
-              </Text>
-              <Text style={styles.resultsSubtitle}>
-                {studyMode === 'due'
-                  ? remainingDueCount === 0
-                    ? `${selectedDeck.name} has no cards waiting for review right now.`
-                    : `You finished this round in ${selectedDeck.name}. ${remainingDueCount} card${remainingDueCount !== 1 ? 's are' : ' is'} still due.`
-                  : `Great work studying ${selectedDeck.name}`}
-              </Text>
-
-              <View style={styles.resultsCard}>
-                <View style={styles.resultStat}>
-                  <Text style={styles.resultStatValue}>{sessionResolved}</Text>
-                  <Text style={styles.resultStatLabel}>{studyMode === 'due' ? 'Reviewed now' : 'Reviewed'}</Text>
-                </View>
-                <View style={styles.resultStatDivider} />
-                <View style={styles.resultStat}>
-                  <Text
-                    style={[
-                      styles.resultStatValue,
-                      { color: studyMode === 'due' && remainingDueCount === 0 ? '#10B981' : '#667eea' },
-                    ]}
-                  >
-                    {studyMode === 'due' ? remainingDueCount : selectedDeck.flashcards.length}
-                  </Text>
-                  <Text style={styles.resultStatLabel}>{studyMode === 'due' ? 'Still due' : 'In deck'}</Text>
-                </View>
-                <View style={styles.resultStatDivider} />
-                <View style={styles.resultStat}>
-                  <Text style={[styles.resultStatValue, { color: '#10B981' }]}>+{sessionXp}</Text>
-                  <Text style={styles.resultStatLabel}>XP earned</Text>
-                </View>
-              </View>
-
-              <View style={styles.resultsStatusCard}>
-                <View style={styles.resultsStatusHeader}>
-                  <View
-                    style={[
-                      styles.resultsStatusDot,
-                      { backgroundColor: studyMode === 'due' ? (remainingDueCount === 0 ? '#34D399' : '#F59E0B') : '#818CF8' },
-                    ]}
-                  />
-                  <Text style={styles.resultsStatusTitle}>
+              <View style={styles.resultsMainContent}>
+                <View
+                  style={[
+                    styles.resultsEyebrow,
+                    isCompactResults ? styles.resultsEyebrowCompact : null,
+                    { backgroundColor: studyMode === 'due' ? 'rgba(16, 185, 129, 0.16)' : 'rgba(255, 255, 255, 0.16)' },
+                  ]}
+                >
+                  {studyMode === 'due' ? (
+                    <RefreshCw color="#6EE7B7" size={14} strokeWidth={2.3} />
+                  ) : (
+                    <BookOpen color="#E9D5FF" size={14} strokeWidth={2.3} />
+                  )}
+                  <Text style={styles.resultsEyebrowText}>
                     {studyMode === 'due'
-                      ? remainingDueCount === 0 ? 'This deck is cleared for now' : 'You can stop here or keep reinforcing'
-                      : 'Nice momentum'}
+                      ? remainingDueCount === 0 ? 'Due queue cleared' : 'Review checkpoint'
+                      : 'Study session complete'}
                   </Text>
                 </View>
-                <Text style={styles.resultsStatusText}>
+
+                <Text style={[styles.resultsTitle, isCompactResults ? styles.resultsTitleCompact : null]}>
+                  {studyMode === 'due'
+                    ? remainingDueCount === 0 ? 'You’re all caught up' : 'Nice progress'
+                    : 'Deck Complete!'}
+                </Text>
+                <Text style={[styles.resultsSubtitle, isCompactResults ? styles.resultsSubtitleCompact : null]}>
                   {studyMode === 'due'
                     ? remainingDueCount === 0
-                      ? 'Head home and the review hub will bring this deck back when cards are due again.'
-                      : 'You finished the current review pass. Go home now or continue with the full deck for extra reps.'
-                    : 'Come back later for spaced repetition, or jump into Quest mode to test recall under pressure.'}
+                      ? `${selectedDeck.name} has no cards waiting for review right now.`
+                      : `You finished this round in ${selectedDeck.name}. ${remainingDueCount} card${remainingDueCount !== 1 ? 's are' : ' is'} still due.`
+                    : `Great work studying ${selectedDeck.name}`}
                 </Text>
 
-                {(needsReviewCount > 0 || studySummary.newCount > 0) ? (
-                  <View style={styles.srsResultBanner}>
-                    {needsReviewCount > 0 ? (
-                      <View style={styles.srsResultRow}>
-                        <RefreshCw color="#F59E0B" size={14} strokeWidth={2.2} />
-                        <Text style={styles.srsResultText}>{needsReviewCount} card{needsReviewCount !== 1 ? 's' : ''} still need review in this deck</Text>
-                      </View>
-                    ) : null}
-                    {studySummary.newCount > 0 ? (
-                      <View style={styles.srsResultRow}>
-                        <Sparkles color="#60A5FA" size={14} strokeWidth={2.2} />
-                        <Text style={styles.srsResultText}>{studySummary.newCount} new card{studySummary.newCount !== 1 ? 's are' : ' is'} ready when you want to keep going</Text>
-                      </View>
-                    ) : null}
+                <View style={[styles.resultsCard, isCompactResults ? styles.resultsCardCompact : null]}>
+                  <View style={styles.resultStat}>
+                    <Text style={[styles.resultStatValue, isCompactResults ? styles.resultStatValueCompact : null]}>{sessionResolved}</Text>
+                    <Text style={styles.resultStatLabel}>{studyMode === 'due' ? 'Reviewed now' : 'Reviewed'}</Text>
                   </View>
-                ) : null}
+                  <View style={styles.resultStatDivider} />
+                  <View style={styles.resultStat}>
+                    <Text
+                      style={[
+                        styles.resultStatValue,
+                        isCompactResults ? styles.resultStatValueCompact : null,
+                        { color: studyMode === 'due' && remainingDueCount === 0 ? '#10B981' : '#667eea' },
+                      ]}
+                    >
+                      {studyMode === 'due' ? remainingDueCount : selectedDeck.flashcards.length}
+                    </Text>
+                    <Text style={styles.resultStatLabel}>{studyMode === 'due' ? 'Still due' : 'In deck'}</Text>
+                  </View>
+                  <View style={styles.resultStatDivider} />
+                  <View style={styles.resultStat}>
+                    <Text style={[styles.resultStatValue, isCompactResults ? styles.resultStatValueCompact : null, { color: '#10B981' }]}>+{sessionXp}</Text>
+                    <Text style={styles.resultStatLabel}>XP earned</Text>
+                  </View>
+                </View>
+
+                <View style={[styles.resultsStatusCard, isCompactResults ? styles.resultsStatusCardCompact : null]}>
+                  <View style={styles.resultsStatusHeader}>
+                    <View
+                      style={[
+                        styles.resultsStatusDot,
+                        { backgroundColor: studyMode === 'due' ? (remainingDueCount === 0 ? '#34D399' : '#F59E0B') : '#818CF8' },
+                      ]}
+                    />
+                    <Text style={styles.resultsStatusTitle}>
+                      {studyMode === 'due'
+                        ? remainingDueCount === 0 ? 'This deck is cleared for now' : 'You can stop here or keep reinforcing'
+                        : 'Nice momentum'}
+                    </Text>
+                  </View>
+                  <Text style={styles.resultsStatusText}>
+                    {studyMode === 'due'
+                      ? remainingDueCount === 0
+                        ? 'Head home and the review hub will bring this deck back when cards are due again.'
+                        : 'You finished the current review pass. Go home now or continue with the full deck for extra reps.'
+                      : 'Come back later for spaced repetition, or jump into Quest mode to test recall under pressure.'}
+                  </Text>
+
+                  {(needsReviewCount > 0 || studySummary.newCount > 0) ? (
+                    <View style={styles.srsResultBanner}>
+                      {needsReviewCount > 0 ? (
+                        <View style={styles.srsResultRow}>
+                          <RefreshCw color="#F59E0B" size={14} strokeWidth={2.2} />
+                          <Text style={styles.srsResultText}>{needsReviewCount} card{needsReviewCount !== 1 ? 's' : ''} still need review in this deck</Text>
+                        </View>
+                      ) : null}
+                      {studySummary.newCount > 0 ? (
+                        <View style={styles.srsResultRow}>
+                          <Sparkles color="#60A5FA" size={14} strokeWidth={2.2} />
+                          <Text style={styles.srsResultText}>{studySummary.newCount} new card{studySummary.newCount !== 1 ? 's are' : ' is'} ready when you want to keep going</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </View>
               </View>
 
-              <TouchableOpacity
-                style={styles.primaryResultsButton}
-                onPress={() => (launchedFromReviewHub ? handleDismissToHome() : router.back())}
-                accessibilityLabel={launchedFromReviewHub ? 'Back to home' : 'Go back'}
-                accessibilityRole="button"
-                testID="study-results-back-button"
-              >
-                <Text style={styles.primaryResultsButtonText}>
-                  {launchedFromReviewHub ? 'Back to Home' : studyMode === 'due' ? 'Done for Now' : 'Back to Decks'}
-                </Text>
-              </TouchableOpacity>
-
-              {studyMode === 'due' ? (
+              <View style={styles.resultsActions}>
                 <TouchableOpacity
-                  style={styles.secondaryResultsButton}
-                  onPress={handleContinueWithAll}
-                  activeOpacity={0.85}
+                  style={styles.primaryResultsButton}
+                  onPress={handleResultsBack}
+                  accessibilityLabel={launchedFromReviewHub ? 'Back to home' : 'Go back'}
                   accessibilityRole="button"
-                  testID="study-results-continue-all-button"
+                  testID="study-results-back-button"
                 >
-                  <RotateCcw color="#FFFFFF" size={18} strokeWidth={2} />
-                  <Text style={styles.secondaryResultsButtonText}>Continue with All Cards</Text>
+                  <Text style={styles.primaryResultsButtonText}>
+                    {launchedFromReviewHub ? 'Back to Home' : studyMode === 'due' ? 'Done for Now' : 'Back to Decks'}
+                  </Text>
                 </TouchableOpacity>
-              ) : (
-                <TouchableOpacity style={styles.restartButton} onPress={handleRestart} testID="study-results-restart-button">
-                  <RotateCcw color="#667eea" size={20} strokeWidth={2} />
-                  <Text style={styles.restartButtonText}>Study Again</Text>
+
+                {studyMode === 'due' ? (
+                  <TouchableOpacity
+                    style={styles.secondaryResultsButton}
+                    onPress={handleContinueWithAll}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    testID="study-results-continue-all-button"
+                  >
+                    <RotateCcw color="#FFFFFF" size={18} strokeWidth={2} />
+                    <Text style={styles.secondaryResultsButtonText}>Continue with All Cards</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={styles.restartButton} onPress={handleRestart} testID="study-results-restart-button">
+                    <RotateCcw color="#667eea" size={20} strokeWidth={2} />
+                    <Text style={styles.restartButtonText}>Study Again</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={styles.suggestButton}
+                  onPress={() => router.push(questHref({ deckId: selectedDeck.id }))}
+                >
+                  <Target color="#fff" size={20} strokeWidth={2} />
+                  <Text style={styles.suggestButtonText}>Test Yourself in Quest Mode</Text>
                 </TouchableOpacity>
-              )}
 
-              <TouchableOpacity
-                style={styles.suggestButton}
-                onPress={() => router.push(questHref({ deckId: selectedDeck.id }))}
-              >
-                <Target color="#fff" size={20} strokeWidth={2} />
-                <Text style={styles.suggestButtonText}>Test Yourself in Quest Mode</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.hubButton}
-                onPress={() => router.push(deckHubHref(selectedDeck.id))}
-              >
-                <Zap color="rgba(255,255,255,0.7)" size={18} strokeWidth={2} />
-                <Text style={styles.hubButtonText}>View Deck Progress</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.hubButton}
+                  onPress={() => router.push(deckHubHref(selectedDeck.id))}
+                >
+                  <Zap color="rgba(255,255,255,0.7)" size={18} strokeWidth={2} />
+                  <Text style={styles.hubButtonText}>View Deck Progress</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -1223,14 +1267,41 @@ const styles = StyleSheet.create({
   },
   resultsScrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+  },
+  resultsScrollContentCompact: {
+    paddingBottom: 8,
   },
   resultsContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: 460,
+    alignSelf: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 18,
+  },
+  resultsContainerCompact: {
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+  },
+  resultsTopBar: {
+    width: '100%',
+    marginBottom: 8,
+  },
+  resultsTopBackButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 28,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  resultsMainContent: {
+    width: '100%',
+    alignItems: 'center',
   },
   resultsEyebrow: {
     flexDirection: 'row',
@@ -1239,7 +1310,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginBottom: 18,
+    marginBottom: 14,
+  },
+  resultsEyebrowCompact: {
+    marginBottom: 12,
   },
   resultsEyebrowText: {
     fontSize: 12,
@@ -1249,45 +1323,63 @@ const styles = StyleSheet.create({
     letterSpacing: 0.7,
   },
   resultsTitle: {
-    fontSize: 38,
+    fontSize: 34,
     fontWeight: '800' as const,
     color: '#fff',
-    marginBottom: 10,
+    marginBottom: 8,
     textAlign: 'center',
     letterSpacing: -0.8,
   },
+  resultsTitleCompact: {
+    fontSize: 30,
+  },
   resultsSubtitle: {
-    fontSize: 17,
+    fontSize: 15,
     color: 'rgba(255, 255, 255, 0.88)',
-    marginBottom: 28,
+    marginBottom: 20,
     textAlign: 'center',
     fontWeight: '600' as const,
-    lineHeight: 24,
+    lineHeight: 22,
     maxWidth: 320,
+  },
+  resultsSubtitleCompact: {
+    marginBottom: 16,
+    maxWidth: 300,
   },
   resultsCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.96)',
     borderRadius: 24,
-    paddingHorizontal: 22,
-    paddingVertical: 24,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 18,
+    marginBottom: 14,
+  },
+  resultsCardCompact: {
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+    marginBottom: 12,
   },
   resultStat: {
+    flex: 1,
     alignItems: 'center',
   },
   resultStatValue: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: '800' as const,
     color: '#667eea',
     marginBottom: 4,
   },
+  resultStatValueCompact: {
+    fontSize: 28,
+  },
   resultStatLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
     fontWeight: '600' as const,
+    textAlign: 'center',
   },
   resultStatDivider: {
     width: 1,
@@ -1299,9 +1391,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8, 15, 33, 0.22)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
-    padding: 18,
-    marginBottom: 18,
-    gap: 12,
+    padding: 16,
+    marginBottom: 14,
+    gap: 10,
+  },
+  resultsStatusCardCompact: {
+    padding: 14,
+    marginBottom: 12,
   },
   resultsStatusHeader: {
     flexDirection: 'row',
@@ -1325,15 +1421,18 @@ const styles = StyleSheet.create({
     fontWeight: '500' as const,
     color: 'rgba(255, 255, 255, 0.82)',
   },
+  resultsActions: {
+    width: '100%',
+  },
   primaryResultsButton: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    paddingHorizontal: 28,
-    paddingVertical: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 15,
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   primaryResultsButtonText: {
     fontSize: 17,
@@ -1343,14 +1442,14 @@ const styles = StyleSheet.create({
   secondaryResultsButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.16)',
     borderRadius: 18,
-    paddingHorizontal: 28,
-    paddingVertical: 15,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   secondaryResultsButtonText: {
     fontSize: 16,
@@ -1360,14 +1459,14 @@ const styles = StyleSheet.create({
   restartButton: {
     backgroundColor: '#fff',
     borderRadius: 18,
-    paddingHorizontal: 32,
-    paddingVertical: 16,
+    paddingHorizontal: 28,
+    paddingVertical: 15,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     width: '100%',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   restartButtonText: {
     fontSize: 18,
@@ -1394,9 +1493,9 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    marginTop: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginTop: 0,
     width: '100%',
   },
   suggestButtonText: {
@@ -1409,8 +1508,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 14,
-    marginTop: 6,
+    paddingVertical: 12,
+    marginTop: 2,
   },
   hubButtonText: {
     fontSize: 14,
