@@ -24,7 +24,7 @@ import {
   normalizeDeckCategory,
   sanitizeDeckCategory,
 } from '@/constants/deckCategories';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { Flashcard } from '@/types/flashcard';
 import { createFlashcardHref, editFlashcardHref } from '@/utils/routes';
@@ -37,7 +37,7 @@ const DECK_COLORS = [
 export default function EditDeckScreen() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
-  const { decks, updateDeck, deleteFlashcard, deleteDeck, deckCategories } = useFlashQuest();
+  const { decks, updateDeck, deleteFlashcard, deleteDeck, deckCategories } = useDeckContext();
   const { theme, isDark } = useTheme();
   const deck = useMemo(() => decks.find((item) => item.id === deckId), [decks, deckId]);
   const [nameInput, setNameInput] = useState<string>(deck?.name ?? '');

@@ -2,14 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import LevelUpToast from '@/components/LevelUpToast';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useStatsContext } from '@/context/StatsContext';
 import { computeLevel, getLevelEntry } from '@/utils/levels';
 import { enqueueToastRunner, releaseToastRunner } from '@/utils/toastQueue';
 
 const LAST_LEVEL_KEY = 'flashquest_last_known_level';
 
 export default function LevelUpMonitor() {
-  const { stats, isLoading } = useFlashQuest();
+  const { stats, isLoading } = useStatsContext();
   const [toast, setToast] = useState<{ level: number; title: string } | null>(null);
   const prevLevelRef = useRef<number>(1);
   const hasLoadedRef = useRef(false);

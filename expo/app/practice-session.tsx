@@ -22,7 +22,8 @@ import {
   type PlayerInfo,
   type TurnResult,
 } from '@/components/practice-session/practiceSession.utils';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
+import { useStatsContext } from '@/context/StatsContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
@@ -53,7 +54,8 @@ export default function PracticeSessionPage() {
   const router = useRouter();
   const navigation = useNavigation();
   const params = useLocalSearchParams<{ deckId?: string | string[]; mode?: PracticeMode | PracticeMode[] }>();
-  const { decks, recordSessionResult } = useFlashQuest();
+  const { decks } = useDeckContext();
+  const { recordSessionResult } = useStatsContext();
   const { logQuestAttempt } = usePerformance();
   const { theme, isDark } = useTheme();
   const { gameAreaMaxWidth } = useResponsiveLayout();

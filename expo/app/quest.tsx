@@ -9,7 +9,7 @@ import FirstVisitCard from '@/components/FirstVisitCard';
 import ConsentSheet from '@/components/privacy/ConsentSheet';
 import QuestDeckSelector from '@/components/quest/QuestDeckSelector';
 import QuestSettingsOptions from '@/components/quest/QuestSettingsOptions';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -45,7 +45,7 @@ export default function QuestMenuScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ deckId?: string | string[]; focusWeak?: string | string[]; drillCardIds?: string | string[] }>();
   const { theme, isDark } = useTheme();
-  const { decks } = useFlashQuest();
+  const { decks } = useDeckContext();
   const { performance, getLastQuestSettings, getDeckAccuracy, getOverallQuestAccuracy, saveLastQuestSettings } = usePerformance();
   const { hasAcknowledgedAIDisclosure, acknowledgeAIDisclosure } = usePrivacy();
 

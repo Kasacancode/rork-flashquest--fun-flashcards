@@ -27,7 +27,7 @@ import {
   normalizeDeckCategory,
   sanitizeDeckCategory,
 } from '@/constants/deckCategories';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
@@ -58,7 +58,7 @@ type Step = 'input' | 'processing' | 'review';
 
 export default function TextToDeckPage() {
   const router = useRouter();
-  const { addDeck, deckCategories } = useFlashQuest();
+  const { addDeck, deckCategories } = useDeckContext();
   const { hasAcknowledgedAIDisclosure, acknowledgeAIDisclosure } = usePrivacy();
   const { theme, isDark } = useTheme();
 

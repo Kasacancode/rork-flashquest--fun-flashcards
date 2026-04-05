@@ -10,7 +10,8 @@ import DealerPlaceholder from '@/components/DealerPlaceholder';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import ShareableResultCard, { type ResultCardData } from '@/components/ShareableResultCard';
 import { useAuth } from '@/context/AuthContext';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
+import { useStatsContext } from '@/context/StatsContext';
 import { useTheme } from '@/context/ThemeContext';
 import { completeChallenge, createChallenge } from '@/utils/challengeService';
 import { getQuestCompletionDialogueEvent, selectAssistantDialogue } from '@/utils/dialogue';
@@ -33,7 +34,8 @@ export default function QuestResultsScreen() {
   }>();
   const { theme } = useTheme();
   const { user } = useAuth();
-  const { decks, stats } = useFlashQuest();
+  const { decks } = useDeckContext();
+  const { stats } = useStatsContext();
 
   const [showMissedCards, setShowMissedCards] = useState(false);
   const [showShareCard, setShowShareCard] = useState<boolean>(false);

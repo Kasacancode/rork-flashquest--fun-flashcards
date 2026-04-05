@@ -19,7 +19,7 @@ import {
 import ArenaLobbyDeckSelector from '@/components/arena/ArenaLobbyDeckSelector';
 import ArenaLobbyPlayersList from '@/components/arena/ArenaLobbyPlayersList';
 import { useArena } from '@/context/ArenaContext';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
 import { useTheme } from '@/context/ThemeContext';
 import { logger } from '@/utils/logger';
 import { createNormalizedFlashcard, getFlashcardContent } from '@/utils/flashcardContent';
@@ -75,7 +75,7 @@ export default function ArenaLobbyScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
   const arenaAccent = isDark ? ARENA_ACCENT_DARK : ARENA_ACCENT_LIGHT;
-  const { decks } = useFlashQuest();
+  const { decks } = useDeckContext();
   const {
     room,
     roomCode,

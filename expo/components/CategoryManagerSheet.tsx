@@ -19,7 +19,7 @@ import {
   isPresetDeckCategory,
   sanitizeDeckCategory,
 } from '@/constants/deckCategories';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
 import { useTheme } from '@/context/ThemeContext';
 
 interface CategoryManagerSheetProps {
@@ -46,7 +46,7 @@ export default function CategoryManagerSheet({
     createDeckCategory,
     renameDeckCategory,
     deleteDeckCategory,
-  } = useFlashQuest();
+  } = useDeckContext();
   const [newCategoryInput, setNewCategoryInput] = useState<string>('');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');

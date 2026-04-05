@@ -43,7 +43,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useAuth } from '@/context/AuthContext';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
+import { useStatsContext } from '@/context/StatsContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getDailyGoalTarget, setDailyGoalTarget, DAILY_GOAL_OPTIONS } from '@/utils/dailyGoal';
@@ -131,7 +132,8 @@ export default function SettingsScreen() {
   const { theme, isDark, setTheme } = useTheme();
   const { analyticsEnabled, setAnalyticsConsent } = usePrivacy();
   const { isSignedIn, displayName, username, user, signOut } = useAuth();
-  const { decks, stats } = useFlashQuest();
+  const { decks } = useDeckContext();
+  const { stats } = useStatsContext();
   const [hapticsEnabled, setHapticsEnabled] = useState<boolean>(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const [soundEnabled, setSoundEnabledState] = useState<boolean>(getSoundsEnabled());

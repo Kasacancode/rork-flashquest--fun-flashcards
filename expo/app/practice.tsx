@@ -6,7 +6,7 @@ import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ConsentSheet from '@/components/privacy/ConsentSheet';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
@@ -18,7 +18,7 @@ import { getFirstRouteParam } from '@/utils/safeJson';
 export default function PracticePage() {
   const router = useRouter();
   const params = useLocalSearchParams<{ deckId?: string | string[] }>();
-  const { decks } = useFlashQuest();
+  const { decks } = useDeckContext();
   const { hasAcknowledgedAIDisclosure, acknowledgeAIDisclosure } = usePrivacy();
   const { theme, isDark } = useTheme();
   const [selectedMode, setSelectedMode] = useState<PracticeMode | null>(null);

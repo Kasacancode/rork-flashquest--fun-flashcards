@@ -25,7 +25,7 @@ import {
   sanitizeDeckCategory,
 } from '@/constants/deckCategories';
 import { useArena } from '@/context/ArenaContext';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
@@ -46,7 +46,7 @@ interface CardInput {
 export default function CreateFlashcardPage() {
   const router = useRouter();
   const { deckId, category } = useLocalSearchParams<{ deckId?: string; category?: string }>();
-  const { addDeck, updateDeck, deleteDeck, decks, deckCategories } = useFlashQuest();
+  const { addDeck, updateDeck, deleteDeck, decks, deckCategories } = useDeckContext();
   const { cleanupDeck: cleanupPerformance } = usePerformance();
   const { cleanupDeck: cleanupArena } = useArena();
   const { theme, isDark } = useTheme();

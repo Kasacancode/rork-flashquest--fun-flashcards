@@ -32,7 +32,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useAuth } from '@/context/AuthContext';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { Deck } from '@/types/flashcard';
 import { createNormalizedFlashcard, normalizeDeck } from '@/utils/flashcardContent';
@@ -63,7 +63,7 @@ export default function ExploreScreen() {
   const queryClient = useQueryClient();
   const { theme, isDark } = useTheme();
   const { isSignedIn, user } = useAuth();
-  const { addDeck } = useFlashQuest();
+  const { addDeck } = useDeckContext();
   const [sort, setSort] = useState<MarketplaceSortOption>('popular');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');

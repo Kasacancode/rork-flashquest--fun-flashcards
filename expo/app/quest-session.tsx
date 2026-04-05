@@ -9,7 +9,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnswerCard, getSuitForIndex, AnswerCardState, CARD_GAP, CARD_HEIGHT, CARD_PADDING, CARD_WIDTH, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
 import DealerPlaceholder from '@/components/DealerPlaceholder';
 import FlashcardDebugButton from '@/components/debug/FlashcardDebugButton';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
+import { useStatsContext } from '@/context/StatsContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
@@ -51,7 +52,8 @@ export default function QuestSessionScreen() {
   }>();
   const { theme } = useTheme();
   const { gameAreaMaxWidth } = useResponsiveLayout();
-  const { decks, recordSessionResult } = useFlashQuest();
+  const { decks } = useDeckContext();
+  const { recordSessionResult } = useStatsContext();
   const { performance, logQuestAttempt, updateBestStreak } = usePerformance();
 
   const parsedSettings = useMemo(() => parseQuestSettingsParam(params.settings), [params.settings]);

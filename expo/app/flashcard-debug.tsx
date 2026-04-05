@@ -7,7 +7,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { Flashcard, FlashcardOption } from '@/types/flashcard';
 import { canAccessDebugRoute, getDebugToolingFallbackHref } from '@/utils/debugTooling';
@@ -119,7 +119,7 @@ function SelectionRow({
 export default function FlashcardDebugScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ deckId?: string | string[]; cardId?: string | string[]; surface?: string | string[]; options?: string | string[] }>();
-  const { decks, updateFlashcard } = useFlashQuest();
+  const { decks, updateFlashcard } = useDeckContext();
   const diagnostics = useFlashcardDiagnostics();
   const { theme, isDark } = useTheme();
 

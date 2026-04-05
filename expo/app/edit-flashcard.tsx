@@ -29,7 +29,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
 import { useTheme } from '@/context/ThemeContext';
 
 const DIFFICULTY_OPTIONS = ['easy', 'medium', 'hard'] as const;
@@ -46,7 +46,7 @@ const MAX_IMAGE_BASE64_LENGTH = 100000;
 export default function EditFlashcardScreen() {
   const router = useRouter();
   const { deckId, cardId } = useLocalSearchParams<{ deckId: string; cardId: string }>();
-  const { decks, updateFlashcard, deleteFlashcard } = useFlashQuest();
+  const { decks, updateFlashcard, deleteFlashcard } = useDeckContext();
   const { theme, isDark } = useTheme();
   const deck = useMemo(() => decks.find((item) => item.id === deckId), [decks, deckId]);
   const card = useMemo(() => deck?.flashcards.find((item) => item.id === cardId), [cardId, deck]);

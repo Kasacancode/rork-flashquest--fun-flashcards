@@ -16,11 +16,10 @@ import ConsentSheet from '@/components/privacy/ConsentSheet';
 import { ArenaProvider } from '@/context/ArenaContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { AvatarProvider } from '@/context/AvatarContext';
-import { DeckProvider } from '@/context/DeckContext';
-import { FlashQuestProvider, useFlashQuest } from '@/context/FlashQuestContext';
+import { DeckProvider, useDeckContext } from '@/context/DeckContext';
 import { PerformanceProvider, usePerformance } from '@/context/PerformanceContext';
 import { PrivacyProvider, usePrivacy } from '@/context/PrivacyContext';
-import { StatsProvider } from '@/context/StatsContext';
+import { StatsProvider, useStatsContext } from '@/context/StatsContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { setAnalyticsCollectionEnabled, trackEvent } from '@/lib/analytics';
 import { supabase } from '@/lib/supabase';
@@ -153,7 +152,8 @@ function AppShell() {
   const pathname = usePathname();
   const reactQueryClient = useQueryClient();
   const { analyticsEnabled, setAnalyticsConsent, shouldAskForAnalyticsConsent } = usePrivacy();
-  const { decks, stats } = useFlashQuest();
+  const { decks } = useDeckContext();
+  const { stats } = useStatsContext();
   const { performance } = usePerformance();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState<boolean | null>(null);
   const [downloadNotification, setDownloadNotification] = useState<{ deckName: string; newDownloads: number } | null>(null);
@@ -382,13 +382,11 @@ export default function RootLayout() {
                 <AvatarProvider>
                   <DeckProvider>
                     <StatsProvider>
-                      <FlashQuestProvider>
-                        <PerformanceProvider>
-                          <ArenaProvider>
-                            <AppShell />
-                          </ArenaProvider>
-                        </PerformanceProvider>
-                      </FlashQuestProvider>
+                      <PerformanceProvider>
+                        <ArenaProvider>
+                          <AppShell />
+                        </ArenaProvider>
+                      </PerformanceProvider>
                     </StatsProvider>
                   </DeckProvider>
                 </AvatarProvider>

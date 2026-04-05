@@ -15,7 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import StudyFeed from '@/components/StudyFeed';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
+import { useStatsContext } from '@/context/StatsContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
@@ -180,7 +181,8 @@ export default function StudyPage() {
   const router = useRouter();
   const navigation = useNavigation();
   const params = useLocalSearchParams<{ deckId?: string; initialMode?: string; source?: string }>();
-  const { decks, stats, updateFlashcard, recordSessionResult } = useFlashQuest();
+  const { decks, updateFlashcard } = useDeckContext();
+  const { stats, recordSessionResult } = useStatsContext();
   const { performance } = usePerformance();
   const { theme, isDark } = useTheme();
   const { height: windowHeight } = useWindowDimensions();

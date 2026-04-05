@@ -8,7 +8,8 @@ import { AVATAR_COLORS, AVATAR_SUITS } from '@/constants/avatar';
 import { useArena } from '@/context/ArenaContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAvatar } from '@/context/AvatarContext';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
+import { useStatsContext } from '@/context/StatsContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { canAccessDebugFeature } from '@/utils/debugTooling';
@@ -33,7 +34,8 @@ import { openSupportContact } from '@/utils/support';
 
 export function useProfileScreenState() {
   const navigation = useRouter();
-  const { stats, decks } = useFlashQuest();
+  const { decks } = useDeckContext();
+  const { stats } = useStatsContext();
   const { performance } = usePerformance();
   const { playerName, updatePlayerName, isPlayerNameReady, leaderboard } = useArena();
   const { displayName, isSignedIn, username } = useAuth();

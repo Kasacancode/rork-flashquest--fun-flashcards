@@ -2,7 +2,8 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 
 import { useArena } from '@/context/ArenaContext';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
+import { useStatsContext } from '@/context/StatsContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { computeLevel, computeLevelProgress, getLevelBandPalette, getLevelEntry } from '@/utils/levels';
@@ -21,7 +22,8 @@ import {
 
 export function useStatsScreenState() {
   const router = useRouter();
-  const { stats, decks } = useFlashQuest();
+  const { decks } = useDeckContext();
+  const { stats } = useStatsContext();
   const { performance } = usePerformance();
   const { leaderboard, playerName: savedPlayerName } = useArena();
   const { theme, isDark } = useTheme();

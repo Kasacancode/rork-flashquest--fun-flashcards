@@ -41,7 +41,7 @@ import {
   sanitizeDeckCategory,
 } from '@/constants/deckCategories';
 import { useArena } from '@/context/ArenaContext';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { Deck } from '@/types/flashcard';
@@ -64,7 +64,7 @@ import {
 export default function DecksPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { decks, deleteDeck, reorderDecks, addDeck, deckCategories, isLoading } = useFlashQuest();
+  const { decks, deleteDeck, reorderDecks, addDeck, deckCategories, isLoading } = useDeckContext();
   const { cleanupDeck } = useArena();
   const { performance, getCardsDueForReview } = usePerformance();
   const { theme, isDark } = useTheme();

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import DeckMasteryToast from '@/components/DeckMasteryToast';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { computeDeckMastery } from '@/utils/mastery';
 import { normalizeStringArray, safeParseJsonOrNull } from '@/utils/safeJson';
@@ -11,7 +11,7 @@ import { enqueueToastRunner, releaseToastRunner } from '@/utils/toastQueue';
 const MASTERED_DECKS_KEY = 'flashquest_mastered_decks';
 
 export default function DeckMasteryMonitor() {
-  const { decks, isLoading: isDecksLoading } = useFlashQuest();
+  const { decks, isLoading: isDecksLoading } = useDeckContext();
   const { performance, isLoading: isPerfLoading } = usePerformance();
   const [toast, setToast] = useState<{ name: string } | null>(null);
   const previouslyMasteredRef = useRef<Set<string>>(new Set());

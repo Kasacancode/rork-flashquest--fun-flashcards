@@ -13,7 +13,7 @@ import ConfettiCelebration from '@/components/ConfettiCelebration';
 import ShareableResultCard, { type ResultCardData } from '@/components/ShareableResultCard';
 import { trackEvent } from '@/lib/analytics';
 import { useArena } from '@/context/ArenaContext';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useStatsContext } from '@/context/StatsContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { ArenaLeaderboardEntry } from '@/types/arena';
 import { GAME_MODE } from '@/types/game';
@@ -77,7 +77,7 @@ function getPlacementLabel(rank: number): string {
 export default function ArenaResultsScreen() {
   const router = useRouter();
   const { theme } = useTheme();
-  const { recordSessionResult } = useFlashQuest();
+  const { recordSessionResult } = useStatsContext();
   const {
     room,
     playerId,

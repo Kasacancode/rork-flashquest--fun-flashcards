@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import AchievementToast from '@/components/AchievementToast';
 import { useArena } from '@/context/ArenaContext';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
+import { useStatsContext } from '@/context/StatsContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { computeAchievements } from '@/utils/achievements';
 import { logger } from '@/utils/logger';
@@ -20,7 +21,8 @@ type ToastAchievement = {
 };
 
 export default function AchievementMonitor() {
-  const { stats, decks, isLoading: isFlashQuestLoading } = useFlashQuest();
+  const { decks, isLoading: isDecksLoading } = useDeckContext();
+  const { stats, isLoading: isStatsLoading } = useStatsContext();
   const { leaderboard, isLoading: isArenaLoading } = useArena();
   const { performance, isLoading: isPerformanceLoading } = usePerformance();
   const [toastAchievement, setToastAchievement] = useState<ToastAchievement | null>(null);
@@ -36,7 +38,7 @@ export default function AchievementMonitor() {
     () => decks.flatMap((deck) => deck.flashcards).length,
     [decks]
   );
-  const isReady = !isFlashQuestLoading && !isArenaLoading && !isPerformanceLoading;
+  const isReady = !isDecksLoading && !isStatsLoading && !isArenaLoading && !isPerformanceLoading;
 
   const achievements = useMemo(() => computeAchievements({
     stats,

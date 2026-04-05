@@ -22,7 +22,8 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { SkeletonBox, SkeletonCard } from '@/components/SkeletonLoader';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
+import { useStatsContext } from '@/context/StatsContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { supabase } from '@/lib/supabase';
@@ -74,7 +75,8 @@ function AnimatedStatValue({ animValue, style }: { animValue: Animated.Value; st
 export default function HomePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { stats, decks, isLoading } = useFlashQuest();
+  const { decks, isLoading } = useDeckContext();
+  const { stats } = useStatsContext();
   const { performance, getWeakCards } = usePerformance();
   const { theme, isDark } = useTheme();
   const { contentMaxWidth, screenWidth } = useResponsiveLayout();

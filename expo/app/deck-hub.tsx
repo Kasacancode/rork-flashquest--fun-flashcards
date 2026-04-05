@@ -9,7 +9,7 @@ import CardScheduleList from '@/components/CardScheduleList';
 import DeckQRSheet from '@/components/DeckQRSheet';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useAuth } from '@/context/AuthContext';
-import { useFlashQuest } from '@/context/FlashQuestContext';
+import { useDeckContext } from '@/context/DeckContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { exportDeckToSharePayload } from '@/utils/deckImport';
@@ -94,7 +94,7 @@ function getChallengeRunLength(cardCount: number): 5 | 10 | 20 {
 export default function DeckHubScreen() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
-  const { decks, addDeck, deleteDeck } = useFlashQuest();
+  const { decks, addDeck, deleteDeck } = useDeckContext();
   const { performance, getDeckAccuracy, getWeakCards, getCardsDueForReview, getLapsedCards, cleanupDeck } = usePerformance();
   const { theme, isDark } = useTheme();
   const { isSignedIn, user, displayName, username } = useAuth();
