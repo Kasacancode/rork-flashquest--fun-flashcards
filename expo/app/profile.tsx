@@ -201,6 +201,7 @@ export default function ProfilePage() {
                   onOpenFriends={handleOpenFriends}
                   styles={styles}
                   theme={theme}
+                  isDark={isDark}
                 />
               )}
 

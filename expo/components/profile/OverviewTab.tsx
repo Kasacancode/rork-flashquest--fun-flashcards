@@ -39,6 +39,7 @@ interface OverviewTabProps {
       | 'utilitySubtitle'
     >;
   theme: Theme;
+  isDark: boolean;
 }
 
 export default function OverviewTab({
@@ -49,6 +50,7 @@ export default function OverviewTab({
   onOpenFriends,
   styles,
   theme,
+  isDark,
 }: OverviewTabProps) {
   return (
     <View style={styles.tabContent}>
@@ -61,7 +63,7 @@ export default function OverviewTab({
         testID="profile-overview-leaderboard"
       >
         <View style={styles.leaderboardIconWrap}>
-          <Crown color="#F5C451" size={20} strokeWidth={2.3} />
+          <Crown color={isDark ? '#F5C451' : '#B7791F'} size={20} strokeWidth={2.3} />
         </View>
         <View style={styles.leaderboardTextWrap}>
           <Text style={styles.leaderboardButtonText}>Leaderboard</Text>
