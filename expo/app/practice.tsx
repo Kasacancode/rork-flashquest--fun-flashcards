@@ -1,11 +1,10 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, BookOpen, Bot, ChevronRight, Play, Settings, Users } from 'lucide-react-native';
+import { ArrowLeft, BookOpen, Bot, ChevronDown, ChevronRight, Play, Users } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import FirstVisitCard from '@/components/FirstVisitCard';
 import ConsentSheet from '@/components/privacy/ConsentSheet';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePrivacy } from '@/context/PrivacyContext';
@@ -25,6 +24,7 @@ export default function PracticePage() {
   const [selectedMode, setSelectedMode] = useState<PracticeMode | null>(null);
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(false);
   const [pendingAiDeckId, setPendingAiDeckId] = useState<string | null>(null);
+  const [isHowItWorksExpanded, setIsHowItWorksExpanded] = useState<boolean>(false);
 
   const requestedDeckId = getFirstRouteParam(params.deckId);
   const preselectedDeck = decks.find((deck) => deck.id === requestedDeckId);
@@ -116,8 +116,8 @@ export default function PracticePage() {
 
   const summaryTitle = preselectedDeck ? preselectedDeck.name : `${decks.length} decks ready`;
   const summarySubtitle = preselectedDeck
-    ? `${preselectedDeck.flashcards.length} cards loaded for your next match`
-    : 'Pick a mode first, then choose the deck you want to practice';
+    ? `${preselectedDeck.flashcards.length} cards loaded and ready for a five-round match`
+    : 'Pick a mode now, then choose the deck you want to play';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]} testID="practice-screen">
@@ -167,21 +167,11 @@ export default function PracticePage() {
             <Text style={[styles.title, { color: isDark ? '#F8FAFC' : '#2D2A61' }]}>Choose Your Practice</Text>
             <Text style={[styles.subtitle, { color: mutedTextColor }]}>
               {preselectedDeck
-                ? `Using ${preselectedDeck.name}. Pick solo or local versus.`
-                : 'Quick head-to-head rounds with a sharper, cleaner setup.'}
+                ? `Using ${preselectedDeck.name}. Pick the format that fits this round.`
+                : 'Fast five-round matches with a cleaner, tighter setup.'}
             </Text>
           </View>
 
-          <FirstVisitCard
-            screen="practice"
-            title="How Practice works"
-            lines={[
-              'Pick a deck and go head-to-head against an AI opponent over 5 rounds.',
-              'The AI adapts to your level, so matches stay competitive.',
-              'You both answer the same questions. Fastest and most accurate wins.',
-            ]}
-            accentColor={theme.primary}
-          />
 
           {decks.length === 0 ? (
             <View
@@ -215,19 +205,19 @@ export default function PracticePage() {
                   {
                     backgroundColor: heroSurface,
                     borderColor: surfaceBorderColor,
-                    shadowOpacity: isDark ? 0.2 : 0.08,
-                    shadowRadius: isDark ? 16 : 10,
-                    elevation: isDark ? 7 : 3,
+                    shadowOpacity: isDark ? 0.18 : 0.08,
+                    shadowRadius: isDark ? 14 : 9,
+                    elevation: isDark ? 6 : 3,
                   },
                 ]}
               >
                 <View style={styles.summaryRow}>
                   <View style={[styles.summaryIconShell, { backgroundColor: insetSurface }]}>
-                    <BookOpen color={summaryAccent} size={20} strokeWidth={2.3} />
+                    <BookOpen color={summaryAccent} size={18} strokeWidth={2.3} />
                   </View>
                   <View style={styles.summaryCopy}>
                     <Text style={[styles.summaryEyebrow, { color: summaryAccent }]}>
-                      {preselectedDeck ? 'Selected deck' : 'Deck lineup'}
+                      {preselectedDeck ? 'Selected deck' : 'Practice lineup'}
                     </Text>
                     <Text style={[styles.summaryTitle, { color: theme.text }]} numberOfLines={1}>{summaryTitle}</Text>
                     <Text style={[styles.summarySubtitle, { color: theme.textSecondary }]} numberOfLines={2}>{summarySubtitle}</Text>
@@ -242,9 +232,9 @@ export default function PracticePage() {
                 style={[
                   styles.primaryActionCard,
                   {
-                    shadowOpacity: isDark ? 0.26 : 0.14,
-                    shadowRadius: isDark ? 18 : 12,
-                    elevation: isDark ? 10 : 4,
+                    shadowOpacity: isDark ? 0.24 : 0.14,
+                    shadowRadius: isDark ? 16 : 11,
+                    elevation: isDark ? 9 : 4,
                   },
                 ]}
                 onPress={() => handleModeSelect('ai')}
@@ -259,25 +249,25 @@ export default function PracticePage() {
                 >
                   <View style={styles.actionTopRow}>
                     <Text style={styles.primaryEyebrow}>Smart AI match</Text>
-                    <View style={styles.settingsChip}>
-                      <Settings color="#fff" size={16} strokeWidth={2.2} />
+                    <View style={styles.modeBadge}>
+                      <Text style={styles.modeBadgeText}>1 player</Text>
                     </View>
                   </View>
                   <View style={styles.actionRow}>
                     <View style={styles.primaryIconShell}>
-                      <Bot color="#fff" size={30} strokeWidth={2.2} />
+                      <Bot color="#fff" size={26} strokeWidth={2.2} />
                     </View>
                     <View style={styles.actionContent}>
                       <Text style={styles.primaryActionTitle}>Solo Practice</Text>
-                      <Text style={styles.primaryActionSubtitle}>
-                        Face the adaptive AI in a fast five-round match with clean pacing.
+                      <Text style={styles.primaryActionSubtitle} numberOfLines={2}>
+                        Fast five-round duels with adaptive pacing and instant scoring.
                       </Text>
                       <View style={styles.actionFooterRow}>
                         <Text style={styles.primaryActionFootnote} numberOfLines={1}>
                           {preselectedDeck ? `Using ${preselectedDeck.name}` : 'Choose a deck after tapping'}
                         </Text>
                         <View style={styles.primaryStartPill}>
-                          <Play color="#fff" size={16} strokeWidth={2.4} fill="#fff" />
+                          <Play color="#fff" size={14} strokeWidth={2.4} fill="#fff" />
                           <Text style={styles.primaryStartText}>Start</Text>
                         </View>
                       </View>
@@ -292,9 +282,9 @@ export default function PracticePage() {
                   {
                     backgroundColor: secondarySurface,
                     borderColor: surfaceBorderColor,
-                    shadowOpacity: isDark ? 0.2 : 0.08,
-                    shadowRadius: isDark ? 14 : 8,
-                    elevation: isDark ? 6 : 2,
+                    shadowOpacity: isDark ? 0.18 : 0.08,
+                    shadowRadius: isDark ? 12 : 7,
+                    elevation: isDark ? 5 : 2,
                   },
                 ]}
                 onPress={() => handleModeSelect('multiplayer')}
@@ -305,17 +295,25 @@ export default function PracticePage() {
                 <View style={styles.secondaryCardContent}>
                   <View style={styles.actionTopRow}>
                     <Text style={[styles.secondaryEyebrow, { color: localAccent }]}>Pass-and-play</Text>
-                    <View style={[styles.secondarySettingsChip, { backgroundColor: insetSurface, borderColor: subtleBorderColor }]}>
-                      <Settings color={localAccent} size={16} strokeWidth={2.2} />
+                    <View
+                      style={[
+                        styles.modeBadge,
+                        {
+                          backgroundColor: isDark ? 'rgba(244, 114, 182, 0.14)' : 'rgba(236, 72, 153, 0.1)',
+                          borderColor: isDark ? 'rgba(244, 114, 182, 0.26)' : 'rgba(236, 72, 153, 0.16)',
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.modeBadgeText, { color: localAccent }]}>2 players</Text>
                     </View>
                   </View>
                   <View style={styles.actionRow}>
                     <View style={[styles.secondaryIconShell, { backgroundColor: insetSurface }]}>
-                      <Users color={localAccent} size={28} strokeWidth={2.2} />
+                      <Users color={localAccent} size={24} strokeWidth={2.2} />
                     </View>
                     <View style={styles.actionContent}>
                       <Text style={[styles.secondaryActionTitle, { color: theme.text }]}>Local Versus</Text>
-                      <Text style={[styles.secondaryActionSubtitle, { color: theme.textSecondary }]}>Pass the device between two players for a quick local battle.</Text>
+                      <Text style={[styles.secondaryActionSubtitle, { color: theme.textSecondary }]} numberOfLines={2}>Pass the device for a clean two-player battle on the same deck.</Text>
                       <View style={styles.actionFooterRow}>
                         <Text style={[styles.secondaryActionFootnote, { color: theme.textSecondary }]} numberOfLines={1}>
                           {preselectedDeck ? `${preselectedDeck.flashcards.length} cards ready` : 'Choose a deck after tapping'}
@@ -329,7 +327,7 @@ export default function PracticePage() {
                             },
                           ]}
                         >
-                          <Play color={localAccent} size={16} strokeWidth={2.4} fill={localAccent} />
+                          <Play color={localAccent} size={14} strokeWidth={2.4} fill={localAccent} />
                           <Text style={[styles.secondaryStartText, { color: localAccent }]}>Start</Text>
                         </View>
                       </View>
@@ -347,21 +345,49 @@ export default function PracticePage() {
                   },
                 ]}
               >
-                <Text style={[styles.infoTitle, { color: theme.text }]}>How It Works</Text>
-                <View style={styles.infoList}>
-                  <View style={styles.infoRow}>
-                    <View style={[styles.infoDot, { backgroundColor: summaryAccent }]} />
-                    <Text style={[styles.infoText, { color: theme.textSecondary }]}>5 flashcard rounds with fast scoring and quick resets.</Text>
+                <TouchableOpacity
+                  style={styles.infoHeader}
+                  onPress={() => setIsHowItWorksExpanded((current) => !current)}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle how practice works"
+                  testID="practice-how-it-works-toggle"
+                >
+                  <View style={styles.infoHeaderCopy}>
+                    <Text style={[styles.infoTitle, { color: theme.text }]}>How It Works</Text>
+                    <Text style={[styles.infoPreview, { color: theme.textSecondary }]}> 
+                      {isHowItWorksExpanded
+                        ? 'Five short rounds, then you are done.'
+                        : '5 rounds · quick scoring · instant rematch'}
+                    </Text>
                   </View>
-                  <View style={styles.infoRow}>
-                    <View style={[styles.infoDot, { backgroundColor: summaryAccent }]} />
-                    <Text style={[styles.infoText, { color: theme.textSecondary }]}>Solo uses the AI opponent. Local passes the device between two players.</Text>
+                  <View style={[styles.infoToggleChip, { backgroundColor: insetSurface, borderColor: subtleBorderColor }]}> 
+                    <Text style={[styles.infoToggleText, { color: theme.textSecondary }]}> 
+                      {isHowItWorksExpanded ? 'Hide' : 'Show'}
+                    </Text>
+                    {isHowItWorksExpanded ? (
+                      <ChevronDown color={theme.textSecondary} size={16} strokeWidth={2.4} />
+                    ) : (
+                      <ChevronRight color={theme.textSecondary} size={16} strokeWidth={2.4} />
+                    )}
                   </View>
-                  <View style={styles.infoRow}>
-                    <View style={[styles.infoDot, { backgroundColor: summaryAccent }]} />
-                    <Text style={[styles.infoText, { color: theme.textSecondary }]}>Win clean rounds, learn faster, then jump back in for another set.</Text>
+                </TouchableOpacity>
+                {isHowItWorksExpanded ? (
+                  <View style={styles.infoList}>
+                    <View style={styles.infoRow}>
+                      <View style={[styles.infoDot, { backgroundColor: summaryAccent }]} />
+                      <Text style={[styles.infoText, { color: theme.textSecondary }]}>Each match runs for 5 flashcard rounds with quick scoring after every answer.</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <View style={[styles.infoDot, { backgroundColor: summaryAccent }]} />
+                      <Text style={[styles.infoText, { color: theme.textSecondary }]}>Solo uses the AI opponent. Local passes the device between two players on the same deck.</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <View style={[styles.infoDot, { backgroundColor: summaryAccent }]} />
+                      <Text style={[styles.infoText, { color: theme.textSecondary }]}>Finish a short set, review the score, then jump straight into another match.</Text>
+                    </View>
                   </View>
-                </View>
+                ) : null}
               </View>
             </>
           )}
@@ -483,12 +509,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingVertical: 10,
   },
   headerButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -499,94 +525,94 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 18,
     borderWidth: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800' as const,
   },
   headerPlaceholder: {
-    width: 52,
-    height: 52,
+    width: 48,
+    height: 48,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
-    gap: 14,
+    paddingBottom: 20,
+    gap: 10,
   },
   titleSection: {
-    marginTop: 8,
+    marginTop: 2,
     marginBottom: 2,
   },
   title: {
-    fontSize: 42,
-    lineHeight: 46,
+    fontSize: 34,
+    lineHeight: 37,
     fontWeight: '900' as const,
     color: '#fff',
-    letterSpacing: -1.1,
-    maxWidth: 280,
+    letterSpacing: -1,
+    maxWidth: 250,
   },
   subtitle: {
-    marginTop: 12,
-    fontSize: 17,
-    lineHeight: 24,
+    marginTop: 8,
+    fontSize: 15,
+    lineHeight: 21,
     fontWeight: '600' as const,
-    maxWidth: 340,
+    maxWidth: 320,
   },
   summaryStrip: {
-    borderRadius: 24,
-    padding: 18,
+    borderRadius: 22,
+    padding: 14,
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: 8 },
   },
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   summaryIconShell: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
   },
   summaryCopy: {
     flex: 1,
-    marginRight: 12,
+    marginRight: 10,
   },
   summaryEyebrow: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800' as const,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   summaryTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800' as const,
   },
   summarySubtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    lineHeight: 18,
+    marginTop: 3,
+    fontSize: 12,
+    lineHeight: 17,
     fontWeight: '600' as const,
   },
   summaryPill: {
     borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 14,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
   },
   summaryPillText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800' as const,
     letterSpacing: 0.4,
     textTransform: 'uppercase',
@@ -598,86 +624,93 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 12 },
   },
   primaryActionGradient: {
-    padding: 20,
-    minHeight: 222,
+    padding: 16,
+    minHeight: 168,
     justifyContent: 'space-between',
   },
   actionTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   primaryEyebrow: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800' as const,
     letterSpacing: 1.1,
     textTransform: 'uppercase',
     color: 'rgba(255, 255, 255, 0.86)',
   },
-  settingsChip: {
-    width: 34,
-    height: 34,
+  modeBadge: {
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  modeBadgeText: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    color: '#fff',
   },
   actionRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   primaryIconShell: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    marginRight: 16,
+    marginRight: 14,
   },
   actionContent: {
     flex: 1,
   },
   primaryActionTitle: {
-    fontSize: 32,
-    lineHeight: 34,
+    fontSize: 24,
+    lineHeight: 27,
     fontWeight: '900' as const,
     color: '#fff',
-    letterSpacing: -0.8,
+    letterSpacing: -0.6,
   },
   primaryActionSubtitle: {
-    marginTop: 10,
-    fontSize: 16,
-    lineHeight: 23,
+    marginTop: 6,
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: '600' as const,
     color: 'rgba(255, 255, 255, 0.88)',
-    maxWidth: 240,
+    maxWidth: 230,
   },
   actionFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 18,
-    gap: 12,
+    marginTop: 12,
+    gap: 10,
   },
   primaryActionFootnote: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700' as const,
     color: 'rgba(255, 255, 255, 0.82)',
   },
   primaryStartPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
+    gap: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 13,
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
   },
   primaryStartText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800' as const,
     color: '#fff',
   },
@@ -691,84 +724,104 @@ const styles = StyleSheet.create({
   },
   secondaryAccentBar: {
     position: 'absolute',
-    top: 18,
-    bottom: 18,
+    top: 14,
+    bottom: 14,
     left: 0,
-    width: 5,
+    width: 4,
     borderTopRightRadius: 4,
     borderBottomRightRadius: 4,
   },
   secondaryCardContent: {
-    padding: 20,
-    paddingLeft: 22,
+    padding: 16,
+    paddingLeft: 18,
   },
   secondaryEyebrow: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800' as const,
     letterSpacing: 1.1,
     textTransform: 'uppercase',
   },
-  secondarySettingsChip: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
   secondaryIconShell: {
-    width: 68,
-    height: 68,
-    borderRadius: 22,
+    width: 54,
+    height: 54,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
   secondaryActionTitle: {
-    fontSize: 30,
-    lineHeight: 32,
+    fontSize: 24,
+    lineHeight: 27,
     fontWeight: '900' as const,
-    letterSpacing: -0.7,
+    letterSpacing: -0.6,
   },
   secondaryActionSubtitle: {
-    marginTop: 10,
-    fontSize: 16,
-    lineHeight: 23,
+    marginTop: 6,
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: '600' as const,
-    maxWidth: 240,
+    maxWidth: 230,
   },
   secondaryActionFootnote: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700' as const,
   },
   secondaryStartPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
+    gap: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 13,
     borderWidth: 1,
   },
   secondaryStartText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800' as const,
   },
   infoCard: {
     marginTop: 2,
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 22,
+    padding: 14,
     borderWidth: 1,
   },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  infoHeaderCopy: {
+    flex: 1,
+  },
   infoTitle: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '800' as const,
-    marginBottom: 14,
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
+  },
+  infoPreview: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600' as const,
+  },
+  infoToggleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  infoToggleText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
   },
   infoList: {
-    gap: 12,
+    gap: 10,
+    marginTop: 14,
   },
   infoRow: {
     flexDirection: 'row',
@@ -776,15 +829,15 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   infoDot: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
     marginTop: 7,
   },
   infoText: {
     flex: 1,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 19,
     fontWeight: '600' as const,
   },
   emptyState: {
