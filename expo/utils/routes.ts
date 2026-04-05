@@ -48,7 +48,13 @@ export function createFlashcardHref(deckId?: string): Href {
 export type RouteOrigin = 'stats';
 export type StudyRouteSource = 'review-hub' | 'deck-hub' | 'stats';
 
-export function studyHref(deckId?: string, mode?: string, source?: StudyRouteSource, origin?: RouteOrigin): Href {
+export function studyHref(
+  deckId?: string,
+  mode?: string,
+  source?: StudyRouteSource,
+  origin?: RouteOrigin,
+  returnTo?: string,
+): Href {
   const params: Record<string, string> = {};
   if (deckId) {
     params.deckId = deckId;
@@ -61,6 +67,9 @@ export function studyHref(deckId?: string, mode?: string, source?: StudyRouteSou
   }
   if (origin) {
     params.origin = origin;
+  }
+  if (returnTo) {
+    params.returnTo = returnTo;
   }
   return { pathname: STUDY_ROUTE, params } as Href;
 }

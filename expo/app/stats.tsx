@@ -18,7 +18,7 @@ import type { Theme } from '@/constants/colors';
 import { getDailyGoalTarget, getDailyProgress } from '@/utils/dailyGoal';
 import { LEVELS } from '@/utils/levels';
 import { computeDeckMastery, type MasteryBreakdown } from '@/utils/mastery';
-import { deckHubHref, LEADERBOARD_ROUTE, studyHref } from '@/utils/routes';
+import { deckHubHref, LEADERBOARD_ROUTE, STATS_ROUTE, studyHref } from '@/utils/routes';
 
 type ThemeValues = Theme;
 type ExpandableStatsPanel = 'goal' | 'week' | 'recap' | 'activity' | 'mastery' | 'performance' | 'trend' | 'deckProgress';
@@ -448,7 +448,7 @@ export default function StatsPage() {
 
                 <TouchableOpacity
                   style={[styles.insightAction, { backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)' }]}
-                  onPress={() => router.push(studyHref(undefined, undefined, 'stats'))}
+                  onPress={() => router.push(studyHref(undefined, undefined, 'stats', undefined, STATS_ROUTE))}
                   activeOpacity={0.8}
                   testID="stats-goal-insight-action"
                 >
@@ -1039,7 +1039,7 @@ export default function StatsPage() {
                   return (
                     <TouchableOpacity
                       style={[styles.insightAction, { backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)' }]}
-                      onPress={() => router.push(studyHref(weakest.id, undefined, 'stats'))}
+                      onPress={() => router.push(studyHref(weakest.id, undefined, 'stats', undefined, STATS_ROUTE))}
                       activeOpacity={0.8}
                       testID="stats-mastery-insight-action"
                     >
@@ -1368,7 +1368,7 @@ export default function StatsPage() {
                   deckMasteryDetails={deckMasteryDetails}
                   deckDueCounts={deckDueCounts}
                   isDark={isDark}
-                  onStudyDeck={(deckId) => router.push(studyHref(deckId, undefined, 'stats'))}
+                  onStudyDeck={(deckId) => router.push(studyHref(deckId, undefined, 'stats', undefined, STATS_ROUTE))}
                   textColor={theme.text}
                   secondaryTextColor={secondaryTextColor}
                   emptyTextColor={secondaryTextColor}

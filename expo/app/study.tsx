@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useRouter, useLocalSearchParams, useNavigation, type Href } from 'expo-router';
 import { ArrowLeft, ArrowLeftRight, BookOpen, Clock, AlertTriangle, RefreshCw, RotateCcw, Sparkles, Target, Zap } from 'lucide-react-native';
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
@@ -33,7 +33,7 @@ import { waitForInitialSync } from '@/utils/cloudSync';
 export default function StudyPage() {
   const router = useRouter();
   const navigation = useNavigation();
-  const params = useLocalSearchParams<{ deckId?: string; initialMode?: string; source?: string; origin?: string }>();
+  const params = useLocalSearchParams<{ deckId?: string; initialMode?: string; source?: string; origin?: string; returnTo?: string }>();
   const { decks, updateFlashcard } = useDeckContext();
   const { stats, recordSessionResult } = useStatsContext();
   const { performance } = usePerformance();
@@ -45,6 +45,7 @@ export default function StudyPage() {
   const launchedFromReviewHub = params.source === 'review-hub';
   const launchedFromDeckHub = params.source === 'deck-hub';
   const launchedFromStats = params.source === 'stats' || params.origin === 'stats';
+  const explicitReturnTo = typeof params.returnTo === 'string' ? (params.returnTo as Href) : null;
   const initialDeckId = params.deckId ?? null;
   const launchedWithDeckId = initialDeckId !== null;
 
@@ -66,15 +67,18 @@ export default function StudyPage() {
   const sessionResolvedRef = useRef<number>(0);
   const allowExitRedirectRef = useRef<boolean>(false);
 
-  const exitRoute = launchedFromReviewHub
-    ? HOME_ROUTE
-    : launchedFromDeckHub && deckHubTargetDeckId
-      ? deckHubHref(deckHubTargetDeckId, params.origin === 'stats' ? 'stats' : undefined)
-      : launchedFromStats
-        ? STATS_ROUTE
-        : DECKS_ROUTE;
+  const exitRoute: Href = explicitReturnTo
+    ? explicitReturnTo
+    : launchedFromReviewHub
+      ? HOME_ROUTE
+      : launchedFromDeckHub && deckHubTargetDeckId
+        ? deckHubHref(deckHubTargetDeckId, params.origin === 'stats' ? 'stats' : undefined)
+        : launchedFromStats
+          ? STATS_ROUTE
+          : DECKS_ROUTE;
 
   const isCrossDeckReview = selectedDeckId === CROSS_DECK_REVIEW_DECK_ID;
+  const shouldExitFromModePicker = launchedFromReviewHub || launchedFromDeckHub || launchedWithDeckId || launchedFromStats || explicitReturnTo !== null;
 
   const liveCrossDeckReviewDeck = useMemo(
     () => (isCrossDeckReview ? buildCrossDeckReviewDeck(decks, performance.cardStatsById) : null),
@@ -963,7 +967,7 @@ export default function StudyPage() {
                 { backgroundColor: modePickerBackBg, borderColor: modePickerBackBorder },
               ]}
               onPress={() => {
-                if (launchedFromReviewHub || launchedFromDeckHub || launchedWithDeckId) {
+                if (shouldExitFromModePicker) {
                   handleExitStudy();
                   return;
                 }
@@ -971,7 +975,7 @@ export default function StudyPage() {
                 setSelectedDeckId(null);
                 setShowDeckSelector(true);
               }}
-              accessibilityLabel={launchedFromReviewHub ? 'Back to home' : launchedFromDeckHub ? 'Back to deck dashboard' : launchedWithDeckId ? 'Back to decks' : 'Back to deck selection'}
+              accessibilityLabel={launchedFromReviewHub ? 'Back to home' : launchedFromDeckHub ? 'Back to deck dashboard' : launchedFromStats ? 'Back to stats' : launchedWithDeckId ? 'Back to decks' : 'Back to deck selection'}
               accessibilityRole="button"
               testID="study-mode-picker-back"
             >

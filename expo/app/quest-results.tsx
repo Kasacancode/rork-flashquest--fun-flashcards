@@ -452,7 +452,7 @@ export default function QuestResultsScreen() {
                     backgroundColor: isDark ? 'rgba(139,92,246,0.08)' : 'rgba(99,102,241,0.06)',
                   },
                 ]}
-                onPress={() => router.replace(studyHref(result.deckId))}
+                onPress={() => router.replace(studyHref(result.deckId, undefined, undefined, undefined, QUEST_ROUTE))}
                 activeOpacity={0.7}
               >
                 <BookOpen color={theme.primary} size={20} />
