@@ -35,6 +35,7 @@ import {
   getCardAnswerForSurface,
   getCardQuestionForSurface,
 } from '@/utils/flashcardContent';
+import { gradeAnswer, type GradeResult } from '@/utils/answerGrading';
 import { clearAIDistractorCache as clearDistractorCache, generateOptionsWithAI } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
 import { focusedQuestSessionHref, questHref, studyHref } from '@/utils/routes';
@@ -68,6 +69,7 @@ export default function PracticeSessionPage() {
   const [opponentResult, setOpponentResult] = useState<TurnResult | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(QUESTION_TIME);
   const [buttonState, setButtonState] = useState<'idle' | 'correct' | 'incorrect'>('idle');
+  const [lastGradeResult, setLastGradeResult] = useState<GradeResult | null>(null);
   const [currentPlayer, setCurrentPlayer] = useState<1 | 2>(1);
   const [player1Result, setPlayer1Result] = useState<PlayerInfo | null>(null);
   const [player2Result, setPlayer2Result] = useState<PlayerInfo | null>(null);
@@ -193,6 +195,7 @@ export default function PracticeSessionPage() {
     setCurrentPlayer(2);
     setUserAnswer('');
     setButtonState('idle');
+    setLastGradeResult(null);
     setTimeLeft(QUESTION_TIME);
   }, []);
 
@@ -254,6 +257,7 @@ export default function PracticeSessionPage() {
     setPlayer2Result(null);
     setReviewQuality(null);
     setPendingReview(null);
+    setLastGradeResult(null);
     feedbackOpacity.setValue(0);
     feedbackScale.setValue(0.8);
 
@@ -491,18 +495,49 @@ export default function PracticeSessionPage() {
     return <PracticeSessionEmptyState isDark={isDark} title="Practice session not found" />;
   }
 
+  const closeMatchMessage = lastGradeResult?.grade === 'close'
+    ? lastGradeResult.reason === 'typo'
+      ? 'Close enough! Watch the spelling.'
+      : lastGradeResult.reason === 'article'
+        ? 'Correct! Articles are optional.'
+        : lastGradeResult.reason === 'partial'
+          ? 'Got it! The full answer is shown above.'
+          : lastGradeResult.reason === 'word_order'
+            ? 'Right idea! Word order was different.'
+            : 'Close enough!'
+    : null;
+  const canOverrideAnswer = currentBattle.mode !== 'multiplayer'
+    && lastGradeResult?.grade === 'wrong'
+    && buttonState === 'incorrect'
+    && userAnswer.trim().length > 0;
+
   const handleSubmitAnswer = () => {
     if (gamePhase !== 'player-turn' || userAnswer.trim() === '') return;
 
     Keyboard.dismiss();
-    const correct = compareAnswerValues(userAnswer.trim(), canonicalAnswer);
+    const submittedAnswer = userAnswer.trim();
+    const gradeResult = gradeAnswer(submittedAnswer, canonicalAnswer);
+    const correct = gradeResult.grade === 'correct' || gradeResult.grade === 'close';
     const timeUsed = QUESTION_TIME - timeLeft;
+
+    logger.debug('[Practice] Graded submitted answer:', {
+      mode: currentBattle?.mode ?? 'unknown',
+      currentPlayer,
+      cardId: currentCard?.id ?? null,
+      submittedAnswer,
+      canonicalAnswer,
+      grade: gradeResult.grade,
+      reason: gradeResult.reason ?? null,
+      accepted: correct,
+    });
+
+    setLastGradeResult(gradeResult);
 
     if (currentBattle?.mode === 'multiplayer') {
       if (currentPlayer === 1) {
         setPlayer1Result({
           name: 'Player 1',
-          answer: userAnswer.trim(),
+          answer: submittedAnswer,
           isCorrect: correct,
           timeUsed,
         });
@@ -525,7 +560,7 @@ export default function PracticeSessionPage() {
       } else {
         setPlayer2Result({
           name: 'Player 2',
-          answer: userAnswer.trim(),
+          answer: submittedAnswer,
           isCorrect: correct,
           timeUsed,
         });
@@ -548,7 +583,7 @@ export default function PracticeSessionPage() {
       }
     } else {
       setPlayerResult({
-        answer: userAnswer.trim(),
+        answer: submittedAnswer,
         isCorrect: correct,
         timeUsed,
       });
@@ -557,7 +592,7 @@ export default function PracticeSessionPage() {
         deckId: deckId ?? currentBattle?.deckId ?? currentCard.deckId,
         cardId: currentCard.id,
         isCorrect: correct,
-        selectedOption: userAnswer.trim(),
+        selectedOption: submittedAnswer,
         correctAnswer: canonicalAnswer,
         timeToAnswerMs: timeUsed * 1000,
         quality: correct ? 3 : 1,
@@ -596,6 +631,51 @@ export default function PracticeSessionPage() {
     }
   };
 
+  const handleAcceptAnswerOverride = useCallback(() => {
+    if (currentBattle?.mode === 'multiplayer' || lastGradeResult?.grade !== 'wrong') {
+      return;
+    }
+
+    const submittedAnswer = userAnswer.trim();
+    if (submittedAnswer.length === 0) {
+      return;
+    }
+
+    logger.debug('[Practice] Accepting manual answer override:', {
+      cardId: currentCard?.id ?? null,
+      submittedAnswer,
+      canonicalAnswer,
+    });
+
+    setButtonState('correct');
+    setLastGradeResult({ grade: 'correct' });
+    setPlayerResult((previousResult) => (
+      previousResult
+        ? {
+            ...previousResult,
+            isCorrect: true,
+          }
+        : previousResult
+    ));
+    setReviewQuality(3);
+    setPendingReview((previousReview) => (
+      previousReview
+        ? {
+            ...previousReview,
+            isCorrect: true,
+            quality: 3,
+          }
+        : previousReview
+    ));
+    setPlayerStreak((previousStreak) => Math.max(previousStreak, 1));
+    setMissedCardIds((previousCardIds) => (
+      currentCard?.id ? previousCardIds.filter((cardId) => cardId !== currentCard.id) : previousCardIds
+    ));
+
+    triggerNotification(NotificationFeedbackType.Success);
+    void playSound('correct');
+  }, [canonicalAnswer, currentBattle?.mode, currentCard?.id, lastGradeResult?.grade, userAnswer]);
+
   const handleNext = () => {
     clearPendingTimeouts();
     commitPendingReview();
@@ -612,6 +692,7 @@ export default function PracticeSessionPage() {
     setPlayer2Result(null);
     setReviewQuality(null);
     setPendingReview(null);
+    setLastGradeResult(null);
     setGamePhase('player-turn');
     setButtonState('idle');
     setCurrentPlayer(1);
@@ -907,6 +988,11 @@ export default function PracticeSessionPage() {
                 <Text maxFontSizeMultiplier={1.3} style={[styles.correctAnswerText, { color: isDark ? theme.text : '#1a1a1a' }]}>
                   {displayAnswer}
                 </Text>
+                {closeMatchMessage ? (
+                  <Text maxFontSizeMultiplier={1.3} style={styles.closeMatchText}>
+                    {closeMatchMessage}
+                  </Text>
+                ) : null}
               </View>
 
               {currentBattle?.mode !== 'multiplayer' ? (
@@ -924,6 +1010,17 @@ export default function PracticeSessionPage() {
                     <Text maxFontSizeMultiplier={1.3} style={styles.reviewStatusText}>Marked as forgot</Text>
                   )}
                 </View>
+              ) : null}
+
+              {canOverrideAnswer ? (
+                <TouchableOpacity
+                  style={styles.overrideButton}
+                  onPress={handleAcceptAnswerOverride}
+                  activeOpacity={0.8}
+                  testID="practiceOverrideAnswerButton"
+                >
+                  <Text maxFontSizeMultiplier={1.3} style={styles.overrideButtonText}>My answer was right</Text>
+                </TouchableOpacity>
               ) : null}
 
               <TouchableOpacity style={styles.nextButton} onPress={handleNext} activeOpacity={0.85}>
@@ -1199,6 +1296,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700' as const,
     color: 'rgba(255,255,255,0.82)',
+  },
+  closeMatchText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    textAlign: 'center',
+    marginTop: 4,
+    color: '#FBBF24',
+  },
+  overrideButton: {
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.2)',
+    alignSelf: 'center',
+  },
+  overrideButtonText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: '#94A3B8',
   },
   nextButton: {
     backgroundColor: '#fff',
