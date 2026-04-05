@@ -33,9 +33,9 @@ interface ScoreboardPlayer {
   rankDelta: number;
 }
 
-const LOCK_BEAT_MS = 350;
-const ANSWER_BEAT_MS = 2000;
-const LEADERBOARD_BEAT_MS = 2150;
+const LOCK_BEAT_MS = 500;
+const ANSWER_BEAT_MS = 4000;
+const LEADERBOARD_BEAT_MS = 3300;
 
 function getRevealBeat(phase: string | null, revealTimeRemainingMs: number | null): ArenaRevealBeat {
   if (phase !== 'reveal') {
