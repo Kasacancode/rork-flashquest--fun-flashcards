@@ -442,6 +442,22 @@ export default function StudyPage() {
     setReversed((prev) => !prev);
   }, []);
 
+  const handleReturnToModePicker = useCallback(() => {
+    logger.debug('[Study] Returning to study mode picker', {
+      deckId: selectedDeck?.id,
+      studyMode,
+      source: params.source ?? 'direct',
+    });
+    trackedStudyDeckIdRef.current = null;
+    sessionStartRef.current = Date.now();
+    sessionResolvedRef.current = 0;
+    setSessionResolved(0);
+    setSessionXp(0);
+    setShowResults(false);
+    setSessionFlashcards([]);
+    setStudyMode(null);
+  }, [params.source, selectedDeck?.id, studyMode]);
+
   const handleExitStudy = useCallback(() => {
     allowExitRedirectRef.current = true;
 
@@ -466,8 +482,13 @@ export default function StudyPage() {
   }, [deckHubTargetDeckId, exitRoute, launchedFromDeckHub, launchedFromReviewHub, navigation, router]);
 
   const handleBackFromStudy = useCallback(() => {
+    if (!launchedFromReviewHub && studyMode && !showResults) {
+      handleReturnToModePicker();
+      return;
+    }
+
     handleExitStudy();
-  }, [handleExitStudy]);
+  }, [handleExitStudy, handleReturnToModePicker, launchedFromReviewHub, showResults, studyMode]);
 
   const handleResultsBack = useCallback(() => {
     handleExitStudy();
@@ -487,16 +508,27 @@ export default function StudyPage() {
         return;
       }
 
+      event.preventDefault();
+
+      if (!launchedFromReviewHub && studyMode && !showResults) {
+        logger.debug('[Study] Redirecting back action to study mode picker', {
+          actionType,
+          deckId: selectedDeck?.id,
+          studyMode,
+        });
+        handleReturnToModePicker();
+        return;
+      }
+
       logger.debug('[Study] Redirecting back action to exit route', {
         actionType,
         target: exitRoute,
       });
-      event.preventDefault();
       handleExitStudy();
     });
 
     return unsubscribe;
-  }, [exitRoute, handleExitStudy, navigation]);
+  }, [exitRoute, handleExitStudy, handleReturnToModePicker, launchedFromReviewHub, navigation, selectedDeck?.id, showResults, studyMode]);
 
   if (!syncReady) {
     return (
