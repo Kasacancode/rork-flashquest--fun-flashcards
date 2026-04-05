@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMutation } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -20,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { supabase } from '@/lib/supabase';
 import { logger } from '@/utils/logger';
 import { PROFILE_NAME_MAX_LENGTH, sanitizeProfileName, validateProfileName } from '@/utils/profileName';
 import { AUTH_ROUTE } from '@/utils/routes';
@@ -245,9 +247,52 @@ export default function AccountScreen() {
   const handleDeleteAccount = useCallback(() => {
     Alert.alert(
       'Delete Account',
-      'Full account deletion still needs a secure server flow so auth, leaderboard entries, published decks, and synced data are removed safely. Logout is ready now, and local data can still be cleared from Settings.',
+      'This will permanently delete your account and remove all associated data:\n\n' +
+      '\u2022 Your profile and username\n' +
+      '\u2022 All cloud-synced study data\n' +
+      '\u2022 Published decks and votes\n' +
+      '\u2022 Leaderboard entries\n\n' +
+      'Your local data on this device will also be cleared. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete My Account',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Are you sure?',
+              'This is permanent and cannot be reversed.',
+              [
+                { text: 'Go Back', style: 'cancel' },
+                {
+                  text: 'Yes, Delete Everything',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      const { error } = await supabase.rpc('delete_own_account');
+
+                      if (error) {
+                        logger.warn('[Account] Delete failed:', error.message);
+                        Alert.alert('Deletion Failed', 'Could not delete your account. Please try again later.');
+                        return;
+                      }
+
+                      await AsyncStorage.clear();
+                      await signOut();
+                      router.replace('/');
+                    } catch (err) {
+                      logger.warn('[Account] Delete error:', err);
+                      Alert.alert('Deletion Failed', 'Something went wrong. Please try again later.');
+                    }
+                  },
+                },
+              ],
+            );
+          },
+        },
+      ],
     );
-  }, []);
+  }, [router, signOut]);
 
   if (isLoading || !isSignedIn || !user) {
     return (
@@ -390,7 +435,7 @@ export default function AccountScreen() {
                   </View>
                   <View style={styles.actionTextWrap}>
                     <Text style={[styles.actionTitle, { color: theme.text }]}>Delete account</Text>
-                    <Text style={[styles.actionSubtitle, { color: mutedText }]}>Needs a secure backend flow before it can be safely enabled.</Text>
+                    <Text style={[styles.actionSubtitle, { color: mutedText }]}>Permanently delete your account and all associated data.</Text>
                   </View>
                 </TouchableOpacity>
               </View>
