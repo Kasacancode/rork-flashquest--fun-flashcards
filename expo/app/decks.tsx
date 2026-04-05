@@ -611,9 +611,6 @@ export default function DecksPage() {
               <Text style={[styles.deckCount, { color: theme.textSecondary }]}> 
                 {filteredDeckSummaries.length} {filteredDeckSummaries.length === 1 ? 'deck' : 'decks'} {activeCategory === ALL_DECK_CATEGORIES_LABEL ? 'total' : `in ${activeCategory}`}
               </Text>
-              {isEditMode ? (
-                <Text style={[styles.editModeHint, { color: theme.textTertiary }]}>Built-in and custom decks can both be removed here</Text>
-              ) : null}
             </View>
 
             {filteredDeckSummaries.length > 0 ? (
@@ -1197,11 +1194,6 @@ const styles = StyleSheet.create({
   editModeSubtitle: {
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '600' as const,
-  },
-  editModeHint: {
-    fontSize: 12,
-    lineHeight: 17,
     fontWeight: '600' as const,
   },
   deckCard: {

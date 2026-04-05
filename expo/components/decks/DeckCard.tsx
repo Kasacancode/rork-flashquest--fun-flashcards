@@ -194,9 +194,6 @@ function DeckCardComponent({
 
         {isEditMode ? (
           <View style={[styles.manageBar, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}>
-            <Text style={[styles.manageLabel, { color: theme.textSecondary }]}>
-              Reorder or delete this deck
-            </Text>
             <View style={styles.manageControls}>
               <TouchableOpacity
                 style={[
@@ -472,14 +469,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  manageLabel: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 18,
+    justifyContent: 'flex-end',
   },
   manageControls: {
     flexDirection: 'row',
