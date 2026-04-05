@@ -32,7 +32,7 @@ export default function QuestResultsScreen() {
     challengeId?: string | string[];
     challengerScore?: string | string[];
   }>();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { user } = useAuth();
   const { decks } = useDeckContext();
   const { stats } = useStatsContext();
@@ -235,7 +235,17 @@ export default function QuestResultsScreen() {
           <View style={styles.errorState}>
             <Text style={[styles.errorTitle, { color: theme.text }]}>Couldn’t load quest results</Text>
             <Text style={[styles.errorSubtitle, { color: theme.textSecondary }]}>This run summary is missing or invalid.</Text>
-            <TouchableOpacity style={[styles.secondaryButton, { borderColor: theme.primary }]} onPress={handleBackToMenu} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={[
+                styles.secondaryButton,
+                {
+                  borderColor: isDark ? 'rgba(139,92,246,0.3)' : 'rgba(99,102,241,0.3)',
+                  backgroundColor: isDark ? 'rgba(139,92,246,0.08)' : 'rgba(99,102,241,0.06)',
+                },
+              ]}
+              onPress={handleBackToMenu}
+              activeOpacity={0.8}
+            >
               <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>Back to Quest</Text>
             </TouchableOpacity>
           </View>
@@ -416,7 +426,13 @@ export default function QuestResultsScreen() {
             {missedCards.length > 0 && (
               <TouchableOpacity
                 testID="quest-results-retry-missed-button"
-                style={[styles.secondaryButton, { borderColor: theme.warning }]}
+                style={[
+                  styles.secondaryButton,
+                  {
+                    borderColor: isDark ? 'rgba(245,158,11,0.3)' : 'rgba(245,158,11,0.25)',
+                    backgroundColor: isDark ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.06)',
+                  },
+                ]}
                 onPress={handleRetryMissed}
                 activeOpacity={0.7}
               >
@@ -429,7 +445,13 @@ export default function QuestResultsScreen() {
 
             {(result.accuracy || 0) < 0.7 && deck && (
               <TouchableOpacity
-                style={[styles.secondaryButton, { borderColor: theme.primary }]}
+                style={[
+                  styles.secondaryButton,
+                  {
+                    borderColor: isDark ? 'rgba(139,92,246,0.3)' : 'rgba(99,102,241,0.3)',
+                    backgroundColor: isDark ? 'rgba(139,92,246,0.08)' : 'rgba(99,102,241,0.06)',
+                  },
+                ]}
                 onPress={() => router.replace(studyHref(result.deckId))}
                 activeOpacity={0.7}
               >
@@ -440,15 +462,21 @@ export default function QuestResultsScreen() {
 
             {shareCardData ? (
               <TouchableOpacity
-                style={[styles.secondaryButton, { borderColor: theme.primary }]}
+                style={[
+                  styles.secondaryButton,
+                  {
+                    borderColor: isDark ? 'rgba(52,211,153,0.3)' : 'rgba(16,185,129,0.3)',
+                    backgroundColor: isDark ? 'rgba(52,211,153,0.08)' : 'rgba(16,185,129,0.06)',
+                  },
+                ]}
                 onPress={() => setShowShareCard(true)}
                 activeOpacity={0.7}
                 accessibilityLabel="Share results as image"
                 accessibilityRole="button"
                 testID="quest-results-share-image"
               >
-                <Share2 color={theme.primary} size={20} strokeWidth={2.2} />
-                <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>Share as Image</Text>
+                <Share2 color={isDark ? '#34D399' : '#10B981'} size={20} strokeWidth={2.2} />
+                <Text style={[styles.secondaryButtonText, { color: isDark ? '#34D399' : '#10B981' }]}>Share as Image</Text>
               </TouchableOpacity>
             ) : null}
 
@@ -474,7 +502,13 @@ export default function QuestResultsScreen() {
             ) : null}
 
             <TouchableOpacity
-              style={[styles.secondaryButton, { borderColor: theme.primary }]}
+              style={[
+                styles.secondaryButton,
+                {
+                  borderColor: isDark ? 'rgba(139,92,246,0.3)' : 'rgba(99,102,241,0.3)',
+                  backgroundColor: isDark ? 'rgba(139,92,246,0.08)' : 'rgba(99,102,241,0.06)',
+                },
+              ]}
               onPress={handleBackToMenu}
               activeOpacity={0.7}
             >
@@ -483,7 +517,12 @@ export default function QuestResultsScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.tertiaryButton]}
+              style={[
+                styles.tertiaryButton,
+                {
+                  backgroundColor: isDark ? 'rgba(148,163,184,0.06)' : 'rgba(0,0,0,0.03)',
+                },
+              ]}
               onPress={handleGoHome}
               activeOpacity={0.7}
             >
@@ -806,7 +845,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 16,
     borderRadius: 16,
-    borderWidth: 2,
+    borderWidth: 1,
   },
   secondaryButtonText: {
     fontSize: 16,
@@ -817,7 +856,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
   },
   tertiaryButtonText: {
     fontSize: 15,
