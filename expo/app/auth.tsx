@@ -27,6 +27,20 @@ import { fetchUsername } from '@/utils/usernameService';
 
 type AuthMode = 'options' | 'email-signin' | 'email-signup';
 
+type PasswordRule = {
+  label: string;
+  test: (value: string) => boolean;
+};
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_RULES: PasswordRule[] = [
+  { label: 'At least 8 characters', test: (value: string) => value.length >= 8 },
+  { label: 'One uppercase letter', test: (value: string) => /[A-Z]/.test(value) },
+  { label: 'One lowercase letter', test: (value: string) => /[a-z]/.test(value) },
+  { label: 'One number', test: (value: string) => /[0-9]/.test(value) },
+  { label: 'One special character', test: (value: string) => /[^A-Za-z0-9]/.test(value) },
+];
+
 export default function AuthScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
@@ -43,6 +57,10 @@ export default function AuthScreen() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [displayName, setDisplayName] = useState<string>('');
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
+  const [emailError, setEmailError] = useState<string>('');
+  const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
+  const [confirmError, setConfirmError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
@@ -65,9 +83,101 @@ export default function AuthScreen() {
       });
   }, [isLoading, isSignedIn, router, user]);
 
+  useEffect(() => {
+    setEmailError('');
+    setPasswordErrors([]);
+    setConfirmError('');
+    setConfirmPassword('');
+  }, [mode]);
+
   const handleGoBack = useCallback(() => {
     router.replace(SETTINGS_ROUTE);
   }, [router]);
+
+  const validateEmail = useCallback((value: string): boolean => {
+    const trimmed = value.trim();
+
+    if (trimmed.length === 0) {
+      setEmailError('');
+      return false;
+    }
+
+    if (!EMAIL_REGEX.test(trimmed)) {
+      setEmailError('Enter a valid email address');
+      return false;
+    }
+
+    setEmailError('');
+    return true;
+  }, []);
+
+  const getPasswordIssues = useCallback((value: string): string[] => {
+    return PASSWORD_RULES.filter((rule) => !rule.test(value)).map((rule) => rule.label);
+  }, []);
+
+  const validatePassword = useCallback((value: string): boolean => {
+    if (value.length === 0) {
+      setPasswordErrors([]);
+      return false;
+    }
+
+    const issues = getPasswordIssues(value);
+    setPasswordErrors(issues);
+    return issues.length === 0;
+  }, [getPasswordIssues]);
+
+  const validateConfirmPassword = useCallback((value: string, original: string): boolean => {
+    if (value.length === 0) {
+      setConfirmError('');
+      return false;
+    }
+
+    if (value !== original) {
+      setConfirmError('Passwords do not match');
+      return false;
+    }
+
+    setConfirmError('');
+    return true;
+  }, []);
+
+  const handleEmailChange = useCallback((value: string) => {
+    setEmail(value);
+
+    if (value.trim().length > 3) {
+      validateEmail(value);
+      return;
+    }
+
+    setEmailError('');
+  }, [validateEmail]);
+
+  const handlePasswordChange = useCallback((value: string) => {
+    setPassword(value);
+
+    if (mode === 'email-signup') {
+      if (value.length > 0) {
+        validatePassword(value);
+      } else {
+        setPasswordErrors([]);
+      }
+    }
+
+    if (confirmPassword.length > 0) {
+      validateConfirmPassword(confirmPassword, value);
+    }
+  }, [confirmPassword, mode, validateConfirmPassword, validatePassword]);
+
+  const handleConfirmPasswordChange = useCallback((value: string) => {
+    setConfirmPassword(value);
+
+    if (value.length > 0) {
+      validateConfirmPassword(value, password);
+      return;
+    }
+
+    setConfirmError('');
+  }, [password, validateConfirmPassword]);
 
   const handleApple = useCallback(async () => {
     await signInWithApple();
@@ -78,8 +188,20 @@ export default function AuthScreen() {
   }, [signInWithGoogle]);
 
   const handleEmailSignIn = useCallback(async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert('Missing Fields', 'Please enter your email and password.');
+    if (!email.trim()) {
+      setEmailError('Email is required');
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(email.trim())) {
+      setEmailError('Enter a valid email address');
+      return;
+    }
+
+    setEmailError('');
+
+    if (!password.trim()) {
+      Alert.alert('Missing Password', 'Please enter your password.');
       return;
     }
 
@@ -93,13 +215,26 @@ export default function AuthScreen() {
   }, [email, password, signInWithEmail]);
 
   const handleEmailSignUp = useCallback(async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert('Missing Fields', 'Please enter your email and password.');
+    const isEmailValid = validateEmail(email);
+    const isPasswordValid = validatePassword(password);
+    const isConfirmValid = validateConfirmPassword(confirmPassword, password);
+
+    if (!email.trim()) {
+      setEmailError('Email is required');
       return;
     }
 
-    if (password.trim().length < 6) {
-      Alert.alert('Weak Password', 'Password must be at least 6 characters.');
+    if (!password.trim()) {
+      setPasswordErrors(['Password is required']);
+      return;
+    }
+
+    if (!confirmPassword.trim()) {
+      setConfirmError('Please confirm your password');
+      return;
+    }
+
+    if (!isEmailValid || !isPasswordValid || !isConfirmValid) {
       return;
     }
 
@@ -117,7 +252,11 @@ export default function AuthScreen() {
       'We sent you a confirmation link. Tap it to activate your account, then sign in.',
     );
     setMode('email-signin');
-  }, [displayName, email, password, signUpWithEmail]);
+    setConfirmPassword('');
+    setPasswordErrors([]);
+    setConfirmError('');
+    setEmailError('');
+  }, [confirmPassword, displayName, email, password, signUpWithEmail, validateConfirmPassword, validateEmail, validatePassword]);
 
   const backgroundGradient = useMemo<readonly [string, string, string]>(() => (
     isDark
@@ -139,6 +278,7 @@ export default function AuthScreen() {
   const authDebugUrlColor = isDark ? '#C4B5FD' : '#E9D5FF';
   const shouldShowAuthDebugCard = Platform.OS === 'web' || Constants.appOwnership === 'expo';
   const authRedirectUrl = getAuthRedirectUrl();
+  const passwordBorderColor = mode === 'email-signup' && passwordErrors.length > 0 ? '#EF4444' : inputBorder;
 
   return (
     <View style={styles.container}>
@@ -246,28 +386,72 @@ export default function AuthScreen() {
                   ) : null}
 
                   <TextInput
-                    style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: formTextColor }]}
+                    style={[styles.input, { backgroundColor: inputBg, borderColor: emailError ? '#EF4444' : inputBorder, color: formTextColor }]}
                     placeholder="Email"
                     placeholderTextColor={formMutedTextColor}
                     value={email}
-                    onChangeText={setEmail}
+                    onChangeText={handleEmailChange}
                     autoCapitalize="none"
                     autoComplete="email"
                     keyboardType="email-address"
                     testID="auth-email-input"
                   />
+                  {emailError ? (
+                    <Text style={[styles.fieldError, { color: '#EF4444' }]}>{emailError}</Text>
+                  ) : null}
 
                   <TextInput
-                    style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: formTextColor }]}
+                    style={[styles.input, { backgroundColor: inputBg, borderColor: passwordBorderColor, color: formTextColor }]}
                     placeholder="Password"
                     placeholderTextColor={formMutedTextColor}
                     value={password}
-                    onChangeText={setPassword}
+                    onChangeText={handlePasswordChange}
                     secureTextEntry
                     autoCapitalize="none"
                     autoComplete={mode === 'email-signup' ? 'new-password' : 'current-password'}
                     testID="auth-password-input"
                   />
+                  {password.length === 0 && passwordErrors.length > 0 ? (
+                    <Text style={[styles.fieldError, { color: '#EF4444' }]}>{passwordErrors[0]}</Text>
+                  ) : null}
+
+                  {mode === 'email-signup' && password.length > 0 ? (
+                    <View style={styles.passwordRequirements}>
+                      {PASSWORD_RULES.map((rule) => {
+                        const met = rule.test(password);
+
+                        return (
+                          <View key={rule.label} style={styles.requirementRow}>
+                            <Text style={[styles.requirementIndicator, { color: met ? '#10B981' : '#94A3B8' }]}>
+                              {met ? '\u2713' : '\u2022'}
+                            </Text>
+                            <Text style={[styles.requirementText, { color: met ? '#10B981' : '#94A3B8' }]}>
+                              {rule.label}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+
+                  {mode === 'email-signup' ? (
+                    <>
+                      <TextInput
+                        style={[styles.input, { backgroundColor: inputBg, borderColor: confirmError ? '#EF4444' : inputBorder, color: formTextColor }]}
+                        placeholder="Confirm password"
+                        placeholderTextColor={formMutedTextColor}
+                        value={confirmPassword}
+                        onChangeText={handleConfirmPasswordChange}
+                        secureTextEntry
+                        autoCapitalize="none"
+                        autoComplete="new-password"
+                        testID="auth-confirm-password-input"
+                      />
+                      {confirmError ? (
+                        <Text style={[styles.fieldError, { color: '#EF4444' }]}>{confirmError}</Text>
+                      ) : null}
+                    </>
+                  ) : null}
 
                   <TouchableOpacity
                     style={[styles.submitButton, { opacity: isSubmitting ? 0.6 : 1 }]}
@@ -287,7 +471,7 @@ export default function AuthScreen() {
                     accessibilityRole="button"
                     testID="auth-switch-mode-button"
                   >
-                    <Text style={[styles.switchModeText, { color: switchModeColor }]}>
+                    <Text style={[styles.switchModeText, { color: switchModeColor }]}> 
                       {mode === 'email-signup' ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
                     </Text>
                   </TouchableOpacity>
@@ -435,6 +619,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     fontWeight: '500',
+  },
+  fieldError: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: -6,
+    marginLeft: 4,
+  },
+  passwordRequirements: {
+    gap: 4,
+    marginTop: -4,
+    marginBottom: 4,
+    paddingHorizontal: 4,
+  },
+  requirementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  requirementIndicator: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  requirementText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   submitButton: {
     backgroundColor: '#6366F1',
