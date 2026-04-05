@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { forwardRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -16,65 +17,130 @@ export interface ResultCardData {
   isWinner?: boolean;
 }
 
+function getPerformanceTier(accuracy: number): { label: string; color: string; glow: string } {
+  if (accuracy >= 0.95) {
+    return { label: 'PERFECT RUN', color: '#FFD700', glow: 'rgba(255, 215, 0, 0.3)' };
+  }
+
+  if (accuracy >= 0.9) {
+    return { label: 'OUTSTANDING', color: '#A78BFA', glow: 'rgba(167, 139, 250, 0.3)' };
+  }
+
+  if (accuracy >= 0.8) {
+    return { label: 'IMPRESSIVE', color: '#34D399', glow: 'rgba(52, 211, 153, 0.3)' };
+  }
+
+  if (accuracy >= 0.7) {
+    return { label: 'SOLID RUN', color: '#60A5FA', glow: 'rgba(96, 165, 250, 0.3)' };
+  }
+
+  return { label: 'KEEP GRINDING', color: '#F59E0B', glow: 'rgba(245, 158, 11, 0.3)' };
+}
+
 const ShareableResultCard = forwardRef<View, { data: ResultCardData }>(({ data }, ref) => {
   const accuracyPercent = Math.round(data.accuracy * 100);
-  const modeLabel = data.mode === 'arena' ? 'ARENA BATTLE' : 'QUEST COMPLETE';
-  const modeColor = data.mode === 'arena' ? '#F59E0B' : '#8B5CF6';
+  const tier = getPerformanceTier(data.accuracy);
+  const isArena = data.mode === 'arena';
+  const modeGradient: readonly [string, string, string] = isArena
+    ? ['#7C2D12', '#9A3412', '#C2410C'] as const
+    : ['#1E1040', '#2D1B69', '#4C2889'] as const;
 
   return (
     <View ref={ref} collapsable={false} style={styles.card}>
-      <View style={styles.cardInner}>
-        <Text style={styles.brandText}>FLASHQUEST</Text>
+      <LinearGradient
+        colors={modeGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
 
-        <View style={[styles.modeBadge, { backgroundColor: modeColor }]}>
-          <Text style={styles.modeBadgeText}>{modeLabel}</Text>
+      <View style={[styles.glowOrb, styles.glowTop, { backgroundColor: tier.glow }]} />
+      <View
+        style={[
+          styles.glowOrb,
+          styles.glowBottom,
+          { backgroundColor: isArena ? 'rgba(249, 115, 22, 0.15)' : 'rgba(99, 102, 241, 0.15)' },
+        ]}
+      />
+
+      <View style={styles.cardInner}>
+        <View style={styles.header}>
+          <Text style={styles.brandText}>FLASHQUEST</Text>
+          <View
+            style={[
+              styles.modePill,
+              {
+                backgroundColor: isArena ? 'rgba(249,115,22,0.25)' : 'rgba(139,92,246,0.25)',
+                borderColor: isArena ? 'rgba(249,115,22,0.4)' : 'rgba(139,92,246,0.4)',
+              },
+            ]}
+          >
+            <Text style={[styles.modePillText, { color: isArena ? '#FB923C' : '#A78BFA' }]}>
+              {isArena ? 'ARENA BATTLE' : 'QUEST MODE'}
+            </Text>
+          </View>
         </View>
 
-        <Text style={styles.titleText}>{data.title}</Text>
+        <View style={[styles.tierBadge, { backgroundColor: tier.glow, borderColor: tier.color }]}>
+          <Text style={[styles.tierText, { color: tier.color }]}>{tier.label}</Text>
+        </View>
 
-        {data.playerName ? (
-          <Text style={styles.playerName}>{data.playerName}</Text>
-        ) : null}
+        <Text style={styles.scoreNumber}>{data.score.toLocaleString()}</Text>
+        <Text style={styles.scoreLabel}>POINTS</Text>
 
-        <View style={styles.statsRow}>
-          <View style={styles.statBlock}>
-            <Text style={styles.statValue}>{data.score.toLocaleString()}</Text>
-            <Text style={styles.statLabel}>Score</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBlock}>
-            <Text style={[styles.statValue, { color: accuracyPercent >= 70 ? '#10B981' : '#F59E0B' }]}>
+        <View style={styles.statsBar}>
+          <View style={styles.statItem}>
+            <Text
+              style={[
+                styles.statItemValue,
+                { color: accuracyPercent >= 80 ? '#34D399' : accuracyPercent >= 60 ? '#FBBF24' : '#F87171' },
+              ]}
+            >
               {accuracyPercent}%
             </Text>
-            <Text style={styles.statLabel}>Accuracy</Text>
+            <Text style={styles.statItemLabel}>ACCURACY</Text>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBlock}>
-            <Text style={styles.statValue}>
+          <View style={styles.statBarDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statItemValue}>
               {data.correctCount}/{data.totalRounds}
             </Text>
-            <Text style={styles.statLabel}>Correct</Text>
+            <Text style={styles.statItemLabel}>CORRECT</Text>
           </View>
+          {data.streakBest && data.streakBest > 1 ? (
+            <>
+              <View style={styles.statBarDivider} />
+              <View style={styles.statItem}>
+                <Text style={[styles.statItemValue, styles.streakValue]}>{data.streakBest}</Text>
+                <Text style={styles.statItemLabel}>STREAK</Text>
+              </View>
+            </>
+          ) : null}
         </View>
 
-        {data.mode === 'arena' && data.opponentName ? (
-          <View style={styles.vsRow}>
-            <Text style={styles.vsText}>
-              vs {data.opponentName}
-              {data.opponentScore != null ? ` (${data.opponentScore.toLocaleString()} pts)` : ''}
-            </Text>
+        {isArena && data.opponentName ? (
+          <View style={styles.vsSection}>
+            <Text style={styles.vsLabel}>{data.isWinner ? 'DEFEATED' : 'LOST TO'}</Text>
+            <Text style={styles.vsName}>{data.opponentName}</Text>
+            {data.opponentScore != null ? (
+              <Text style={styles.vsScore}>{data.opponentScore.toLocaleString()} pts</Text>
+            ) : null}
           </View>
         ) : null}
 
-        {data.streakBest && data.streakBest > 1 ? (
-          <Text style={styles.streakText}>Best streak: {data.streakBest}</Text>
-        ) : null}
-
-        <View style={styles.deckRow}>
-          <Text style={styles.deckLabel}>{data.deckName}</Text>
+        <View style={styles.deckPill}>
+          <Text style={styles.deckPillText} numberOfLines={1}>
+            {data.deckName}
+          </Text>
         </View>
 
-        <Text style={styles.ctaText}>Think you can beat this? Try FlashQuest.</Text>
+        {data.playerName ? <Text style={styles.playerText}>{data.playerName}</Text> : null}
+
+        <View style={styles.ctaSection}>
+          <View style={styles.ctaDivider} />
+          <Text style={styles.ctaText}>Can you top this?</Text>
+          <Text style={styles.ctaUrl}>flashquest.net</Text>
+        </View>
       </View>
     </View>
   );
@@ -87,109 +153,182 @@ export default ShareableResultCard;
 const styles = StyleSheet.create({
   card: {
     width: 360,
-    backgroundColor: '#0F172A',
-    borderRadius: 24,
+    borderRadius: 28,
     overflow: 'hidden',
+    position: 'relative',
+  },
+  glowOrb: {
+    position: 'absolute',
+    borderRadius: 999,
+  },
+  glowTop: {
+    width: 250,
+    height: 250,
+    top: -80,
+    right: -60,
+  },
+  glowBottom: {
+    width: 300,
+    height: 300,
+    bottom: -120,
+    left: -80,
   },
   cardInner: {
-    padding: 28,
+    paddingHorizontal: 28,
+    paddingTop: 32,
+    paddingBottom: 28,
     alignItems: 'center',
   },
+  header: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
   brandText: {
-    color: 'rgba(255,255,255,0.35)',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 3,
-    marginBottom: 16,
-  },
-  modeBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 16,
-  },
-  modeBadgeText: {
-    color: '#FFFFFF',
+    color: 'rgba(255,255,255,0.3)',
     fontSize: 11,
     fontWeight: '900',
+    letterSpacing: 4,
+    marginBottom: 12,
+  },
+  modePill: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 100,
+    borderWidth: 1,
+  },
+  modePillText: {
+    fontSize: 10,
+    fontWeight: '800',
     letterSpacing: 1.5,
   },
-  titleText: {
-    color: '#FFFFFF',
-    fontSize: 26,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 6,
-    letterSpacing: -0.5,
-  },
-  playerName: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 15,
-    fontWeight: '600',
+  tierBadge: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 100,
+    borderWidth: 1.5,
     marginBottom: 20,
   },
-  statsRow: {
+  tierText: {
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 2,
+  },
+  scoreNumber: {
+    color: '#FFFFFF',
+    fontSize: 64,
+    fontWeight: '900',
+    letterSpacing: -3,
+    lineHeight: 70,
+    marginBottom: 2,
+    textShadowColor: 'rgba(255,255,255,0.15)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
+  },
+  scoreLabel: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 3,
+    marginBottom: 24,
+  },
+  statsBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 8,
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
     width: '100%',
+    marginBottom: 20,
   },
-  statBlock: {
+  statItem: {
     flex: 1,
     alignItems: 'center',
   },
-  statValue: {
+  statItemValue: {
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
-    marginBottom: 4,
+    marginBottom: 3,
   },
-  statLabel: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 11,
+  streakValue: {
+    color: '#FBBF24',
+  },
+  statItemLabel: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 9,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 1,
   },
-  statDivider: {
+  statBarDivider: {
     width: 1,
-    height: 32,
+    height: 28,
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  vsRow: {
-    marginBottom: 12,
+  vsSection: {
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  vsText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 14,
-    fontWeight: '600',
+  vsLabel: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginBottom: 2,
   },
-  streakText: {
-    color: '#F59E0B',
-    fontSize: 13,
+  vsName: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '700',
-    marginBottom: 12,
   },
-  deckRow: {
+  vsScore: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  deckPill: {
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    marginBottom: 8,
+    maxWidth: '85%',
   },
-  deckLabel: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  ctaText: {
-    color: 'rgba(255,255,255,0.3)',
+  deckPillText: {
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 12,
     fontWeight: '600',
-    textAlign: 'center',
+  },
+  playerText: {
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  ctaSection: {
+    alignItems: 'center',
+    marginTop: 16,
+    width: '100%',
+  },
+  ctaDivider: {
+    width: 40,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginBottom: 14,
+  },
+  ctaText: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  ctaUrl: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });
