@@ -49,6 +49,10 @@ function DeckCardComponent({
     onDeleteDeck(deck.id);
   }, [deck.id, onDeleteDeck]);
 
+  const handleEditPress = useCallback(() => {
+    onEditDeck(deck.id);
+  }, [deck.id, onEditDeck]);
+
   return (
     <View
       style={[
@@ -104,9 +108,17 @@ function DeckCardComponent({
           )}
 
           {isEditMode ? (
-            <View style={styles.editModeHeaderBadge}>
+            <TouchableOpacity
+              style={styles.editModeHeaderBadge}
+              onPress={handleEditPress}
+              activeOpacity={0.72}
+              accessibilityLabel={`Manage ${deck.name}`}
+              accessibilityRole="button"
+              testID={`deck-manage-button-${deck.id}`}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
               <Text style={[styles.editModeHeaderBadgeText, { color: theme.textSecondary }]}>Manage</Text>
-            </View>
+            </TouchableOpacity>
           ) : null}
         </View>
 
@@ -278,7 +290,7 @@ function DeckCardComponent({
             {canEditDeck ? (
               <TouchableOpacity
                 style={[styles.actionButton, { backgroundColor: quietSurface, borderColor: subtleBorderColor }]}
-                onPress={() => onEditDeck(deck.id)}
+                onPress={handleEditPress}
                 activeOpacity={0.8}
                 accessibilityLabel={`Edit ${deck.name}`}
                 accessibilityRole="button"
@@ -349,6 +361,9 @@ const styles = StyleSheet.create({
   editModeHeaderBadge: {
     minWidth: 56,
     alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingVertical: 4,
+    paddingLeft: 8,
   },
   editModeHeaderBadgeText: {
     fontSize: 12,
