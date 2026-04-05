@@ -850,6 +850,59 @@ export default function StudyPage() {
       : studySummary.newCount > 0
         ? `${studySummary.newCount} untouched cards ready to learn`
         : `${orderedFlashcards.length} cards ready for a full pass`;
+  const focusMode: StudyMode = dueOnlyCount > 0
+    ? 'due'
+    : studySummary.weakCount > 0
+      ? 'weak'
+      : 'all';
+  const focusCount = dueOnlyCount > 0
+    ? dueOnlyCount
+    : studySummary.weakCount > 0
+      ? studySummary.weakCount
+      : studySummary.newCount > 0
+        ? studySummary.newCount
+        : orderedFlashcards.length;
+  const focusAccent = dueOnlyCount > 0
+    ? '#F59E0B'
+    : studySummary.weakCount > 0
+      ? '#F97316'
+      : isDark
+        ? '#A5B4FC'
+        : '#6366F1';
+  const focusAccentBg = dueOnlyCount > 0
+    ? 'rgba(245,158,11,0.14)'
+    : studySummary.weakCount > 0
+      ? 'rgba(249,115,22,0.14)'
+      : isDark
+        ? 'rgba(129,140,248,0.18)'
+        : 'rgba(99,102,241,0.1)';
+  const focusCardBg = dueOnlyCount > 0
+    ? isDark
+      ? 'rgba(245,158,11,0.08)'
+      : 'rgba(255,255,255,0.9)'
+    : studySummary.weakCount > 0
+      ? isDark
+        ? 'rgba(249,115,22,0.08)'
+        : 'rgba(255,247,237,0.96)'
+      : isDark
+        ? 'rgba(15,23,42,0.42)'
+        : 'rgba(255,255,255,0.22)';
+  const focusCardBorder = dueOnlyCount > 0
+    ? isDark
+      ? 'rgba(245,158,11,0.22)'
+      : 'rgba(245,158,11,0.26)'
+    : studySummary.weakCount > 0
+      ? isDark
+        ? 'rgba(249,115,22,0.24)'
+        : 'rgba(249,115,22,0.22)'
+      : modePickerStatBorder;
+  const focusBadgeLabel = dueOnlyCount > 0
+    ? 'Due now'
+    : studySummary.weakCount > 0
+      ? 'Weak drill'
+      : studySummary.newCount > 0
+        ? 'Start fresh'
+        : 'Full pass';
   const quickReviewHelper = orderedFlashcards.length >= 15
     ? 'Fast, focused reps when you only have a minute.'
     : `Great for a shorter pass with up to ${Math.max(orderedFlashcards.length, 1)} cards.`;
@@ -946,18 +999,54 @@ export default function StudyPage() {
                 </View>
               </View>
 
-              <View style={[styles.modeFocusStrip, { backgroundColor: isDark ? 'rgba(15,23,42,0.45)' : 'rgba(255,255,255,0.12)', borderColor: modePickerStatBorder }]}>
-                <View style={[styles.modeFocusIconWrap, { backgroundColor: isDark ? 'rgba(129,140,248,0.2)' : 'rgba(255,255,255,0.16)' }]}>
-                  <Target color={isDark ? '#C7D2FE' : '#FFFFFF'} size={16} strokeWidth={2.2} />
+            </LinearGradient>
+
+            <View style={styles.modePickerOptions}>
+              <TouchableOpacity
+                style={[
+                  styles.modeFocusCard,
+                  {
+                    backgroundColor: focusCardBg,
+                    borderColor: focusCardBorder,
+                    shadowColor: modeCardShadow,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: isDark ? 0.16 : 0.08,
+                    shadowRadius: 10,
+                    elevation: 2,
+                  },
+                ]}
+                onPress={() => handleSelectStudyMode(focusMode)}
+                activeOpacity={0.86}
+                accessibilityLabel={
+                  focusMode === 'due'
+                    ? `Study ${dueOnlyCount} due cards`
+                    : focusMode === 'weak'
+                      ? `Study ${studySummary.weakCount} weak cards`
+                      : `Study all ${orderedFlashcards.length} cards`
+                }
+                accessibilityRole="button"
+                testID="study-mode-focus"
+              >
+                <View style={[styles.modeFocusIconWrap, { backgroundColor: focusAccentBg }]}>
+                  {focusMode === 'due' ? (
+                    <Clock color={focusAccent} size={18} strokeWidth={2.2} />
+                  ) : focusMode === 'weak' ? (
+                    <AlertTriangle color={focusAccent} size={18} strokeWidth={2.2} />
+                  ) : studySummary.newCount > 0 ? (
+                    <Sparkles color={focusAccent} size={18} strokeWidth={2.2} />
+                  ) : (
+                    <Target color={focusAccent} size={18} strokeWidth={2.2} />
+                  )}
                 </View>
                 <View style={styles.modeFocusTextWrap}>
                   <Text style={[styles.modeFocusEyebrow, { color: modeTextSecondary }]}>{studyFocusLabel}</Text>
                   <Text style={[styles.modeFocusValue, { color: modeTextPrimary }]}>{studyFocusValue}</Text>
                 </View>
-              </View>
-            </LinearGradient>
-
-            <View style={styles.modePickerOptions}>
+                <View style={[styles.modeFocusBadge, { backgroundColor: focusAccentBg, borderColor: focusCardBorder }]}>
+                  <Text style={[styles.modeFocusBadgeCount, { color: focusAccent }]}>{focusCount}</Text>
+                  <Text style={[styles.modeFocusBadgeLabel, { color: focusAccent }]}>{focusBadgeLabel}</Text>
+                </View>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={[
                   styles.modeActionButton,
@@ -1076,7 +1165,7 @@ export default function StudyPage() {
                 </View>
               </View>
 
-              {studySummary.weakCount > 0 ? (
+              {studySummary.weakCount > 0 && focusMode !== 'weak' ? (
                 <TouchableOpacity
                   style={[
                     styles.modeActionButton,
@@ -1807,13 +1896,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.7,
   },
-  modeFocusStrip: {
+  modeFocusCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     borderRadius: 22,
     borderWidth: 1,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    minHeight: 84,
   },
   modeFocusIconWrap: {
     width: 38,
@@ -1825,6 +1916,28 @@ const styles = StyleSheet.create({
   modeFocusTextWrap: {
     flex: 1,
     gap: 3,
+  },
+  modeFocusBadge: {
+    minWidth: 74,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  modeFocusBadgeCount: {
+    fontSize: 18,
+    lineHeight: 20,
+    fontWeight: '800' as const,
+    letterSpacing: -0.4,
+  },
+  modeFocusBadgeLabel: {
+    fontSize: 10,
+    fontWeight: '800' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
   },
   modeFocusEyebrow: {
     fontSize: 11,
