@@ -290,9 +290,9 @@ export default function SmartImportPage() {
             </TouchableOpacity>
 
             <View style={styles.headerTextWrap}>
-              <Text style={[styles.eyebrow, { color: theme.primary }]}>Universal paste import</Text>
-              <Text style={[styles.title, { color: theme.text }]}>Smart Import</Text>
-              <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Paste from Quizlet, Anki, sheets, notes, or a FlashQuest share.</Text>
+              <Text style={[styles.eyebrow, { color: theme.primary }]}>Paste copied text</Text>
+              <Text style={[styles.title, { color: theme.text }]}>Paste Cards or Text</Text>
+              <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Best for Quizlet, Anki, sheets, copied lists, or structured notes. For PDFs, Word docs, or slides, use File Import.</Text>
             </View>
           </View>
 
@@ -335,7 +335,7 @@ export default function SmartImportPage() {
                   textAlignVertical="top"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  placeholder={"Paste your flashcards here.\n\nWorks with:\n- Quizlet export or copied terms\n- Anki plain text export\n- CSV or tab-separated text\n- term: definition lists\n- term - definition lists\n- FlashQuest share JSON"}
+                  placeholder={"Paste copied cards or text here.\n\nBest for:\n- Quizlet export or copied terms\n- Anki plain text export\n- CSV or tab-separated text\n- term: definition lists\n- term - definition lists\n- FlashQuest share JSON\n\nFor PDF, Word, or PowerPoint files, use Import Files."}
                   placeholderTextColor={theme.textTertiary}
                   testID="smartImportTextInput"
                 />
@@ -354,7 +354,7 @@ export default function SmartImportPage() {
               {showNoPairsMessage ? (
                 <View style={[styles.messageCard, { backgroundColor: isDark ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.08)', borderColor: isDark ? 'rgba(245,158,11,0.18)' : 'rgba(245,158,11,0.18)' }]}>
                   <Text style={[styles.messageTitle, { color: theme.text }]}>Couldn&apos;t detect flashcard pairs</Text>
-                  <Text style={[styles.messageBody, { color: theme.textSecondary }]}>Try tab-separated format with one card per line, or use AI Import to turn notes into cards.</Text>
+                  <Text style={[styles.messageBody, { color: theme.textSecondary }]}>Try tab-separated format with one card per line. If you are importing a PDF, Word doc, or slides, use File Import instead.</Text>
                   <TouchableOpacity
                     style={[styles.inlineActionButton, { backgroundColor: isDark ? 'rgba(139,92,246,0.14)' : 'rgba(99,102,241,0.1)' }]}
                     onPress={handleOpenAiImport}
@@ -362,7 +362,7 @@ export default function SmartImportPage() {
                     testID="smartImportOpenAiButton"
                   >
                     <Sparkles color={theme.primary} size={16} strokeWidth={2.3} />
-                    <Text style={[styles.inlineActionText, { color: theme.primary }]}>Open AI Import</Text>
+                    <Text style={[styles.inlineActionText, { color: theme.primary }]}>Open File Import</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}

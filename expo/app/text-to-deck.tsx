@@ -383,7 +383,7 @@ ${sourceText}`,
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton} testID="textToDeckBack">
             <ArrowLeft color={theme.white} size={28} strokeWidth={2.5} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.white }]}>Text to Deck</Text>
+          <Text style={[styles.headerTitle, { color: theme.white }]}>Import Files</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -399,9 +399,9 @@ ${sourceText}`,
               <View style={[styles.iconCircle, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)' }]}>
                 <FileText color={isDark ? '#60a5fa' : '#3b82f6'} size={36} strokeWidth={1.8} />
               </View>
-              <Text style={[styles.heroTitle, { color: theme.text }]}>Paste Notes or Pick a File</Text>
+              <Text style={[styles.heroTitle, { color: theme.text }]}>Import PDF, Word, or Slides</Text>
               <Text style={[styles.heroSubtitle, { color: theme.textSecondary }]}>
-                Paste notes or import a PDF, Word doc, PowerPoint, or text file and AI will turn it into study-ready flashcards.
+                Pick a PDF, Word doc, PowerPoint, or text file and AI will turn its text into study-ready flashcards. For pasted Quizlet or Anki text, use Paste Cards instead.
               </Text>
             </View>
 
@@ -435,14 +435,14 @@ ${sourceText}`,
                   </Text>
                 </TouchableOpacity>
                 <Text style={[styles.filePickHint, { color: theme.textTertiary }]}>
-                  PDF, Word, PowerPoint, or text files
+                  Best for PDFs, Word docs, slides, and text files
                 </Text>
               </View>
               <TextInput
                 style={[styles.textArea, { color: theme.text, backgroundColor: inputBg }]}
                 value={sourceText}
                 onChangeText={setSourceText}
-                placeholder="Paste or type your notes here..."
+                placeholder="Pick a file to load its text here, then review or edit before generating flashcards..."
                 placeholderTextColor={placeholderColor}
                 multiline
                 textAlignVertical="top"
@@ -490,7 +490,7 @@ ${sourceText}`,
                 </View>
               </Animated.View>
               <ActivityIndicator size="large" color={theme.primary} style={styles.processingSpinner} />
-              <Text style={[styles.processingTitle, { color: theme.text }]}>Reading your notes...</Text>
+              <Text style={[styles.processingTitle, { color: theme.text }]}>Reading your file...</Text>
               <Text style={[styles.processingSubtitle, { color: theme.textSecondary }]}>
                 AI is extracting key concepts and creating flashcards
               </Text>
@@ -647,7 +647,7 @@ ${sourceText}`,
       <ConsentSheet
         visible={showDeckDisclosure}
         title="Send this text to AI?"
-        description="FlashQuest sends the notes or text you paste to an AI processing service so it can turn the content into flashcards."
+        description="FlashQuest sends the text you provide or import to an AI processing service so it can turn the content into flashcards."
         bullets={[
           'Only the text you submit for this action is sent for processing.',
           'You review and edit the generated deck before saving it.',

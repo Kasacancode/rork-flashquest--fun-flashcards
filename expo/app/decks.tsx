@@ -1028,8 +1028,8 @@ export default function DecksPage() {
                 <ClipboardPaste color={theme.primary} size={24} strokeWidth={2} />
               </View>
               <View style={styles.menuOptionText}>
-                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Paste Cards</Text>
-                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>From Quizlet, Anki, notes, or any text</Text>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Paste Cards or Text</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Quizlet, Anki, copied lists, or structured notes</Text>
               </View>
             </TouchableOpacity>
 
@@ -1046,8 +1046,8 @@ export default function DecksPage() {
                 <FileUp color={isDark ? '#60a5fa' : '#3b82f6'} size={24} strokeWidth={2} />
               </View>
               <View style={styles.menuOptionText}>
-                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Import PDF, Word, or Slides</Text>
-                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Open AI import, then tap Pick a File</Text>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Import Files with AI</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>PDF, Word, PowerPoint, or text files</Text>
               </View>
             </TouchableOpacity>
 
