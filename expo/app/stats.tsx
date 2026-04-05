@@ -17,10 +17,11 @@ import { useStatsScreenState } from '@/components/stats/useStatsScreenState';
 import type { Theme } from '@/constants/colors';
 import { getDailyGoalTarget, getDailyProgress } from '@/utils/dailyGoal';
 import { LEVELS } from '@/utils/levels';
+import { computeDeckMastery, type MasteryBreakdown } from '@/utils/mastery';
 import { deckHubHref, LEADERBOARD_ROUTE, studyHref } from '@/utils/routes';
 
 type ThemeValues = Theme;
-type ExpandableStatsPanel = 'goal' | 'week' | 'recap' | 'activity' | 'mastery' | 'performance';
+type ExpandableStatsPanel = 'goal' | 'week' | 'recap' | 'activity' | 'mastery' | 'performance' | 'trend';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -33,6 +34,7 @@ export default function StatsPage() {
     stats,
     decks,
     performance,
+    getCardsDueForReview,
     showLevels,
     statsAccent,
     level,
@@ -191,6 +193,37 @@ export default function StatsPage() {
 
     return { mostActiveDay, pattern, bestWeekDays, totalDays };
   }, [stats.studyDates]);
+
+  const accuracyTrendContext = useMemo(() => {
+    const recentEntries = [...accuracyTrend].reverse();
+    const populatedEntries = recentEntries.filter((entry) => entry.accuracy !== null);
+
+    return {
+      recentEntries,
+      current: populatedEntries[0] ?? null,
+      previous: populatedEntries[1] ?? null,
+    };
+  }, [accuracyTrend]);
+
+  const deckMasteryDetails = useMemo(() => {
+    const nextMap = new Map<string, MasteryBreakdown>();
+
+    for (const deck of decks) {
+      nextMap.set(deck.id, computeDeckMastery(deck.flashcards, performance.cardStatsById));
+    }
+
+    return nextMap;
+  }, [decks, performance.cardStatsById]);
+
+  const deckDueCounts = useMemo(() => {
+    const nextMap = new Map<string, number>();
+
+    for (const deck of decks) {
+      nextMap.set(deck.id, getCardsDueForReview(deck.id, deck.flashcards).length);
+    }
+
+    return nextMap;
+  }, [decks, getCardsDueForReview]);
 
   const togglePanel = useCallback((panel: ExpandableStatsPanel) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -1158,41 +1191,141 @@ export default function StatsPage() {
             ) : null}
           </View>
 
-          {accuracyTrend.length >= 2 && hasRealAccuracyData ? (
-            <View style={styles.trendCard}>
-              <Text style={styles.sectionLabel}>ACCURACY TREND</Text>
-              <View style={styles.trendRow}>
-                {accuracyTrend.map((entry) => {
-                  const label = entry.week.replace(/^\d{4}-W/, 'W');
-                  const pct = entry.accuracy;
-                  return (
-                    <View key={entry.week} style={styles.trendColumn}>
-                      <View style={styles.trendBarContainer}>
-                        {pct !== null ? (
-                          <View
-                            style={[
-                              styles.trendBar,
-                              {
-                                height: `${pct}%`,
-                                backgroundColor: pct >= 70 ? theme.success : theme.warning,
-                              },
-                            ]}
-                          />
-                        ) : null}
-                      </View>
-                      <Text style={styles.trendPct}>{pct !== null ? `${pct}%` : '–'}</Text>
-                      <Text style={styles.trendWeek}>{label}</Text>
-                    </View>
-                  );
-                })}
+          {hasRealAccuracyData ? (
+            <TouchableOpacity
+              style={[styles.trendCard, { backgroundColor: cardSurface, borderColor: cardBorderColor }]}
+              onPress={() => togglePanel('trend')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: expandedPanel === 'trend' }}
+              testID="stats-trend-card-toggle"
+            >
+              <View style={styles.trendHeader}>
+                <Text style={styles.sectionHeaderLabel}>ACCURACY</Text>
+                <ChevronDown
+                  color={theme.textTertiary}
+                  size={16}
+                  strokeWidth={2}
+                  style={{ transform: [{ rotate: expandedPanel === 'trend' ? '180deg' : '0deg' }] }}
+                />
               </View>
-            </View>
+
+              {(() => {
+                const current = accuracyTrendContext.current;
+                const previous = accuracyTrendContext.previous;
+                if (current?.accuracy === null || current?.accuracy === undefined) {
+                  return null;
+                }
+
+                const diff = previous?.accuracy !== null && previous?.accuracy !== undefined
+                  ? current.accuracy - previous.accuracy
+                  : null;
+                const trendLabel = diff === null ? '' : diff > 0 ? `+${diff}%` : diff < 0 ? `${diff}%` : 'steady';
+                const trendColor = diff === null ? theme.textSecondary : diff > 0 ? theme.success : diff < 0 ? theme.error : theme.textSecondary;
+
+                return (
+                  <View style={styles.accuracyHero}>
+                    <Text
+                      style={[
+                        styles.accuracyHeroNumber,
+                        {
+                          color: current.accuracy >= 80 ? theme.success : current.accuracy >= 60 ? theme.warning : theme.error,
+                        },
+                      ]}
+                    >
+                      {current.accuracy}%
+                    </Text>
+                    {diff !== null ? (
+                      <View
+                        style={[
+                          styles.accuracyTrendBadge,
+                          {
+                            backgroundColor: diff > 0
+                              ? 'rgba(16,185,129,0.12)'
+                              : diff < 0
+                                ? 'rgba(239,68,68,0.12)'
+                                : 'rgba(148,163,184,0.1)',
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.accuracyTrendText, { color: trendColor }]}>{trendLabel}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })()}
+
+              <Text style={[styles.accuracySummary, { color: theme.textSecondary }]}>
+                {(() => {
+                  const current = accuracyTrendContext.current;
+                  const previous = accuracyTrendContext.previous;
+                  if (current?.accuracy === null || current?.accuracy === undefined) {
+                    return 'Start studying to track accuracy.';
+                  }
+
+                  if (previous?.accuracy === null || previous?.accuracy === undefined) {
+                    return 'This is your first tracked week. Keep it up.';
+                  }
+
+                  const diff = current.accuracy - previous.accuracy;
+                  if (diff > 5) {
+                    return 'Big improvement from last week. Your study habits are paying off.';
+                  }
+                  if (diff > 0) {
+                    return 'Slightly up from last week. Consistent progress.';
+                  }
+                  if (diff === 0) {
+                    return 'Holding steady. Consistency is the goal.';
+                  }
+                  if (diff > -5) {
+                    return 'Small dip from last week. Review weak cards to bounce back.';
+                  }
+                  return 'Accuracy dropped this week. Focus on fewer decks and review lapsed cards.';
+                })()}
+              </Text>
+
+              {expandedPanel === 'trend' ? (
+                <View style={styles.insightSection}>
+                  <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
+
+                  {accuracyTrendContext.recentEntries.map((entry, index) => {
+                    const weekLabel = index === 0 ? 'This week' : index === 1 ? 'Last week' : `${index} weeks ago`;
+
+                    return (
+                      <View key={entry.week} style={styles.trendWeekRow}>
+                        <Text style={[styles.trendWeekLabel, { color: theme.textSecondary }]}>{weekLabel}</Text>
+                        {entry.accuracy !== null ? (
+                          <View style={styles.trendWeekRight}>
+                            <View
+                              style={[
+                                styles.trendWeekBar,
+                                {
+                                  width: `${entry.accuracy}%`,
+                                  backgroundColor: entry.accuracy >= 80 ? theme.success : entry.accuracy >= 60 ? theme.warning : theme.error,
+                                },
+                              ]}
+                            />
+                            <Text style={[styles.trendWeekPct, { color: theme.text }]}>{entry.accuracy}%</Text>
+                          </View>
+                        ) : (
+                          <Text style={[styles.trendWeekPct, { color: theme.textTertiary }]}>No data</Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
+            </TouchableOpacity>
           ) : null}
 
           <View style={styles.deckProgressSection}>
             <Text style={styles.sectionLabel}>DECK PROGRESS</Text>
             <StatsDeckProgressList
               deckProgressSummaries={deckProgressSummaries}
+              deckMasteryDetails={deckMasteryDetails}
+              deckDueCounts={deckDueCounts}
+              isDark={isDark}
+              onStudyDeck={(deckId) => router.push(studyHref(deckId))}
               textColor={theme.text}
               secondaryTextColor={secondaryTextColor}
               emptyTextColor={secondaryTextColor}
@@ -1887,39 +2020,65 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       shadowRadius: isDark ? 18 : 12,
       elevation: isDark ? 6 : 3,
     },
-    trendRow: {
+    trendHeader: {
       flexDirection: 'row',
-      justifyContent: 'space-around',
-      alignItems: 'flex-end',
-      height: 100,
-      gap: 8,
-    },
-    trendColumn: {
-      flex: 1,
+      justifyContent: 'space-between',
       alignItems: 'center',
+      marginBottom: 12,
     },
-    trendBarContainer: {
-      width: '100%',
-      height: 60,
-      justifyContent: 'flex-end',
+    accuracyHero: {
+      flexDirection: 'row',
       alignItems: 'center',
+      gap: 12,
+      marginBottom: 6,
     },
-    trendBar: {
-      width: '60%',
-      borderRadius: 4,
-      minHeight: 4,
+    accuracyHeroNumber: {
+      fontSize: 36,
+      fontWeight: '900' as const,
+      letterSpacing: -1,
     },
-    trendPct: {
-      fontSize: 12,
+    accuracyTrendBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 8,
+    },
+    accuracyTrendText: {
+      fontSize: 13,
       fontWeight: '700' as const,
-      color: theme.text,
-      marginTop: 6,
     },
-    trendWeek: {
-      fontSize: 10,
-      fontWeight: '500' as const,
-      color: tertiaryTextColor,
-      marginTop: 2,
+    accuracySummary: {
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    trendWeekRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 6,
+      paddingHorizontal: 4,
+      gap: 10,
+    },
+    trendWeekLabel: {
+      fontSize: 13,
+      fontWeight: '600' as const,
+      width: 100,
+    },
+    trendWeekRight: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    trendWeekBar: {
+      height: 6,
+      borderRadius: 3,
+      minWidth: 8,
+    },
+    trendWeekPct: {
+      fontSize: 13,
+      fontWeight: '700' as const,
+      width: 56,
+      textAlign: 'right',
     },
 
     deckProgressSection: {

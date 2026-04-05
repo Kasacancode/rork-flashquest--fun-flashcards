@@ -24,7 +24,7 @@ export function useStatsScreenState() {
   const router = useRouter();
   const { decks } = useDeckContext();
   const { stats } = useStatsContext();
-  const { performance } = usePerformance();
+  const { performance, getCardsDueForReview } = usePerformance();
   const { leaderboard, playerName: savedPlayerName } = useArena();
   const { theme, isDark } = useTheme();
   const [showLevels, setShowLevels] = useState<boolean>(false);
@@ -116,6 +116,7 @@ export function useStatsScreenState() {
     stats,
     decks,
     performance,
+    getCardsDueForReview,
     showLevels,
     statsAccent,
     level,
