@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Bug } from 'lucide-react-native';
 import React, { useCallback } from 'react';
-import { StyleSheet, Text, TouchableOpacity, ViewStyle, type StyleProp } from 'react-native';
+import { Pressable, StyleSheet, Text, ViewStyle, type GestureResponderEvent, type StyleProp } from 'react-native';
 
 import type { FlashcardOption } from '@/types/flashcard';
 import { canAccessDebugFeature } from '@/utils/debugTooling';
@@ -29,7 +29,9 @@ export default function FlashcardDebugButton({
   const router = useRouter();
   const canInspectFlashcards = canAccessDebugFeature('flashcard_inspector');
 
-  const handlePress = useCallback(() => {
+  const handlePress = useCallback((event?: GestureResponderEvent) => {
+    event?.stopPropagation();
+
     if (!canInspectFlashcards) {
       return;
     }
@@ -47,15 +49,15 @@ export default function FlashcardDebugButton({
   }
 
   return (
-    <TouchableOpacity
+    <Pressable
       style={[styles.button, style]}
       onPress={handlePress}
-      activeOpacity={0.82}
+      accessibilityRole="button"
       testID={testID ?? 'flashcard-debug-button'}
     >
       <Bug color="#4f46e5" size={14} strokeWidth={2.4} />
       <Text style={styles.label}>{label}</Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 

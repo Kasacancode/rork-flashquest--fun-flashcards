@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   Alert,
   PanResponder,
+  type GestureResponderEvent,
 } from 'react-native';
 import { Lightbulb, BookOpen, Lock, CheckCircle, Sparkles, Volume2 } from 'lucide-react-native';
 import { triggerImpact } from '@/utils/haptics';
@@ -430,6 +431,11 @@ export default function StudyFeed({
     });
   }, [currentCard, isRevealed, isSpeaking, reversed]);
 
+  const handleSpeakPress = useCallback((event: GestureResponderEvent) => {
+    event.stopPropagation();
+    handleSpeak();
+  }, [handleSpeak]);
+
   const commitCurrentCardReview = useCallback(() => {
     if (!currentCard || !resolved || reviewSaved) {
       return;
@@ -838,19 +844,20 @@ export default function StudyFeed({
                   </View>
                 ) : null}
                 {isRevealed ? (
-                  <TouchableOpacity
-                    onPress={handleSpeak}
+                  <Pressable
+                    onPress={handleSpeakPress}
                     style={styles.speakButton}
-                    activeOpacity={0.7}
                     accessibilityLabel={isSpeaking ? 'Stop pronunciation' : 'Pronounce answer'}
                     accessibilityRole="button"
+                    hitSlop={8}
+                    testID="study-card-speak-button"
                   >
                     <Volume2
                       size={16}
                       color={isSpeaking ? '#3B82F6' : (isDark ? 'rgba(255,255,255,0.5)' : 'rgba(15,23,42,0.55)')}
                       strokeWidth={2.2}
                     />
-                  </TouchableOpacity>
+                  </Pressable>
                 ) : null}
                 <FlashcardDebugButton
                   deckId={currentCard?.deckId}
