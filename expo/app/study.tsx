@@ -918,7 +918,13 @@ export default function StudyPage() {
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         {selectedDeck && !studyMode && !showResults ? (
-          <View style={styles.modePickerContainer}>
+          <ScrollView
+            style={styles.modePickerScroll}
+            contentContainerStyle={styles.modePickerContainer}
+            showsVerticalScrollIndicator={false}
+            bounces
+            alwaysBounceVertical
+          >
             <TouchableOpacity
               style={[
                 styles.modePickerBackButton,
@@ -1198,7 +1204,7 @@ export default function StudyPage() {
                 </TouchableOpacity>
               ) : null}
             </View>
-          </View>
+          </ScrollView>
         ) : null}
 
         {selectedDeck && studyMode && !showResults && sessionFlashcards.length === 0 ? (
@@ -1805,8 +1811,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700' as const,
   },
-  modePickerContainer: {
+  modePickerScroll: {
     flex: 1,
+  },
+  modePickerContainer: {
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 14,
     paddingBottom: 32,
