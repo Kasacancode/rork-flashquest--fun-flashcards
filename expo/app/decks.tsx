@@ -76,6 +76,8 @@ export default function DecksPage() {
   const { deckListColumns } = useResponsiveLayout();
 
   const [showMenu, setShowMenu] = useState<boolean>(false);
+  const [showCreateSubmenu, setShowCreateSubmenu] = useState<boolean>(false);
+  const [showImportSubmenu, setShowImportSubmenu] = useState<boolean>(false);
   const [showCategoryManager, setShowCategoryManager] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string>(ALL_DECK_CATEGORIES_LABEL);
@@ -728,52 +730,41 @@ export default function DecksPage() {
 
             <TouchableOpacity
               style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(139,92,246,0.1)' : 'rgba(102,126,234,0.08)' }]}
-              onPress={handleScanNotes}
+              onPress={() => {
+                setShowMenu(false);
+                setTimeout(() => setShowCreateSubmenu(true), 200);
+              }}
               activeOpacity={0.8}
-              accessibilityLabel="Scan notes to create deck"
+              accessibilityLabel="Create a new deck"
               accessibilityRole="button"
-              testID="menuScanNotes"
+              testID="menuCreateDeck"
             >
-              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(139,92,246,0.2)' : 'rgba(102,126,234,0.15)' }]}> 
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(139,92,246,0.2)' : 'rgba(102,126,234,0.15)' }]}>
                 <Sparkles color={theme.primary} size={24} strokeWidth={2} />
               </View>
               <View style={styles.menuOptionText}>
-                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Scan Notes with AI</Text>
-                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Take a photo and let AI create flashcards</Text>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Create Deck</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Start a new deck from scratch or with AI</Text>
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : 'rgba(59,130,246,0.08)' }]}
-              onPress={handleTextToDeck}
+              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(14,165,233,0.1)' : 'rgba(14,165,233,0.08)' }]}
+              onPress={() => {
+                setShowMenu(false);
+                setTimeout(() => setShowImportSubmenu(true), 200);
+              }}
               activeOpacity={0.8}
-              accessibilityLabel="Import deck from text"
+              accessibilityLabel="Import a deck"
               accessibilityRole="button"
-              testID="menuTextToDeck"
+              testID="menuImportDeck"
             >
-              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.15)' }]}> 
-                <FileText color={isDark ? '#60a5fa' : '#3b82f6'} size={24} strokeWidth={2} />
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(14,165,233,0.2)' : 'rgba(14,165,233,0.15)' }]}>
+                <Download color={isDark ? '#38bdf8' : '#0ea5e9'} size={24} strokeWidth={2} />
               </View>
               <View style={styles.menuOptionText}>
-                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Text to Deck</Text>
-                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Paste notes or text and AI creates flashcards</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.08)' }]}
-              onPress={handleCreateManual}
-              activeOpacity={0.8}
-              accessibilityLabel="Create deck manually"
-              accessibilityRole="button"
-              testID="menuCreateManual"
-            >
-              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.15)' }]}> 
-                <PenLine color={theme.success} size={24} strokeWidth={2} />
-              </View>
-              <View style={styles.menuOptionText}>
-                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Create Manually</Text>
-                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Type your own questions and answers</Text>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Import Deck</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Bring in cards from clipboard or file</Text>
               </View>
             </TouchableOpacity>
 
@@ -783,47 +774,12 @@ export default function DecksPage() {
               activeOpacity={0.8}
               testID="menuManageCategories"
             >
-              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(245,158,11,0.2)' : 'rgba(245,158,11,0.15)' }]}> 
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(245,158,11,0.2)' : 'rgba(245,158,11,0.15)' }]}>
                 <BookOpen color={isDark ? '#fbbf24' : '#f59e0b'} size={24} strokeWidth={2} />
               </View>
               <View style={styles.menuOptionText}>
                 <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Manage Categories</Text>
                 <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Add, rename, or delete category labels</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(14,165,233,0.1)' : 'rgba(14,165,233,0.08)' }]}
-              onPress={() => {
-                setShowMenu(false);
-                void handleImportDeck();
-              }}
-              activeOpacity={0.8}
-              testID="menuImportDeck"
-            >
-              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(14,165,233,0.2)' : 'rgba(14,165,233,0.15)' }]}> 
-                <Download color={isDark ? '#38bdf8' : '#0ea5e9'} size={24} strokeWidth={2} />
-              </View>
-              <View style={styles.menuOptionText}>
-                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Import from Clipboard</Text>
-                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Paste a deck shared by a friend</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(139,92,246,0.1)' : 'rgba(139,92,246,0.08)' }]}
-              onPress={() => {
-                void handleImportCSV();
-              }}
-              activeOpacity={0.8}
-              testID="menuImportCSV"
-            >
-              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.15)' }]}> 
-                <FileSpreadsheet color={isDark ? '#a78bfa' : '#7c3aed'} size={24} strokeWidth={2} />
-              </View>
-              <View style={styles.menuOptionText}>
-                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Import from CSV File</Text>
-                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Load flashcards from a spreadsheet</Text>
               </View>
             </TouchableOpacity>
 
@@ -836,7 +792,7 @@ export default function DecksPage() {
               activeOpacity={0.8}
               testID="menuExploreDecks"
             >
-              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.15)' }]}> 
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.15)' }]}>
                 <Compass color={isDark ? '#818CF8' : '#6366F1'} size={24} strokeWidth={2} />
               </View>
               <View style={styles.menuOptionText}>
@@ -848,6 +804,172 @@ export default function DecksPage() {
             <TouchableOpacity
               style={[styles.menuCancel, { backgroundColor: isDark ? 'rgba(148,163,184,0.1)' : 'rgba(0,0,0,0.04)' }]}
               onPress={() => setShowMenu(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.menuCancelText, { color: theme.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={showCreateSubmenu}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCreateSubmenu(false)}
+        testID="createDeckSubmenu"
+      >
+        <Pressable
+          style={styles.menuOverlay}
+          onPress={() => setShowCreateSubmenu(false)}
+        >
+          <View
+            style={[
+              styles.menuSheet,
+              {
+                backgroundColor: isDark ? 'rgba(10, 17, 34, 0.98)' : theme.cardBackground,
+                borderTopWidth: isDark ? 1 : 0,
+                borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
+              },
+            ]}
+          >
+            <View style={[styles.menuHandle, { backgroundColor: theme.sheetHandle }]} />
+            <Text style={[styles.menuTitle, { color: theme.text }]} accessibilityRole="header">Create Deck</Text>
+
+            <TouchableOpacity
+              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(139,92,246,0.1)' : 'rgba(102,126,234,0.08)' }]}
+              onPress={() => {
+                setShowCreateSubmenu(false);
+                handleScanNotes();
+              }}
+              activeOpacity={0.8}
+              accessibilityLabel="Scan notes to create deck"
+              accessibilityRole="button"
+              testID="submenuScanNotes"
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(139,92,246,0.2)' : 'rgba(102,126,234,0.15)' }]}>
+                <Sparkles color={theme.primary} size={24} strokeWidth={2} />
+              </View>
+              <View style={styles.menuOptionText}>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Scan Notes with AI</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Take a photo and let AI create flashcards</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : 'rgba(59,130,246,0.08)' }]}
+              onPress={() => {
+                setShowCreateSubmenu(false);
+                handleTextToDeck();
+              }}
+              activeOpacity={0.8}
+              accessibilityLabel="Create deck from text"
+              accessibilityRole="button"
+              testID="submenuTextToDeck"
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.15)' }]}>
+                <FileText color={isDark ? '#60a5fa' : '#3b82f6'} size={24} strokeWidth={2} />
+              </View>
+              <View style={styles.menuOptionText}>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Text to Deck</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Paste notes or text and AI creates flashcards</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.08)' }]}
+              onPress={() => {
+                setShowCreateSubmenu(false);
+                handleCreateManual();
+              }}
+              activeOpacity={0.8}
+              accessibilityLabel="Create deck manually"
+              accessibilityRole="button"
+              testID="submenuCreateManual"
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.15)' }]}>
+                <PenLine color={theme.success} size={24} strokeWidth={2} />
+              </View>
+              <View style={styles.menuOptionText}>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Create Manually</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Type your own questions and answers</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuCancel, { backgroundColor: isDark ? 'rgba(148,163,184,0.1)' : 'rgba(0,0,0,0.04)' }]}
+              onPress={() => setShowCreateSubmenu(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.menuCancelText, { color: theme.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={showImportSubmenu}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowImportSubmenu(false)}
+        testID="importDeckSubmenu"
+      >
+        <Pressable
+          style={styles.menuOverlay}
+          onPress={() => setShowImportSubmenu(false)}
+        >
+          <View
+            style={[
+              styles.menuSheet,
+              {
+                backgroundColor: isDark ? 'rgba(10, 17, 34, 0.98)' : theme.cardBackground,
+                borderTopWidth: isDark ? 1 : 0,
+                borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'transparent',
+              },
+            ]}
+          >
+            <View style={[styles.menuHandle, { backgroundColor: theme.sheetHandle }]} />
+            <Text style={[styles.menuTitle, { color: theme.text }]} accessibilityRole="header">Import Deck</Text>
+
+            <TouchableOpacity
+              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(14,165,233,0.1)' : 'rgba(14,165,233,0.08)' }]}
+              onPress={() => {
+                setShowImportSubmenu(false);
+                void handleImportDeck();
+              }}
+              activeOpacity={0.8}
+              testID="submenuImportClipboard"
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(14,165,233,0.2)' : 'rgba(14,165,233,0.15)' }]}>
+                <Download color={isDark ? '#38bdf8' : '#0ea5e9'} size={24} strokeWidth={2} />
+              </View>
+              <View style={styles.menuOptionText}>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Import from Clipboard</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Paste a deck shared by a friend</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(139,92,246,0.1)' : 'rgba(139,92,246,0.08)' }]}
+              onPress={() => {
+                setShowImportSubmenu(false);
+                void handleImportCSV();
+              }}
+              activeOpacity={0.8}
+              testID="submenuImportCSV"
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.15)' }]}>
+                <FileSpreadsheet color={isDark ? '#a78bfa' : '#7c3aed'} size={24} strokeWidth={2} />
+              </View>
+              <View style={styles.menuOptionText}>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Import from CSV File</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Load flashcards from a spreadsheet</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuCancel, { backgroundColor: isDark ? 'rgba(148,163,184,0.1)' : 'rgba(0,0,0,0.04)' }]}
+              onPress={() => setShowImportSubmenu(false)}
               activeOpacity={0.8}
             >
               <Text style={[styles.menuCancelText, { color: theme.textSecondary }]}>Cancel</Text>
