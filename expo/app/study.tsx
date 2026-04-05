@@ -189,9 +189,11 @@ export default function StudyPage() {
   const initialMode = validModes.includes(params.initialMode as StudyMode) ? (params.initialMode as StudyMode) : null;
   const launchedFromReviewHub = params.source === 'review-hub';
   const launchedFromDeckHub = params.source === 'deck-hub';
+  const initialDeckId = params.deckId ?? null;
 
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(!params.deckId);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(params.deckId || null);
+  const deckHubTargetDeckId = launchedFromDeckHub ? selectedDeckId ?? initialDeckId : null;
   const [sessionResolved, setSessionResolved] = useState<number>(0);
   const [showResults, setShowResults] = useState<boolean>(false);
   const [sessionXp, setSessionXp] = useState<number>(0);
@@ -209,8 +211,8 @@ export default function StudyPage() {
 
   const exitRoute = launchedFromReviewHub
     ? HOME_ROUTE
-    : launchedFromDeckHub && selectedDeckId
-      ? deckHubHref(selectedDeckId)
+    : launchedFromDeckHub && deckHubTargetDeckId
+      ? deckHubHref(deckHubTargetDeckId)
       : DECKS_ROUTE;
 
   const isCrossDeckReview = selectedDeckId === CROSS_DECK_REVIEW_DECK_ID;
@@ -450,23 +452,18 @@ export default function StudyPage() {
     }
 
     if (launchedFromDeckHub) {
-      const fallbackRoute = selectedDeckId ? deckHubHref(selectedDeckId) : DECKS_ROUTE;
       logger.debug('[Study] Exiting study to deck hub', {
-        deckId: selectedDeckId,
+        deckId: deckHubTargetDeckId,
         canGoBack: navigation.canGoBack(),
+        exitRoute,
       });
-
-      if (navigation.canGoBack()) {
-        router.back();
-      } else {
-        router.replace(fallbackRoute);
-      }
+      router.dismissTo(exitRoute);
       return;
     }
 
     logger.debug('[Study] Exiting study to decks');
     router.replace(DECKS_ROUTE);
-  }, [launchedFromDeckHub, launchedFromReviewHub, navigation, router, selectedDeckId]);
+  }, [deckHubTargetDeckId, exitRoute, launchedFromDeckHub, launchedFromReviewHub, navigation, router]);
 
   const handleBackFromStudy = useCallback(() => {
     handleExitStudy();
@@ -1043,7 +1040,7 @@ export default function StudyPage() {
             <TouchableOpacity
               style={styles.modePickerBackButton}
               onPress={() => {
-                if (launchedFromReviewHub) {
+                if (launchedFromReviewHub || launchedFromDeckHub) {
                   handleExitStudy();
                   return;
                 }
@@ -1051,7 +1048,7 @@ export default function StudyPage() {
                 setSelectedDeckId(null);
                 setShowDeckSelector(true);
               }}
-              accessibilityLabel={launchedFromReviewHub ? 'Back to home' : 'Back to deck selection'}
+              accessibilityLabel={launchedFromReviewHub ? 'Back to home' : launchedFromDeckHub ? 'Back to deck dashboard' : 'Back to deck selection'}
               accessibilityRole="button"
               testID="study-mode-picker-back"
             >
