@@ -132,6 +132,49 @@ function getDeckStudySummary(
   return { dueCount, newCount, lapsedCount, status };
 }
 
+function getFlashcardsForStudyMode(
+  orderedFlashcards: Flashcard[],
+  studyMode: StudyMode | null,
+  cardStatsById: Record<string, import('@/types/performance').CardStats>,
+): Flashcard[] {
+  if (!studyMode) {
+    return [] as Flashcard[];
+  }
+
+  switch (studyMode) {
+    case 'all':
+      return orderedFlashcards;
+    case 'due': {
+      const now = Date.now();
+      return orderedFlashcards.filter((card) => {
+        const stats = cardStatsById[card.id];
+        const live = getLiveCardStats(stats, now);
+        return live.status === 'lapsed' || isCardDueForReview(stats, now);
+      });
+    }
+    case 'quick-5':
+      return orderedFlashcards.slice(0, 5);
+    case 'quick-10':
+      return orderedFlashcards.slice(0, 10);
+    case 'quick-15':
+      return orderedFlashcards.slice(0, 15);
+    case 'weak': {
+      const now = Date.now();
+      const WEAK_THRESHOLD = 5;
+      return orderedFlashcards.filter((card) => {
+        const stats = cardStatsById[card.id];
+        const live = getLiveCardStats(stats, now);
+        if (live.attempts === 0) {
+          return false;
+        }
+        return getWeaknessScore(stats, now) >= WEAK_THRESHOLD;
+      });
+    }
+    default:
+      return orderedFlashcards;
+  }
+}
+
 export default function StudyPage() {
   const router = useRouter();
   const navigation = useNavigation();
@@ -150,6 +193,7 @@ export default function StudyPage() {
   const [sessionXp, setSessionXp] = useState<number>(0);
   const [reversed, setReversed] = useState<boolean>(false);
   const [studyMode, setStudyMode] = useState<StudyMode | null>(initialMode);
+  const [sessionFlashcards, setSessionFlashcards] = useState<Flashcard[]>([]);
   const trackedStudyDeckIdRef = useRef<string | null>(null);
   const sessionStartRef = useRef<number>(Date.now());
   const sessionResolvedRef = useRef<number>(0);
@@ -169,44 +213,9 @@ export default function StudyPage() {
     return { orderedFlashcards: ordered, studySummary: summary };
   }, [selectedDeck, performance.cardStatsById]);
 
-  const filteredFlashcards = useMemo(() => {
-    if (!studyMode) {
-      return [] as Flashcard[];
-    }
-
-    switch (studyMode) {
-      case 'all':
-        return orderedFlashcards;
-      case 'due': {
-        const now = Date.now();
-        return orderedFlashcards.filter((card) => {
-          const stats = performance.cardStatsById[card.id];
-          const live = getLiveCardStats(stats, now);
-          return live.status === 'lapsed' || isCardDueForReview(stats, now);
-        });
-      }
-      case 'quick-5':
-        return orderedFlashcards.slice(0, 5);
-      case 'quick-10':
-        return orderedFlashcards.slice(0, 10);
-      case 'quick-15':
-        return orderedFlashcards.slice(0, 15);
-      case 'weak': {
-        const now = Date.now();
-        const WEAK_THRESHOLD = 5;
-        return orderedFlashcards.filter((card) => {
-          const stats = performance.cardStatsById[card.id];
-          const live = getLiveCardStats(stats, now);
-          if (live.attempts === 0) {
-            return false;
-          }
-          return getWeaknessScore(stats, now) >= WEAK_THRESHOLD;
-        });
-      }
-      default:
-        return orderedFlashcards;
-    }
-  }, [studyMode, orderedFlashcards, performance.cardStatsById]);
+  const remainingDueCount = useMemo(() => {
+    return getFlashcardsForStudyMode(orderedFlashcards, 'due', performance.cardStatsById).length;
+  }, [orderedFlashcards, performance.cardStatsById]);
 
   const deckSummaries = useMemo(() => {
     const entries = new Map<string, { dueCount: number; newCount: number; lapsedCount: number }>();
@@ -215,6 +224,24 @@ export default function StudyPage() {
     }
     return entries;
   }, [decks, performance.cardStatsById]);
+
+  useEffect(() => {
+    if (!selectedDeck || !studyMode || showResults || sessionFlashcards.length > 0) {
+      return;
+    }
+
+    const nextSessionFlashcards = getFlashcardsForStudyMode(orderedFlashcards, studyMode, performance.cardStatsById);
+    if (nextSessionFlashcards.length === 0) {
+      return;
+    }
+
+    logger.debug('[Study] Initializing stable session flashcards', {
+      deckId: selectedDeck.id,
+      studyMode,
+      count: nextSessionFlashcards.length,
+    });
+    setSessionFlashcards(nextSessionFlashcards);
+  }, [orderedFlashcards, performance.cardStatsById, selectedDeck, sessionFlashcards.length, showResults, studyMode]);
 
   const handleDeckSelect = useCallback((deckId: string) => {
     trackedStudyDeckIdRef.current = null;
@@ -226,17 +253,25 @@ export default function StudyPage() {
     setSessionXp(0);
     setShowResults(false);
     setStudyMode(null);
+    setSessionFlashcards([]);
   }, []);
 
   const handleSelectStudyMode = useCallback((mode: StudyMode) => {
     trackedStudyDeckIdRef.current = null;
     sessionStartRef.current = Date.now();
     sessionResolvedRef.current = 0;
+    const nextSessionFlashcards = getFlashcardsForStudyMode(orderedFlashcards, mode, performance.cardStatsById);
+    logger.debug('[Study] Starting session', {
+      deckId: selectedDeck?.id,
+      mode,
+      count: nextSessionFlashcards.length,
+    });
     setSessionResolved(0);
     setSessionXp(0);
     setShowResults(false);
     setStudyMode(mode);
-  }, []);
+    setSessionFlashcards(nextSessionFlashcards);
+  }, [orderedFlashcards, performance.cardStatsById, selectedDeck?.id]);
 
   const handleCardResolved = useCallback((_cardId: string) => {
     if (selectedDeck) {
@@ -313,7 +348,24 @@ export default function StudyPage() {
     setSessionResolved(0);
     setSessionXp(0);
     setShowResults(false);
-  }, []);
+    setSessionFlashcards(getFlashcardsForStudyMode(orderedFlashcards, studyMode, performance.cardStatsById));
+  }, [orderedFlashcards, performance.cardStatsById, studyMode]);
+
+  const handleContinueWithAll = useCallback(() => {
+    trackedStudyDeckIdRef.current = null;
+    sessionStartRef.current = Date.now();
+    sessionResolvedRef.current = 0;
+    const nextSessionFlashcards = getFlashcardsForStudyMode(orderedFlashcards, 'all', performance.cardStatsById);
+    logger.debug('[Study] Continuing with all cards', {
+      deckId: selectedDeck?.id,
+      count: nextSessionFlashcards.length,
+    });
+    setSessionResolved(0);
+    setSessionXp(0);
+    setShowResults(false);
+    setStudyMode('all');
+    setSessionFlashcards(nextSessionFlashcards);
+  }, [orderedFlashcards, performance.cardStatsById, selectedDeck?.id]);
 
   const handleUpdateCard = useCallback((cardId: string, updates: Partial<Flashcard>) => {
     if (selectedDeck) {
@@ -379,75 +431,148 @@ export default function StudyPage() {
         />
 
         <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-          <View style={styles.resultsContainer}>
-            <Text style={styles.resultsTitle}>Deck Complete!</Text>
-            <Text style={styles.resultsSubtitle}>Great work studying {selectedDeck.name}</Text>
+          <ScrollView contentContainerStyle={styles.resultsScrollContent} showsVerticalScrollIndicator={false} bounces={false}>
+            <View style={styles.resultsContainer}>
+              <View
+                style={[
+                  styles.resultsEyebrow,
+                  { backgroundColor: studyMode === 'due' ? 'rgba(16, 185, 129, 0.16)' : 'rgba(255, 255, 255, 0.16)' },
+                ]}
+              >
+                {studyMode === 'due' ? (
+                  <RefreshCw color="#6EE7B7" size={14} strokeWidth={2.3} />
+                ) : (
+                  <BookOpen color="#E9D5FF" size={14} strokeWidth={2.3} />
+                )}
+                <Text style={styles.resultsEyebrowText}>
+                  {studyMode === 'due' ? 'Review complete' : 'Study session complete'}
+                </Text>
+              </View>
 
-            <View style={styles.resultsCard}>
-              <View style={styles.resultStat}>
-                <Text style={styles.resultStatValue}>{sessionResolved}</Text>
-                <Text style={styles.resultStatLabel}>Reviewed</Text>
+              <Text style={styles.resultsTitle}>
+                {studyMode === 'due'
+                  ? remainingDueCount === 0 ? 'You’re all caught up' : 'Nice progress'
+                  : 'Deck Complete!'}
+              </Text>
+              <Text style={styles.resultsSubtitle}>
+                {studyMode === 'due'
+                  ? remainingDueCount === 0
+                    ? `${selectedDeck.name} has no cards waiting for review right now.`
+                    : `You finished this round in ${selectedDeck.name}. ${remainingDueCount} card${remainingDueCount !== 1 ? 's are' : ' is'} still due.`
+                  : `Great work studying ${selectedDeck.name}`}
+              </Text>
+
+              <View style={styles.resultsCard}>
+                <View style={styles.resultStat}>
+                  <Text style={styles.resultStatValue}>{sessionResolved}</Text>
+                  <Text style={styles.resultStatLabel}>{studyMode === 'due' ? 'Reviewed now' : 'Reviewed'}</Text>
+                </View>
+                <View style={styles.resultStatDivider} />
+                <View style={styles.resultStat}>
+                  <Text
+                    style={[
+                      styles.resultStatValue,
+                      { color: studyMode === 'due' && remainingDueCount === 0 ? '#10B981' : '#667eea' },
+                    ]}
+                  >
+                    {studyMode === 'due' ? remainingDueCount : selectedDeck.flashcards.length}
+                  </Text>
+                  <Text style={styles.resultStatLabel}>{studyMode === 'due' ? 'Still due' : 'In deck'}</Text>
+                </View>
+                <View style={styles.resultStatDivider} />
+                <View style={styles.resultStat}>
+                  <Text style={[styles.resultStatValue, { color: '#10B981' }]}>+{sessionXp}</Text>
+                  <Text style={styles.resultStatLabel}>XP earned</Text>
+                </View>
               </View>
-              <View style={styles.resultStatDivider} />
-              <View style={styles.resultStat}>
-                <Text style={styles.resultStatValue}>{selectedDeck.flashcards.length}</Text>
-                <Text style={styles.resultStatLabel}>In Deck</Text>
+
+              <View style={styles.resultsStatusCard}>
+                <View style={styles.resultsStatusHeader}>
+                  <View
+                    style={[
+                      styles.resultsStatusDot,
+                      { backgroundColor: studyMode === 'due' ? (remainingDueCount === 0 ? '#34D399' : '#F59E0B') : '#818CF8' },
+                    ]}
+                  />
+                  <Text style={styles.resultsStatusTitle}>
+                    {studyMode === 'due'
+                      ? remainingDueCount === 0 ? 'This deck is cleared for now' : 'You can stop here or keep reinforcing'
+                      : 'Nice momentum'}
+                  </Text>
+                </View>
+                <Text style={styles.resultsStatusText}>
+                  {studyMode === 'due'
+                    ? remainingDueCount === 0
+                      ? 'Head home and the review hub will bring this deck back when cards are due again.'
+                      : 'You finished the current review pass. Go home now or continue with the full deck for extra reps.'
+                    : 'Come back later for spaced repetition, or jump into Quest mode to test recall under pressure.'}
+                </Text>
+
+                {(needsReviewCount > 0 || studySummary.newCount > 0) ? (
+                  <View style={styles.srsResultBanner}>
+                    {needsReviewCount > 0 ? (
+                      <View style={styles.srsResultRow}>
+                        <RefreshCw color="#F59E0B" size={14} strokeWidth={2.2} />
+                        <Text style={styles.srsResultText}>{needsReviewCount} card{needsReviewCount !== 1 ? 's' : ''} still need review in this deck</Text>
+                      </View>
+                    ) : null}
+                    {studySummary.newCount > 0 ? (
+                      <View style={styles.srsResultRow}>
+                        <Sparkles color="#60A5FA" size={14} strokeWidth={2.2} />
+                        <Text style={styles.srsResultText}>{studySummary.newCount} new card{studySummary.newCount !== 1 ? 's are' : ' is'} ready when you want to keep going</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
               </View>
-              <View style={styles.resultStatDivider} />
-              <View style={styles.resultStat}>
-                <Text style={[styles.resultStatValue, { color: '#10B981' }]}>+{sessionXp}</Text>
-                <Text style={styles.resultStatLabel}>XP Earned</Text>
-              </View>
+
+              <TouchableOpacity
+                style={styles.primaryResultsButton}
+                onPress={() => (launchedFromReviewHub ? handleDismissToHome() : router.back())}
+                accessibilityLabel={launchedFromReviewHub ? 'Back to home' : 'Go back'}
+                accessibilityRole="button"
+                testID="study-results-back-button"
+              >
+                <Text style={styles.primaryResultsButtonText}>
+                  {launchedFromReviewHub ? 'Back to Home' : studyMode === 'due' ? 'Done for Now' : 'Back to Decks'}
+                </Text>
+              </TouchableOpacity>
+
+              {studyMode === 'due' ? (
+                <TouchableOpacity
+                  style={styles.secondaryResultsButton}
+                  onPress={handleContinueWithAll}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  testID="study-results-continue-all-button"
+                >
+                  <RotateCcw color="#FFFFFF" size={18} strokeWidth={2} />
+                  <Text style={styles.secondaryResultsButtonText}>Continue with All Cards</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.restartButton} onPress={handleRestart} testID="study-results-restart-button">
+                  <RotateCcw color="#667eea" size={20} strokeWidth={2} />
+                  <Text style={styles.restartButtonText}>Study Again</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.suggestButton}
+                onPress={() => router.push(questHref({ deckId: selectedDeck.id }))}
+              >
+                <Target color="#fff" size={20} strokeWidth={2} />
+                <Text style={styles.suggestButtonText}>Test Yourself in Quest Mode</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.hubButton}
+                onPress={() => router.push(deckHubHref(selectedDeck.id))}
+              >
+                <Zap color="rgba(255,255,255,0.7)" size={18} strokeWidth={2} />
+                <Text style={styles.hubButtonText}>View Deck Progress</Text>
+              </TouchableOpacity>
             </View>
-
-            {(needsReviewCount > 0 || studySummary.newCount > 0) ? (
-              <View style={styles.srsResultBanner}>
-                {needsReviewCount > 0 ? (
-                  <View style={styles.srsResultRow}>
-                    <RefreshCw color="#F59E0B" size={14} strokeWidth={2.2} />
-                    <Text style={styles.srsResultText}>{needsReviewCount} card{needsReviewCount !== 1 ? 's' : ''} needed review, scheduled by spaced repetition</Text>
-                  </View>
-                ) : null}
-                {studySummary.newCount > 0 ? (
-                  <View style={styles.srsResultRow}>
-                    <Sparkles color="#60A5FA" size={14} strokeWidth={2.2} />
-                    <Text style={styles.srsResultText}>{studySummary.newCount} new card{studySummary.newCount !== 1 ? 's' : ''} introduced this session</Text>
-                  </View>
-                ) : null}
-              </View>
-            ) : null}
-
-            <TouchableOpacity style={styles.restartButton} onPress={handleRestart}>
-              <RotateCcw color="#667eea" size={20} strokeWidth={2} />
-              <Text style={styles.restartButtonText}>Study Again</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.suggestButton}
-              onPress={() => router.push(questHref({ deckId: selectedDeck.id }))}
-            >
-              <Target color="#fff" size={20} strokeWidth={2} />
-              <Text style={styles.suggestButtonText}>Test Yourself in Quest Mode</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.hubButton}
-              onPress={() => router.push(deckHubHref(selectedDeck.id))}
-            >
-              <Zap color="rgba(255,255,255,0.7)" size={18} strokeWidth={2} />
-              <Text style={styles.hubButtonText}>View Deck Progress</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.homeButton}
-              onPress={() => (launchedFromReviewHub ? handleDismissToHome() : router.back())}
-              accessibilityLabel={launchedFromReviewHub ? 'Back to home' : 'Go back'}
-              accessibilityRole="button"
-              testID="study-results-back-button"
-            >
-              <Text style={styles.homeButtonText}>{launchedFromReviewHub ? 'Back to Home' : 'Back to Decks'}</Text>
-            </TouchableOpacity>
-          </View>
+          </ScrollView>
         </SafeAreaView>
       </View>
     );
@@ -800,7 +925,7 @@ export default function StudyPage() {
           </View>
         ) : null}
 
-        {selectedDeck && studyMode && !showResults && filteredFlashcards.length === 0 ? (
+        {selectedDeck && studyMode && !showResults && sessionFlashcards.length === 0 ? (
           <View style={styles.emptyModeContainer}>
             <Text style={[styles.emptyModeText, { color: theme.textSecondary }]}>No cards match this filter right now.</Text>
             <TouchableOpacity
@@ -814,7 +939,7 @@ export default function StudyPage() {
           </View>
         ) : null}
 
-        {selectedDeck && studyMode && !showResults && filteredFlashcards.length > 0 ? (
+        {selectedDeck && studyMode && !showResults && sessionFlashcards.length > 0 ? (
           <>
             <View style={styles.header}>
               <TouchableOpacity onPress={handleBackFromStudy} style={styles.backButton} accessibilityRole="button" accessibilityLabel={launchedFromReviewHub ? 'Back to home' : 'Back to study modes'}>
@@ -835,7 +960,7 @@ export default function StudyPage() {
             </View>
 
             <StudyFeed
-              flashcards={filteredFlashcards}
+              flashcards={sessionFlashcards}
               theme={theme}
               isDark={isDark}
               reversed={reversed}
@@ -1096,34 +1221,59 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.78)',
     flex: 1,
   },
+  resultsScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   resultsContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
+    paddingVertical: 28,
+  },
+  resultsEyebrow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 18,
+  },
+  resultsEyebrowText: {
+    fontSize: 12,
+    fontWeight: '800' as const,
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
   },
   resultsTitle: {
-    fontSize: 42,
+    fontSize: 38,
     fontWeight: '800' as const,
     color: '#fff',
-    marginBottom: 8,
+    marginBottom: 10,
     textAlign: 'center',
+    letterSpacing: -0.8,
   },
   resultsSubtitle: {
-    fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 40,
+    fontSize: 17,
+    color: 'rgba(255, 255, 255, 0.88)',
+    marginBottom: 28,
     textAlign: 'center',
     fontWeight: '600' as const,
+    lineHeight: 24,
+    maxWidth: 320,
   },
   resultsCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
     borderRadius: 24,
-    padding: 32,
+    paddingHorizontal: 22,
+    paddingVertical: 24,
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 32,
+    marginBottom: 18,
   },
   resultStat: {
     alignItems: 'center',
@@ -1143,9 +1293,73 @@ const styles = StyleSheet.create({
     width: 1,
     backgroundColor: '#e0e0e0',
   },
+  resultsStatusCard: {
+    width: '100%',
+    borderRadius: 22,
+    backgroundColor: 'rgba(8, 15, 33, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    padding: 18,
+    marginBottom: 18,
+    gap: 12,
+  },
+  resultsStatusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  resultsStatusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  resultsStatusTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '800' as const,
+    color: '#FFFFFF',
+  },
+  resultsStatusText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500' as const,
+    color: 'rgba(255, 255, 255, 0.82)',
+  },
+  primaryResultsButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    paddingHorizontal: 28,
+    paddingVertical: 16,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  primaryResultsButtonText: {
+    fontSize: 17,
+    fontWeight: '800' as const,
+    color: '#4F46E5',
+  },
+  secondaryResultsButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    borderRadius: 18,
+    paddingHorizontal: 28,
+    paddingVertical: 15,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  secondaryResultsButtonText: {
+    fontSize: 16,
+    fontWeight: '800' as const,
+    color: '#FFFFFF',
+  },
   restartButton: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 18,
     paddingHorizontal: 32,
     paddingVertical: 16,
     flexDirection: 'row',
@@ -1153,7 +1367,7 @@ const styles = StyleSheet.create({
     gap: 12,
     width: '100%',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   restartButtonText: {
     fontSize: 18,
