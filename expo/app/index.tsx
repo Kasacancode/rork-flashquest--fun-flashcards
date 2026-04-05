@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, type Href } from 'expo-router';
-import { Trophy, BookOpen, Compass, RotateCcw, Swords, Target, User } from 'lucide-react-native';
+import { ChevronRight, Trophy, BookOpen, Compass, RotateCcw, Swords, Target, User } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
@@ -27,6 +27,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { computeLevel, getLevelBandPalette, getLevelEntry } from '@/utils/levels';
 import { getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
 import { ARENA_ROUTE, DECKS_ROUTE, EXPLORE_ROUTE, deckHubHref, questHref, studyHref } from '@/utils/routes';
+import { logger } from '@/utils/logger';
 import { getUserInterests } from '@/utils/userInterests';
 import { useResponsiveLayout } from '@/utils/responsive';
 
@@ -80,6 +81,10 @@ export default function HomePage() {
   const [statsPage, setStatsPage] = useState<number>(0);
   const [userInterests, setUserInterests] = useState<string[]>([]);
   const [showReviewSheet, setShowReviewSheet] = useState<boolean>(false);
+  const reviewSheetTranslateY = useRef<Animated.Value>(new Animated.Value(520)).current;
+  const reviewSheetBackdropOpacity = useRef<Animated.Value>(new Animated.Value(0)).current;
+  const reviewSheetDragStartY = useRef<number>(0);
+  const reviewSheetCloseActionRef = useRef<null | (() => void)>(null);
   const hasCustomDecks = useMemo<boolean>(() => decks.some((deck) => deck.isCustom), [decks]);
   const availableContentWidth = contentMaxWidth ?? screenWidth;
   const isCompactHomeLayout = availableContentWidth < 390;
@@ -253,6 +258,9 @@ export default function HomePage() {
     return { deckSummaries, totalReviewCount };
   }, [decks, performance.cardStatsById]);
 
+  const topReviewDeck = reviewSummary?.deckSummaries[0] ?? null;
+  const previewReviewDecks = reviewSummary?.deckSummaries.slice(1, 3) ?? [];
+  const remainingReviewDeckCount = Math.max(0, (reviewSummary?.deckSummaries.length ?? 0) - 1 - previewReviewDecks.length);
   const primaryRecommendation = recommendations[0] ?? null;
   const newestDeck = useMemo(() => {
     if (decks.length === 0) {
@@ -335,7 +343,6 @@ export default function HomePage() {
       return items.slice(0, 3);
     }
 
-    const topReviewDeck = reviewSummary?.deckSummaries[0] ?? null;
     if (topReviewDeck) {
       pushAction({
         key: `review-${topReviewDeck.deckId}`,
@@ -450,12 +457,12 @@ export default function HomePage() {
     hasCustomDecks,
     newestDeck,
     primaryRecommendation,
-    reviewSummary,
     smartActionGradients,
     stats.currentStreak,
     stats.totalArenaBattles,
     stats.totalCardsStudied,
     stats.totalQuestSessions,
+    topReviewDeck,
     userInterests,
   ]);
   const communityDeckAction = useMemo<SmartAction>(() => {
@@ -484,6 +491,146 @@ export default function HomePage() {
   const communityBannerSubtitle = 'Discover decks from other FlashQuest players and save them offline.';
 
   const hasReviewPage = reviewSummary !== null;
+
+  const animateReviewSheetOpen = useCallback(() => {
+    Animated.parallel([
+      Animated.spring(reviewSheetTranslateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 82,
+        friction: 12,
+      }),
+      Animated.timing(reviewSheetBackdropOpacity, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [reviewSheetBackdropOpacity, reviewSheetTranslateY]);
+
+  const handleCloseReviewSheet = useCallback((afterClose?: () => void) => {
+    if (!showReviewSheet) {
+      if (afterClose) {
+        requestAnimationFrame(afterClose);
+      }
+      return;
+    }
+
+    logger.debug('[Home] Closing review hub', { hasAfterClose: Boolean(afterClose) });
+    reviewSheetCloseActionRef.current = afterClose ?? null;
+    Animated.parallel([
+      Animated.timing(reviewSheetTranslateY, {
+        toValue: 520,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(reviewSheetBackdropOpacity, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (!finished) {
+        return;
+      }
+
+      setShowReviewSheet(false);
+      reviewSheetTranslateY.setValue(520);
+      const nextAction = reviewSheetCloseActionRef.current;
+      reviewSheetCloseActionRef.current = null;
+
+      if (nextAction) {
+        requestAnimationFrame(nextAction);
+      }
+    });
+  }, [reviewSheetBackdropOpacity, reviewSheetTranslateY, showReviewSheet]);
+
+  const handleOpenReviewSheet = useCallback(() => {
+    if (!reviewSummary) {
+      return;
+    }
+
+    logger.debug('[Home] Opening review hub', {
+      totalReviewCount: reviewSummary.totalReviewCount,
+      deckCount: reviewSummary.deckSummaries.length,
+    });
+    reviewSheetCloseActionRef.current = null;
+    reviewSheetTranslateY.setValue(520);
+    reviewSheetBackdropOpacity.setValue(0);
+    setShowReviewSheet(true);
+    requestAnimationFrame(() => {
+      animateReviewSheetOpen();
+    });
+  }, [animateReviewSheetOpen, reviewSheetBackdropOpacity, reviewSheetTranslateY, reviewSummary]);
+
+  const handleLaunchDueDeck = useCallback((deckId: string) => {
+    logger.debug('[Home] Launching due review deck', { deckId });
+    handleCloseReviewSheet(() => {
+      router.push(studyHref(deckId, 'due'));
+    });
+  }, [handleCloseReviewSheet, router]);
+
+  const handleStartReviewing = useCallback(() => {
+    if (!topReviewDeck) {
+      return;
+    }
+
+    handleLaunchDueDeck(topReviewDeck.deckId);
+  }, [handleLaunchDueDeck, topReviewDeck]);
+
+  useEffect(() => {
+    if (!reviewSummary && showReviewSheet) {
+      setShowReviewSheet(false);
+      reviewSheetTranslateY.setValue(520);
+      reviewSheetBackdropOpacity.setValue(0);
+      reviewSheetCloseActionRef.current = null;
+    }
+  }, [reviewSummary, reviewSheetBackdropOpacity, reviewSheetTranslateY, showReviewSheet]);
+
+  const reviewSheetPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          if (!showReviewSheet) {
+            return false;
+          }
+
+          return gestureState.dy > 6 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.2;
+        },
+        onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+          if (!showReviewSheet) {
+            return false;
+          }
+
+          return gestureState.dy > 6 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.2;
+        },
+        onPanResponderGrant: () => {
+          reviewSheetTranslateY.stopAnimation((value) => {
+            reviewSheetDragStartY.current = value;
+          });
+          reviewSheetBackdropOpacity.stopAnimation();
+        },
+        onPanResponderMove: (_, gestureState) => {
+          const nextTranslateY = Math.max(0, reviewSheetDragStartY.current + gestureState.dy);
+          reviewSheetTranslateY.setValue(nextTranslateY);
+          reviewSheetBackdropOpacity.setValue(Math.max(0, 1 - nextTranslateY / 320));
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          const projectedY = reviewSheetDragStartY.current + gestureState.dy + gestureState.vy * 140;
+          if (projectedY > 140) {
+            handleCloseReviewSheet();
+            return;
+          }
+
+          animateReviewSheetOpen();
+        },
+        onPanResponderTerminate: () => {
+          animateReviewSheetOpen();
+        },
+        onPanResponderTerminationRequest: () => false,
+      }),
+    [animateReviewSheetOpen, handleCloseReviewSheet, reviewSheetBackdropOpacity, reviewSheetTranslateY, showReviewSheet],
+  );
 
   const handleOpenProfile = useCallback(() => {
     router.push('/profile' as Href);
@@ -789,25 +936,42 @@ export default function HomePage() {
                   {hasReviewPage && (
                     <View style={[styles.reviewPage, { width: statsCardInnerWidth }]}>
                       <TouchableOpacity
-                        style={styles.reviewPageSummaryButton}
-                        onPress={() => setShowReviewSheet(true)}
-                        activeOpacity={0.85}
+                        style={[
+                          styles.reviewPageSummaryButton,
+                          {
+                            backgroundColor: isDark ? 'rgba(19, 31, 52, 0.96)' : 'rgba(247, 248, 255, 0.98)',
+                            borderColor: isDark ? 'rgba(129, 140, 248, 0.18)' : 'rgba(99, 102, 241, 0.12)',
+                            shadowColor: isDark ? '#020617' : '#94a3b8',
+                            shadowOpacity: isDark ? 0.28 : 0.12,
+                            shadowRadius: isDark ? 18 : 10,
+                            elevation: isDark ? 8 : 4,
+                          },
+                        ]}
+                        onPress={handleOpenReviewSheet}
+                        activeOpacity={0.9}
                         accessibilityLabel={`${reviewSummary!.totalReviewCount} cards ready for review across ${reviewSummary!.deckSummaries.length} decks`}
                         accessibilityRole="button"
                         testID="stats-card-review-page"
                       >
-                      <View style={styles.reviewPageHeader}>
+                        <LinearGradient
+                          colors={isDark ? ['rgba(99, 102, 241, 0.16)', 'rgba(30, 41, 59, 0.04)'] as const : ['rgba(129, 140, 248, 0.12)', 'rgba(255, 255, 255, 0.08)'] as const}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={StyleSheet.absoluteFill}
+                        />
+                      <View style={[styles.reviewPageHeader, { justifyContent: 'space-between' }]}> 
                         <View style={[styles.reviewIconWrap, { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)' }]}>
                           <RotateCcw color={isDark ? '#a5b4fc' : '#6366f1'} size={16} strokeWidth={2.4} />
                         </View>
                         <View style={styles.reviewPageText}>
-                          <Text style={[styles.reviewTitle, { color: statsValueColor }]}>
-                            {reviewSummary!.totalReviewCount} {reviewSummary!.totalReviewCount === 1 ? 'card' : 'cards'} ready for review
+                          <Text style={[styles.reviewTitle, { color: statsValueColor, fontSize: 24, lineHeight: 28, marginBottom: 6 }]}>
+                            {reviewSummary!.totalReviewCount} {reviewSummary!.totalReviewCount === 1 ? 'card needs' : 'cards need'} attention
                           </Text>
                           <Text style={[styles.reviewSubtitle, { color: statsLabelColor }]}> 
-                            across {reviewSummary!.deckSummaries.length} {reviewSummary!.deckSummaries.length === 1 ? 'deck' : 'decks'}
+                            Across {reviewSummary!.deckSummaries.length} {reviewSummary!.deckSummaries.length === 1 ? 'deck' : 'decks'}. Open the hub to choose a deck or jump into the biggest pile first.
                           </Text>
                         </View>
+                        <ChevronRight color={isDark ? 'rgba(255,255,255,0.7)' : '#6366f1'} size={18} strokeWidth={2.4} />
                       </View>
                       </TouchableOpacity>
                       <View style={styles.reviewChips}>
@@ -815,9 +979,7 @@ export default function HomePage() {
                           <TouchableOpacity
                             key={entry.deckId}
                             style={[styles.reviewChip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}
-                            onPress={() => {
-                              router.push(studyHref(entry.deckId, 'due'));
-                            }}
+                            onPress={handleOpenReviewSheet}
                             activeOpacity={0.75}
                             accessibilityLabel={`${entry.name}: ${entry.reviewCount} cards due for review`}
                             accessibilityRole="button"
@@ -828,6 +990,18 @@ export default function HomePage() {
                             <Text style={[styles.reviewChipCount, { color: statsLabelColor }]}>{entry.reviewCount}</Text>
                           </TouchableOpacity>
                         ))}
+                        {remainingReviewDeckCount > 0 ? (
+                          <TouchableOpacity
+                            style={[styles.reviewChip, { backgroundColor: isDark ? 'rgba(129,140,248,0.14)' : 'rgba(99,102,241,0.1)', paddingHorizontal: 10 }]}
+                            onPress={handleOpenReviewSheet}
+                            activeOpacity={0.8}
+                            accessibilityLabel={`Open review hub for ${remainingReviewDeckCount} more decks`}
+                            accessibilityRole="button"
+                            testID="review-chip-more"
+                          >
+                            <Text style={[styles.reviewChipCount, { color: isDark ? '#c7d2fe' : '#5967f1' }]}>+{remainingReviewDeckCount} more</Text>
+                          </TouchableOpacity>
+                        ) : null}
                       </View>
                     </View>
                   )}
@@ -999,18 +1173,34 @@ export default function HomePage() {
         <Modal
           visible={showReviewSheet && reviewSummary !== null}
           transparent
-          animationType="slide"
-          onRequestClose={() => setShowReviewSheet(false)}
+          animationType="none"
+          onRequestClose={() => handleCloseReviewSheet()}
           testID="review-hub-sheet"
         >
-          <TouchableOpacity
-            style={styles.reviewSheetBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowReviewSheet(false)}
-          >
-            <View style={styles.reviewSheetAvoidDismiss} onStartShouldSetResponder={() => true}>
-              <View style={[styles.reviewSheet, { backgroundColor: isDark ? '#0F172A' : '#FFFFFF' }]}>
-                <View style={styles.reviewSheetHandle}>
+          <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <Animated.View
+              style={[
+                StyleSheet.absoluteFillObject,
+                styles.reviewSheetBackdrop,
+                { opacity: reviewSheetBackdropOpacity },
+              ]}
+            >
+              <TouchableOpacity
+                style={StyleSheet.absoluteFill}
+                activeOpacity={1}
+                onPress={() => handleCloseReviewSheet()}
+                testID="review-hub-backdrop"
+              />
+            </Animated.View>
+
+            <Animated.View
+              style={[
+                styles.reviewSheetAvoidDismiss,
+                { transform: [{ translateY: reviewSheetTranslateY }] },
+              ]}
+            >
+              <View style={[styles.reviewSheet, { backgroundColor: isDark ? '#0F172A' : '#FFFFFF' }]}> 
+                <View style={styles.reviewSheetHandle} {...reviewSheetPanResponder.panHandlers}>
                   <View
                     style={[
                       styles.reviewSheetHandleBar,
@@ -1019,20 +1209,41 @@ export default function HomePage() {
                   />
                 </View>
 
-                <Text style={[styles.reviewSheetTitle, { color: theme.text }]}>Due for Review</Text>
+                <Text style={[styles.reviewSheetTitle, { color: theme.text }]}>Review hub</Text>
                 <Text style={[styles.reviewSheetSubtitle, { color: theme.textSecondary }]}> 
-                  {reviewSummary?.totalReviewCount ?? 0} cards across {reviewSummary?.deckSummaries.length ?? 0} decks
+                  {reviewSummary?.totalReviewCount ?? 0} cards are ready across {reviewSummary?.deckSummaries.length ?? 0} decks
                 </Text>
+
+                {topReviewDeck ? (
+                  <View
+                    style={{
+                      marginBottom: 18,
+                      borderRadius: 18,
+                      paddingHorizontal: 16,
+                      paddingVertical: 15,
+                      backgroundColor: isDark ? 'rgba(99,102,241,0.12)' : 'rgba(99,102,241,0.08)',
+                      borderWidth: 1,
+                      borderColor: isDark ? 'rgba(129,140,248,0.12)' : 'rgba(99,102,241,0.08)',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                    }}
+                  >
+                    <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: topReviewDeck.color }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: isDark ? '#a5b4fc' : '#5b63f6', fontSize: 11, fontWeight: '800' as const, textTransform: 'uppercase', letterSpacing: 0.7 }}>Up first</Text>
+                      <Text style={{ color: theme.text, fontSize: 17, fontWeight: '800' as const, marginTop: 3 }} numberOfLines={1}>{topReviewDeck.name}</Text>
+                    </View>
+                    <View style={[styles.reviewSheetCountBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.78)' }]}> 
+                      <Text style={[styles.reviewSheetCountText, { color: isDark ? '#E0E7FF' : '#4F46E5' }]}>{topReviewDeck.reviewCount}</Text>
+                    </View>
+                  </View>
+                ) : null}
 
                 <TouchableOpacity
                   style={styles.reviewAllButton}
-                  onPress={() => {
-                    setShowReviewSheet(false);
-                    if (reviewSummary && reviewSummary.deckSummaries.length > 0) {
-                      router.push(studyHref(reviewSummary.deckSummaries[0].deckId, 'due'));
-                    }
-                  }}
-                  activeOpacity={0.85}
+                  onPress={handleStartReviewing}
+                  activeOpacity={0.88}
                   testID="review-all-button"
                 >
                   <RotateCcw color="#FFFFFF" size={18} strokeWidth={2.5} />
@@ -1056,17 +1267,19 @@ export default function HomePage() {
                             ]
                           : null,
                       ]}
-                      onPress={() => {
-                        setShowReviewSheet(false);
-                        router.push(studyHref(entry.deckId, 'due'));
-                      }}
-                      activeOpacity={0.8}
+                      onPress={() => handleLaunchDueDeck(entry.deckId)}
+                      activeOpacity={0.82}
                       testID={`review-sheet-deck-${entry.deckId}`}
                     >
                       <View style={[styles.reviewSheetDot, { backgroundColor: entry.color }]} />
-                      <Text style={[styles.reviewSheetDeckName, { color: theme.text }]} numberOfLines={1}>
-                        {entry.name}
-                      </Text>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={[styles.reviewSheetDeckName, { color: theme.text }]} numberOfLines={1}>
+                          {entry.name}
+                        </Text>
+                        <Text style={{ color: theme.textSecondary, fontSize: 12.5, fontWeight: '500' as const }}>
+                          {entry.reviewCount} {entry.reviewCount === 1 ? 'card' : 'cards'} ready now
+                        </Text>
+                      </View>
                       <View
                         style={[
                           styles.reviewSheetCountBadge,
@@ -1081,8 +1294,8 @@ export default function HomePage() {
                   ))}
                 </ScrollView>
               </View>
-            </View>
-          </TouchableOpacity>
+            </Animated.View>
+          </View>
         </Modal>
       </SafeAreaView>
     </View>
@@ -1361,7 +1574,11 @@ const styles = StyleSheet.create<{
     gap: 9,
   },
   reviewPageSummaryButton: {
-    borderRadius: 14,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
   reviewPageHeader: {
     flexDirection: 'row',
@@ -1380,11 +1597,12 @@ const styles = StyleSheet.create<{
   },
   reviewTitle: {
     fontSize: 14,
-    fontWeight: '700' as const,
+    fontWeight: '800' as const,
+    letterSpacing: -0.35,
   },
   reviewSubtitle: {
     fontSize: 11,
-    fontWeight: '500' as const,
+    fontWeight: '600' as const,
     marginTop: 1,
   },
   reviewChips: {
@@ -1407,7 +1625,7 @@ const styles = StyleSheet.create<{
   },
   reviewChipName: {
     fontSize: 11,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
     maxWidth: 72,
   },
   reviewChipCount: {
@@ -1416,18 +1634,23 @@ const styles = StyleSheet.create<{
   },
   reviewSheetBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(2, 6, 23, 0.54)',
     justifyContent: 'flex-end',
   },
   reviewSheetAvoidDismiss: {
-    maxHeight: '70%',
+    maxHeight: '74%',
   },
   reviewSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingHorizontal: 24,
     paddingTop: 12,
     paddingBottom: 40,
+    shadowColor: '#020617',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 18,
   },
   reviewSheetHandle: {
     alignItems: 'center',
@@ -1439,14 +1662,16 @@ const styles = StyleSheet.create<{
     borderRadius: 2,
   },
   reviewSheetTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800' as const,
     marginBottom: 4,
+    letterSpacing: -0.55,
   },
   reviewSheetSubtitle: {
     fontSize: 14,
-    fontWeight: '500' as const,
-    marginBottom: 20,
+    fontWeight: '600' as const,
+    marginBottom: 18,
+    lineHeight: 19,
   },
   reviewAllButton: {
     backgroundColor: '#6366F1',
@@ -1454,9 +1679,14 @@ const styles = StyleSheet.create<{
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    height: 52,
-    borderRadius: 16,
-    marginBottom: 20,
+    height: 54,
+    borderRadius: 18,
+    marginBottom: 18,
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
+    elevation: 8,
   },
   reviewAllButtonText: {
     color: '#FFFFFF',
@@ -1469,7 +1699,7 @@ const styles = StyleSheet.create<{
   reviewSheetRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 15,
     gap: 12,
   },
   reviewSheetRowBorder: {
