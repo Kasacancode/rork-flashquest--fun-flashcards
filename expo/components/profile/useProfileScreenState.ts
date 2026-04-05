@@ -115,10 +115,6 @@ export function useProfileScreenState() {
     () => achievements.filter((achievement) => achievement.progress >= achievement.total).length,
     [achievements],
   );
-  const nextAchievement = useMemo(
-    () => achievements.find((achievement) => achievement.progress < achievement.total) ?? null,
-    [achievements],
-  );
   const activeAchievementCategoryEntry = useMemo(
     () => ACHIEVEMENT_CATEGORIES.find((category) => category.id === activeAchievementCategory) ?? ACHIEVEMENT_CATEGORIES[0],
     [activeAchievementCategory],
@@ -129,6 +125,10 @@ export function useProfileScreenState() {
   );
   const activeCategoryCompletedAchievements = useMemo(
     () => activeCategoryAchievements.filter((achievement) => achievement.progress >= achievement.total).length,
+    [activeCategoryAchievements],
+  );
+  const activeCategoryNextAchievement = useMemo(
+    () => activeCategoryAchievements.find((achievement) => achievement.progress < achievement.total) ?? null,
     [activeCategoryAchievements],
   );
   const achievementCategoryFade = useRef<Animated.Value>(new Animated.Value(1)).current;
@@ -276,7 +276,7 @@ export function useProfileScreenState() {
     canEditPlayerName,
     achievements,
     completedAchievements,
-    nextAchievement,
+    activeCategoryNextAchievement,
     activeAchievementCategoryEntry,
     activeCategoryAchievements,
     activeCategoryCompletedAchievements,

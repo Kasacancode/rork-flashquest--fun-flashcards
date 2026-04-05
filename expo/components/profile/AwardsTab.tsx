@@ -25,7 +25,7 @@ type TextStyles<K extends string> = { [P in K]: StyleProp<TextStyle> };
 interface AwardsTabProps {
   achievements: readonly AchievementItem[];
   completedAchievements: number;
-  nextAchievement: {
+  activeCategoryNextAchievement: {
     name: string;
   } | null;
   achievementCategories: readonly AchievementCategory[];
@@ -84,7 +84,7 @@ interface AwardsTabProps {
 export default function AwardsTab({
   achievements,
   completedAchievements,
-  nextAchievement,
+  activeCategoryNextAchievement,
   achievementCategories,
   activeAchievementCategory,
   activeAchievementCategoryLabel,
@@ -113,7 +113,7 @@ export default function AwardsTab({
               <Text style={styles.sectionBannerEyebrow}>Milestones</Text>
               <Text style={styles.sectionBannerTitle}>Awards</Text>
               <Text style={styles.sectionBannerSubtitle}>
-                {nextAchievement ? `Next up: ${nextAchievement.name}` : 'Every current award is unlocked.'}
+                {activeCategoryNextAchievement ? `Next up: ${activeCategoryNextAchievement.name}` : 'Every current award is unlocked.'}
               </Text>
             </View>
             <View style={styles.sectionBannerBadge}>

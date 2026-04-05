@@ -43,7 +43,7 @@ export default function ProfilePage() {
     canEditPlayerName,
     achievements,
     completedAchievements,
-    nextAchievement,
+    activeCategoryNextAchievement,
     activeAchievementCategoryEntry,
     activeCategoryAchievements,
     activeCategoryCompletedAchievements,
@@ -223,7 +223,7 @@ export default function ProfilePage() {
                 <AwardsTab
                   achievements={achievements}
                   completedAchievements={completedAchievements}
-                  nextAchievement={nextAchievement}
+                  activeCategoryNextAchievement={activeCategoryNextAchievement}
                   achievementCategories={ACHIEVEMENT_CATEGORIES}
                   activeAchievementCategory={activeAchievementCategory}
                   activeAchievementCategoryLabel={activeAchievementCategoryEntry.label}
