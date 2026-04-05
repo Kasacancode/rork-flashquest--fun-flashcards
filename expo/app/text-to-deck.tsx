@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Sparkles, Check, Plus, Trash2, FileText, Wand2, RotateCcw } from 'lucide-react-native';
+import { ArrowLeft, Sparkles, Check, Plus, Trash2, FileText, Wand2, RotateCcw, FileUp } from 'lucide-react-native';
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
@@ -32,6 +32,7 @@ import { usePrivacy } from '@/context/PrivacyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import { prepareGeneratedFlashcards } from '@/utils/flashcardContent';
+import { pickAndExtractText } from '@/utils/fileTextExtractor';
 import { DATA_PRIVACY_ROUTE, DECKS_ROUTE } from '@/utils/routes';
 import { getUserInterests, pickDefaultCategory } from '@/utils/userInterests';
 import { generateObject } from '@rork-ai/toolkit-sdk';
@@ -73,6 +74,7 @@ export default function TextToDeckPage() {
   const [showCategoryManager, setShowCategoryManager] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showDeckDisclosure, setShowDeckDisclosure] = useState<boolean>(false);
+  const [isExtractingFile, setIsExtractingFile] = useState<boolean>(false);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const charCount = sourceText.length;
@@ -134,6 +136,35 @@ export default function TextToDeckPage() {
     }
     setShowCustomCategory(false);
   }, [customCategoryInput]);
+
+  const handlePickFile = useCallback(async () => {
+    if (isExtractingFile) {
+      return;
+    }
+
+    Keyboard.dismiss();
+    setIsExtractingFile(true);
+    setErrorMessage(null);
+
+    try {
+      const result = await pickAndExtractText();
+
+      if (!result.success) {
+        if (result.error && result.error !== 'cancelled') {
+          Alert.alert('File Import', result.error);
+        }
+        return;
+      }
+
+      setSourceText(result.text);
+
+      if (result.fileName && result.fileName !== 'Imported Deck') {
+        setDeckName(result.fileName);
+      }
+    } finally {
+      setIsExtractingFile(false);
+    }
+  }, [isExtractingFile]);
 
   const handleGenerate = useCallback(async () => {
     if (!isTextValid) {
@@ -381,6 +412,32 @@ ${sourceText}`,
             )}
 
             <View style={[styles.textAreaCard, { backgroundColor: theme.cardBackground }]}>
+              <View style={styles.inputActions}>
+                <TouchableOpacity
+                  style={[
+                    styles.filePickButton,
+                    {
+                      backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)',
+                      borderColor: isDark ? 'rgba(99,102,241,0.25)' : 'rgba(99,102,241,0.15)',
+                      opacity: isExtractingFile ? 0.6 : 1,
+                    },
+                  ]}
+                  onPress={handlePickFile}
+                  disabled={isExtractingFile}
+                  activeOpacity={0.8}
+                  accessibilityLabel="Import from file"
+                  accessibilityRole="button"
+                  testID="text-to-deck-pick-file"
+                >
+                  <FileUp color={theme.primary} size={16} strokeWidth={2.2} />
+                  <Text style={[styles.filePickText, { color: theme.primary }]}>
+                    {isExtractingFile ? 'Reading file...' : 'Pick a File'}
+                  </Text>
+                </TouchableOpacity>
+                <Text style={[styles.filePickHint, { color: theme.textTertiary }]}>
+                  PDF, Word, PowerPoint, or text files
+                </Text>
+              </View>
               <TextInput
                 style={[styles.textArea, { color: theme.text, backgroundColor: inputBg }]}
                 value={sourceText}
@@ -691,6 +748,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 4,
+  },
+  inputActions: {
+    marginBottom: 12,
+  },
+  filePickButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  filePickText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+  },
+  filePickHint: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    textAlign: 'center',
+    marginTop: 6,
   },
   textArea: {
     borderRadius: 14,
