@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase';
 import { logger } from '@/utils/logger';
 
 const DOWNLOAD_COUNTS_KEY = 'flashquest_published_deck_downloads';
+const MAX_PUBLISHED_DECKS = 20;
+const MAX_PUBLISHES_PER_DAY = 5;
 
 export type MarketplaceSortOption = 'popular' | 'top_rated' | 'newest';
 
@@ -100,6 +102,10 @@ function parseDeckData(rawDeckData: unknown): MarketplaceDeckCardData[] {
       explanation: typeof card.explanation === 'string' && card.explanation.trim().length > 0 ? card.explanation.trim() : undefined,
     }))
     .filter((card) => card.question.length > 0 && card.answer.length > 0);
+}
+
+function normalizeQuestionForSimilarity(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ');
 }
 
 export async function fetchMarketplaceDecks(options: {
@@ -345,6 +351,105 @@ export async function unpublishDeck(userId: string, deckName: string): Promise<{
   } catch (error) {
     logger.warn('[Marketplace] Unpublish error:', error);
     return { success: false, error: 'An unexpected error occurred.' };
+  }
+}
+
+export async function checkContentSimilarity(
+  userId: string,
+  cardQuestions: string[],
+): Promise<{ isDuplicate: boolean; matchedDeckName?: string; matchPercentage?: number }> {
+  try {
+    const normalizedQuestions = Array.from(new Set(
+      cardQuestions
+        .map((question) => normalizeQuestionForSimilarity(question))
+        .filter((question) => question.length > 0),
+    ));
+
+    if (normalizedQuestions.length < 3) {
+      return { isDuplicate: false };
+    }
+
+    const { data, error } = await supabase
+      .from('public_decks')
+      .select('name, deck_data, user_id')
+      .eq('status', 'active')
+      .neq('user_id', userId)
+      .order('downloads', { ascending: false })
+      .limit(200);
+
+    if (error || !data) {
+      return { isDuplicate: false };
+    }
+
+    for (const row of data as PublicDeckRow[]) {
+      const existingQuestions = Array.from(new Set(
+        parseDeckData(row.deck_data)
+          .map((card) => normalizeQuestionForSimilarity(card.question))
+          .filter((question) => question.length > 0),
+      ));
+
+      if (existingQuestions.length === 0) {
+        continue;
+      }
+
+      const matchCount = normalizedQuestions.filter((question) => (
+        existingQuestions.some((existingQuestion) => (
+          existingQuestion === question
+          || existingQuestion.includes(question)
+          || question.includes(existingQuestion)
+        ))
+      )).length;
+      const matchPercentage = Math.round((matchCount / Math.max(normalizedQuestions.length, 1)) * 100);
+
+      if (matchPercentage >= 60) {
+        return {
+          isDuplicate: true,
+          matchedDeckName: row.name,
+          matchPercentage,
+        };
+      }
+    }
+
+    return { isDuplicate: false };
+  } catch (error) {
+    logger.warn('[Marketplace] Similarity check failed:', error);
+    return { isDuplicate: false };
+  }
+}
+
+export async function checkPublishLimits(userId: string): Promise<{ allowed: boolean; reason?: string }> {
+  try {
+    const { count: totalCount, error: totalError } = await supabase
+      .from('public_decks')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    if (!totalError && totalCount !== null && totalCount >= MAX_PUBLISHED_DECKS) {
+      return {
+        allowed: false,
+        reason: `You can have up to ${MAX_PUBLISHED_DECKS} published decks. Unpublish an existing deck to make room.`,
+      };
+    }
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const { count: todayCount, error: todayError } = await supabase
+      .from('public_decks')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', todayStart.toISOString());
+
+    if (!todayError && todayCount !== null && todayCount >= MAX_PUBLISHES_PER_DAY) {
+      return {
+        allowed: false,
+        reason: `You can publish up to ${MAX_PUBLISHES_PER_DAY} decks per day. Try again tomorrow.`,
+      };
+    }
+
+    return { allowed: true };
+  } catch {
+    return { allowed: true };
   }
 }
 

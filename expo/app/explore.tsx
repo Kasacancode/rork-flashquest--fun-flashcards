@@ -181,6 +181,7 @@ export default function ExploreScreen() {
         category: deck.category,
         createdAt,
         isCustom: true,
+        communitySourceId: deck.id,
       };
       const normalizedDeck = normalizeDeck(localDeck, { source: 'import', trackDiagnostics: true });
 
@@ -306,6 +307,18 @@ export default function ExploreScreen() {
           text: 'Spam or Low Quality',
           onPress: async () => {
             const result = await reportDeck(user.id, deckId, 'spam', '');
+            Alert.alert(
+              result.success ? 'Report Submitted' : 'Report Failed',
+              result.success
+                ? 'Thanks for the feedback. We will review this deck.'
+                : result.error ?? 'Please try again.',
+            );
+          },
+        },
+        {
+          text: 'Copied or Stolen Content',
+          onPress: async () => {
+            const result = await reportDeck(user.id, deckId, 'copied_content', '');
             Alert.alert(
               result.success ? 'Report Submitted' : 'Report Failed',
               result.success

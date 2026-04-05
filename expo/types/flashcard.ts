@@ -131,6 +131,7 @@ export interface Deck {
   category: string;
   createdAt: number;
   isCustom: boolean;
+  communitySourceId?: string;
 }
 
 export interface FlashcardDeckCardSummary {

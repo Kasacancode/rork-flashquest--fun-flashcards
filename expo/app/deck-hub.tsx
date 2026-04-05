@@ -15,7 +15,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { exportDeckToSharePayload } from '@/utils/deckImport';
 import { fetchFriends, type Friendship } from '@/utils/friendsService';
 import { computeDeckMastery } from '@/utils/mastery';
-import { checkDeckPublished, publishDeck, unpublishDeck } from '@/utils/marketplaceService';
+import { checkContentSimilarity, checkDeckPublished, checkPublishLimits, publishDeck, unpublishDeck } from '@/utils/marketplaceService';
 import { serializeQuestSettings } from '@/utils/questParams';
 import { DECKS_ROUTE, STATS_ROUTE, editDeckHref, focusedQuestSessionHref, questHref, questSessionHref, studyHref } from '@/utils/routes';
 import { shareTextWithFallback } from '@/utils/share';
@@ -372,7 +372,7 @@ export default function DeckHubScreen() {
     }));
   }, [deck, router]);
 
-  const handlePublishDeck = useCallback(() => {
+  const handlePublishDeck = useCallback(async () => {
     if (!deck) {
       return;
     }
@@ -391,8 +391,24 @@ export default function DeckHubScreen() {
       return;
     }
 
-    if (deck.flashcards.length < 3) {
-      Alert.alert('Too Few Cards', 'Decks need at least 3 cards to be published.');
+    if (deck.communitySourceId) {
+      Alert.alert(
+        'Cannot Publish',
+        'This deck was downloaded from the community. You cannot re-publish someone else\'s work.\n\nIf you\'ve made significant changes and want to share your version, create a new deck and add your own cards.',
+      );
+      return;
+    }
+
+    if (!isPublished) {
+      const limits = await checkPublishLimits(user.id);
+      if (!limits.allowed) {
+        Alert.alert('Publish Limit Reached', limits.reason ?? 'Please try again later.');
+        return;
+      }
+    }
+
+    if (deck.flashcards.length < 4) {
+      Alert.alert('Too Few Cards', 'Decks need at least 4 cards to be published.');
       return;
     }
 
@@ -402,54 +418,91 @@ export default function DeckHubScreen() {
       category: deck.category || 'General',
     });
     setShowPublishSheet(true);
-  }, [deck, isSignedIn, publishedDeckName, router, user?.id]);
+  }, [deck, isPublished, isSignedIn, publishedDeckName, router, user?.id]);
 
   const handleConfirmPublish = useCallback(async () => {
     if (!deck || !user?.id || isPublishing) {
       return;
     }
 
-    if (publishFields.name.trim().length < 2) {
+    const trimmedName = publishFields.name.trim();
+    const trimmedDescription = publishFields.description.trim();
+
+    if (trimmedName.length < 2) {
       Alert.alert('Name Required', 'Give your deck a name (at least 2 characters).');
       return;
     }
 
-    setIsPublishing(true);
-    const publisherName = username || displayName || user.email?.split('@')[0] || 'Anonymous';
-
-    const result = await publishDeck(user.id, publisherName, {
-      name: publishFields.name.trim(),
-      description: publishFields.description.trim(),
-      category: publishFields.category,
-      color: deck.color,
-      icon: deck.icon,
-      flashcards: deck.flashcards.map((card) => ({
-        question: card.question,
-        answer: card.answer,
-        hint1: card.hint1,
-        hint2: card.hint2,
-        explanation: card.explanation,
-        difficulty: card.difficulty,
-      })),
-    });
-
-    setIsPublishing(false);
-
-    if (result.success) {
-      const publishedName = publishFields.name.trim();
-      setShowPublishSheet(false);
-      setPublishedDeckName(publishedName);
-      setIsPublished(true);
-      Alert.alert(
-        result.isUpdate ? 'Deck Updated' : 'Deck Published!',
-        result.isUpdate
-          ? 'Your community deck has been updated with the latest cards.'
-          : 'Your deck is now available in Explore for the FlashQuest community.',
-      );
-    } else {
-      Alert.alert('Publish Failed', result.error ?? 'Could not publish. Try again.');
+    if (deck.flashcards.length < 4) {
+      Alert.alert('Too Few Cards', 'Decks need at least 4 cards to be published.');
+      return;
     }
-  }, [deck, displayName, isPublishing, publishFields, user, username]);
+
+    if (trimmedDescription.length < 10) {
+      Alert.alert('Description Required', 'Add a brief description (at least 10 characters) so people know what your deck covers.');
+      return;
+    }
+
+    const lowEffortCards = deck.flashcards.filter((card) => (
+      card.question.trim().length < 3 || card.answer.trim().length < 1
+    ));
+    if (lowEffortCards.length > deck.flashcards.length * 0.3) {
+      Alert.alert('Card Quality', 'Too many cards have very short questions or empty answers. Review your cards before publishing.');
+      return;
+    }
+
+    setIsPublishing(true);
+
+    try {
+      if (!isPublished) {
+        const similarity = await checkContentSimilarity(
+          user.id,
+          deck.flashcards.map((card) => card.question),
+        );
+
+        if (similarity.isDuplicate) {
+          Alert.alert(
+            'Similar Deck Exists',
+            `This deck is ${similarity.matchPercentage}% similar to "${similarity.matchedDeckName}" which is already published.\n\nPlease create original content or significantly modify your cards before publishing.`,
+          );
+          return;
+        }
+      }
+
+      const publisherName = username || displayName || user.email?.split('@')[0] || 'Anonymous';
+      const result = await publishDeck(user.id, publisherName, {
+        name: trimmedName,
+        description: trimmedDescription,
+        category: publishFields.category,
+        color: deck.color,
+        icon: deck.icon,
+        flashcards: deck.flashcards.map((card) => ({
+          question: card.question,
+          answer: card.answer,
+          hint1: card.hint1,
+          hint2: card.hint2,
+          explanation: card.explanation,
+          difficulty: card.difficulty,
+        })),
+      });
+
+      if (result.success) {
+        setShowPublishSheet(false);
+        setPublishedDeckName(trimmedName);
+        setIsPublished(true);
+        Alert.alert(
+          result.isUpdate ? 'Deck Updated' : 'Deck Published!',
+          result.isUpdate
+            ? 'Your community deck has been updated with the latest cards.'
+            : 'Your deck is now available in Explore for the FlashQuest community.',
+        );
+      } else {
+        Alert.alert('Publish Failed', result.error ?? 'Could not publish. Try again.');
+      }
+    } finally {
+      setIsPublishing(false);
+    }
+  }, [deck, displayName, isPublished, isPublishing, publishFields, user, username]);
 
   const handleUnpublishDeck = useCallback(() => {
     if (!deck || !isSignedIn || !user?.id) {
