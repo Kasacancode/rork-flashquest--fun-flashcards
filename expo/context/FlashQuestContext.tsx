@@ -22,7 +22,7 @@ import { mergeFlashcardUpdates, normalizeDeck, normalizeDeckCollection } from '@
 import { incrementDailyProgress } from '@/utils/dailyGoal';
 import { computeLevel } from '@/utils/levels';
 import { logger } from '@/utils/logger';
-import { scheduleStreakReminder } from '@/utils/notifications';
+import { scheduleStudyReminders } from '@/utils/notifications';
 import { getPreferredProfileName } from '@/utils/userIdentity';
 import { fetchUsername } from '@/utils/usernameService';
 import { updateWidgetData } from '@/utils/widgetBridge';
@@ -828,7 +828,14 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
         void incrementDailyProgress(params.cardsAttempted);
       }
 
-      scheduleStreakReminder({ requestPermissionIfNeeded: true }).catch(() => {});
+      scheduleStudyReminders(
+        {
+          dueCardCount: 0,
+          deckCount: 0,
+          currentStreak: newStreak,
+        },
+        { requestPermissionIfNeeded: true },
+      ).catch(() => {});
 
       supabase.auth.getSession()
         .then(async ({ data: { session: currentSession } }) => {
