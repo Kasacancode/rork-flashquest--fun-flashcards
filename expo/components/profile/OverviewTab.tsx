@@ -61,7 +61,7 @@ export default function OverviewTab({
         testID="profile-overview-leaderboard"
       >
         <View style={styles.leaderboardIconWrap}>
-          <Crown color={theme.primary} size={20} strokeWidth={2.3} />
+          <Crown color="#F5C451" size={20} strokeWidth={2.3} />
         </View>
         <View style={styles.leaderboardTextWrap}>
           <Text style={styles.leaderboardButtonText}>Leaderboard</Text>
