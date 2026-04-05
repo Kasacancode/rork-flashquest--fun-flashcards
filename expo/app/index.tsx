@@ -260,7 +260,15 @@ export default function HomePage() {
 
   const topReviewDeck = reviewSummary?.deckSummaries[0] ?? null;
   const previewReviewDecks = reviewSummary?.deckSummaries.slice(1, 3) ?? [];
-  const remainingReviewDeckCount = Math.max(0, (reviewSummary?.deckSummaries.length ?? 0) - 1 - previewReviewDecks.length);
+  const reviewDeckCount = reviewSummary?.deckSummaries.length ?? 0;
+  const reviewTotalCount = reviewSummary?.totalReviewCount ?? 0;
+  const remainingReviewDeckCount = Math.max(0, reviewDeckCount - 1 - previewReviewDecks.length);
+  const reviewPageTitle = reviewSummary
+    ? `${reviewTotalCount} ${reviewTotalCount === 1 ? 'card needs' : 'cards need'} attention`
+    : 'All caught up for now';
+  const reviewPageSubtitle = reviewSummary
+    ? `${reviewDeckCount} ${reviewDeckCount === 1 ? 'deck is' : 'decks are'} ready now. Tap to open the review hub.`
+    : `${decks.length} ${decks.length === 1 ? 'deck is' : 'decks are'} in good shape. Tap to double-check your review hub.`;
   const primaryRecommendation = recommendations[0] ?? null;
   const newestDeck = useMemo(() => {
     if (decks.length === 0) {
@@ -490,7 +498,7 @@ export default function HomePage() {
   const communityBannerTitle = 'Explore Community Decks';
   const communityBannerSubtitle = 'Discover decks from other FlashQuest players and save them offline.';
 
-  const hasReviewPage = reviewSummary !== null;
+  const hasReviewPage = decks.length > 0;
 
   const animateReviewSheetOpen = useCallback(() => {
     Animated.parallel([
@@ -546,13 +554,14 @@ export default function HomePage() {
   }, [reviewSheetBackdropOpacity, reviewSheetTranslateY, showReviewSheet]);
 
   const handleOpenReviewSheet = useCallback(() => {
-    if (!reviewSummary) {
+    if (!hasReviewPage) {
       return;
     }
 
     logger.debug('[Home] Opening review hub', {
-      totalReviewCount: reviewSummary.totalReviewCount,
-      deckCount: reviewSummary.deckSummaries.length,
+      totalReviewCount: reviewTotalCount,
+      deckCount: reviewDeckCount,
+      hasDueCards: reviewSummary !== null,
     });
     reviewSheetCloseActionRef.current = null;
     reviewSheetTranslateY.setValue(520);
@@ -561,7 +570,7 @@ export default function HomePage() {
     requestAnimationFrame(() => {
       animateReviewSheetOpen();
     });
-  }, [animateReviewSheetOpen, reviewSheetBackdropOpacity, reviewSheetTranslateY, reviewSummary]);
+  }, [animateReviewSheetOpen, hasReviewPage, reviewDeckCount, reviewSheetBackdropOpacity, reviewSheetTranslateY, reviewSummary, reviewTotalCount]);
 
   const handleLaunchDueDeck = useCallback((deckId: string) => {
     logger.debug('[Home] Launching due review deck', { deckId, source: 'review-hub' });
@@ -578,14 +587,20 @@ export default function HomePage() {
     handleLaunchDueDeck(topReviewDeck.deckId);
   }, [handleLaunchDueDeck, topReviewDeck]);
 
+  const handleOpenDecksFromReviewSheet = useCallback(() => {
+    handleCloseReviewSheet(() => {
+      router.push(DECKS_ROUTE);
+    });
+  }, [handleCloseReviewSheet, router]);
+
   useEffect(() => {
-    if (!reviewSummary && showReviewSheet) {
+    if (!hasReviewPage && showReviewSheet) {
       setShowReviewSheet(false);
       reviewSheetTranslateY.setValue(520);
       reviewSheetBackdropOpacity.setValue(0);
       reviewSheetCloseActionRef.current = null;
     }
-  }, [reviewSummary, reviewSheetBackdropOpacity, reviewSheetTranslateY, showReviewSheet]);
+  }, [hasReviewPage, reviewSheetBackdropOpacity, reviewSheetTranslateY, showReviewSheet]);
 
   const reviewSheetPanResponder = useMemo(
     () =>
@@ -949,7 +964,9 @@ export default function HomePage() {
                         ]}
                         onPress={handleOpenReviewSheet}
                         activeOpacity={0.9}
-                        accessibilityLabel={`${reviewSummary!.totalReviewCount} cards ready for review across ${reviewSummary!.deckSummaries.length} decks`}
+                        accessibilityLabel={reviewSummary
+                          ? `${reviewTotalCount} cards ready for review across ${reviewDeckCount} decks`
+                          : `All caught up across ${decks.length} decks. Open the review hub.`}
                         accessibilityRole="button"
                         testID="stats-card-review-page"
                       >
@@ -961,47 +978,68 @@ export default function HomePage() {
                         />
                       <View style={styles.reviewPageHeader}>
                         <View style={[styles.reviewIconWrap, { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)' }]}>
-                          <RotateCcw color={isDark ? '#a5b4fc' : '#6366f1'} size={15} strokeWidth={2.4} />
+                          {reviewSummary ? (
+                            <RotateCcw color={isDark ? '#a5b4fc' : '#6366f1'} size={15} strokeWidth={2.4} />
+                          ) : (
+                            <BookOpen color={isDark ? '#cbd5e1' : '#475569'} size={15} strokeWidth={2.4} />
+                          )}
                         </View>
                         <View style={styles.reviewPageText}>
                           <Text style={[styles.reviewTitle, { color: statsValueColor }]} numberOfLines={1}>
-                            {reviewSummary!.totalReviewCount} {reviewSummary!.totalReviewCount === 1 ? 'card needs' : 'cards need'} attention
+                            {reviewPageTitle}
                           </Text>
                           <Text style={[styles.reviewSubtitle, { color: statsLabelColor }]} numberOfLines={1}>
-                            {reviewSummary!.deckSummaries.length} {reviewSummary!.deckSummaries.length === 1 ? 'deck is' : 'decks are'} ready now. Tap to open the review hub.
+                            {reviewPageSubtitle}
                           </Text>
                         </View>
                         <ChevronRight color={isDark ? 'rgba(255,255,255,0.7)' : '#6366f1'} size={17} strokeWidth={2.4} />
                       </View>
                       </TouchableOpacity>
                       <View style={styles.reviewChips}>
-                        {previewReviewDecks.map((entry) => (
+                        {reviewSummary ? (
+                          <>
+                            {previewReviewDecks.map((entry) => (
+                              <TouchableOpacity
+                                key={entry.deckId}
+                                style={[styles.reviewChip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}
+                                onPress={handleOpenReviewSheet}
+                                activeOpacity={0.75}
+                                accessibilityLabel={`${entry.name}: ${entry.reviewCount} cards due for review`}
+                                accessibilityRole="button"
+                                testID={`review-chip-${entry.deckId}`}
+                              >
+                                <View style={[styles.reviewChipDot, { backgroundColor: entry.color }]} />
+                                <Text style={[styles.reviewChipName, { color: statsValueColor }]} numberOfLines={1}>{entry.name}</Text>
+                                <Text style={[styles.reviewChipCount, { color: statsLabelColor }]}>{entry.reviewCount}</Text>
+                              </TouchableOpacity>
+                            ))}
+                            {remainingReviewDeckCount > 0 ? (
+                              <TouchableOpacity
+                                style={[styles.reviewChip, { backgroundColor: isDark ? 'rgba(129,140,248,0.14)' : 'rgba(99,102,241,0.1)', paddingHorizontal: 10 }]}
+                                onPress={handleOpenReviewSheet}
+                                activeOpacity={0.8}
+                                accessibilityLabel={`Open review hub for ${remainingReviewDeckCount} more decks`}
+                                accessibilityRole="button"
+                                testID="review-chip-more"
+                              >
+                                <Text style={[styles.reviewChipCount, { color: isDark ? '#c7d2fe' : '#5967f1' }]}>+{remainingReviewDeckCount} more</Text>
+                              </TouchableOpacity>
+                            ) : null}
+                          </>
+                        ) : (
                           <TouchableOpacity
-                            key={entry.deckId}
-                            style={[styles.reviewChip, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}
-                            onPress={handleOpenReviewSheet}
-                            activeOpacity={0.75}
-                            accessibilityLabel={`${entry.name}: ${entry.reviewCount} cards due for review`}
-                            accessibilityRole="button"
-                            testID={`review-chip-${entry.deckId}`}
-                          >
-                            <View style={[styles.reviewChipDot, { backgroundColor: entry.color }]} />
-                            <Text style={[styles.reviewChipName, { color: statsValueColor }]} numberOfLines={1}>{entry.name}</Text>
-                            <Text style={[styles.reviewChipCount, { color: statsLabelColor }]}>{entry.reviewCount}</Text>
-                          </TouchableOpacity>
-                        ))}
-                        {remainingReviewDeckCount > 0 ? (
-                          <TouchableOpacity
-                            style={[styles.reviewChip, { backgroundColor: isDark ? 'rgba(129,140,248,0.14)' : 'rgba(99,102,241,0.1)', paddingHorizontal: 10 }]}
+                            style={[styles.reviewChip, { backgroundColor: isDark ? 'rgba(52,211,153,0.14)' : 'rgba(16,185,129,0.1)', paddingHorizontal: 10 }]}
                             onPress={handleOpenReviewSheet}
                             activeOpacity={0.8}
-                            accessibilityLabel={`Open review hub for ${remainingReviewDeckCount} more decks`}
+                            accessibilityLabel={`Open review hub. ${decks.length} decks are currently caught up.`}
                             accessibilityRole="button"
-                            testID="review-chip-more"
+                            testID="review-chip-caught-up"
                           >
-                            <Text style={[styles.reviewChipCount, { color: isDark ? '#c7d2fe' : '#5967f1' }]}>+{remainingReviewDeckCount} more</Text>
+                            <View style={[styles.reviewChipDot, { backgroundColor: isDark ? '#34D399' : '#10B981' }]} />
+                            <Text style={[styles.reviewChipName, { color: statsValueColor }]}>All clear</Text>
+                            <Text style={[styles.reviewChipCount, { color: statsLabelColor }]}>{decks.length}</Text>
                           </TouchableOpacity>
-                        ) : null}
+                        )}
                       </View>
                     </View>
                   )}
@@ -1171,7 +1209,7 @@ export default function HomePage() {
         </ScrollView>
 
         <Modal
-          visible={showReviewSheet && reviewSummary !== null}
+          visible={showReviewSheet && hasReviewPage}
           transparent
           animationType="none"
           onRequestClose={() => handleCloseReviewSheet()}
@@ -1211,7 +1249,9 @@ export default function HomePage() {
 
                 <Text style={[styles.reviewSheetTitle, { color: theme.text }]}>Review hub</Text>
                 <Text style={[styles.reviewSheetSubtitle, { color: theme.textSecondary }]}> 
-                  {reviewSummary?.totalReviewCount ?? 0} cards are ready across {reviewSummary?.deckSummaries.length ?? 0} decks
+                  {reviewSummary
+                    ? `${reviewTotalCount} cards are ready across ${reviewDeckCount} decks`
+                    : `Nothing is due right now across ${decks.length} decks`}
                 </Text>
 
                 {topReviewDeck ? (
@@ -1242,12 +1282,16 @@ export default function HomePage() {
 
                 <TouchableOpacity
                   style={styles.reviewAllButton}
-                  onPress={handleStartReviewing}
+                  onPress={reviewSummary ? handleStartReviewing : handleOpenDecksFromReviewSheet}
                   activeOpacity={0.88}
                   testID="review-all-button"
                 >
-                  <RotateCcw color="#FFFFFF" size={18} strokeWidth={2.5} />
-                  <Text style={styles.reviewAllButtonText}>Start Reviewing</Text>
+                  {reviewSummary ? (
+                    <RotateCcw color="#FFFFFF" size={18} strokeWidth={2.5} />
+                  ) : (
+                    <BookOpen color="#FFFFFF" size={18} strokeWidth={2.5} />
+                  )}
+                  <Text style={styles.reviewAllButtonText}>{reviewSummary ? 'Start Reviewing' : 'Browse Decks'}</Text>
                 </TouchableOpacity>
 
                 <ScrollView
@@ -1255,43 +1299,50 @@ export default function HomePage() {
                   showsVerticalScrollIndicator={false}
                   bounces={false}
                 >
-                  {(reviewSummary?.deckSummaries ?? []).map((entry, index) => (
-                    <TouchableOpacity
-                      key={entry.deckId}
-                      style={[
-                        styles.reviewSheetRow,
-                        index < (reviewSummary?.deckSummaries.length ?? 0) - 1
-                          ? [
-                              styles.reviewSheetRowBorder,
-                              { borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' },
-                            ]
-                          : null,
-                      ]}
-                      onPress={() => handleLaunchDueDeck(entry.deckId)}
-                      activeOpacity={0.82}
-                      testID={`review-sheet-deck-${entry.deckId}`}
-                    >
-                      <View style={[styles.reviewSheetDot, { backgroundColor: entry.color }]} />
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={[styles.reviewSheetDeckName, { color: theme.text }]} numberOfLines={1}>
-                          {entry.name}
-                        </Text>
-                        <Text style={{ color: theme.textSecondary, fontSize: 12.5, fontWeight: '500' as const }}>
-                          {entry.reviewCount} {entry.reviewCount === 1 ? 'card' : 'cards'} ready now
-                        </Text>
-                      </View>
-                      <View
+                  {reviewSummary ? (
+                    reviewSummary.deckSummaries.map((entry, index) => (
+                      <TouchableOpacity
+                        key={entry.deckId}
                         style={[
-                          styles.reviewSheetCountBadge,
-                          { backgroundColor: isDark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.1)' },
+                          styles.reviewSheetRow,
+                          index < reviewDeckCount - 1
+                            ? [
+                                styles.reviewSheetRowBorder,
+                                { borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' },
+                              ]
+                            : null,
                         ]}
+                        onPress={() => handleLaunchDueDeck(entry.deckId)}
+                        activeOpacity={0.82}
+                        testID={`review-sheet-deck-${entry.deckId}`}
                       >
-                        <Text style={[styles.reviewSheetCountText, { color: isDark ? '#818CF8' : '#6366F1' }]}> 
-                          {entry.reviewCount}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
+                        <View style={[styles.reviewSheetDot, { backgroundColor: entry.color }]} />
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <Text style={[styles.reviewSheetDeckName, { color: theme.text }]} numberOfLines={1}>
+                            {entry.name}
+                          </Text>
+                          <Text style={{ color: theme.textSecondary, fontSize: 12.5, fontWeight: '500' as const }}>
+                            {entry.reviewCount} {entry.reviewCount === 1 ? 'card' : 'cards'} ready now
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.reviewSheetCountBadge,
+                            { backgroundColor: isDark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.1)' },
+                          ]}
+                        >
+                          <Text style={[styles.reviewSheetCountText, { color: isDark ? '#818CF8' : '#6366F1' }]}>
+                            {entry.reviewCount}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <View style={styles.reviewSheetEmptyState}>
+                      <Text style={[styles.reviewSheetEmptyTitle, { color: theme.text }]}>Nothing needs review right now</Text>
+                      <Text style={[styles.reviewSheetEmptyText, { color: theme.textSecondary }]}>Your decks are in a good spot. Open Decks to study ahead, or leave it alone until more cards come due.</Text>
+                    </View>
+                  )}
                 </ScrollView>
               </View>
             </Animated.View>
@@ -1349,6 +1400,9 @@ const styles = StyleSheet.create<{
   reviewSheetSubtitle: TextStyle;
   reviewAllButton: ViewStyle;
   reviewAllButtonText: TextStyle;
+  reviewSheetEmptyState: ViewStyle;
+  reviewSheetEmptyTitle: TextStyle;
+  reviewSheetEmptyText: TextStyle;
   reviewSheetList: ViewStyle;
   reviewSheetRow: ViewStyle;
   reviewSheetRowBorder: ViewStyle;
@@ -1694,6 +1748,23 @@ const styles = StyleSheet.create<{
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800' as const,
+  },
+  reviewSheetEmptyState: {
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: 'rgba(99,102,241,0.08)',
+    gap: 8,
+  },
+  reviewSheetEmptyTitle: {
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '800' as const,
+  },
+  reviewSheetEmptyText: {
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '500' as const,
   },
   reviewSheetList: {
     maxHeight: 300,
