@@ -188,6 +188,7 @@ export default function StudyPage() {
   const validModes: StudyMode[] = ['all', 'due', 'quick-5', 'quick-10', 'quick-15', 'weak'];
   const initialMode = validModes.includes(params.initialMode as StudyMode) ? (params.initialMode as StudyMode) : null;
   const launchedFromReviewHub = params.source === 'review-hub';
+  const launchedFromDeckHub = params.source === 'deck-hub';
 
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(!params.deckId);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(params.deckId || null);
@@ -206,7 +207,11 @@ export default function StudyPage() {
   const sessionResolvedRef = useRef<number>(0);
   const allowExitRedirectRef = useRef<boolean>(false);
 
-  const exitRoute = launchedFromReviewHub ? HOME_ROUTE : DECKS_ROUTE;
+  const exitRoute = launchedFromReviewHub
+    ? HOME_ROUTE
+    : launchedFromDeckHub && selectedDeckId
+      ? deckHubHref(selectedDeckId)
+      : DECKS_ROUTE;
 
   const isCrossDeckReview = selectedDeckId === CROSS_DECK_REVIEW_DECK_ID;
 
@@ -444,9 +449,24 @@ export default function StudyPage() {
       return;
     }
 
+    if (launchedFromDeckHub) {
+      const fallbackRoute = selectedDeckId ? deckHubHref(selectedDeckId) : DECKS_ROUTE;
+      logger.debug('[Study] Exiting study to deck hub', {
+        deckId: selectedDeckId,
+        canGoBack: navigation.canGoBack(),
+      });
+
+      if (navigation.canGoBack()) {
+        router.back();
+      } else {
+        router.replace(fallbackRoute);
+      }
+      return;
+    }
+
     logger.debug('[Study] Exiting study to decks');
     router.replace(DECKS_ROUTE);
-  }, [launchedFromReviewHub, router]);
+  }, [launchedFromDeckHub, launchedFromReviewHub, navigation, router, selectedDeckId]);
 
   const handleBackFromStudy = useCallback(() => {
     handleExitStudy();

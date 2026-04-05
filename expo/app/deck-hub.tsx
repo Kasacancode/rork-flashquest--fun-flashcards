@@ -17,7 +17,7 @@ import { fetchFriends, type Friendship } from '@/utils/friendsService';
 import { computeDeckMastery } from '@/utils/mastery';
 import { checkDeckPublished, publishDeck, unpublishDeck } from '@/utils/marketplaceService';
 import { serializeQuestSettings } from '@/utils/questParams';
-import { DECKS_ROUTE, editDeckHref, focusedQuestSessionHref, questHref, questSessionHref } from '@/utils/routes';
+import { DECKS_ROUTE, editDeckHref, focusedQuestSessionHref, questHref, questSessionHref, studyHref } from '@/utils/routes';
 import { shareTextWithFallback } from '@/utils/share';
 import { generateUUID } from '@/utils/uuid';
 
@@ -772,7 +772,7 @@ export default function DeckHubScreen() {
                 shadowOpacity: isDark ? 0.08 : 0.07,
               },
             ]}
-            onPress={() => router.push({ pathname: '/study', params: { deckId: deck.id } } as Href)}
+            onPress={() => router.push(studyHref(deck.id, undefined, 'deck-hub'))}
             activeOpacity={0.85}
           >
             <BookOpen color={secondaryActionAccent} size={22} strokeWidth={2.2} />

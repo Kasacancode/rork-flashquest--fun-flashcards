@@ -44,7 +44,7 @@ export function createFlashcardHref(deckId?: string): Href {
     : CREATE_FLASHCARD_ROUTE;
 }
 
-export function studyHref(deckId: string, mode?: string, source?: 'review-hub'): Href {
+export function studyHref(deckId: string, mode?: string, source?: 'review-hub' | 'deck-hub'): Href {
   const params: Record<string, string> = { deckId };
   if (mode) {
     params.initialMode = mode;
