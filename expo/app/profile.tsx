@@ -187,7 +187,7 @@ export default function ProfilePage() {
                 activeTab={activeTab}
                 onSelectTab={handleSelectTab}
                 tabActiveGradient={tabActiveGradient}
-                tabIconSize={width < 390 ? 16 : 17}
+                tabIconSize={width < 430 ? 15 : 17}
                 styles={styles}
                 theme={theme}
               />
@@ -273,14 +273,15 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
   const cardSurface = isDark ? 'rgba(15, 23, 42, 0.78)' : 'rgba(255, 255, 255, 0.94)';
   const stackUtilityCards = width < 390;
   const isCompactProfileLayout = width < 390;
+  const shouldStackProfileTabs = width < 430;
   const screenHorizontalPadding = 20;
   const avatarGridGap = width < 360 ? 12 : 16;
   const profileContentWidth = width >= 768 ? 640 : width - screenHorizontalPadding * 2;
   const avatarGridWidth = Math.max(profileContentWidth, 300);
-  const profileTabGap = isCompactProfileLayout ? 6 : 8;
-  const profileTabHorizontalPadding = isCompactProfileLayout ? 8 : 12;
-  const profileTabMinHeight = isCompactProfileLayout ? 54 : 58;
-  const profileTabFontSize = isCompactProfileLayout ? 13 : 14;
+  const profileTabGap = shouldStackProfileTabs ? 4 : isCompactProfileLayout ? 6 : 8;
+  const profileTabHorizontalPadding = shouldStackProfileTabs ? 4 : isCompactProfileLayout ? 6 : 12;
+  const profileTabMinHeight = shouldStackProfileTabs ? 64 : isCompactProfileLayout ? 62 : 58;
+  const profileTabFontSize = shouldStackProfileTabs ? 12 : isCompactProfileLayout ? 13 : 14;
   const overviewCardGap = isCompactProfileLayout ? 14 : 16;
   const overviewCardPaddingHorizontal = isCompactProfileLayout ? 16 : 18;
   const overviewCardPaddingVertical = isCompactProfileLayout ? 16 : 18;
@@ -699,7 +700,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     tabs: {
       flexDirection: 'row',
       backgroundColor: isDark ? 'rgba(15, 23, 42, 0.84)' : 'rgba(255, 255, 255, 0.78)',
-      padding: isCompactProfileLayout ? 5 : 6,
+      padding: shouldStackProfileTabs ? 4 : isCompactProfileLayout ? 5 : 6,
       borderRadius: 22,
       gap: profileTabGap,
       borderWidth: 1,
@@ -724,10 +725,11 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     tabContentWrap: {
       minHeight: profileTabMinHeight,
       paddingHorizontal: profileTabHorizontalPadding,
-      flexDirection: 'row',
+      paddingVertical: shouldStackProfileTabs ? 8 : 0,
+      flexDirection: shouldStackProfileTabs ? 'column' : 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: isCompactProfileLayout ? 5 : 8,
+      gap: shouldStackProfileTabs ? 4 : isCompactProfileLayout ? 5 : 8,
     },
     tabText: {
       flexShrink: 1,

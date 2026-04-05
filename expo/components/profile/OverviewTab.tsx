@@ -87,7 +87,7 @@ export default function OverviewTab({
         </View>
         <View style={styles.toggleTextWrap}>
           <Text style={styles.toggleTitle}>Friends</Text>
-          <Text style={styles.toggleSubtitle} numberOfLines={2}>Add friends, accept requests, and compare streaks</Text>
+          <Text style={styles.toggleSubtitle} numberOfLines={2}>Add friends and compare streaks</Text>
         </View>
         <View style={styles.toggleChevronWrap}>
           <ChevronRight color={theme.textSecondary} size={18} strokeWidth={2.3} />
