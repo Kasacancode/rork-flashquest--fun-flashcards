@@ -114,6 +114,8 @@ export async function fetchMarketplaceDecks(options: {
       .from('public_decks')
       .select('id, user_id, publisher_name, name, description, category, color, icon, card_count, downloads, up_votes, down_votes, created_at');
 
+    query = query.eq('status', 'active');
+
     if (category && category.trim().length > 0) {
       query = query.eq('category', category);
     }

@@ -18,7 +18,13 @@ import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { logger } from '@/utils/logger';
-import { fetchLeaderboard, fetchUserRank, type LeaderboardEntry, type LeaderboardPeriod } from '@/utils/leaderboardService';
+import {
+  fetchFriendsLeaderboard,
+  fetchLeaderboard,
+  fetchUserRank,
+  type LeaderboardEntry,
+  type LeaderboardPeriod,
+} from '@/utils/leaderboardService';
 import { getLevelBand } from '@/utils/levels';
 
 function getRankIcon(rank: number): ReactNode {
@@ -59,14 +65,20 @@ export default function LeaderboardScreen() {
   const { isSignedIn, user } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [period, setPeriod] = useState<LeaderboardPeriod>('all');
+  const currentUserId = user?.id ?? null;
 
   const leaderboardQuery = useQuery({
-    queryKey: ['global-leaderboard', period],
-    queryFn: () => fetchLeaderboard(period),
+    queryKey: ['global-leaderboard', period, currentUserId],
+    queryFn: () => {
+      if (period === 'friends') {
+        return currentUserId ? fetchFriendsLeaderboard(currentUserId) : Promise.resolve<LeaderboardEntry[]>([]);
+      }
+
+      return fetchLeaderboard(period);
+    },
   });
 
   const entries = useMemo<LeaderboardEntry[]>(() => leaderboardQuery.data ?? [], [leaderboardQuery.data]);
-  const currentUserId = user?.id ?? null;
   const currentUserEntry = useMemo<LeaderboardEntry | null>(() => {
     if (!currentUserId) {
       return null;
@@ -85,12 +97,12 @@ export default function LeaderboardScreen() {
   }, [currentUserId, entries]);
 
   const userRankQuery = useQuery({
-    queryKey: ['global-leaderboard-rank', currentUserId],
+    queryKey: ['user-rank', currentUserId],
     queryFn: () => fetchUserRank(currentUserId ?? ''),
-    enabled: Boolean(currentUserId && !currentUserTopRank),
+    enabled: Boolean(currentUserId) && period !== 'friends' && !currentUserTopRank,
   });
 
-  const userRank = currentUserTopRank ?? userRankQuery.data ?? null;
+  const userRank = period === 'friends' ? null : currentUserTopRank ?? userRankQuery.data ?? null;
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -98,7 +110,7 @@ export default function LeaderboardScreen() {
       logger.log('[Leaderboard] Refresh requested', { period });
       await Promise.all([
         leaderboardQuery.refetch(),
-        currentUserId ? userRankQuery.refetch() : Promise.resolve(),
+        currentUserId && period !== 'friends' ? userRankQuery.refetch() : Promise.resolve(),
       ]);
     } finally {
       setIsRefreshing(false);
@@ -207,6 +219,30 @@ export default function LeaderboardScreen() {
               This Week
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              {
+                backgroundColor: period === 'friends' ? toggleActiveBg : toggleInactiveBg,
+                borderColor: period === 'friends' ? 'rgba(99,102,241,0.3)' : 'transparent',
+              },
+            ]}
+            onPress={() => setPeriod('friends')}
+            activeOpacity={0.84}
+            accessibilityLabel="Friends leaderboard"
+            accessibilityRole="button"
+            testID="leaderboard-period-friends"
+          >
+            <Text
+              style={[
+                styles.toggleText,
+                { color: period === 'friends' ? (isDark ? '#818CF8' : '#6366F1') : theme.textSecondary },
+              ]}
+            >
+              Friends
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -238,7 +274,7 @@ export default function LeaderboardScreen() {
               >
                 <Text style={[styles.signInBannerText, { color: isDark ? '#818CF8' : '#6366F1' }]}>Sign in to join the leaderboard</Text>
               </TouchableOpacity>
-            ) : userRank ? (
+            ) : period !== 'friends' && userRank ? (
               <View
                 style={[
                   styles.userCard,
@@ -280,9 +316,11 @@ export default function LeaderboardScreen() {
                 <Trophy color={theme.textTertiary} size={48} strokeWidth={1.6} />
                 <Text style={[styles.emptyTitle, { color: theme.text }]}>No rankings yet</Text>
                 <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
-                  {period === 'weekly'
-                    ? 'No one has studied this week yet. Be the first!'
-                    : 'Study some cards to appear on the leaderboard.'}
+                  {period === 'friends'
+                    ? 'Add friends from your Profile to see them here.'
+                    : period === 'weekly'
+                      ? 'No one has studied this week yet. Be the first!'
+                      : 'No leaderboard entries yet.'}
                 </Text>
               </View>
             ) : (
@@ -388,6 +426,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   toggleButton: {
+    flex: 1,
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 12,
