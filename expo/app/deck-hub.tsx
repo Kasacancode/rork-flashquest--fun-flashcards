@@ -1102,8 +1102,8 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 3,
   },
-  statVal: { fontSize: 21, fontWeight: '800' as const, textAlign: 'center' as const },
-  statLbl: { fontSize: 12, fontWeight: '600' as const, marginTop: 6, textAlign: 'center' as const },
+  statVal: { fontSize: 18, fontWeight: '800' as const, textAlign: 'center' as const },
+  statLbl: { fontSize: 11, fontWeight: '600' as const, marginTop: 4, textAlign: 'center' as const },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
