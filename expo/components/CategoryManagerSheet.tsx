@@ -193,7 +193,7 @@ export default function CategoryManagerSheet({
           <View style={styles.headerRow}>
             <View style={styles.titleWrap}>
               <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
-              <Text style={[styles.subtitle, { color: mutedTextColor }]}>Add, rename, or delete your custom categories.</Text>
+              <Text style={[styles.subtitle, { color: mutedTextColor }]}>Add, rename, or delete deck categories.</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={[styles.closeButton, { borderColor: subtleBorderColor }]} activeOpacity={0.8} testID={`${testID}-close`}>
               <X color={theme.textSecondary} size={18} strokeWidth={2.4} />
