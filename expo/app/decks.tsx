@@ -79,6 +79,53 @@ export default function DecksPage() {
   const [sortBy, setSortBy] = useState<'name' | 'newest' | 'cards'>('newest');
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const [editModeDeckOrderIds, setEditModeDeckOrderIds] = useState<string[] | null>(null);
+
+  const applyDeckOrder = useCallback((sourceDecks: Deck[], orderedDeckIds: string[]): Deck[] => {
+    const deckMap = new Map(sourceDecks.map((deck) => [deck.id, deck]));
+    const orderedDeckIdSet = new Set(orderedDeckIds);
+    const orderedDecks = orderedDeckIds
+      .map((deckId) => deckMap.get(deckId))
+      .filter((deck): deck is Deck => Boolean(deck));
+    const remainingDecks = sourceDecks.filter((deck) => !orderedDeckIdSet.has(deck.id));
+
+    return [...orderedDecks, ...remainingDecks];
+  }, []);
+
+  const mergeVisibleDeckOrder = useCallback((sourceDecks: Deck[], orderedVisibleDeckIds: string[]): string[] => {
+    const visibleDeckIdSet = new Set(orderedVisibleDeckIds);
+    const sourceDeckMap = new Map(sourceDecks.map((deck) => [deck.id, deck]));
+    const orderedVisibleDecks = orderedVisibleDeckIds
+      .map((deckId) => sourceDeckMap.get(deckId))
+      .filter((deck): deck is Deck => Boolean(deck));
+
+    let orderedVisibleIndex = 0;
+    const nextDecks = sourceDecks.reduce<Deck[]>((accumulator, deck) => {
+      if (!visibleDeckIdSet.has(deck.id)) {
+        accumulator.push(deck);
+        return accumulator;
+      }
+
+      const nextDeck = orderedVisibleDecks[orderedVisibleIndex];
+      orderedVisibleIndex += 1;
+      if (nextDeck) {
+        accumulator.push(nextDeck);
+      }
+      return accumulator;
+    }, []);
+
+    return nextDecks.map((deck) => deck.id);
+  }, []);
+
+  const decksInEditModeOrder = useMemo(() => {
+    if (!isEditMode || editModeDeckOrderIds == null) {
+      return decks;
+    }
+
+    return applyDeckOrder(decks, editModeDeckOrderIds);
+  }, [applyDeckOrder, decks, editModeDeckOrderIds, isEditMode]);
+
+  const decksForDisplay = isEditMode ? decksInEditModeOrder : decks;
 
   const categoryCounts = useMemo(() => {
     const counts = decks.reduce<Record<string, number>>((accumulator, deck) => {
@@ -104,7 +151,7 @@ export default function DecksPage() {
   }, [categoryCounts, deckCategories]);
 
   const filteredDecks = useMemo(() => {
-    let result = decks;
+    let result = decksForDisplay;
 
     if (activeCategory !== ALL_DECK_CATEGORIES_LABEL) {
       result = result.filter((deck) => sanitizeDeckCategory(deck.category) === activeCategory);
@@ -129,7 +176,7 @@ export default function DecksPage() {
     }
 
     return sorted;
-  }, [activeCategory, decks, isEditMode, searchQuery, sortBy]);
+  }, [activeCategory, decksForDisplay, isEditMode, searchQuery, sortBy]);
 
   const filteredDeckSummaries = useMemo(() => {
     return getDeckListSummaries(filteredDecks, performance.cardStatsById, getCardsDueForReview);
@@ -271,12 +318,19 @@ export default function DecksPage() {
   }, [queryClient]);
 
   const handleToggleEditMode = useCallback(() => {
-    setIsEditMode((current) => {
-      const next = !current;
-      logger.debug('[Decks] Toggling edit mode:', next);
-      return next;
-    });
-  }, []);
+    if (!isEditMode) {
+      const visibleDeckIds = filteredDecks.map((deck) => deck.id);
+      const nextDeckOrderIds = mergeVisibleDeckOrder(decks, visibleDeckIds);
+      logger.debug('[Decks] Entering edit mode with visible order:', visibleDeckIds);
+      setEditModeDeckOrderIds(nextDeckOrderIds);
+      setIsEditMode(true);
+      return;
+    }
+
+    logger.debug('[Decks] Leaving edit mode');
+    setIsEditMode(false);
+    setEditModeDeckOrderIds(null);
+  }, [decks, filteredDecks, isEditMode, mergeVisibleDeckOrder]);
 
   const persistDeckDeletion = useCallback(async (deckId: string) => {
     try {
@@ -317,6 +371,7 @@ export default function DecksPage() {
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
     if (currentIndex < 0 || targetIndex < 0 || targetIndex >= visibleDeckIds.length) {
+      logger.debug('[Decks] Ignoring invalid move request:', deckId, direction, currentIndex, targetIndex);
       return;
     }
 
@@ -324,30 +379,11 @@ export default function DecksPage() {
     const [movedDeckId] = reorderedVisibleIds.splice(currentIndex, 1);
     reorderedVisibleIds.splice(targetIndex, 0, movedDeckId ?? deckId);
 
-    const reorderedVisibleIdSet = new Set(reorderedVisibleIds);
-    const visibleDeckMap = new Map(filteredDecks.map((deck) => [deck.id, deck]));
-    const reorderedVisibleDecks = reorderedVisibleIds
-      .map((id) => visibleDeckMap.get(id))
-      .filter((deck): deck is Deck => Boolean(deck));
-
-    let reorderedVisibleIndex = 0;
-    const nextDecks = decks.reduce<Deck[]>((accumulator, deck) => {
-      if (!reorderedVisibleIdSet.has(deck.id)) {
-        accumulator.push(deck);
-        return accumulator;
-      }
-
-      const nextDeck = reorderedVisibleDecks[reorderedVisibleIndex];
-      reorderedVisibleIndex += 1;
-      if (nextDeck) {
-        accumulator.push(nextDeck);
-      }
-      return accumulator;
-    }, []);
-
-    logger.debug('[Decks] Reordering deck:', deckId, direction);
-    reorderDecks(nextDecks.map((deck) => deck.id));
-  }, [decks, filteredDecks, reorderDecks]);
+    const nextDeckOrderIds = mergeVisibleDeckOrder(decksInEditModeOrder, reorderedVisibleIds);
+    logger.debug('[Decks] Reordering deck:', deckId, direction, reorderedVisibleIds, nextDeckOrderIds);
+    setEditModeDeckOrderIds(nextDeckOrderIds);
+    reorderDecks(nextDeckOrderIds);
+  }, [decksInEditModeOrder, filteredDecks, mergeVisibleDeckOrder, reorderDecks]);
 
   const handleMoveDeckUp = useCallback((deckId: string) => {
     handleMoveDeck(deckId, 'up');
@@ -407,6 +443,10 @@ export default function DecksPage() {
   const surfaceBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(126, 143, 212, 0.22)';
   const subtleBorderColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(129, 140, 248, 0.16)';
   const headerContentColor = isDark ? '#F8FAFC' : '#283460';
+  const editToggleButtonBackground = isDark
+    ? (isEditMode ? 'rgba(248, 250, 252, 0.18)' : 'rgba(248, 250, 252, 0.12)')
+    : (isEditMode ? 'rgba(40, 52, 96, 0.92)' : 'rgba(40, 52, 96, 0.82)');
+  const editToggleButtonBorderColor = isDark ? 'rgba(248, 250, 252, 0.16)' : 'rgba(40, 52, 96, 0.18)';
   const topGlowColor = isDark ? 'rgba(99, 102, 241, 0.14)' : 'rgba(105, 134, 255, 0.08)';
   const bottomGlowColor = isDark ? 'rgba(56, 189, 248, 0.1)' : 'rgba(224, 171, 231, 0.1)';
 
@@ -618,8 +658,8 @@ export default function DecksPage() {
                 style={[
                   styles.editToggleButton,
                   {
-                    backgroundColor: isEditMode ? (isDark ? 'rgba(127, 29, 29, 0.34)' : 'rgba(254, 226, 226, 0.95)') : quietSurface,
-                    borderColor: isEditMode ? (isDark ? 'rgba(248, 113, 113, 0.25)' : 'rgba(248, 113, 113, 0.22)') : subtleBorderColor,
+                    backgroundColor: editToggleButtonBackground,
+                    borderColor: editToggleButtonBorderColor,
                   },
                 ]}
                 onPress={handleToggleEditMode}
@@ -1172,7 +1212,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   editToggleButtonText: {
-    color: '#EF4444',
+    color: '#F8FAFC',
     fontSize: 13,
     fontWeight: '800' as const,
     letterSpacing: 0.2,
