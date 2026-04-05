@@ -13,9 +13,11 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { exportDeckToSharePayload } from '@/utils/deckImport';
+import { fetchFriends, type Friendship } from '@/utils/friendsService';
 import { computeDeckMastery } from '@/utils/mastery';
 import { checkDeckPublished, publishDeck, unpublishDeck } from '@/utils/marketplaceService';
-import { DECKS_ROUTE, editDeckHref, focusedQuestSessionHref } from '@/utils/routes';
+import { serializeQuestSettings } from '@/utils/questParams';
+import { DECKS_ROUTE, editDeckHref, focusedQuestSessionHref, questSessionHref } from '@/utils/routes';
 import { shareTextWithFallback } from '@/utils/share';
 import { generateUUID } from '@/utils/uuid';
 
@@ -77,6 +79,18 @@ function blendColors(baseColor: string, accentColor: string, accentStrength: num
   return alpha >= 1 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function getChallengeRunLength(cardCount: number): 5 | 10 | 20 {
+  if (cardCount >= 20) {
+    return 20;
+  }
+
+  if (cardCount >= 10) {
+    return 10;
+  }
+
+  return 5;
+}
+
 export default function DeckHubScreen() {
   const router = useRouter();
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
@@ -89,6 +103,9 @@ export default function DeckHubScreen() {
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
   const [isPublished, setIsPublished] = useState<boolean>(false);
   const [isUnpublishing, setIsUnpublishing] = useState<boolean>(false);
+  const [showFriendPicker, setShowFriendPicker] = useState<boolean>(false);
+  const [friendsList, setFriendsList] = useState<Friendship[]>([]);
+  const [isLoadingFriends, setIsLoadingFriends] = useState<boolean>(false);
   const menuBtnRef = useRef<View>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
 
@@ -270,6 +287,66 @@ export default function DeckHubScreen() {
     setMenuVisible(false);
     setShowQR(true);
   }, []);
+
+  const handleChallengeFriend = useCallback(async () => {
+    if (!deck || !isSignedIn || !user?.id) {
+      Alert.alert('Sign In Required', 'Sign in to challenge friends.');
+      return;
+    }
+
+    if (deck.flashcards.length < 4) {
+      Alert.alert('Not Enough Cards', 'Decks need at least 4 cards for a challenge.');
+      return;
+    }
+
+    setMenuVisible(false);
+    setIsLoadingFriends(true);
+
+    const friends = await fetchFriends(user.id);
+    setFriendsList(friends);
+    setIsLoadingFriends(false);
+
+    if (friends.length === 0) {
+      Alert.alert('No Friends Yet', 'Add friends from your Profile to challenge them.');
+      return;
+    }
+
+    setShowFriendPicker(true);
+  }, [deck, isSignedIn, user?.id]);
+
+  const handleSelectChallengeOpponent = useCallback((friendship: Friendship) => {
+    if (!deck) {
+      return;
+    }
+
+    const shuffledCards = [...deck.flashcards];
+    for (let index = shuffledCards.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      const currentCard = shuffledCards[index]!;
+      shuffledCards[index] = shuffledCards[swapIndex]!;
+      shuffledCards[swapIndex] = currentCard;
+    }
+
+    const selectedCards = shuffledCards.slice(0, Math.min(10, shuffledCards.length));
+    const cardIds = selectedCards.map((card) => card.id);
+
+    setShowFriendPicker(false);
+    router.push(questSessionHref({
+      settings: serializeQuestSettings({
+        deckId: deck.id,
+        mode: 'test',
+        runLength: getChallengeRunLength(cardIds.length),
+        timerSeconds: 0,
+        focusWeakOnly: false,
+        hintsEnabled: false,
+        explanationsEnabled: true,
+        secondChanceEnabled: false,
+      }),
+      drillCardIds: JSON.stringify(cardIds),
+      challengeOpponentId: friendship.friend.userId,
+      challengeCardIds: JSON.stringify(cardIds),
+    }));
+  }, [deck, router]);
 
   const handlePublishDeck = useCallback(() => {
     if (!deck) {
@@ -793,6 +870,20 @@ export default function DeckHubScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.menuItem}
+                onPress={() => {
+                  void handleChallengeFriend();
+                }}
+                activeOpacity={0.75}
+                disabled={isLoadingFriends}
+                testID="challengeFriendButton"
+              >
+                <Swords color={isLoadingFriends ? theme.textTertiary : '#F59E0B'} size={18} strokeWidth={2.2} />
+                <Text style={[styles.menuItemText, { color: isLoadingFriends ? theme.textTertiary : theme.text }]}> 
+                  {isLoadingFriends ? 'Loading...' : 'Challenge a Friend'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
                 onPress={handlePublishDeck}
                 activeOpacity={0.75}
                 testID="publishDeckButton"
@@ -836,6 +927,45 @@ export default function DeckHubScreen() {
               </TouchableOpacity>
             </View>
           </Pressable>
+        </Modal>
+
+        <Modal visible={showFriendPicker} transparent animationType="slide" onRequestClose={() => setShowFriendPicker(false)}>
+          <View style={styles.friendPickerBackdrop}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowFriendPicker(false)} />
+            <View style={styles.friendPickerAvoidDismiss}>
+              <View style={[styles.friendPickerSheet, { backgroundColor: isDark ? '#0F172A' : '#FFFFFF' }]}>
+                <View style={styles.friendPickerHandle}>
+                  <View style={[styles.friendPickerHandleBar, { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)' }]} />
+                </View>
+                <Text style={[styles.friendPickerTitle, { color: theme.text }]}>Challenge a Friend</Text>
+                <Text style={[styles.friendPickerSubtitle, { color: theme.textSecondary }]}> 
+                  Pick someone to compete against on {deck.name}
+                </Text>
+                <ScrollView style={styles.friendPickerList} bounces={false} showsVerticalScrollIndicator={false}>
+                  {friendsList.map((friendship) => {
+                    const friendLabel = friendship.friend.username.trim().length > 0
+                      ? `@${friendship.friend.username}`
+                      : friendship.friend.displayName;
+
+                    return (
+                      <TouchableOpacity
+                        key={friendship.id}
+                        style={[styles.friendPickerRow, { borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}
+                        onPress={() => handleSelectChallengeOpponent(friendship)}
+                        activeOpacity={0.8}
+                        testID={`challenge-friend-${friendship.friend.userId}`}
+                      >
+                        <Text style={[styles.friendPickerUsername, { color: theme.text }]} numberOfLines={1}>
+                          {friendLabel}
+                        </Text>
+                        <Text style={[styles.friendPickerLevel, { color: theme.textSecondary }]}>Lv. {friendship.friend.level}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            </View>
+          </View>
         </Modal>
 
         <DeckQRSheet
@@ -1022,4 +1152,58 @@ const styles = StyleSheet.create({
   actionTitle: { fontSize: 16, fontWeight: '700' as const, color: '#fff' },
   actionDesc: { fontSize: 12, fontWeight: '600' as const, color: 'rgba(255,255,255,0.82)', marginTop: 2 },
   secondaryActionDesc: { fontSize: 12, fontWeight: '500' as const, marginTop: 2 },
+  friendPickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  friendPickerAvoidDismiss: {
+    maxHeight: '60%',
+  },
+  friendPickerSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 40,
+  },
+  friendPickerHandle: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  friendPickerHandleBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+  },
+  friendPickerTitle: {
+    fontSize: 20,
+    fontWeight: '800' as const,
+    marginBottom: 4,
+  },
+  friendPickerSubtitle: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    marginBottom: 16,
+  },
+  friendPickerList: {
+    maxHeight: 300,
+  },
+  friendPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  friendPickerUsername: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700' as const,
+    paddingRight: 12,
+  },
+  friendPickerLevel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
 });

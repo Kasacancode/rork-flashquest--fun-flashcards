@@ -45,12 +45,36 @@ export function parseQuestSettingsParam(raw: string | string[] | undefined): Que
   });
 }
 
-export function parseDrillCardIdsParam(raw: string | string[] | undefined): string[] | null {
-  return safeParseJsonOrNull<string[]>({
-    raw: getFirstRouteParam(raw),
-    label: 'quest drill card ids route param',
+function parseRouteStringArrayParam(raw: string | string[] | undefined, label: string): string[] | null {
+  const routeParam = getFirstRouteParam(raw);
+  const parsedArray = safeParseJsonOrNull<string[]>({
+    raw: routeParam,
+    label,
     normalize: normalizeStringArray,
   });
+
+  if (parsedArray) {
+    return parsedArray;
+  }
+
+  if (!routeParam || !routeParam.trim()) {
+    return null;
+  }
+
+  const splitValues = routeParam
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  return splitValues.length > 0 ? splitValues : null;
+}
+
+export function parseDrillCardIdsParam(raw: string | string[] | undefined): string[] | null {
+  return parseRouteStringArrayParam(raw, 'quest drill card ids route param');
+}
+
+export function parseChallengeCardIdsParam(raw: string | string[] | undefined): string[] | null {
+  return parseRouteStringArrayParam(raw, 'challenge card ids route param');
 }
 
 export function serializeQuestSettings(settings: QuestSettings): string {

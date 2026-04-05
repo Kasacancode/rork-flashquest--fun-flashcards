@@ -1,34 +1,47 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Trophy, Target, Zap, Clock, RotateCcw, BookOpen, Home, ChevronDown, ChevronUp, Share2 } from 'lucide-react-native';
+import { Trophy, Target, Zap, Clock, RotateCcw, BookOpen, Home, ChevronDown, ChevronUp, Share2, Swords } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ConfettiCelebration from '@/components/ConfettiCelebration';
 import DealerPlaceholder from '@/components/DealerPlaceholder';
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import ShareableResultCard, { type ResultCardData } from '@/components/ShareableResultCard';
+import { useAuth } from '@/context/AuthContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
+import { completeChallenge, createChallenge } from '@/utils/challengeService';
 import { getQuestCompletionDialogueEvent, selectAssistantDialogue } from '@/utils/dialogue';
 import { logger } from '@/utils/logger';
-import { parseQuestResultParam, serializeQuestSettings } from '@/utils/questParams';
+import { parseChallengeCardIdsParam, parseQuestResultParam, serializeQuestSettings } from '@/utils/questParams';
 import { HOME_ROUTE, QUEST_ROUTE, focusedQuestSessionHref, questSessionHref, studyHref } from '@/utils/routes';
+import { getFirstRouteParam } from '@/utils/safeJson';
 import { captureAndShareImage } from '@/utils/share';
 import { playSound } from '@/utils/sounds';
 import { maybePromptReview } from '@/utils/storeReview';
 
 export default function QuestResultsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ result?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    result?: string | string[];
+    challengeOpponentId?: string | string[];
+    challengeCardIds?: string | string[];
+    challengeId?: string | string[];
+    challengerScore?: string | string[];
+  }>();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const { decks, stats } = useFlashQuest();
 
   const [showMissedCards, setShowMissedCards] = useState(false);
   const [showShareCard, setShowShareCard] = useState<boolean>(false);
   const [showConfetti, setShowConfetti] = useState<boolean>(false);
+  const [challengeSent, setChallengeSent] = useState<boolean>(false);
+  const [isSendingChallenge, setIsSendingChallenge] = useState<boolean>(false);
   const shareCardRef = useRef<View>(null);
+  const completedChallengeIdRef = useRef<string | null>(null);
   const reviewPromptStatsRef = useRef({
     totalStudySessions: stats.totalStudySessions,
     totalQuestSessions: stats.totalQuestSessions,
@@ -40,6 +53,18 @@ export default function QuestResultsScreen() {
   }, []);
 
   const result = useMemo(() => parseQuestResultParam(params.result), [params.result]);
+  const challengeOpponentId = useMemo(() => getFirstRouteParam(params.challengeOpponentId), [params.challengeOpponentId]);
+  const challengeCardIds = useMemo(() => parseChallengeCardIdsParam(params.challengeCardIds), [params.challengeCardIds]);
+  const challengeId = useMemo(() => getFirstRouteParam(params.challengeId), [params.challengeId]);
+  const challengerScore = useMemo(() => {
+    const rawScore = getFirstRouteParam(params.challengerScore);
+    if (!rawScore) {
+      return null;
+    }
+
+    const parsedScore = Number(rawScore);
+    return Number.isFinite(parsedScore) ? parsedScore : null;
+  }, [params.challengerScore]);
 
   const deck = useMemo(() => decks.find((item) => item.id === result?.deckId), [decks, result?.deckId]);
 
@@ -113,6 +138,30 @@ export default function QuestResultsScreen() {
     setShowConfetti((result.accuracy ?? 0) >= 0.9);
   }, [result]);
 
+  useEffect(() => {
+    if (!challengeId || !user?.id || !result) {
+      return;
+    }
+
+    if (completedChallengeIdRef.current === challengeId) {
+      return;
+    }
+
+    completedChallengeIdRef.current = challengeId;
+    void completeChallenge({
+      challengeId,
+      score: result.totalScore,
+      correct: result.correctCount,
+      timeMs: result.totalTimeMs,
+    }).then((success) => {
+      if (success) {
+        logger.log('[Challenges] Recorded opponent challenge result:', challengeId);
+      } else {
+        logger.warn('[Challenges] Failed to record opponent challenge result:', challengeId);
+      }
+    });
+  }, [challengeId, result, user?.id]);
+
   const handlePlayAgain = () => {
     if (!result) {
       router.replace(QUEST_ROUTE);
@@ -150,6 +199,32 @@ export default function QuestResultsScreen() {
       setShowShareCard(false);
     }
   }, []);
+
+  const handleSendChallenge = useCallback(async () => {
+    if (!user?.id || !challengeOpponentId || !challengeCardIds || !result || !deck || isSendingChallenge) {
+      return;
+    }
+
+    setIsSendingChallenge(true);
+    const challengeRowId = await createChallenge({
+      challengerId: user.id,
+      opponentId: challengeOpponentId,
+      deckName: deck.name,
+      deckColor: deck.color,
+      questionIds: challengeCardIds,
+      score: result.totalScore,
+      correct: result.correctCount,
+      timeMs: result.totalTimeMs,
+    });
+    setIsSendingChallenge(false);
+    setChallengeSent(challengeRowId !== null);
+
+    if (challengeRowId) {
+      Alert.alert('Challenge Sent!', 'Your friend will see the challenge next time they open FlashQuest.');
+    } else {
+      Alert.alert('Send Failed', 'Could not send the challenge. Please try again.');
+    }
+  }, [challengeCardIds, challengeOpponentId, deck, isSendingChallenge, result, user?.id]);
 
   if (!result) {
     return (
@@ -251,6 +326,29 @@ export default function QuestResultsScreen() {
             </View>
           </View>
 
+          {challengerScore !== null ? (
+            <View style={[styles.challengeComparison, { backgroundColor: theme.cardBackground }]}> 
+              <Text style={[styles.comparisonTitle, { color: theme.text }]}>
+                {result.totalScore > challengerScore ? 'You win!' : result.totalScore === challengerScore ? 'It\'s a tie!' : 'They win!'}
+              </Text>
+              <View style={styles.comparisonRow}>
+                <View style={styles.comparisonSide}>
+                  <Text style={[styles.comparisonLabel, { color: theme.textSecondary }]}>You</Text>
+                  <Text style={[styles.comparisonScore, { color: result.totalScore >= challengerScore ? '#10B981' : theme.text }]}>
+                    {result.totalScore}
+                  </Text>
+                </View>
+                <Text style={[styles.comparisonVs, { color: theme.textTertiary }]}>vs</Text>
+                <View style={styles.comparisonSide}>
+                  <Text style={[styles.comparisonLabel, { color: theme.textSecondary }]}>Them</Text>
+                  <Text style={[styles.comparisonScore, { color: challengerScore > result.totalScore ? '#10B981' : theme.text }]}>
+                    {challengerScore}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : null}
+
           {missedCards.length > 0 && (
             <View style={[styles.missedSection, { backgroundColor: theme.cardBackground }]}>
               <TouchableOpacity
@@ -350,6 +448,27 @@ export default function QuestResultsScreen() {
                 <Share2 color={theme.primary} size={20} strokeWidth={2.2} />
                 <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>Share as Image</Text>
               </TouchableOpacity>
+            ) : null}
+
+            {challengeOpponentId && challengeCardIds && !challengeSent ? (
+              <TouchableOpacity
+                style={[styles.challengeButton, { opacity: isSendingChallenge ? 0.6 : 1 }]}
+                onPress={() => {
+                  void handleSendChallenge();
+                }}
+                disabled={isSendingChallenge}
+                activeOpacity={0.85}
+                testID="quest-results-send-challenge-button"
+              >
+                <Swords color="#FFFFFF" size={18} strokeWidth={2.2} />
+                <Text style={styles.challengeButtonText}>
+                  {isSendingChallenge ? 'Sending...' : 'Send Challenge'}
+                </Text>
+              </TouchableOpacity>
+            ) : challengeOpponentId && challengeSent ? (
+              <View style={styles.challengeSentBadge}>
+                <Text style={styles.challengeSentText}>Challenge Sent!</Text>
+              </View>
             ) : null}
 
             <TouchableOpacity
@@ -553,6 +672,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
   },
+  challengeComparison: {
+    alignItems: 'center',
+    marginBottom: 20,
+    borderRadius: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+  },
+  comparisonTitle: {
+    fontSize: 22,
+    fontWeight: '800' as const,
+    marginBottom: 12,
+  },
+  comparisonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
+  comparisonSide: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  comparisonLabel: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  comparisonScore: {
+    fontSize: 28,
+    fontWeight: '800' as const,
+  },
+  comparisonVs: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+  },
   missedSection: {
     borderRadius: 20,
     marginBottom: 20,
@@ -619,6 +771,31 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700' as const,
     color: '#fff',
+  },
+  challengeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F59E0B',
+    height: 50,
+    borderRadius: 16,
+    marginTop: 12,
+  },
+  challengeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800' as const,
+  },
+  challengeSentBadge: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 12,
+  },
+  challengeSentText: {
+    color: '#10B981',
+    fontSize: 16,
+    fontWeight: '800' as const,
   },
   secondaryButton: {
     flexDirection: 'row',

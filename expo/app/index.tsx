@@ -3,6 +3,7 @@ import { useRouter, type Href } from 'expo-router';
 import { ChevronRight, Trophy, BookOpen, Compass, RotateCcw, Swords, Target, User } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   View,
   Text,
   StyleSheet,
@@ -24,9 +25,12 @@ import { SkeletonBox, SkeletonCard } from '@/components/SkeletonLoader';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
+import { supabase } from '@/lib/supabase';
+import { fetchIncomingChallenges, type ChallengeData } from '@/utils/challengeService';
 import { computeLevel, getLevelBandPalette, getLevelEntry } from '@/utils/levels';
 import { getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
-import { ARENA_ROUTE, DECKS_ROUTE, EXPLORE_ROUTE, deckHubHref, questHref, studyHref } from '@/utils/routes';
+import { serializeQuestSettings } from '@/utils/questParams';
+import { ARENA_ROUTE, DECKS_ROUTE, EXPLORE_ROUTE, deckHubHref, questHref, questSessionHref, studyHref } from '@/utils/routes';
 import { logger } from '@/utils/logger';
 import { getUserInterests } from '@/utils/userInterests';
 import { useResponsiveLayout } from '@/utils/responsive';
@@ -80,6 +84,7 @@ export default function HomePage() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [statsPage, setStatsPage] = useState<number>(0);
   const [userInterests, setUserInterests] = useState<string[]>([]);
+  const [incomingChallenges, setIncomingChallenges] = useState<ChallengeData[]>([]);
   const [showReviewSheet, setShowReviewSheet] = useState<boolean>(false);
   const reviewSheetTranslateY = useRef<Animated.Value>(new Animated.Value(520)).current;
   const reviewSheetBackdropOpacity = useRef<Animated.Value>(new Animated.Value(0)).current;
@@ -94,9 +99,28 @@ export default function HomePage() {
   const levelEntry = useMemo(() => getLevelEntry(level), [level]);
   const levelPalette = useMemo(() => getLevelBandPalette(level, isDark), [level, isDark]);
 
+  const loadIncomingChallenges = useCallback(async () => {
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession?.user?.id) {
+        setIncomingChallenges([]);
+        return;
+      }
+
+      const nextChallenges = await fetchIncomingChallenges(currentSession.user.id);
+      setIncomingChallenges(nextChallenges);
+    } catch (error) {
+      logger.warn('[Home] Failed to load incoming challenges:', error);
+    }
+  }, []);
+
   useEffect(() => {
     getUserInterests().then(setUserInterests).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    void loadIncomingChallenges();
+  }, [loadIncomingChallenges]);
 
   const backgroundGradient = useMemo(
     () => (
@@ -653,9 +677,12 @@ export default function HomePage() {
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await queryClient.refetchQueries();
+    await Promise.all([
+      queryClient.refetchQueries(),
+      loadIncomingChallenges(),
+    ]);
     setRefreshing(false);
-  }, [queryClient]);
+  }, [loadIncomingChallenges, queryClient]);
 
   const animateStatsPagerTo = useCallback((page: number) => {
     Animated.spring(statsPagerTranslateX, {
@@ -1102,6 +1129,70 @@ export default function HomePage() {
               </View>
 
 
+              {incomingChallenges.length > 0 ? (
+                <View
+                  style={[
+                    styles.challengeCard,
+                    {
+                      backgroundColor: isDark ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.06)',
+                      borderColor: isDark ? 'rgba(245,158,11,0.2)' : 'rgba(245,158,11,0.15)',
+                    },
+                  ]}
+                  testID="home-incoming-challenge-card"
+                >
+                  <View style={styles.challengeCardHeader}>
+                    <Swords color="#F59E0B" size={18} strokeWidth={2.2} />
+                    <Text style={[styles.challengeCardTitle, { color: theme.text }]} numberOfLines={1}>
+                      Challenge from @{incomingChallenges[0]?.challengerUsername || incomingChallenges[0]?.challengerDisplayName || 'friend'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.challengeCardSubtitle, { color: theme.textSecondary }]}>
+                    {incomingChallenges[0]?.deckName} · Beat their score of {incomingChallenges[0]?.challengerScore}!
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.challengeAcceptButton}
+                    onPress={() => {
+                      const challenge = incomingChallenges[0];
+                      if (!challenge) {
+                        return;
+                      }
+
+                      const normalizedDeckName = challenge.deckName.trim().toLowerCase();
+                      const deckMatch = decks.find((deck) => deck.name.trim().toLowerCase() === normalizedDeckName);
+                      if (!deckMatch) {
+                        Alert.alert('Deck Not Found', 'You need this deck to accept the challenge. Check the community marketplace.');
+                        return;
+                      }
+
+                      router.push(questSessionHref({
+                        settings: serializeQuestSettings({
+                          deckId: deckMatch.id,
+                          mode: 'test',
+                          runLength: challenge.questionIds.length >= 20 ? 20 : challenge.questionIds.length >= 10 ? 10 : 5,
+                          timerSeconds: 0,
+                          focusWeakOnly: false,
+                          hintsEnabled: false,
+                          explanationsEnabled: true,
+                          secondChanceEnabled: false,
+                        }),
+                        drillCardIds: JSON.stringify(challenge.questionIds),
+                        challengeId: challenge.id,
+                        challengerScore: String(challenge.challengerScore),
+                      }));
+                    }}
+                    activeOpacity={0.85}
+                    testID="home-accept-challenge-button"
+                  >
+                    <Text style={styles.challengeAcceptText}>Accept Challenge</Text>
+                  </TouchableOpacity>
+                  {incomingChallenges.length > 1 ? (
+                    <Text style={[styles.challengeMoreText, { color: theme.textTertiary }]}>
+                      +{incomingChallenges.length - 1} more challenge{incomingChallenges.length - 1 === 1 ? '' : 's'}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+
               <View style={styles.smartActionsSection}>
                 <TouchableOpacity
                   style={[
@@ -1417,6 +1508,13 @@ const styles = StyleSheet.create<{
   actionContent: ViewStyle;
   actionIconSlot: ViewStyle;
   actionTitleMedium: TextStyle;
+  challengeCard: ViewStyle;
+  challengeCardHeader: ViewStyle;
+  challengeCardTitle: TextStyle;
+  challengeCardSubtitle: TextStyle;
+  challengeAcceptButton: ViewStyle;
+  challengeAcceptText: TextStyle;
+  challengeMoreText: TextStyle;
   smartActionsSection: ViewStyle;
   smartActionsHeader: ViewStyle;
   smartActionsEyebrow: TextStyle;
@@ -1840,6 +1938,47 @@ const styles = StyleSheet.create<{
     marginTop: 0,
     textAlign: 'center',
     letterSpacing: -0.42,
+  },
+  challengeCard: {
+    marginTop: 22,
+    marginHorizontal: 24,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
+  },
+  challengeCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  challengeCardTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '800' as const,
+  },
+  challengeCardSubtitle: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    marginBottom: 12,
+  },
+  challengeAcceptButton: {
+    backgroundColor: '#F59E0B',
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  challengeAcceptText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800' as const,
+  },
+  challengeMoreText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    marginTop: 8,
+    textAlign: 'center',
   },
   smartActionsSection: {
     marginTop: 22,

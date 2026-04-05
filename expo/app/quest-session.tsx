@@ -21,6 +21,7 @@ import { formatGameplayHint } from '@/utils/gameplayCopy';
 import { createFlashcardOptionFromCard, getCanonicalAnswer, getCardAnswerForSurface, getCardQuestionForSurface } from '@/utils/flashcardContent';
 import { logger } from '@/utils/logger';
 import { parseDrillCardIdsParam, parseQuestSettingsParam, serializeQuestResult } from '@/utils/questParams';
+import { getFirstRouteParam } from '@/utils/safeJson';
 import { playSound } from '@/utils/sounds';
 import { useResponsiveLayout } from '@/utils/responsive';
 import { QUEST_ROUTE, questResultsHref } from '@/utils/routes';
@@ -39,7 +40,14 @@ const FALLBACK_QUEST_SETTINGS: QuestSettings = {
 
 export default function QuestSessionScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ settings?: string | string[]; drillCardIds?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    settings?: string | string[];
+    drillCardIds?: string | string[];
+    challengeId?: string | string[];
+    challengerScore?: string | string[];
+    challengeOpponentId?: string | string[];
+    challengeCardIds?: string | string[];
+  }>();
   const { theme } = useTheme();
   const { gameAreaMaxWidth } = useResponsiveLayout();
   const { decks, recordSessionResult } = useFlashQuest();
@@ -49,6 +57,10 @@ export default function QuestSessionScreen() {
   const settings = parsedSettings ?? FALLBACK_QUEST_SETTINGS;
 
   const drillCardIds = useMemo(() => parseDrillCardIdsParam(params.drillCardIds), [params.drillCardIds]);
+  const challengeId = useMemo(() => getFirstRouteParam(params.challengeId), [params.challengeId]);
+  const challengerScore = useMemo(() => getFirstRouteParam(params.challengerScore), [params.challengerScore]);
+  const challengeOpponentId = useMemo(() => getFirstRouteParam(params.challengeOpponentId), [params.challengeOpponentId]);
+  const challengeCardIds = useMemo(() => getFirstRouteParam(params.challengeCardIds), [params.challengeCardIds]);
 
   const deck = useMemo(() => decks.find(d => d.id === settings.deckId), [decks, settings.deckId]);
 
@@ -252,8 +264,14 @@ export default function QuestSessionScreen() {
       askedCardIds,
     };
 
-    router.replace(questResultsHref(serializeQuestResult(result)));
-  }, [currentRound, settings, score, correctCount, incorrectCount, bestStreak, totalTimeMs, missedCardIds, askedCardIds, router, updateBestStreak, recordSessionResult]);
+    router.replace(questResultsHref({
+      result: serializeQuestResult(result),
+      challengeId,
+      challengerScore,
+      challengeOpponentId,
+      challengeCardIds,
+    }));
+  }, [askedCardIds, challengeCardIds, challengeId, challengeOpponentId, challengerScore, correctCount, currentRound, incorrectCount, bestStreak, missedCardIds, recordSessionResult, router, score, settings, totalTimeMs, updateBestStreak]);
 
   finishSessionEarlyRef.current = finishSessionEarly;
 
@@ -518,14 +536,20 @@ export default function QuestSessionScreen() {
         askedCardIds,
       };
 
-      router.replace(questResultsHref(serializeQuestResult(result)));
+      router.replace(questResultsHref({
+        result: serializeQuestResult(result),
+        challengeId,
+        challengerScore,
+        challengeOpponentId,
+        challengeCardIds,
+      }));
       return;
     }
 
     setCurrentRound(nextRound);
     setShowExplanation(false);
     setupNextRound();
-  }, [currentRound, settings, score, correctCount, incorrectCount, bestStreak, totalTimeMs, missedCardIds, askedCardIds, router, updateBestStreak, setupNextRound, effectiveRunLength, recordSessionResult]);
+  }, [askedCardIds, challengeCardIds, challengeId, challengeOpponentId, challengerScore, correctCount, currentRound, effectiveRunLength, incorrectCount, bestStreak, missedCardIds, recordSessionResult, router, score, settings, setupNextRound, totalTimeMs, updateBestStreak]);
 
   advanceRoundRef.current = advanceRound;
 

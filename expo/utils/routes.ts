@@ -128,12 +128,41 @@ export function practiceSessionHref(deckId: string, mode: PracticeMode): Href {
   return { pathname: PRACTICE_SESSION_ROUTE, params: { deckId, mode } };
 }
 
-export function questSessionHref(params: { settings: string; drillCardIds?: string }): Href {
+export function questSessionHref(params: {
+  settings: string;
+  drillCardIds?: string;
+  challengeId?: string;
+  challengerScore?: string;
+  challengeOpponentId?: string;
+  challengeCardIds?: string;
+}): Href {
+  const routeParams: Record<string, string> = {
+    settings: params.settings,
+  };
+
+  if (params.drillCardIds) {
+    routeParams.drillCardIds = params.drillCardIds;
+  }
+
+  if (params.challengeId) {
+    routeParams.challengeId = params.challengeId;
+  }
+
+  if (params.challengerScore) {
+    routeParams.challengerScore = params.challengerScore;
+  }
+
+  if (params.challengeOpponentId) {
+    routeParams.challengeOpponentId = params.challengeOpponentId;
+  }
+
+  if (params.challengeCardIds) {
+    routeParams.challengeCardIds = params.challengeCardIds;
+  }
+
   return {
     pathname: QUEST_SESSION_ROUTE,
-    params: params.drillCardIds
-      ? { settings: params.settings, drillCardIds: params.drillCardIds }
-      : { settings: params.settings },
+    params: routeParams,
   };
 }
 
@@ -171,6 +200,36 @@ export function focusedQuestSessionHref(params: {
   });
 }
 
-export function questResultsHref(result: string): Href {
-  return { pathname: QUEST_RESULTS_ROUTE, params: { result } };
+export function questResultsHref(params: {
+  result: string;
+  challengeId?: string;
+  challengerScore?: string;
+  challengeOpponentId?: string;
+  challengeCardIds?: string;
+} | string): Href {
+  if (typeof params === 'string') {
+    return { pathname: QUEST_RESULTS_ROUTE, params: { result: params } };
+  }
+
+  const routeParams: Record<string, string> = {
+    result: params.result,
+  };
+
+  if (params.challengeId) {
+    routeParams.challengeId = params.challengeId;
+  }
+
+  if (params.challengerScore) {
+    routeParams.challengerScore = params.challengerScore;
+  }
+
+  if (params.challengeOpponentId) {
+    routeParams.challengeOpponentId = params.challengeOpponentId;
+  }
+
+  if (params.challengeCardIds) {
+    routeParams.challengeCardIds = params.challengeCardIds;
+  }
+
+  return { pathname: QUEST_RESULTS_ROUTE, params: routeParams };
 }
