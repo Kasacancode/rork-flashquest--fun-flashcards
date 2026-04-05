@@ -84,8 +84,13 @@ export default function OverviewTab({
         accessibilityLabel="Open friends"
         testID="profile-open-friends"
       >
-        <View style={styles.toggleLeadingIcon}>
-          <Users color={theme.primary} size={20} strokeWidth={2.3} />
+        <View
+          style={[
+            styles.toggleLeadingIcon,
+            { backgroundColor: isDark ? 'rgba(52, 211, 153, 0.15)' : 'rgba(5, 150, 105, 0.1)' },
+          ]}
+        >
+          <Users color={isDark ? '#34D399' : '#059669'} size={20} strokeWidth={2.3} />
         </View>
         <View style={styles.toggleTextWrap}>
           <Text style={styles.toggleTitle}>Friends</Text>
@@ -104,8 +109,13 @@ export default function OverviewTab({
         accessibilityLabel="Open settings"
         testID="profile-open-settings"
       >
-        <View style={styles.toggleLeadingIcon}>
-          <Settings color={theme.primary} size={20} strokeWidth={2.3} />
+        <View
+          style={[
+            styles.toggleLeadingIcon,
+            { backgroundColor: isDark ? 'rgba(148, 163, 184, 0.15)' : 'rgba(100, 116, 139, 0.1)' },
+          ]}
+        >
+          <Settings color={isDark ? '#94A3B8' : '#64748B'} size={20} strokeWidth={2.3} />
         </View>
         <View style={styles.toggleTextWrap}>
           <Text style={styles.toggleTitle}>Settings</Text>
@@ -126,8 +136,13 @@ export default function OverviewTab({
           testID="profile-open-faq"
         >
           <View style={styles.utilityCardHeader}>
-            <View style={styles.utilityIconWrap}>
-              <CircleHelp color={theme.primary} size={18} strokeWidth={2.3} />
+            <View
+              style={[
+                styles.utilityIconWrap,
+                { backgroundColor: isDark ? 'rgba(96, 165, 250, 0.15)' : 'rgba(37, 99, 235, 0.1)' },
+              ]}
+            >
+              <CircleHelp color={isDark ? '#60A5FA' : '#2563EB'} size={18} strokeWidth={2.3} />
             </View>
             <View style={styles.utilityChevronWrap}>
               <ChevronRight color={theme.textSecondary} size={17} strokeWidth={2.3} />
@@ -148,8 +163,13 @@ export default function OverviewTab({
           testID="profile-open-support"
         >
           <View style={styles.utilityCardHeader}>
-            <View style={styles.utilityIconWrap}>
-              <Mail color={theme.primary} size={18} strokeWidth={2.3} />
+            <View
+              style={[
+                styles.utilityIconWrap,
+                { backgroundColor: isDark ? 'rgba(251, 146, 60, 0.15)' : 'rgba(234, 88, 12, 0.1)' },
+              ]}
+            >
+              <Mail color={isDark ? '#FB923C' : '#EA580C'} size={18} strokeWidth={2.3} />
             </View>
             <View style={styles.utilityChevronWrap}>
               <ChevronRight color={theme.textSecondary} size={17} strokeWidth={2.3} />
