@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BarChart3, BookOpen, Calendar, ChevronDown, ChevronRight, Clock, Flame, Star, Swords, Target, TrendingUp, Zap } from 'lucide-react-native';
+import { AlertCircle, Award, BarChart3, BookOpen, Calendar, CheckCircle, ChevronDown, ChevronRight, Clock, Flame, Star, Swords, Target, TrendingUp, Zap } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LayoutAnimation, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,10 +17,10 @@ import { useStatsScreenState } from '@/components/stats/useStatsScreenState';
 import type { Theme } from '@/constants/colors';
 import { getDailyGoalTarget, getDailyProgress } from '@/utils/dailyGoal';
 import { LEVELS } from '@/utils/levels';
-import { LEADERBOARD_ROUTE } from '@/utils/routes';
+import { deckHubHref, LEADERBOARD_ROUTE, studyHref } from '@/utils/routes';
 
 type ThemeValues = Theme;
-type ExpandableStatsCard = 'goal' | 'week' | 'recap';
+type ExpandableStatsPanel = 'goal' | 'week' | 'recap' | 'activity' | 'mastery' | 'performance';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -75,7 +75,7 @@ export default function StatsPage() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [dailyGoalTarget, setDailyGoalTarget] = useState<number>(15);
   const [dailyGoalProgress, setDailyGoalProgress] = useState<number>(0);
-  const [expandedCard, setExpandedCard] = useState<ExpandableStatsCard | null>(null);
+  const [expandedPanel, setExpandedPanel] = useState<ExpandableStatsPanel | null>(null);
   const cardSurface = isDark ? 'rgba(11, 20, 37, 0.84)' : 'rgba(255, 255, 255, 0.9)';
   const cardBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.18)';
   const dailyGoalPercent = Math.min(Math.round((dailyGoalProgress / Math.max(dailyGoalTarget, 1)) * 100), 100);
@@ -145,9 +145,56 @@ export default function StatsPage() {
     });
   }, [currentDateKey, stats.lastActiveDate, stats.studyDates]);
 
-  const toggleCard = useCallback((card: ExpandableStatsCard) => {
+  const studyPatternInsight = useMemo(() => {
+    const dates = stats.studyDates ?? [];
+    if (dates.length < 3) {
+      return null;
+    }
+
+    const dayCounts = [0, 0, 0, 0, 0, 0, 0];
+    for (const dateStr of dates) {
+      const day = new Date(dateStr).getDay();
+      dayCounts[day] += 1;
+    }
+
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const maxDay = dayCounts.indexOf(Math.max(...dayCounts));
+    const weekdayTotal = dayCounts[1] + dayCounts[2] + dayCounts[3] + dayCounts[4] + dayCounts[5];
+    const weekendTotal = dayCounts[0] + dayCounts[6];
+    const totalDays = dates.length;
+
+    const mostActiveDay = dayNames[maxDay] ?? 'Monday';
+    const isWeekdayFocused = weekdayTotal > weekendTotal * 2;
+    const isWeekendFocused = weekendTotal > weekdayTotal;
+
+    const pattern = isWeekdayFocused
+      ? 'You study mostly on weekdays. Weekend sessions could boost retention.'
+      : isWeekendFocused
+        ? 'You lean toward weekends. Adding one weekday session would smooth your rhythm.'
+        : 'Good balance between weekdays and weekends.';
+
+    const weekCounts = new Map<string, number>();
+    for (const dateStr of dates) {
+      const d = new Date(dateStr);
+      const weekStart = new Date(d);
+      weekStart.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+      const key = weekStart.toISOString().slice(0, 10);
+      weekCounts.set(key, (weekCounts.get(key) ?? 0) + 1);
+    }
+
+    let bestWeekDays = 0;
+    for (const count of weekCounts.values()) {
+      if (count > bestWeekDays) {
+        bestWeekDays = count;
+      }
+    }
+
+    return { mostActiveDay, pattern, bestWeekDays, totalDays };
+  }, [stats.studyDates]);
+
+  const togglePanel = useCallback((panel: ExpandableStatsPanel) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpandedCard((prev) => (prev === card ? null : card));
+    setExpandedPanel((prev) => (prev === panel ? null : panel));
   }, []);
 
   return (
@@ -261,11 +308,11 @@ export default function StatsPage() {
           <View style={[styles.dailyGoalCard, { backgroundColor: cardSurface, borderColor: cardBorderColor }]}> 
             <TouchableOpacity
               style={styles.expandableCardButton}
-              onPress={() => toggleCard('goal')}
+              onPress={() => togglePanel('goal')}
               activeOpacity={0.92}
               accessible={true}
               accessibilityRole="button"
-              accessibilityState={{ expanded: expandedCard === 'goal' }}
+              accessibilityState={{ expanded: expandedPanel === 'goal' }}
               accessibilityLabel={`Today's study goal: ${dailyGoalProgress} of ${dailyGoalTarget} cards. ${dailyGoalProgress >= dailyGoalTarget ? 'Goal reached.' : `${dailyGoalTarget - dailyGoalProgress} remaining.`}`}
               testID="stats-goal-card-toggle"
             >
@@ -278,7 +325,7 @@ export default function StatsPage() {
               <View
                 style={[
                   styles.cardChevron,
-                  { transform: [{ rotate: expandedCard === 'goal' ? '180deg' : '0deg' }] },
+                  { transform: [{ rotate: expandedPanel === 'goal' ? '180deg' : '0deg' }] },
                 ]}
               >
                 <ChevronDown color={theme.textTertiary} size={16} strokeWidth={2} />
@@ -319,7 +366,7 @@ export default function StatsPage() {
             </View>
             </TouchableOpacity>
 
-            {expandedCard === 'goal' ? (
+            {expandedPanel === 'goal' ? (
               <View style={styles.insightSection}>
                 <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
                 <View style={styles.insightRow}>
@@ -372,10 +419,10 @@ export default function StatsPage() {
           <View style={styles.weeklyCard}>
             <TouchableOpacity
               style={styles.expandableCardButton}
-              onPress={() => toggleCard('week')}
+              onPress={() => togglePanel('week')}
               activeOpacity={0.92}
               accessibilityRole="button"
-              accessibilityState={{ expanded: expandedCard === 'week' }}
+              accessibilityState={{ expanded: expandedPanel === 'week' }}
               testID="stats-week-card-toggle"
             >
             <View style={styles.weeklyHeader}>
@@ -384,7 +431,7 @@ export default function StatsPage() {
               <View
                 style={[
                   styles.cardChevron,
-                  { transform: [{ rotate: expandedCard === 'week' ? '180deg' : '0deg' }] },
+                  { transform: [{ rotate: expandedPanel === 'week' ? '180deg' : '0deg' }] },
                 ]}
               >
                 <ChevronDown color={theme.textTertiary} size={16} strokeWidth={2} />
@@ -459,7 +506,7 @@ export default function StatsPage() {
             <Text style={styles.weeklyComparison}>{weeklySummary.comparison}</Text>
             </TouchableOpacity>
 
-            {expandedCard === 'week' ? (
+            {expandedPanel === 'week' ? (
               <View style={styles.insightSection}>
                 <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
                 <View style={styles.weekDayRow}>
@@ -517,11 +564,11 @@ export default function StatsPage() {
             <View style={[styles.recapCard, { backgroundColor: cardSurface, borderColor: cardBorderColor }]}> 
               <TouchableOpacity
                 style={styles.expandableCardButton}
-                onPress={() => toggleCard('recap')}
+                onPress={() => togglePanel('recap')}
                 activeOpacity={0.92}
                 accessible={true}
                 accessibilityRole="button"
-                accessibilityState={{ expanded: expandedCard === 'recap' }}
+                accessibilityState={{ expanded: expandedPanel === 'recap' }}
                 accessibilityLabel={`Weekly recap: ${weeklyRecap.cardsStudied} cards studied, ${weeklyRecap.daysActive} days active${weeklyRecap.accuracy !== null ? `, ${Math.round(weeklyRecap.accuracy * 100)}% accuracy` : ''}`}
                 testID="stats-recap-card-toggle"
               >
@@ -531,7 +578,7 @@ export default function StatsPage() {
                 <View
                   style={[
                     styles.cardChevron,
-                    { transform: [{ rotate: expandedCard === 'recap' ? '180deg' : '0deg' }] },
+                    { transform: [{ rotate: expandedPanel === 'recap' ? '180deg' : '0deg' }] },
                   ]}
                 >
                   <ChevronDown color={theme.textTertiary} size={16} strokeWidth={2} />
@@ -566,7 +613,7 @@ export default function StatsPage() {
               ) : null}
               </TouchableOpacity>
 
-              {expandedCard === 'recap' ? (
+              {expandedPanel === 'recap' ? (
                 <View style={styles.insightSection}>
                   <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
                   {displaySessions.study + displaySessions.quest + displaySessions.practice + displaySessions.arena > 0 ? (
@@ -644,205 +691,469 @@ export default function StatsPage() {
           ) : null}
 
           <View style={styles.calendarCard} testID="stats-study-activity">
-            <Text style={styles.calendarTitle}>Study Activity</Text>
-            <Text style={styles.calendarSubtitle}>
-              {calendarActiveDays} days active in the last 7 weeks
-            </Text>
-
-            <View style={styles.calendarBody}>
-              <View style={styles.calendarDayLabels}>
-                <View style={styles.calendarMonthSpacer} />
-                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => (
-                  <Text key={`label-${index}`} style={styles.calendarDayLabel}>
-                    {label}
+            <TouchableOpacity
+              style={styles.expandableCardButton}
+              onPress={() => togglePanel('activity')}
+              activeOpacity={0.92}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: expandedPanel === 'activity' }}
+              accessibilityLabel={`Study activity over the last 7 weeks. ${calendarActiveDays} days active.`}
+              testID="stats-activity-card-toggle"
+            >
+              <View style={styles.expandableHeaderRow}>
+                <View style={styles.expandableHeaderTextWrap}>
+                  <Text style={styles.calendarTitle}>Study Activity</Text>
+                  <Text style={styles.calendarSubtitle}>
+                    {calendarActiveDays} days active in the last 7 weeks
                   </Text>
-                ))}
+                </View>
+                <View
+                  style={[
+                    styles.cardChevron,
+                    { transform: [{ rotate: expandedPanel === 'activity' ? '180deg' : '0deg' }] },
+                  ]}
+                >
+                  <ChevronDown color={theme.textTertiary} size={16} strokeWidth={2} />
+                </View>
               </View>
 
-              <View style={styles.calendarGrid}>
-                {calendarColumns.map((week, weekIndex) => {
-                  const monthLabel = week.find((day) => day?.monthLabel)?.monthLabel ?? '';
+              <View style={styles.calendarBody}>
+                <View style={styles.calendarDayLabels}>
+                  <View style={styles.calendarMonthSpacer} />
+                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => (
+                    <Text key={`label-${index}`} style={styles.calendarDayLabel}>
+                      {label}
+                    </Text>
+                  ))}
+                </View>
 
-                  return (
-                    <View key={`week-${weekIndex}`} style={styles.calendarWeekColumn}>
-                      <Text style={styles.calendarMonthLabel}>{monthLabel}</Text>
-                      {week.map((day) => {
-                        const intensity = day.count === 0 ? 0 : day.count === 1 ? 1 : day.count <= 3 ? 2 : 3;
+                <View style={styles.calendarGrid}>
+                  {calendarColumns.map((week, weekIndex) => {
+                    const monthLabel = week.find((day) => day?.monthLabel)?.monthLabel ?? '';
 
-                        return (
-                          <View
-                            key={day.date}
-                            style={[
-                              styles.calendarSquare,
-                              { backgroundColor: calendarIntensityColors[intensity] },
-                            ]}
-                          />
-                        );
-                      })}
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
+                    return (
+                      <View key={`week-${weekIndex}`} style={styles.calendarWeekColumn}>
+                        <Text style={styles.calendarMonthLabel}>{monthLabel}</Text>
+                        {week.map((day) => {
+                          const intensity = day.count === 0 ? 0 : day.count === 1 ? 1 : day.count <= 3 ? 2 : 3;
 
-            <View style={styles.calendarFooter}>
-              <View style={styles.calendarLegend}>
-                <Text style={styles.calendarLegendText}>Less</Text>
-                {[0, 1, 2, 3].map((intensity) => (
-                  <View
-                    key={`legend-${intensity}`}
-                    style={[
-                      styles.calendarLegendSquare,
-                      { backgroundColor: calendarIntensityColors[intensity] },
-                    ]}
-                  />
-                ))}
-                <Text style={styles.calendarLegendText}>More</Text>
+                          return (
+                            <View
+                              key={day.date}
+                              style={[
+                                styles.calendarSquare,
+                                { backgroundColor: calendarIntensityColors[intensity] },
+                              ]}
+                            />
+                          );
+                        })}
+                      </View>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
 
-            <View style={styles.streakRow}>
-              <View style={styles.streakItem}>
-                <Flame color="#FF6B6B" size={16} strokeWidth={2.2} />
-                <Text style={styles.streakLabel}>
-                  Current: {stats.currentStreak} {stats.currentStreak === 1 ? 'day' : 'days'}
-                </Text>
+              <View style={styles.calendarFooter}>
+                <View style={styles.calendarLegend}>
+                  <Text style={styles.calendarLegendText}>Less</Text>
+                  {[0, 1, 2, 3].map((intensity) => (
+                    <View
+                      key={`legend-${intensity}`}
+                      style={[
+                        styles.calendarLegendSquare,
+                        { backgroundColor: calendarIntensityColors[intensity] },
+                      ]}
+                    />
+                  ))}
+                  <Text style={styles.calendarLegendText}>More</Text>
+                </View>
               </View>
-              <View style={styles.streakItem}>
-                <Star color={statsAccent} size={16} strokeWidth={2.2} />
-                <Text style={styles.streakLabel}>
-                  Longest: {stats.longestStreak} {stats.longestStreak === 1 ? 'day' : 'days'}
-                </Text>
+
+              <View style={styles.streakRow}>
+                <View style={styles.streakItem}>
+                  <Flame color="#FF6B6B" size={16} strokeWidth={2.2} />
+                  <Text style={styles.streakLabel}>
+                    Current: {stats.currentStreak} {stats.currentStreak === 1 ? 'day' : 'days'}
+                  </Text>
+                </View>
+                <View style={styles.streakItem}>
+                  <Star color={statsAccent} size={16} strokeWidth={2.2} />
+                  <Text style={styles.streakLabel}>
+                    Longest: {stats.longestStreak} {stats.longestStreak === 1 ? 'day' : 'days'}
+                  </Text>
+                </View>
               </View>
-            </View>
+            </TouchableOpacity>
+
+            {expandedPanel === 'activity' ? (
+              <View style={styles.insightSection}>
+                <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
+
+                {studyPatternInsight ? (
+                  <View style={styles.insightRow}>
+                    <Calendar color={statsAccent} size={15} />
+                    <Text style={[styles.insightText, { color: theme.textSecondary }]}>
+                      Your most active day is {studyPatternInsight.mostActiveDay}. You've studied on {studyPatternInsight.totalDays} total days.
+                    </Text>
+                  </View>
+                ) : null}
+
+                {studyPatternInsight ? (
+                  <View style={styles.insightRow}>
+                    <TrendingUp color={statsAccent} size={15} />
+                    <Text style={[styles.insightText, { color: theme.textSecondary }]}>
+                      {studyPatternInsight.pattern}
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.insightRow}>
+                  <Flame color={theme.warning} size={15} />
+                  <Text style={[styles.insightText, { color: theme.textSecondary }]}>
+                    {stats.currentStreak >= stats.longestStreak && stats.currentStreak > 1
+                      ? `You're on your longest streak ever (${stats.currentStreak} days). Every day you study extends the record.`
+                      : stats.currentStreak > 0 && stats.longestStreak > stats.currentStreak
+                        ? `Current streak: ${stats.currentStreak}. Your record is ${stats.longestStreak} days. ${stats.longestStreak - stats.currentStreak} more to beat it.`
+                        : stats.longestStreak > 0
+                          ? `Your best streak was ${stats.longestStreak} days. Start studying today to build a new one.`
+                          : 'Study today to start your first streak.'}
+                  </Text>
+                </View>
+
+                {studyPatternInsight && studyPatternInsight.bestWeekDays > 0 ? (
+                  <View style={styles.insightRow}>
+                    <Award color={theme.success} size={15} />
+                    <Text style={[styles.insightText, { color: theme.textSecondary }]}>
+                      Your best week had {studyPatternInsight.bestWeekDays} active days. {weeklySummary.thisWeekDays >= studyPatternInsight.bestWeekDays ? 'You\'re matching that this week.' : `This week you have ${weeklySummary.thisWeekDays} so far.`}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.masteryCard}>
-            <Text style={styles.sectionLabel}>MASTERY OVERVIEW</Text>
-            <Text style={[styles.masteryBigText, { color: statsAccent }]}>
-              {masteryOverview.mastered}/{masteryOverview.totalCards}
-            </Text>
-            <Text style={styles.masterySubtext}>
-              cards mastered across {decks.length} decks
-            </Text>
-            <View
-              style={[
-                styles.masteryBar,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(255,255,255,0.06)'
-                    : 'rgba(0,0,0,0.06)',
-                },
-              ]}
+            <TouchableOpacity
+              style={styles.expandableCardButton}
+              onPress={() => togglePanel('mastery')}
+              activeOpacity={0.92}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: expandedPanel === 'mastery' }}
+              accessibilityLabel={`Mastery overview. ${masteryOverview.mastered} of ${masteryOverview.totalCards} cards mastered.`}
+              testID="stats-mastery-card-toggle"
             >
-              {masteryOverview.mastered > 0 ? (
+              <View style={styles.expandableHeaderRow}>
+                <Text style={styles.sectionHeaderLabel}>MASTERY OVERVIEW</Text>
                 <View
-                  style={{
-                    width: `${(masteryOverview.mastered / Math.max(masteryOverview.totalCards, 1)) * 100}%`,
-                    height: '100%',
-                    backgroundColor: '#10B981',
-                    borderRadius: 4,
-                  }}
-                />
-              ) : null}
-              {masteryOverview.reviewing > 0 ? (
-                <View
-                  style={{
-                    width: `${(masteryOverview.reviewing / Math.max(masteryOverview.totalCards, 1)) * 100}%`,
-                    height: '100%',
-                    backgroundColor: '#3B82F6',
-                  }}
-                />
-              ) : null}
-              {masteryOverview.learning > 0 ? (
-                <View
-                  style={{
-                    width: `${(masteryOverview.learning / Math.max(masteryOverview.totalCards, 1)) * 100}%`,
-                    height: '100%',
-                    backgroundColor: '#F59E0B',
-                  }}
-                />
-              ) : null}
-              {masteryOverview.lapsed > 0 ? (
-                <View
-                  style={{
-                    width: `${(masteryOverview.lapsed / Math.max(masteryOverview.totalCards, 1)) * 100}%`,
-                    height: '100%',
-                    backgroundColor: '#F43F5E',
-                  }}
-                />
-              ) : null}
-            </View>
-            <View style={styles.masteryLegend}>
-              <Text style={styles.masteryLegendItem}>
-                <Text style={{ color: '#10B981' }}>●</Text> {masteryOverview.mastered} mastered
+                  style={[
+                    styles.cardChevron,
+                    { transform: [{ rotate: expandedPanel === 'mastery' ? '180deg' : '0deg' }] },
+                  ]}
+                >
+                  <ChevronDown color={theme.textTertiary} size={16} strokeWidth={2} />
+                </View>
+              </View>
+              <Text style={[styles.masteryBigText, { color: statsAccent }]}>
+                {masteryOverview.mastered}/{masteryOverview.totalCards}
               </Text>
-              <Text style={styles.masteryLegendItem}>
-                <Text style={{ color: '#3B82F6' }}>●</Text> {masteryOverview.reviewing} reviewing
+              <Text style={styles.masterySubtext}>
+                cards mastered across {decks.length} decks
               </Text>
-              <Text style={styles.masteryLegendItem}>
-                <Text style={{ color: '#F59E0B' }}>●</Text> {masteryOverview.learning} learning
-              </Text>
-              <Text style={styles.masteryLegendItem}>
-                <Text style={{ color: '#F43F5E' }}>●</Text> {masteryOverview.lapsed} lapsed
-              </Text>
-              <Text style={styles.masteryLegendItem}>
-                <Text style={{ color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }}>●</Text>{' '}
-                {masteryOverview.newCards} new
-              </Text>
-            </View>
+              <View
+                style={[
+                  styles.masteryBar,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(255,255,255,0.06)'
+                      : 'rgba(0,0,0,0.06)',
+                  },
+                ]}
+              >
+                {masteryOverview.mastered > 0 ? (
+                  <View
+                    style={{
+                      width: `${(masteryOverview.mastered / Math.max(masteryOverview.totalCards, 1)) * 100}%`,
+                      height: '100%',
+                      backgroundColor: '#10B981',
+                      borderRadius: 4,
+                    }}
+                  />
+                ) : null}
+                {masteryOverview.reviewing > 0 ? (
+                  <View
+                    style={{
+                      width: `${(masteryOverview.reviewing / Math.max(masteryOverview.totalCards, 1)) * 100}%`,
+                      height: '100%',
+                      backgroundColor: '#3B82F6',
+                    }}
+                  />
+                ) : null}
+                {masteryOverview.learning > 0 ? (
+                  <View
+                    style={{
+                      width: `${(masteryOverview.learning / Math.max(masteryOverview.totalCards, 1)) * 100}%`,
+                      height: '100%',
+                      backgroundColor: '#F59E0B',
+                    }}
+                  />
+                ) : null}
+                {masteryOverview.lapsed > 0 ? (
+                  <View
+                    style={{
+                      width: `${(masteryOverview.lapsed / Math.max(masteryOverview.totalCards, 1)) * 100}%`,
+                      height: '100%',
+                      backgroundColor: '#F43F5E',
+                    }}
+                  />
+                ) : null}
+              </View>
+              <View style={styles.masteryLegend}>
+                <Text style={styles.masteryLegendItem}>
+                  <Text style={{ color: '#10B981' }}>●</Text> {masteryOverview.mastered} mastered
+                </Text>
+                <Text style={styles.masteryLegendItem}>
+                  <Text style={{ color: '#3B82F6' }}>●</Text> {masteryOverview.reviewing} reviewing
+                </Text>
+                <Text style={styles.masteryLegendItem}>
+                  <Text style={{ color: '#F59E0B' }}>●</Text> {masteryOverview.learning} learning
+                </Text>
+                <Text style={styles.masteryLegendItem}>
+                  <Text style={{ color: '#F43F5E' }}>●</Text> {masteryOverview.lapsed} lapsed
+                </Text>
+                <Text style={styles.masteryLegendItem}>
+                  <Text style={{ color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }}>●</Text>{' '}
+                  {masteryOverview.newCards} new
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {expandedPanel === 'mastery' ? (
+              <View style={styles.insightSection}>
+                <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
+
+                <View style={styles.insightRow}>
+                  <Target color={statsAccent} size={15} />
+                  <Text style={[styles.insightText, { color: theme.textSecondary }]}>
+                    {(() => {
+                      const total = masteryOverview.totalCards;
+                      const mastered = masteryOverview.mastered;
+                      if (total === 0) {
+                        return 'Add some decks to start tracking mastery.';
+                      }
+                      const pct = Math.round((mastered / total) * 100);
+                      const nextMilestone = [10, 25, 50, 75, 100].find((milestone) => milestone > pct) ?? 100;
+                      const cardsNeeded = Math.ceil((nextMilestone / 100) * total) - mastered;
+                      if (pct >= 100 || cardsNeeded <= 0) {
+                        return '100% overall mastery. Every tracked card is mastered right now.';
+                      }
+                      return `${pct}% overall mastery. Master ${cardsNeeded} more card${cardsNeeded === 1 ? '' : 's'} to reach ${nextMilestone}%.`;
+                    })()}
+                  </Text>
+                </View>
+
+                {masteryOverview.lapsed > 0 ? (
+                  <View style={styles.insightRow}>
+                    <AlertCircle color={theme.error} size={15} />
+                    <Text style={[styles.insightText, { color: theme.textSecondary }]}>
+                      {masteryOverview.lapsed} card{masteryOverview.lapsed === 1 ? ' has' : 's have'} lapsed. A quick review session will bring them back.
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.deckMiniBarSection}>
+                  {deckProgressSummaries
+                    .filter((deck) => deck.total > 0)
+                    .sort((a, b) => b.pct - a.pct)
+                    .slice(0, 5)
+                    .map((deck) => (
+                      <TouchableOpacity
+                        key={deck.id}
+                        style={styles.deckMiniRow}
+                        onPress={() => router.push(deckHubHref(deck.id))}
+                        activeOpacity={0.8}
+                        testID={`stats-mastery-deck-${deck.id}`}
+                      >
+                        <Text style={[styles.deckMiniName, { color: theme.text }]} numberOfLines={1}>{deck.name}</Text>
+                        <View style={[styles.deckMiniBarTrack, { backgroundColor: isDark ? 'rgba(148,163,184,0.1)' : 'rgba(0,0,0,0.04)' }]}>
+                          <View style={[styles.deckMiniBarFill, { width: `${Math.max(deck.pct, 2)}%`, backgroundColor: deck.pct >= 50 ? theme.success : statsAccent }]} />
+                        </View>
+                        <Text style={[styles.deckMiniPct, { color: theme.textSecondary }]}>{deck.pct}%</Text>
+                      </TouchableOpacity>
+                    ))}
+                </View>
+
+                {(() => {
+                  const weakest = deckProgressSummaries
+                    .filter((deck) => deck.total >= 4 && deck.pct < 50)
+                    .sort((a, b) => a.pct - b.pct)[0];
+
+                  if (!weakest) {
+                    return null;
+                  }
+
+                  return (
+                    <TouchableOpacity
+                      style={[styles.insightAction, { backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)' }]}
+                      onPress={() => router.push(studyHref(weakest.id))}
+                      activeOpacity={0.8}
+                      testID="stats-mastery-insight-action"
+                    >
+                      <Text style={[styles.insightActionText, { color: statsAccent }]}>Study {weakest.name}</Text>
+                      <ChevronRight color={statsAccent} size={14} />
+                    </TouchableOpacity>
+                  );
+                })()}
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.performanceCard}>
-            <Text style={styles.sectionLabel}>PERFORMANCE</Text>
-            <View style={styles.perfRow}>
-              <View style={styles.perfIconWrap}>
-                <BookOpen color={statsAccent} size={18} strokeWidth={2.2} />
+            <TouchableOpacity
+              style={styles.expandableCardButton}
+              onPress={() => togglePanel('performance')}
+              activeOpacity={0.92}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: expandedPanel === 'performance' }}
+              accessibilityLabel={`Performance summary. ${stats.totalScore.toLocaleString()} total XP.`}
+              testID="stats-performance-card-toggle"
+            >
+              <View style={styles.expandableHeaderRow}>
+                <Text style={styles.sectionHeaderLabel}>PERFORMANCE</Text>
+                <View
+                  style={[
+                    styles.cardChevron,
+                    { transform: [{ rotate: expandedPanel === 'performance' ? '180deg' : '0deg' }] },
+                  ]}
+                >
+                  <ChevronDown color={theme.textTertiary} size={16} strokeWidth={2} />
+                </View>
               </View>
-              <View style={styles.perfContent}>
-                <Text style={styles.perfLabel}>Study</Text>
-                <Text style={styles.perfValue}>
-                  {displaySessions.study} sessions{formattedStudyTime !== '' ? ` · ${formattedStudyTime} total` : ''}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.perfRow}>
-              <View style={styles.perfIconWrap}>
-                <Target color={statsAccent} size={18} strokeWidth={2.2} />
-              </View>
-              <View style={styles.perfContent}>
-                <Text style={styles.perfLabel}>Quest</Text>
-                <Text style={styles.perfValue}>
-                  {displaySessions.quest} sessions · {stats.totalQuestionsAttempted ?? 0} questions
-                </Text>
-                {lifetimeAccuracy !== null ? (
-                  <Text style={styles.perfDetail}>
-                    {lifetimeAccuracy}% accuracy
-                    {performance.bestQuestStreak > 0 ? ` · ${performance.bestQuestStreak} best streak` : ''}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-            <View style={[styles.perfRow, !arenaStats ? styles.perfRowLast : null]}>
-              <View style={styles.perfIconWrap}>
-                <Swords color={statsAccent} size={18} strokeWidth={2.2} />
-              </View>
-              <View style={styles.perfContent}>
-                <Text style={styles.perfLabel}>Practice</Text>
-                <Text style={styles.perfValue}>{displaySessions.practice} sessions · {stats.totalCardsStudied} cards</Text>
-              </View>
-            </View>
-            {arenaStats ? (
-              <View style={[styles.perfRow, styles.perfRowLast]}>
+              <View style={styles.perfRow}>
                 <View style={styles.perfIconWrap}>
-                  <Zap color={statsAccent} size={18} strokeWidth={2.2} />
+                  <BookOpen color={statsAccent} size={18} strokeWidth={2.2} />
                 </View>
                 <View style={styles.perfContent}>
-                  <Text style={styles.perfLabel}>Arena</Text>
+                  <Text style={styles.perfLabel}>Study</Text>
                   <Text style={styles.perfValue}>
-                    {displaySessions.arena || arenaStats.total} battles · {arenaStats.wins} wins · {arenaStats.winRate}% rate
+                    {displaySessions.study} sessions{formattedStudyTime !== '' ? ` · ${formattedStudyTime} total` : ''}
                   </Text>
                 </View>
+              </View>
+              <View style={styles.perfRow}>
+                <View style={styles.perfIconWrap}>
+                  <Target color={statsAccent} size={18} strokeWidth={2.2} />
+                </View>
+                <View style={styles.perfContent}>
+                  <Text style={styles.perfLabel}>Quest</Text>
+                  <Text style={styles.perfValue}>
+                    {displaySessions.quest} sessions · {stats.totalQuestionsAttempted ?? 0} questions
+                  </Text>
+                  {lifetimeAccuracy !== null ? (
+                    <Text style={styles.perfDetail}>
+                      {lifetimeAccuracy}% accuracy
+                      {performance.bestQuestStreak > 0 ? ` · ${performance.bestQuestStreak} best streak` : ''}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+              <View style={[styles.perfRow, !arenaStats ? styles.perfRowLast : null]}>
+                <View style={styles.perfIconWrap}>
+                  <Swords color={statsAccent} size={18} strokeWidth={2.2} />
+                </View>
+                <View style={styles.perfContent}>
+                  <Text style={styles.perfLabel}>Practice</Text>
+                  <Text style={styles.perfValue}>{displaySessions.practice} sessions · {stats.totalCardsStudied} cards</Text>
+                </View>
+              </View>
+              {arenaStats ? (
+                <View style={[styles.perfRow, styles.perfRowLast]}>
+                  <View style={styles.perfIconWrap}>
+                    <Zap color={statsAccent} size={18} strokeWidth={2.2} />
+                  </View>
+                  <View style={styles.perfContent}>
+                    <Text style={styles.perfLabel}>Arena</Text>
+                    <Text style={styles.perfValue}>
+                      {displaySessions.arena || arenaStats.total} battles · {arenaStats.wins} wins · {arenaStats.winRate}% rate
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+            </TouchableOpacity>
+
+            {expandedPanel === 'performance' ? (
+              <View style={styles.insightSection}>
+                <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
+
+                <View style={styles.insightRow}>
+                  <Star color={theme.warning} size={15} />
+                  <Text style={[styles.insightText, { color: theme.textSecondary }]}>
+                    {stats.totalScore.toLocaleString()} total XP. Level {level}. {levelProgress.percent >= 1 ? 'Max level reached.' : `${(levelProgress.required - levelProgress.current).toLocaleString()} XP to next level.`}
+                  </Text>
+                </View>
+
+                {(() => {
+                  const total = displaySessions.study + displaySessions.quest + displaySessions.practice + displaySessions.arena;
+                  if (total === 0) {
+                    return null;
+                  }
+
+                  const modes = [
+                    { name: 'Study', count: displaySessions.study },
+                    { name: 'Quest', count: displaySessions.quest },
+                    { name: 'Practice', count: displaySessions.practice },
+                    { name: 'Arena', count: displaySessions.arena },
+                  ].sort((a, b) => b.count - a.count);
+                  const top = modes[0];
+                  const topPct = Math.round((top.count / total) * 100);
+
+                  return (
+                    <View style={styles.insightRow}>
+                      <BarChart3 color={statsAccent} size={15} />
+                      <Text style={[styles.insightText, { color: theme.textSecondary }]}>
+                        {topPct >= 80
+                          ? `${top.name} mode dominates at ${topPct}% of sessions. Mixing in other modes improves retention.`
+                          : topPct >= 50
+                            ? `${top.name} is your go-to mode (${topPct}%). A healthy balance across modes.`
+                            : `Sessions are well-distributed. ${top.name} leads slightly at ${topPct}%.`}
+                      </Text>
+                    </View>
+                  );
+                })()}
+
+                {lifetimeAccuracy !== null ? (
+                  <View style={styles.insightRow}>
+                    <CheckCircle color={lifetimeAccuracy >= 80 ? theme.success : theme.warning} size={15} />
+                    <Text style={[styles.insightText, { color: theme.textSecondary }]}>
+                      {lifetimeAccuracy >= 90
+                        ? `${lifetimeAccuracy}% lifetime accuracy. Exceptional recall across all modes.`
+                        : lifetimeAccuracy >= 75
+                          ? `${lifetimeAccuracy}% lifetime accuracy. Strong, with room to tighten up on weak cards.`
+                          : `${lifetimeAccuracy}% lifetime accuracy. Focus on reviewing weak cards before adding new ones.`}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {displaySessions.quest === 0 && displaySessions.study > 0 ? (
+                  <TouchableOpacity
+                    style={[styles.insightAction, { backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)' }]}
+                    onPress={() => router.push('/quest')}
+                    activeOpacity={0.8}
+                    testID="stats-performance-quest-action"
+                  >
+                    <Text style={[styles.insightActionText, { color: statsAccent }]}>Try Quest Mode</Text>
+                    <ChevronRight color={statsAccent} size={14} />
+                  </TouchableOpacity>
+                ) : displaySessions.arena === 0 && displaySessions.study + displaySessions.quest > 5 ? (
+                  <TouchableOpacity
+                    style={[styles.insightAction, { backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)' }]}
+                    onPress={() => router.push('/arena')}
+                    activeOpacity={0.8}
+                    testID="stats-performance-arena-action"
+                  >
+                    <Text style={[styles.insightActionText, { color: statsAccent }]}>Try Arena Mode</Text>
+                    <ChevronRight color={statsAccent} size={14} />
+                  </TouchableOpacity>
+                ) : null}
               </View>
             ) : null}
           </View>
@@ -1099,6 +1410,16 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     expandableCardTitle: {
       flex: 1,
     },
+    expandableHeaderRow: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    expandableHeaderTextWrap: {
+      flex: 1,
+    },
     cardChevron: {
       marginLeft: 8,
     },
@@ -1236,6 +1557,7 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       marginTop: 4,
     },
     insightSection: {
+      width: '100%',
       marginTop: 12,
       gap: 10,
     },
@@ -1425,6 +1747,13 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       marginBottom: 12,
       alignSelf: 'flex-start',
     },
+    sectionHeaderLabel: {
+      fontSize: 12,
+      fontWeight: '700' as const,
+      color: tertiaryTextColor,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+    },
     masteryBigText: {
       fontSize: 36,
       fontWeight: '800' as const,
@@ -1455,6 +1784,37 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       fontSize: 12,
       fontWeight: '600' as const,
       color: secondaryTextColor,
+    },
+    deckMiniBarSection: {
+      gap: 8,
+      marginTop: 4,
+    },
+    deckMiniRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 4,
+    },
+    deckMiniName: {
+      fontSize: 12,
+      fontWeight: '600' as const,
+      width: 100,
+    },
+    deckMiniBarTrack: {
+      flex: 1,
+      height: 6,
+      borderRadius: 3,
+      overflow: 'hidden',
+    },
+    deckMiniBarFill: {
+      height: '100%',
+      borderRadius: 3,
+    },
+    deckMiniPct: {
+      fontSize: 11,
+      fontWeight: '700' as const,
+      width: 32,
+      textAlign: 'right',
     },
 
     performanceCard: {
