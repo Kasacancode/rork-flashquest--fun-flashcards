@@ -1,6 +1,6 @@
 import { ChevronDown } from 'lucide-react-native';
 import React, { memo, useCallback, useState } from 'react';
-import { FlatList, LayoutAnimation, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, LayoutAnimation, Pressable, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 
 import type { DeckProgressSummary } from '@/utils/deckSelectors';
 import type { MasteryBreakdown } from '@/utils/mastery';
@@ -44,10 +44,9 @@ const StatsDeckProgressRow = memo(function StatsDeckProgressRow({
   isDark,
 }: StatsDeckProgressRowProps) {
   return (
-    <TouchableOpacity
-      style={styles.deckProgressCard}
+    <Pressable
+      style={({ pressed }) => [styles.deckProgressCard, pressed ? styles.deckProgressCardPressed : null]}
       onPress={onToggle}
-      activeOpacity={0.8}
       testID={`progress-card-${item.id}`}
       accessible={true}
       accessibilityRole="button"
@@ -133,26 +132,26 @@ const StatsDeckProgressRow = memo(function StatsDeckProgressRow({
               ) : null}
             </View>
 
-            <TouchableOpacity
-              style={[
+            <Pressable
+              style={({ pressed }) => [
                 styles.deckStudyButton,
                 { backgroundColor: isDark ? `${item.color}18` : `${item.color}12` },
+                pressed ? styles.deckStudyButtonPressed : null,
               ]}
-              onPress={(event) => {
+              onPress={(event: GestureResponderEvent) => {
                 event.stopPropagation();
                 onStudy();
               }}
-              activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel={`Study ${item.name}`}
               testID={`progress-study-${item.id}`}
             >
               <Text style={[styles.deckStudyButtonText, { color: item.color }]}>Study this deck</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         ) : null}
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 });
 
@@ -246,6 +245,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     backgroundColor: 'rgba(255,255,255,0.02)',
   },
+  deckProgressCardPressed: {
+    opacity: 0.82,
+  },
   deckIndicator: {
     width: 10,
     minHeight: 46,
@@ -312,6 +314,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     marginTop: 4,
+  },
+  deckStudyButtonPressed: {
+    opacity: 0.86,
   },
   deckStudyButtonText: {
     fontSize: 13,

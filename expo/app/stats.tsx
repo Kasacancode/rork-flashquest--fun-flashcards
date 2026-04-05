@@ -21,7 +21,7 @@ import { computeDeckMastery, type MasteryBreakdown } from '@/utils/mastery';
 import { deckHubHref, LEADERBOARD_ROUTE, studyHref } from '@/utils/routes';
 
 type ThemeValues = Theme;
-type ExpandableStatsPanel = 'goal' | 'week' | 'recap' | 'activity' | 'mastery' | 'performance' | 'trend';
+type ExpandableStatsPanel = 'goal' | 'week' | 'recap' | 'activity' | 'mastery' | 'performance' | 'trend' | 'deckProgress';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -224,6 +224,18 @@ export default function StatsPage() {
 
     return nextMap;
   }, [decks, getCardsDueForReview]);
+
+  const deckProgressOverview = useMemo(() => {
+    const trackedDecks = deckProgressSummaries.length;
+    const totalMastered = deckProgressSummaries.reduce((sum, deck) => sum + deck.mastered, 0);
+    const totalCards = deckProgressSummaries.reduce((sum, deck) => sum + deck.total, 0);
+
+    return {
+      trackedDecks,
+      totalMastered,
+      totalCards,
+    };
+  }, [deckProgressSummaries]);
 
   const togglePanel = useCallback((panel: ExpandableStatsPanel) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -1318,20 +1330,53 @@ export default function StatsPage() {
             </TouchableOpacity>
           ) : null}
 
-          <View style={styles.deckProgressSection}>
-            <Text style={styles.sectionLabel}>DECK PROGRESS</Text>
-            <StatsDeckProgressList
-              deckProgressSummaries={deckProgressSummaries}
-              deckMasteryDetails={deckMasteryDetails}
-              deckDueCounts={deckDueCounts}
-              isDark={isDark}
-              onStudyDeck={(deckId) => router.push(studyHref(deckId))}
-              textColor={theme.text}
-              secondaryTextColor={secondaryTextColor}
-              emptyTextColor={secondaryTextColor}
-              emptySurfaceColor={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}
-              trackColor={isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}
-            />
+          <View style={[styles.deckProgressSection, { backgroundColor: cardSurface, borderColor: cardBorderColor }]}>
+            <TouchableOpacity
+              style={styles.expandableCardButton}
+              onPress={() => togglePanel('deckProgress')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: expandedPanel === 'deckProgress' }}
+              accessibilityLabel="Deck progress"
+              testID="stats-deck-progress-toggle"
+            >
+              <View style={styles.trendHeader}>
+                <View style={styles.expandableHeaderTextWrap}>
+                  <Text style={styles.sectionHeaderLabel}>DECK PROGRESS</Text>
+                  <Text style={[styles.deckProgressSummary, { color: theme.textSecondary }]}> 
+                    {deckProgressOverview.trackedDecks > 0
+                      ? `${deckProgressOverview.trackedDecks} decks • ${deckProgressOverview.totalMastered}/${deckProgressOverview.totalCards} cards mastered`
+                      : 'Tap to expand your deck progress'}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.cardChevron,
+                    { transform: [{ rotate: expandedPanel === 'deckProgress' ? '180deg' : '0deg' }] },
+                  ]}
+                >
+                  <ChevronDown color={theme.textTertiary} size={16} strokeWidth={2} />
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            {expandedPanel === 'deckProgress' ? (
+              <View style={styles.deckProgressListWrap}>
+                <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
+                <StatsDeckProgressList
+                  deckProgressSummaries={deckProgressSummaries}
+                  deckMasteryDetails={deckMasteryDetails}
+                  deckDueCounts={deckDueCounts}
+                  isDark={isDark}
+                  onStudyDeck={(deckId) => router.push(studyHref(deckId))}
+                  textColor={theme.text}
+                  secondaryTextColor={secondaryTextColor}
+                  emptyTextColor={secondaryTextColor}
+                  emptySurfaceColor={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}
+                  trackColor={isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}
+                />
+              </View>
+            ) : null}
           </View>
           </ResponsiveContainer>
         </ScrollView>
@@ -2084,6 +2129,22 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
     deckProgressSection: {
       marginHorizontal: 24,
       marginBottom: 20,
+      borderRadius: 24,
+      padding: 22,
+      borderWidth: 1,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: isDark ? 0.14 : 0.06,
+      shadowRadius: isDark ? 18 : 12,
+      elevation: isDark ? 6 : 3,
+    },
+    deckProgressSummary: {
+      fontSize: 13,
+      fontWeight: '600' as const,
+      marginTop: 6,
+    },
+    deckProgressListWrap: {
+      marginTop: 12,
     },
     deckProgressCard: {
       flexDirection: 'row',
