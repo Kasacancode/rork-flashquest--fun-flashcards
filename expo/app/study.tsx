@@ -190,6 +190,7 @@ export default function StudyPage() {
   const launchedFromReviewHub = params.source === 'review-hub';
   const launchedFromDeckHub = params.source === 'deck-hub';
   const initialDeckId = params.deckId ?? null;
+  const launchedWithDeckId = initialDeckId !== null;
 
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(!params.deckId);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(params.deckId || null);
@@ -478,7 +479,7 @@ export default function StudyPage() {
     }
 
     logger.debug('[Study] Exiting study to decks');
-    router.replace(DECKS_ROUTE);
+    router.dismissTo(DECKS_ROUTE);
   }, [deckHubTargetDeckId, exitRoute, launchedFromDeckHub, launchedFromReviewHub, navigation, router]);
 
   const handleBackFromStudy = useCallback(() => {
@@ -1072,7 +1073,7 @@ export default function StudyPage() {
             <TouchableOpacity
               style={styles.modePickerBackButton}
               onPress={() => {
-                if (launchedFromReviewHub || launchedFromDeckHub) {
+                if (launchedFromReviewHub || launchedFromDeckHub || launchedWithDeckId) {
                   handleExitStudy();
                   return;
                 }
@@ -1080,7 +1081,7 @@ export default function StudyPage() {
                 setSelectedDeckId(null);
                 setShowDeckSelector(true);
               }}
-              accessibilityLabel={launchedFromReviewHub ? 'Back to home' : launchedFromDeckHub ? 'Back to deck dashboard' : 'Back to deck selection'}
+              accessibilityLabel={launchedFromReviewHub ? 'Back to home' : launchedFromDeckHub ? 'Back to deck dashboard' : launchedWithDeckId ? 'Back to decks' : 'Back to deck selection'}
               accessibilityRole="button"
               testID="study-mode-picker-back"
             >
