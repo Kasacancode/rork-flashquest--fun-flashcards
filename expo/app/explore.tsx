@@ -568,26 +568,35 @@ export default function ExploreScreen() {
                   const isDetailLoading = showDetail && selectedDeckId === deck.id && detailQuery.isFetching;
 
                   return (
-                    <Pressable
+                    <View
                       key={deck.id}
-                      style={({ pressed }) => [
+                      style={[
                         styles.deckCard,
-                        { backgroundColor: cardBg, borderColor: cardBorder },
-                        pressed ? styles.deckCardPressed : null,
+                        { borderColor: cardBorder },
                       ]}
-                      onPress={() => handleOpenDetail(deck)}
-                      accessibilityRole="button"
-                      testID={`explore-deck-${deck.id}`}
                     >
-                      <View style={[styles.deckColorStripe, { backgroundColor: deck.color }]} />
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.deckCardOverlay,
+                          { backgroundColor: cardBg },
+                          pressed ? styles.deckCardPressed : null,
+                        ]}
+                        onPress={() => handleOpenDetail(deck)}
+                        accessibilityRole="button"
+                        testID={`explore-deck-${deck.id}`}
+                      />
+                      <View style={[styles.deckColorStripe, { backgroundColor: deck.color }]} pointerEvents="none" />
                       <View style={styles.deckCardContent}>
-                        <View style={styles.deckCardHeader}>
-                          <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={1}>{deck.name}</Text>
-                          <View style={[styles.categoryBadge, { backgroundColor: `${deck.color}18` }]}>
-                            <Text style={[styles.categoryBadgeText, { color: deck.color }]}>{deck.category}</Text>
+                        <View pointerEvents="none">
+                          <View style={styles.deckCardHeader}>
+                            <Text style={[styles.deckName, { color: theme.text }]} numberOfLines={1}>{deck.name}</Text>
+                            <View style={[styles.categoryBadge, { backgroundColor: `${deck.color}18` }]}>
+                              <Text style={[styles.categoryBadgeText, { color: deck.color }]}>{deck.category}</Text>
+                            </View>
                           </View>
                         </View>
                         <Pressable
+                          style={styles.authorPressable}
                           onPress={(event) => {
                             event.stopPropagation();
                             setSelectedCategory('All');
@@ -598,35 +607,37 @@ export default function ExploreScreen() {
                         >
                           <Text style={[styles.publisherName, { color: theme.textSecondary }]} numberOfLines={1}>by {deck.publisherName}</Text>
                         </Pressable>
-                        {deck.description.length > 0 ? (
-                          <Text style={[styles.deckDescription, { color: theme.textSecondary }]} numberOfLines={2}>{deck.description}</Text>
-                        ) : null}
-                        <View style={styles.deckMeta}>
-                          <Text style={[styles.metaText, { color: theme.textTertiary }]}>{deck.cardCount} cards</Text>
-                          <View style={styles.metaItem}>
-                            <ArrowDownToLine color={theme.textTertiary} size={12} strokeWidth={2.2} />
-                            <Text style={[styles.metaText, { color: theme.textTertiary }]}>{deck.downloads}</Text>
-                          </View>
-                          <View style={styles.metaItem}>
-                            <ThumbsUp
-                              color={netVotes > 0 ? '#10B981' : theme.textTertiary}
-                              size={12}
-                              strokeWidth={2.2}
-                              fill={currentVote === 1 ? '#10B981' : 'none'}
-                            />
-                            <Text
-                              style={[
-                                styles.metaText,
-                                { color: netVotes > 0 ? '#10B981' : netVotes < 0 ? '#EF4444' : theme.textTertiary },
-                              ]}
-                            >
-                              {netVotes > 0 ? `+${netVotes}` : String(netVotes)}
-                            </Text>
+                        <View pointerEvents="none">
+                          {deck.description.length > 0 ? (
+                            <Text style={[styles.deckDescription, { color: theme.textSecondary }]} numberOfLines={2}>{deck.description}</Text>
+                          ) : null}
+                          <View style={styles.deckMeta}>
+                            <Text style={[styles.metaText, { color: theme.textTertiary }]}>{deck.cardCount} cards</Text>
+                            <View style={styles.metaItem}>
+                              <ArrowDownToLine color={theme.textTertiary} size={12} strokeWidth={2.2} />
+                              <Text style={[styles.metaText, { color: theme.textTertiary }]}>{deck.downloads}</Text>
+                            </View>
+                            <View style={styles.metaItem}>
+                              <ThumbsUp
+                                color={netVotes > 0 ? '#10B981' : theme.textTertiary}
+                                size={12}
+                                strokeWidth={2.2}
+                                fill={currentVote === 1 ? '#10B981' : 'none'}
+                              />
+                              <Text
+                                style={[
+                                  styles.metaText,
+                                  { color: netVotes > 0 ? '#10B981' : netVotes < 0 ? '#EF4444' : theme.textTertiary },
+                                ]}
+                              >
+                                {netVotes > 0 ? `+${netVotes}` : String(netVotes)}
+                              </Text>
+                            </View>
                           </View>
                         </View>
                       </View>
-                      {isDetailLoading ? <ActivityIndicator color={theme.primary} size="small" style={styles.cardSpinner} /> : null}
-                    </Pressable>
+                      {isDetailLoading ? <ActivityIndicator color={theme.primary} size="small" style={styles.cardSpinner} pointerEvents="none" /> : null}
+                    </View>
                   );
                 })}
               </View>
@@ -1094,6 +1105,11 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
+    position: 'relative',
+  },
+  deckCardOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 18,
   },
   deckCardPressed: {
     opacity: 0.9,
@@ -1124,6 +1140,9 @@ const styles = StyleSheet.create({
   categoryBadgeText: {
     fontSize: 10,
     fontWeight: '700',
+  },
+  authorPressable: {
+    alignSelf: 'flex-start',
   },
   publisherName: {
     fontSize: 12,
