@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { Alert } from 'react-native';
 
 import { ARENA_BACKEND_ERROR_CODES, type ArenaDeckSourceCard, type ArenaDeckSelectionResult, type ArenaGameStartResult, type RoomSettings, type SanitizedRoom } from '@/backend/arena/types';
 import { useAuth } from '@/context/AuthContext';
@@ -160,7 +161,11 @@ function normalizeArenaConnectionError(error: unknown): string {
     return 'Battle service is temporarily unavailable. Please try again in a moment.';
   }
 
-  return message || 'Could not connect to battle service.';
+  if (message && message.length > 0 && message.length < 200) {
+    return message;
+  }
+
+  return 'Could not connect to battle service. Please try again.';
 }
 
 export const [ArenaProvider, useArena] = createContextHook(() => {
@@ -533,8 +538,21 @@ export const [ArenaProvider, useArena] = createContextHook(() => {
     },
     onError: (error) => {
       const normalizedError = normalizeArenaConnectionError(error);
-      logger.debug('[Arena] Select deck error:', normalizedError);
+      const backendCode = getArenaBackendErrorCode(error);
+      logger.debug('[Arena] Select deck error:', normalizedError, 'code:', backendCode);
       setOptimisticDeckSelection(null);
+
+      const isDeckError = backendCode === ARENA_BACKEND_ERROR_CODES.DECK_TOO_FEW_VALID_CARDS
+        || backendCode === ARENA_BACKEND_ERROR_CODES.DECK_CONTENT_TOO_LONG
+        || backendCode === ARENA_BACKEND_ERROR_CODES.DECK_MALFORMED
+        || backendCode === ARENA_BACKEND_ERROR_CODES.NOT_ENOUGH_DISTINCT_ANSWERS
+        || backendCode === ARENA_BACKEND_ERROR_CODES.DECK_UPLOAD_TOO_LARGE;
+
+      if (isDeckError) {
+        Alert.alert('Deck Issue', normalizedError);
+        return;
+      }
+
       setConnectionError(normalizedError);
     },
   });

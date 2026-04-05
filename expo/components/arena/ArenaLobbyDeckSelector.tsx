@@ -53,6 +53,9 @@ const ArenaLobbyDeckOption = memo(function ArenaLobbyDeckOption({
         {deck.name}
       </Text>
       <Text style={[styles.deckCardCount, { color: theme.textSecondary }]}>{deck.flashcards.length} cards</Text>
+      {deck.flashcards.length < 4 ? (
+        <Text style={[styles.deckWarning, { color: '#F59E0B' }]}>Too few cards</Text>
+      ) : null}
     </TouchableOpacity>
   );
 });
@@ -134,5 +137,10 @@ const styles = StyleSheet.create({
   deckCardCount: {
     fontSize: 13,
     fontWeight: '600' as const,
+  },
+  deckWarning: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    marginTop: 2,
   },
 });

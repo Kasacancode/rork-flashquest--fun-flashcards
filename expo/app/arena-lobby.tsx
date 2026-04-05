@@ -20,6 +20,7 @@ import { useArena } from '@/context/ArenaContext';
 import { useFlashQuest } from '@/context/FlashQuestContext';
 import { useTheme } from '@/context/ThemeContext';
 import { logger } from '@/utils/logger';
+import { createNormalizedFlashcard, getFlashcardContent } from '@/utils/flashcardContent';
 import { shareTextWithFallback } from '@/utils/share';
 import { ARENA_ROUTE, ARENA_SESSION_ROUTE } from '@/utils/routes';
 
@@ -38,6 +39,24 @@ const TIMER_OPTIONS: { value: ArenaTimerOption; label: string }[] = ARENA_TIMER_
 
 const MAX_LOBBY_SLOTS = 6;
 const ARENA_JOIN_BASE_URL = 'https://flashquest.net/join';
+const BATTLE_QUESTION_MAX = 100;
+const BATTLE_ANSWER_MAX = 34;
+const MIN_BATTLE_READY_CARDS = 4;
+const MIN_DISTINCT_BATTLE_ANSWERS = 4;
+
+function truncateBattleText(value: string, maxLength: number): string {
+  const trimmedValue = value.trim();
+
+  if (trimmedValue.length <= maxLength) {
+    return trimmedValue;
+  }
+
+  if (maxLength <= 3) {
+    return trimmedValue.slice(0, maxLength);
+  }
+
+  return `${trimmedValue.slice(0, maxLength - 3).trimEnd()}...`;
+}
 
 interface LobbyPlayer {
   id: string;
@@ -166,16 +185,111 @@ export default function ArenaLobbyScreen() {
   }, [room?.players, removePlayer]);
 
   const handleSelectDeck = useCallback((deckId: string) => {
-    const deck = decks.find(d => d.id === deckId);
-    if (deck) {
+    const deck = decks.find((candidateDeck) => candidateDeck.id === deckId);
+    if (!deck) {
+      return;
+    }
+
+    if (!deck.isCustom) {
       const arenaCards: ArenaDeckSourceCard[] = deck.flashcards.map((card) => ({
         id: card.id,
         question: card.question,
         answer: card.answer,
       }));
-      logger.log('[Lobby] Preparing deck from lobby for backend battle generation:', deck.id, deck.name, 'cards:', arenaCards.length);
+      logger.log('[Lobby] Preparing built-in deck from lobby for backend battle generation:', deck.id, deck.name, 'cards:', arenaCards.length);
       selectDeck(deck.id, deck.name, arenaCards);
+      return;
     }
+
+    const preparedCards: ArenaDeckSourceCard[] = [];
+    const seenAnswers = new Set<string>();
+    let rejectedCount = 0;
+
+    deck.flashcards.forEach((card) => {
+      const currentContent = getFlashcardContent(card);
+      const battleSeedQuestion = truncateBattleText(currentContent.canonicalQuestion, BATTLE_QUESTION_MAX);
+      const battleSeedAnswer = truncateBattleText(currentContent.canonicalAnswer, BATTLE_ANSWER_MAX);
+
+      if (!battleSeedQuestion || !battleSeedAnswer) {
+        rejectedCount += 1;
+        return;
+      }
+
+      if (battleSeedQuestion.length < 3 || battleSeedAnswer.length < 2) {
+        rejectedCount += 1;
+        return;
+      }
+
+      const preparedCard = createNormalizedFlashcard({
+        id: card.id,
+        question: battleSeedQuestion,
+        answer: battleSeedAnswer,
+        deckId: deck.id,
+        difficulty: card.difficulty,
+        createdAt: card.createdAt,
+        imageUrl: card.imageUrl,
+        tags: card.tags,
+        hint1: card.hint1,
+        hint2: card.hint2,
+        explanation: card.explanation,
+      });
+      const preparedContent = getFlashcardContent(preparedCard);
+      const battleQuestion = preparedContent.projections.battleQuestion.trim();
+      const battleAnswer = preparedContent.projections.battleAnswer.trim();
+
+      if (!battleQuestion || !battleAnswer) {
+        rejectedCount += 1;
+        return;
+      }
+
+      if (battleQuestion.length < 3 || battleAnswer.length < 2) {
+        rejectedCount += 1;
+        return;
+      }
+
+      if (preparedContent.quality.battleQuestion === 'reject' || preparedContent.quality.battleAnswer === 'reject') {
+        rejectedCount += 1;
+        return;
+      }
+
+      seenAnswers.add(preparedContent.normalizedAnswer);
+      preparedCards.push({
+        id: card.id,
+        question: battleQuestion,
+        answer: battleAnswer,
+      });
+    });
+
+    const distinctAnswers = seenAnswers.size;
+
+    if (preparedCards.length < MIN_BATTLE_READY_CARDS) {
+      Alert.alert(
+        'Not Enough Cards',
+        `This deck only has ${preparedCards.length} usable cards for battle (need at least ${MIN_BATTLE_READY_CARDS}). ${rejectedCount > 0 ? `${rejectedCount} cards were empty, too short, or too long for battle.` : 'Add more cards to use this deck in battle.'}`,
+      );
+      return;
+    }
+
+    if (distinctAnswers < MIN_DISTINCT_BATTLE_ANSWERS) {
+      Alert.alert(
+        'Not Enough Unique Answers',
+        'Battle mode needs at least 4 different answers to create multiple choice options. This deck has too many cards with the same answer.',
+      );
+      return;
+    }
+
+    logger.log(
+      '[Lobby] Preparing custom deck for battle:',
+      deck.id,
+      deck.name,
+      'usable cards:',
+      preparedCards.length,
+      'rejected:',
+      rejectedCount,
+      'distinct answers:',
+      distinctAnswers,
+    );
+    selectDeck(deck.id, deck.name, preparedCards);
   }, [decks, selectDeck]);
 
   const handleStartGame = useCallback(() => {
