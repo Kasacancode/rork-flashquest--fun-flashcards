@@ -7,7 +7,7 @@ import { useReduceMotion } from '@/utils/reduceMotion';
 const { width: RAW_SCREEN_WIDTH } = Dimensions.get('window');
 const ANSWER_GRID_MAX_WIDTH = 500;
 const EFFECTIVE_WIDTH = Math.min(RAW_SCREEN_WIDTH, ANSWER_GRID_MAX_WIDTH);
-const CARD_GAP = 10;
+const CARD_GAP = 14;
 const CARD_PADDING = 12;
 const GRID_HORIZONTAL_MARGIN = 12;
 const AVAILABLE_WIDTH = EFFECTIVE_WIDTH - (GRID_HORIZONTAL_MARGIN * 2) - (CARD_PADDING * 2) - CARD_GAP;
