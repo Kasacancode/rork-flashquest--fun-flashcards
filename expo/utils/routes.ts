@@ -30,6 +30,7 @@ export const ARENA_RESULTS_ROUTE = '/arena-results' as const satisfies Href;
 export const CREATE_FLASHCARD_ROUTE = '/create-flashcard' as const satisfies Href;
 export const SCAN_NOTES_ROUTE = '/scan-notes' as const satisfies Href;
 export const TEXT_TO_DECK_ROUTE = '/text-to-deck' as const satisfies Href;
+export const SMART_IMPORT_ROUTE = '/smart-import' as const satisfies Href;
 export const PRACTICE_ROUTE = '/practice' as const satisfies Href;
 export const PRACTICE_SESSION_ROUTE = '/practice-session' as const satisfies Href;
 export const STUDY_ROUTE = '/study' as const satisfies Href;

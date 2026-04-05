@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowUpDown,
   BookOpen,
+  ClipboardPaste,
   Compass,
   Download,
   FileSpreadsheet,
@@ -57,6 +58,7 @@ import {
   editDeckHref,
   EXPLORE_ROUTE,
   SCAN_NOTES_ROUTE,
+  SMART_IMPORT_ROUTE,
   studyHref,
   TEXT_TO_DECK_ROUTE,
 } from '@/utils/routes';
@@ -251,6 +253,11 @@ export default function DecksPage() {
       Alert.alert('Import Failed', 'Could not import the deck. Make sure you copied a valid FlashQuest deck.');
     }
   }, [addDeck]);
+
+  const handleOpenSmartImport = useCallback(() => {
+    setShowMenu(false);
+    router.push(SMART_IMPORT_ROUTE);
+  }, [router]);
 
   const handleImportCSV = useCallback(async () => {
     setShowMenu(false);
@@ -1004,6 +1011,24 @@ export default function DecksPage() {
               <View style={styles.menuOptionText}>
                 <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Import from Clipboard</Text>
                 <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Paste a deck shared by a friend</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.08)' }]}
+              onPress={() => {
+                setShowImportSubmenu(false);
+                handleOpenSmartImport();
+              }}
+              activeOpacity={0.8}
+              testID="menuPasteCards"
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.15)' }]}>
+                <ClipboardPaste color={theme.primary} size={24} strokeWidth={2} />
+              </View>
+              <View style={styles.menuOptionText}>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Paste Cards</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>From Quizlet, Anki, notes, or any text</Text>
               </View>
             </TouchableOpacity>
 
