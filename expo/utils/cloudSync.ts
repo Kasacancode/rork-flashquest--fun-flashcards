@@ -4,6 +4,41 @@ import { supabase } from '@/lib/supabase';
 import { EXPORT_KEYS, EXPORT_KEY_SET } from '@/utils/exportKeys';
 import { logger } from '@/utils/logger';
 
+let _initialSyncComplete = false;
+let _syncCompleteCallbacks: (() => void)[] = [];
+
+export function isInitialSyncComplete(): boolean {
+  return _initialSyncComplete;
+}
+
+export function markInitialSyncComplete(): void {
+  if (_initialSyncComplete) {
+    return;
+  }
+
+  _initialSyncComplete = true;
+  _syncCompleteCallbacks.forEach((callback) => callback());
+  _syncCompleteCallbacks = [];
+}
+
+export function waitForInitialSync(timeoutMs: number = 3000): Promise<void> {
+  if (_initialSyncComplete) {
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(() => {
+      markInitialSyncComplete();
+      resolve();
+    }, timeoutMs);
+
+    _syncCompleteCallbacks.push(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
 const LAST_SYNC_KEY = 'flashquest_last_cloud_sync';
 
 interface LeaderboardStats {

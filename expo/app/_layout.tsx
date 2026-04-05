@@ -23,7 +23,7 @@ import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { setAnalyticsCollectionEnabled, trackEvent } from '@/lib/analytics';
 import { supabase } from '@/lib/supabase';
 import { trpc, trpcClient } from '@/lib/trpc';
-import { syncWithCloud } from '@/utils/cloudSync';
+import { markInitialSyncComplete, syncWithCloud } from '@/utils/cloudSync';
 import { canAccessDebugRoute } from '@/utils/debugTooling';
 import { logger } from '@/utils/logger';
 import { getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
@@ -246,6 +246,7 @@ function AppShell() {
     supabase.auth.getSession()
       .then(async ({ data: { session: currentSession } }) => {
         if (!isMounted || !currentSession?.user?.id) {
+          markInitialSyncComplete();
           return;
         }
 
@@ -253,10 +254,12 @@ function AppShell() {
 
         if (isMounted) {
           void reactQueryClient.invalidateQueries();
+          markInitialSyncComplete();
         }
       })
       .catch((error) => {
         logger.warn('[Layout] Initial cloud sync failed:', error);
+        markInitialSyncComplete();
       });
 
     return () => {

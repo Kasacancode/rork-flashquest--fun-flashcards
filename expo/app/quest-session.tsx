@@ -3,7 +3,7 @@ import { triggerImpact, triggerNotification, ImpactFeedbackStyle, NotificationFe
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { X, Zap, Lightbulb, Clock } from 'lucide-react-native';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnswerCard, getSuitForIndex, AnswerCardState, CARD_GAP, CARD_HEIGHT, CARD_PADDING, CARD_WIDTH, GRID_HORIZONTAL_MARGIN } from '@/components/AnswerCard';
@@ -26,6 +26,7 @@ import { playSound } from '@/utils/sounds';
 import { useResponsiveLayout } from '@/utils/responsive';
 import { QUEST_ROUTE, questResultsHref } from '@/utils/routes';
 import { selectNextCard, generateAIDistractors, generateOptions, checkAnswer, calculateScore } from '@/utils/questUtils';
+import { waitForInitialSync } from '@/utils/cloudSync';
 
 const FALLBACK_QUEST_SETTINGS: QuestSettings = {
   deckId: '',
@@ -93,6 +94,7 @@ export default function QuestSessionScreen() {
   const [assistantLine, setAssistantLine] = useState<string>('');
   const [assistantTone, setAssistantTone] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [missStreak, setMissStreak] = useState(0);
+  const [syncReady, setSyncReady] = useState<boolean>(false);
 
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
@@ -119,6 +121,20 @@ export default function QuestSessionScreen() {
   useEffect(() => {
     performanceRef.current = performance;
   }, [performance]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void waitForInitialSync(3000).then(() => {
+      if (isMounted) {
+        setSyncReady(true);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!deck || analyticsTrackedRef.current) {
@@ -626,6 +642,24 @@ export default function QuestSessionScreen() {
     }
     return 'disabled';
   };
+
+  if (!syncReady) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <LinearGradient
+          colors={[theme.gradientStart, theme.gradientMid, theme.gradientEnd]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+          <View style={styles.loadingContainer} testID="quest-sync-loading">
+            <ActivityIndicator size="large" color={theme.primary} />
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   if (!deck || !currentCard) {
     return (

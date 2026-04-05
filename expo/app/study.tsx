@@ -10,6 +10,7 @@ import {
   Modal,
   ScrollView,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -27,6 +28,7 @@ import { buildCrossDeckReviewDeck, CROSS_DECK_REVIEW_DECK_ID } from '@/utils/rev
 import { DECKS_ROUTE, HOME_ROUTE, deckHubHref, questHref } from '@/utils/routes';
 import { maybePromptReview } from '@/utils/storeReview';
 import { triggerImpact } from '@/utils/haptics';
+import { waitForInitialSync } from '@/utils/cloudSync';
 
 type StudyCardPriority = 'lapsed' | 'due' | 'new' | 'weak' | 'remaining';
 type StudyMode = 'all' | 'due' | 'quick-5' | 'quick-10' | 'quick-15' | 'weak';
@@ -198,6 +200,7 @@ export default function StudyPage() {
   const [reversed, setReversed] = useState<boolean>(false);
   const [studyMode, setStudyMode] = useState<StudyMode | null>(initialMode);
   const [sessionFlashcards, setSessionFlashcards] = useState<Flashcard[]>([]);
+  const [syncReady, setSyncReady] = useState<boolean>(false);
   const [crossDeckReviewDeck, setCrossDeckReviewDeck] = useState<Deck | null>(
     () => (params.deckId === CROSS_DECK_REVIEW_DECK_ID ? buildCrossDeckReviewDeck(decks, performance.cardStatsById) : null),
   );
@@ -239,6 +242,20 @@ export default function StudyPage() {
 
     return decks.find((deck) => deck.id === selectedDeckId);
   }, [crossDeckReviewDeck, decks, isCrossDeckReview, liveCrossDeckReviewDeck, selectedDeckId]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void waitForInitialSync(3000).then(() => {
+      if (isMounted) {
+        setSyncReady(true);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const { orderedFlashcards, studySummary } = useMemo(() => {
     if (!selectedDeck) {
@@ -468,6 +485,25 @@ export default function StudyPage() {
 
     return unsubscribe;
   }, [handleDismissToHome, launchedFromReviewHub, navigation]);
+
+  if (!syncReady) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient
+          colors={isDark ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+          <View style={styles.syncLoadingContainer} testID="study-sync-loading">
+            <ActivityIndicator size="large" color={theme.primary} />
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   if (showResults && selectedDeck) {
     const needsReviewCount = studySummary.lapsedCount + studySummary.dueCount;
@@ -1149,6 +1185,11 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+  },
+  syncLoadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     flexDirection: 'row',
