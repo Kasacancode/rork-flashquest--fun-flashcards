@@ -16,9 +16,11 @@ import ConsentSheet from '@/components/privacy/ConsentSheet';
 import { ArenaProvider } from '@/context/ArenaContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { AvatarProvider } from '@/context/AvatarContext';
+import { DeckProvider } from '@/context/DeckContext';
 import { FlashQuestProvider, useFlashQuest } from '@/context/FlashQuestContext';
 import { PerformanceProvider, usePerformance } from '@/context/PerformanceContext';
 import { PrivacyProvider, usePrivacy } from '@/context/PrivacyContext';
+import { StatsProvider } from '@/context/StatsContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { setAnalyticsCollectionEnabled, trackEvent } from '@/lib/analytics';
 import { supabase } from '@/lib/supabase';
@@ -378,13 +380,17 @@ export default function RootLayout() {
             <PrivacyProvider>
               <AuthProvider>
                 <AvatarProvider>
-                  <FlashQuestProvider>
-                    <PerformanceProvider>
-                      <ArenaProvider>
-                        <AppShell />
-                      </ArenaProvider>
-                    </PerformanceProvider>
-                  </FlashQuestProvider>
+                  <DeckProvider>
+                    <StatsProvider>
+                      <FlashQuestProvider>
+                        <PerformanceProvider>
+                          <ArenaProvider>
+                            <AppShell />
+                          </ArenaProvider>
+                        </PerformanceProvider>
+                      </FlashQuestProvider>
+                    </StatsProvider>
+                  </DeckProvider>
                 </AvatarProvider>
               </AuthProvider>
             </PrivacyProvider>
