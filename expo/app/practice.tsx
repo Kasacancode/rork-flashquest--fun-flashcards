@@ -167,8 +167,8 @@ export default function PracticePage() {
             <Text style={[styles.title, { color: isDark ? '#F8FAFC' : '#2D2A61' }]}>Choose Your Practice</Text>
             <Text style={[styles.subtitle, { color: mutedTextColor }]}>
               {preselectedDeck
-                ? `Using ${preselectedDeck.name}. Pick the format that fits this round.`
-                : 'Fast five-round matches with a cleaner, tighter setup.'}
+                ? `Using ${preselectedDeck.name} · Pick the format that fits this round`
+                : 'Fast five-round matches with a cleaner, tighter setup'}
             </Text>
           </View>
 
@@ -187,7 +187,7 @@ export default function PracticePage() {
                 <BookOpen color={theme.textTertiary} size={28} strokeWidth={2.2} />
               </View>
               <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No decks available</Text>
-              <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>Create a deck to start practicing.</Text>
+              <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>Create a deck to start practicing</Text>
               <TouchableOpacity
                 style={[styles.emptyStateButton, { backgroundColor: theme.primary }]}
                 onPress={() => router.push(DECKS_ROUTE)}
@@ -260,7 +260,7 @@ export default function PracticePage() {
                     <View style={styles.actionContent}>
                       <Text style={styles.primaryActionTitle}>Solo Practice</Text>
                       <Text style={styles.primaryActionSubtitle} numberOfLines={2}>
-                        Fast five-round duels with adaptive pacing and instant scoring.
+                        Adaptive 5-round duels with instant scoring
                       </Text>
                       <View style={styles.actionFooterRow}>
                         <Text style={styles.primaryActionFootnote} numberOfLines={1}>
@@ -313,7 +313,7 @@ export default function PracticePage() {
                     </View>
                     <View style={styles.actionContent}>
                       <Text style={[styles.secondaryActionTitle, { color: theme.text }]}>Local Versus</Text>
-                      <Text style={[styles.secondaryActionSubtitle, { color: theme.textSecondary }]} numberOfLines={2}>Pass the device for a clean two-player battle on the same deck.</Text>
+                      <Text style={[styles.secondaryActionSubtitle, { color: theme.textSecondary }]} numberOfLines={2}>Pass the device for a clean two-player battle on the same deck</Text>
                       <View style={styles.actionFooterRow}>
                         <Text style={[styles.secondaryActionFootnote, { color: theme.textSecondary }]} numberOfLines={1}>
                           {preselectedDeck ? `${preselectedDeck.flashcards.length} cards ready` : 'Choose a deck after tapping'}
@@ -357,7 +357,7 @@ export default function PracticePage() {
                     <Text style={[styles.infoTitle, { color: theme.text }]}>How It Works</Text>
                     <Text style={[styles.infoPreview, { color: theme.textSecondary }]}> 
                       {isHowItWorksExpanded
-                        ? 'Five short rounds, then you are done.'
+                        ? 'Five short rounds, then you are done'
                         : '5 rounds · quick scoring · instant rematch'}
                     </Text>
                   </View>
@@ -376,15 +376,15 @@ export default function PracticePage() {
                   <View style={styles.infoList}>
                     <View style={styles.infoRow}>
                       <View style={[styles.infoDot, { backgroundColor: summaryAccent }]} />
-                      <Text style={[styles.infoText, { color: theme.textSecondary }]}>Each match runs for 5 flashcard rounds with quick scoring after every answer.</Text>
+                      <Text style={[styles.infoText, { color: theme.textSecondary }]}>Each match runs for 5 flashcard rounds with quick scoring after every answer</Text>
                     </View>
                     <View style={styles.infoRow}>
                       <View style={[styles.infoDot, { backgroundColor: summaryAccent }]} />
-                      <Text style={[styles.infoText, { color: theme.textSecondary }]}>Solo uses the AI opponent. Local passes the device between two players on the same deck.</Text>
+                      <Text style={[styles.infoText, { color: theme.textSecondary }]}>Solo uses the AI opponent · Local passes the device between two players on the same deck</Text>
                     </View>
                     <View style={styles.infoRow}>
                       <View style={[styles.infoDot, { backgroundColor: summaryAccent }]} />
-                      <Text style={[styles.infoText, { color: theme.textSecondary }]}>Finish a short set, review the score, then jump straight into another match.</Text>
+                      <Text style={[styles.infoText, { color: theme.textSecondary }]}>Finish a short set, review the score, then jump straight into another match</Text>
                     </View>
                   </View>
                 ) : null}
@@ -424,7 +424,7 @@ export default function PracticePage() {
               {decks.length === 0 ? (
                 <View style={styles.modalEmptyState}>
                   <Text style={[styles.modalEmptyTitle, { color: theme.text }]}>No Decks Yet</Text>
-                  <Text style={[styles.modalEmptySubtitle, { color: theme.textSecondary }]}>Create your first deck to start practicing.</Text>
+                  <Text style={[styles.modalEmptySubtitle, { color: theme.textSecondary }]}>Create your first deck to start practicing</Text>
                   <TouchableOpacity
                     onPress={() => {
                       setShowDeckSelector(false);
@@ -463,11 +463,11 @@ export default function PracticePage() {
       <ConsentSheet
         visible={pendingAiDeckId !== null}
         title="Use AI-assisted practice?"
-        description="Solo Practice sends the current question and answer to an AI processing service to generate stronger answer choices for the match."
+        description="Solo Practice sends the current question and answer to an AI processing service to generate stronger answer choices for the match"
         bullets={[
-          'Only the flashcard content needed for the current round is sent for this feature.',
-          'Local pass-and-play does not use this AI processing flow.',
-          'You can revisit this anytime in Privacy & Data.',
+          'Only the flashcard content needed for the current round is sent for this feature',
+          'Local pass-and-play does not use this AI processing flow',
+          'You can revisit this anytime in Privacy & Data',
         ]}
         primaryLabel="Continue"
         secondaryLabel="Cancel"
