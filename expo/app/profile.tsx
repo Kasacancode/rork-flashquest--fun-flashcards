@@ -281,7 +281,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
   const profileTabGap = shouldStackProfileTabs ? 4 : isCompactProfileLayout ? 6 : 8;
   const profileTabHorizontalPadding = shouldStackProfileTabs ? 4 : isCompactProfileLayout ? 6 : 12;
   const profileTabMinHeight = shouldStackProfileTabs ? 64 : isCompactProfileLayout ? 62 : 58;
-  const profileTabFontSize = shouldStackProfileTabs ? 12 : isCompactProfileLayout ? 13 : 14;
+  const profileTabFontSize = shouldStackProfileTabs ? 13 : isCompactProfileLayout ? 14 : 15;
   const overviewCardGap = isCompactProfileLayout ? 14 : 16;
   const overviewCardPaddingHorizontal = isCompactProfileLayout ? 16 : 18;
   const overviewCardPaddingVertical = isCompactProfileLayout ? 16 : 18;
@@ -737,9 +737,11 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       fontWeight: '700' as const,
       color: theme.textSecondary,
       textAlign: 'center' as const,
+      letterSpacing: -0.15,
     },
     tabTextActive: {
       color: theme.profileTabActiveText,
+      fontWeight: '800' as const,
     },
     tabContent: {
       gap: 14,
