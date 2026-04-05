@@ -11,6 +11,7 @@ import {
   Share2,
   ThumbsDown,
   ThumbsUp,
+  User,
   X,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -34,6 +35,7 @@ import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useAuth } from '@/context/AuthContext';
 import { useDeckContext } from '@/context/DeckContext';
 import { useTheme } from '@/context/ThemeContext';
+import { supabase } from '@/lib/supabase';
 import type { Deck } from '@/types/flashcard';
 import { createNormalizedFlashcard, normalizeDeck } from '@/utils/flashcardContent';
 import { logger } from '@/utils/logger';
@@ -46,6 +48,7 @@ import {
   type MarketplaceDeck,
   type MarketplaceDeckDetail,
   type MarketplaceSortOption,
+  unpublishDeck,
   voteDeck,
 } from '@/utils/marketplaceService';
 import { generateUUID } from '@/utils/uuid';
@@ -56,6 +59,19 @@ const SORT_OPTIONS: { value: MarketplaceSortOption; label: string }[] = [
   { value: 'top_rated', label: 'Top Rated' },
   { value: 'newest', label: 'Newest' },
 ];
+
+interface PublishedDeckListItem {
+  id: string;
+  name: string;
+  description: string;
+  category: string | null;
+  card_count: number;
+  downloads: number | null;
+  up_votes: number | null;
+  down_votes: number | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function ExploreScreen() {
   const router = useRouter();
@@ -69,6 +85,7 @@ export default function ExploreScreen() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
   const [showDetail, setShowDetail] = useState<boolean>(false);
+  const [showMyDecks, setShowMyDecks] = useState<boolean>(false);
 
   const decksQuery = useQuery({
     queryKey: ['marketplace-decks', sort, selectedCategory],
@@ -89,6 +106,28 @@ export default function ExploreScreen() {
     queryKey: ['marketplace-deck-detail', selectedDeckId],
     queryFn: () => fetchDeckDetail(selectedDeckId ?? ''),
     enabled: Boolean(selectedDeckId),
+  });
+
+  const myDecksQuery = useQuery({
+    queryKey: ['my-published-decks', user?.id],
+    queryFn: async () => {
+      if (!user?.id) {
+        return [] as PublishedDeckListItem[];
+      }
+
+      const { data, error } = await supabase
+        .from('public_decks')
+        .select('id, name, description, category, card_count, downloads, up_votes, down_votes, created_at, updated_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error || !data) {
+        return [] as PublishedDeckListItem[];
+      }
+
+      return data as PublishedDeckListItem[];
+    },
+    enabled: showMyDecks && Boolean(user?.id),
   });
 
   const voteMutation = useMutation({
@@ -204,8 +243,9 @@ export default function ExploreScreen() {
       decksQuery.refetch(),
       userVotesQuery.refetch(),
       selectedDeckId ? detailQuery.refetch() : Promise.resolve(),
+      showMyDecks ? myDecksQuery.refetch() : Promise.resolve(),
     ]);
-  }, [decksQuery, detailQuery, selectedDeckId, userVotesQuery]);
+  }, [decksQuery, detailQuery, myDecksQuery, selectedDeckId, showMyDecks, userVotesQuery]);
 
   const handleOpenDetail = useCallback((deck: MarketplaceDeck) => {
     setSelectedDeckId(deck.id);
@@ -384,56 +424,107 @@ export default function ExploreScreen() {
               </TouchableOpacity>
             ) : null}
           </View>
+
+          {isSignedIn ? (
+            <TouchableOpacity
+              style={[
+                styles.myDecksButton,
+                {
+                  backgroundColor: isDark ? 'rgba(99,102,241,0.12)' : 'rgba(99,102,241,0.08)',
+                  borderColor: isDark ? 'rgba(99,102,241,0.25)' : 'rgba(99,102,241,0.15)',
+                },
+              ]}
+              onPress={() => setShowMyDecks(true)}
+              activeOpacity={0.8}
+              testID="explore-my-decks-button"
+            >
+              <User color={theme.primary} size={15} strokeWidth={2.2} />
+              <Text style={[styles.myDecksButtonText, { color: theme.primary }]}>My Decks</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryRow}
-          style={styles.categoryScroll}
-        >
-          {categories.map((category) => {
-            const isActive = selectedCategory === category;
-            return (
-              <TouchableOpacity
-                key={category}
-                style={[
-                  styles.categoryChip,
-                  {
-                    backgroundColor: isActive ? chipActiveBg : chipInactiveBg,
-                    borderColor: isActive ? 'rgba(99,102,241,0.3)' : 'transparent',
-                  },
-                ]}
-                onPress={() => setSelectedCategory(category)}
-                activeOpacity={0.82}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isActive }}
-                testID={`explore-category-${category.replace(/\s+/g, '-').toLowerCase()}`}
-              >
-                <Text style={[styles.categoryChipText, { color: isActive ? (isDark ? '#818CF8' : '#6366F1') : theme.textSecondary }]}>{category}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        <View style={styles.filtersWrap}>
+          <Text style={[styles.filterSectionLabel, { color: theme.textTertiary }]}>BROWSE BY TOPIC</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryRow}
+            style={styles.categoryScroll}
+          >
+            {categories.map((category) => {
+              const isActive = selectedCategory === category;
+              return (
+                <TouchableOpacity
+                  key={category}
+                  style={[
+                    styles.categoryChip,
+                    {
+                      backgroundColor: isActive ? chipActiveBg : chipInactiveBg,
+                      borderColor: isActive ? 'rgba(99,102,241,0.3)' : 'transparent',
+                    },
+                  ]}
+                  onPress={() => setSelectedCategory(category)}
+                  activeOpacity={0.82}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isActive }}
+                  testID={`explore-category-${category.replace(/\s+/g, '-').toLowerCase()}`}
+                >
+                  <Text style={[styles.categoryChipText, { color: isActive ? (isDark ? '#818CF8' : '#6366F1') : theme.textSecondary }]}>{category}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
-        <View style={styles.sortRow}>
-          {SORT_OPTIONS.map((option) => {
-            const isActive = sort === option.value;
-            return (
-              <TouchableOpacity
-                key={option.value}
-                style={[styles.sortButton, { backgroundColor: isActive ? chipActiveBg : 'transparent' }]}
-                onPress={() => setSort(option.value)}
-                activeOpacity={0.82}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isActive }}
-                testID={`explore-sort-${option.value}`}
-              >
-                <Text style={[styles.sortText, { color: isActive ? (isDark ? '#818CF8' : '#6366F1') : theme.textSecondary }]}>{option.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
+          <View style={[styles.filterDivider, { backgroundColor: theme.border }]} />
+          <Text style={[styles.filterSectionLabel, { color: theme.textTertiary }]}>SORT BY</Text>
+          <View
+            style={[
+              styles.sortGroup,
+              {
+                backgroundColor: isDark ? 'rgba(148,163,184,0.06)' : 'rgba(0,0,0,0.03)',
+                borderColor: isDark ? 'rgba(148,163,184,0.1)' : 'rgba(0,0,0,0.06)',
+              },
+            ]}
+          >
+            {SORT_OPTIONS.map((option) => {
+              const isActive = sort === option.value;
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.sortOption,
+                    isActive
+                      ? { backgroundColor: isDark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.1)' }
+                      : null,
+                  ]}
+                  onPress={() => setSort(option.value)}
+                  activeOpacity={0.82}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isActive }}
+                  testID={`explore-sort-${option.value}`}
+                >
+                  <Text
+                    style={[
+                      styles.sortOptionText,
+                      {
+                        color: isActive ? theme.primary : theme.textSecondary,
+                        fontWeight: isActive ? '700' : '600',
+                      },
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
+
+        <Text style={[styles.resultCount, { color: theme.textTertiary }]}> 
+          {filteredDecks.length} {filteredDecks.length === 1 ? 'deck' : 'decks'}
+          {selectedCategory !== 'All' ? ` in ${selectedCategory}` : ''}
+        </Text>
 
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -471,11 +562,14 @@ export default function ExploreScreen() {
                   const isDetailLoading = showDetail && selectedDeckId === deck.id && detailQuery.isFetching;
 
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={deck.id}
-                      style={[styles.deckCard, { backgroundColor: cardBg, borderColor: cardBorder }]}
+                      style={({ pressed }) => [
+                        styles.deckCard,
+                        { backgroundColor: cardBg, borderColor: cardBorder },
+                        pressed ? styles.deckCardPressed : null,
+                      ]}
                       onPress={() => handleOpenDetail(deck)}
-                      activeOpacity={0.86}
                       accessibilityRole="button"
                       testID={`explore-deck-${deck.id}`}
                     >
@@ -487,7 +581,17 @@ export default function ExploreScreen() {
                             <Text style={[styles.categoryBadgeText, { color: deck.color }]}>{deck.category}</Text>
                           </View>
                         </View>
-                        <Text style={[styles.publisherName, { color: theme.textTertiary }]} numberOfLines={1}>by {deck.publisherName}</Text>
+                        <Pressable
+                          onPress={(event) => {
+                            event.stopPropagation();
+                            setSelectedCategory('All');
+                            setSearchQuery(deck.publisherName);
+                          }}
+                          accessibilityRole="button"
+                          testID={`explore-author-${deck.id}`}
+                        >
+                          <Text style={[styles.publisherName, { color: theme.textSecondary }]} numberOfLines={1}>by {deck.publisherName}</Text>
+                        </Pressable>
                         {deck.description.length > 0 ? (
                           <Text style={[styles.deckDescription, { color: theme.textSecondary }]} numberOfLines={2}>{deck.description}</Text>
                         ) : null}
@@ -516,13 +620,103 @@ export default function ExploreScreen() {
                         </View>
                       </View>
                       {isDetailLoading ? <ActivityIndicator color={theme.primary} size="small" style={styles.cardSpinner} /> : null}
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
               </View>
             )}
           </ResponsiveContainer>
         </ScrollView>
+
+        <Modal visible={showMyDecks} transparent animationType="slide" onRequestClose={() => setShowMyDecks(false)}>
+          <View style={styles.myDecksBackdrop}>
+            <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowMyDecks(false)} />
+            <View style={[styles.myDecksSheet, { backgroundColor: isDark ? 'rgba(10,17,34,0.98)' : theme.cardBackground }]}> 
+              <View style={[styles.myDecksHandle, { backgroundColor: theme.sheetHandle }]} />
+              <Text style={[styles.myDecksTitle, { color: theme.text }]}>My Published Decks</Text>
+
+              {myDecksQuery.isLoading ? (
+                <ActivityIndicator color={theme.primary} size="large" style={styles.myDecksLoading} />
+              ) : !myDecksQuery.data?.length ? (
+                <View style={styles.myDecksEmpty}>
+                  <Text style={[styles.myDecksEmptyText, { color: theme.textSecondary }]}> 
+                    You haven't published any decks yet.{"\n"}Open a deck and tap Publish to share it with the community.
+                  </Text>
+                </View>
+              ) : (
+                <ScrollView style={styles.myDecksList} showsVerticalScrollIndicator={false}>
+                  {myDecksQuery.data.map((deck) => (
+                    <View
+                      key={deck.id}
+                      style={[
+                        styles.myDeckCard,
+                        {
+                          backgroundColor: isDark ? 'rgba(148,163,184,0.06)' : 'rgba(0,0,0,0.02)',
+                          borderColor: isDark ? 'rgba(148,163,184,0.1)' : 'rgba(0,0,0,0.06)',
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.myDeckName, { color: theme.text }]} numberOfLines={1}>{deck.name}</Text>
+                      <Text style={[styles.myDeckMeta, { color: theme.textSecondary }]}>
+                        {deck.card_count} cards · {deck.downloads ?? 0} downloads · {(deck.up_votes ?? 0) - (deck.down_votes ?? 0)} votes
+                      </Text>
+                      <Text style={[styles.myDeckCategory, { color: theme.textTertiary }]}>
+                        {deck.category ?? 'General'} · Published {new Date(deck.created_at).toLocaleDateString()}
+                      </Text>
+
+                      <View style={styles.myDeckActions}>
+                        <TouchableOpacity
+                          style={[styles.myDeckActionButton, { backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)' }]}
+                          onPress={() => {
+                            setShowMyDecks(false);
+                            setSelectedDeckId(deck.id);
+                            setShowDetail(true);
+                          }}
+                          activeOpacity={0.8}
+                          testID={`my-deck-view-${deck.id}`}
+                        >
+                          <Text style={[styles.myDeckActionText, { color: theme.primary }]}>View</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.myDeckActionButton, { backgroundColor: isDark ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.05)' }]}
+                          onPress={() => {
+                            Alert.alert('Unpublish Deck', `Remove "${deck.name}" from the community?`, [
+                              { text: 'Cancel', style: 'cancel' },
+                              {
+                                text: 'Unpublish',
+                                style: 'destructive',
+                                onPress: async () => {
+                                  if (!user?.id) {
+                                    return;
+                                  }
+
+                                  const result = await unpublishDeck(user.id, deck.name);
+                                  if (result.success) {
+                                    await Promise.all([
+                                      myDecksQuery.refetch(),
+                                      queryClient.invalidateQueries({ queryKey: ['marketplace-decks'] }),
+                                      queryClient.invalidateQueries({ queryKey: ['marketplace-deck-detail', deck.id] }),
+                                    ]);
+                                  } else {
+                                    Alert.alert('Unpublish Failed', result.error ?? 'Could not unpublish this deck.');
+                                  }
+                                },
+                              },
+                            ]);
+                          }}
+                          activeOpacity={0.8}
+                          testID={`my-deck-unpublish-${deck.id}`}
+                        >
+                          <Text style={[styles.myDeckActionText, { color: theme.error }]}>Unpublish</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
 
         <Modal visible={showDetail} transparent animationType="slide" onRequestClose={handleCloseDetail}>
           <View style={styles.detailBackdrop}>
@@ -713,10 +907,14 @@ const styles = StyleSheet.create({
     height: 40,
   },
   searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     paddingHorizontal: 16,
     marginBottom: 10,
   },
   searchInput: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -724,6 +922,34 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 14,
+  },
+  myDecksButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  myDecksButtonText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+  },
+  filtersWrap: {
+    paddingHorizontal: 16,
+  },
+  filterSectionLabel: {
+    fontSize: 10,
+    fontWeight: '800' as const,
+    letterSpacing: 1.5,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  filterDivider: {
+    height: 1,
+    marginVertical: 12,
+    opacity: 0.3,
   },
   searchText: {
     flex: 1,
@@ -761,7 +987,29 @@ const styles = StyleSheet.create({
   },
   sortText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '700' as const,
+  },
+  sortGroup: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 3,
+    marginBottom: 16,
+  },
+  sortOption: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  sortOptionText: {
+    fontSize: 13,
+  },
+  resultCount: {
+    paddingHorizontal: 16,
+    marginBottom: 10,
+    fontSize: 12,
+    fontWeight: '600' as const,
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -795,6 +1043,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
+  },
+  deckCardPressed: {
+    opacity: 0.9,
   },
   deckColorStripe: {
     width: 5,
@@ -852,6 +1103,81 @@ const styles = StyleSheet.create({
   cardSpinner: {
     marginRight: 14,
     alignSelf: 'center',
+  },
+  myDecksBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  myDecksSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 34,
+    maxHeight: '80%',
+  },
+  myDecksHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  myDecksTitle: {
+    fontSize: 18,
+    fontWeight: '800' as const,
+    marginBottom: 16,
+  },
+  myDecksLoading: {
+    marginVertical: 40,
+  },
+  myDecksList: {
+    maxHeight: 400,
+  },
+  myDecksEmpty: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  myDecksEmptyText: {
+    fontSize: 14,
+    textAlign: 'center' as const,
+    lineHeight: 20,
+  },
+  myDeckCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 10,
+  },
+  myDeckName: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    marginBottom: 4,
+  },
+  myDeckMeta: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    marginBottom: 2,
+  },
+  myDeckCategory: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    marginBottom: 12,
+  },
+  myDeckActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  myDeckActionButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  myDeckActionText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
   },
   detailBackdrop: {
     flex: 1,
