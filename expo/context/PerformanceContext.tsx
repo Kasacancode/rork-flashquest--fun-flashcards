@@ -15,6 +15,7 @@ import {
   getLiveCardStats,
   getWeaknessScore,
   inferRecallQuality,
+  isWeakCard,
   isCardDueForReview,
   migrateQuestPerformance,
   updateCardMemory,
@@ -203,13 +204,19 @@ export const [PerformanceProvider, usePerformance] = createContextHook(() => {
   }, [performance.deckStatsById]);
 
   const getWeakCards = useCallback((deckId: string, cards: Flashcard[], limit: number = 10): string[] => {
+    const now = Date.now();
+
     return cards
       .filter((card) => card.deckId === deckId)
-      .map((card) => ({
-        cardId: card.id,
-        score: getWeaknessScore(performance.cardStatsById[card.id]),
-      }))
-      .filter((entry) => entry.score > 0.85)
+      .map((card) => {
+        const stats = performance.cardStatsById[card.id];
+        return {
+          cardId: card.id,
+          isWeak: isWeakCard(stats, now),
+          score: getWeaknessScore(stats, now),
+        };
+      })
+      .filter((entry) => entry.isWeak)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
       .map((entry) => entry.cardId);

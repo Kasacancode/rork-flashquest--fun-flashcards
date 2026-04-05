@@ -8,6 +8,7 @@ import {
   isCardDueForReview,
   deriveCardStatus,
   getWeaknessScore,
+  isWeakCard,
   computeDeckMastery,
   computeRetrievability,
   migrateCardStats,
@@ -258,6 +259,27 @@ describe('getWeaknessScore', () => {
     const weak = buildCardStats({ attempts: 10, incorrect: 8, consecutiveIncorrect: 3 });
     const strong = buildCardStats({ attempts: 10, incorrect: 1, consecutiveCorrect: 5 });
     expect(getWeaknessScore(weak, now)).toBeGreaterThan(getWeaknessScore(strong, now));
+  });
+});
+
+describe('isWeakCard', () => {
+  const now = 1700000000000;
+
+  it('does not flag a fresh correct answer as weak', () => {
+    const reviewed = updateCardMemory(undefined, { quality: 3, now });
+    expect(isWeakCard(reviewed, now)).toBe(false);
+  });
+
+  it('drops a recently recovered miss out of the weak bucket', () => {
+    const missed = updateCardMemory(undefined, { quality: 1, now });
+    const recovered = updateCardMemory(missed, { quality: 4, now: now + 60000 });
+    expect(isWeakCard(recovered, now + 60000)).toBe(false);
+  });
+
+  it('keeps overdue cards in the weak bucket', () => {
+    const reviewed = updateCardMemory(undefined, { quality: 4, now });
+    const overdueTime = (reviewed.nextReviewAt ?? now) + DAY_MS;
+    expect(isWeakCard(reviewed, overdueTime)).toBe(true);
   });
 });
 

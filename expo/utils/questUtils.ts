@@ -16,7 +16,7 @@ import {
   getFlashcardContent,
   getNormalizedAnswerValue,
 } from '@/utils/flashcardContent';
-import { getCardMastery, getWeaknessScore, isCardDue } from '@/utils/mastery';
+import { getCardMastery, getWeaknessScore, isCardDue, isWeakCard } from '@/utils/mastery';
 import { logger } from '@/utils/logger';
 
 const aiDistractorSchema = z.object({
@@ -492,7 +492,7 @@ export function selectNextCard(params: {
           status: getCardMastery(stats, now),
         };
       })
-      .filter((entry) => entry.status === 'lapsed' || entry.due || entry.score >= 6);
+      .filter((entry) => isWeakCard(performance.cardStatsById[entry.card.id], now));
 
     if (weakCandidates.length > 0) {
       candidates = weakCandidates

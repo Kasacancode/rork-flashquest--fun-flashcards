@@ -38,6 +38,9 @@ const MIN_DIFFICULTY = 1;
 const MAX_DIFFICULTY = 5;
 const LEARNING_STABILITY_THRESHOLD = 3;
 const MASTERED_STABILITY_THRESHOLD = 21;
+const RECENT_WEAK_CARD_RECOVERY_WINDOW_MS = 1000 * 60 * 45;
+const RECENT_WEAK_CARD_RECOVERY_THRESHOLD = 7.1;
+export const WEAK_CARD_THRESHOLD = 6;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -299,6 +302,35 @@ export function isCardDueForReview(stats: CardStats | undefined, now: number = D
   }
 
   return now >= card.nextReviewAt;
+}
+
+export function isWeakCard(stats: CardStats | undefined, now: number = Date.now()): boolean {
+  const card = getLiveCardStats(stats, now);
+
+  if (card.attempts === 0) {
+    return false;
+  }
+
+  if (card.status === 'lapsed') {
+    return true;
+  }
+
+  if (card.nextReviewAt && now >= card.nextReviewAt) {
+    return true;
+  }
+
+  const weaknessScore = getWeaknessScore(card, now);
+  const recentlyRecovered = card.lastReviewedAt !== null
+    && (now - card.lastReviewedAt) <= RECENT_WEAK_CARD_RECOVERY_WINDOW_MS
+    && card.consecutiveCorrect >= 1
+    && card.consecutiveIncorrect === 0
+    && (card.incorrect > 0 || card.lapses > 0);
+
+  if (recentlyRecovered) {
+    return weaknessScore >= RECENT_WEAK_CARD_RECOVERY_THRESHOLD;
+  }
+
+  return weaknessScore >= WEAK_CARD_THRESHOLD;
 }
 
 export function getWeaknessScore(stats: CardStats | undefined, now: number = Date.now()): number {

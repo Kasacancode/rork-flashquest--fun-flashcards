@@ -23,7 +23,7 @@ import type { Deck, Flashcard } from '@/types/flashcard';
 import type { CardMemoryStatus } from '@/types/performance';
 import { GAME_MODE } from '@/types/game';
 import { logger } from '@/utils/logger';
-import { getWeaknessScore, isCardDueForReview, getLiveCardStats } from '@/utils/mastery';
+import { getWeaknessScore, isCardDueForReview, getLiveCardStats, isWeakCard } from '@/utils/mastery';
 import { buildCrossDeckReviewDeck, CROSS_DECK_REVIEW_DECK_ID } from '@/utils/reviewUtils';
 import { DECKS_ROUTE, HOME_ROUTE, deckHubHref, questHref } from '@/utils/routes';
 import { maybePromptReview } from '@/utils/storeReview';
@@ -45,7 +45,6 @@ function buildStudyOrder(
   cardStatsById: Record<string, import('@/types/performance').CardStats>,
 ): { ordered: Flashcard[]; summary: StudyOrderSummary } {
   const now = Date.now();
-  const WEAK_THRESHOLD = 5;
 
   const buckets: Record<StudyCardPriority, { card: Flashcard; sortKey: number }[]> = {
     lapsed: [],
@@ -75,9 +74,8 @@ function buildStudyOrder(
       continue;
     }
 
-    const weakness = getWeaknessScore(stats, now);
-    if (weakness >= WEAK_THRESHOLD) {
-      buckets.weak.push({ card, sortKey: -weakness });
+    if (isWeakCard(stats, now)) {
+      buckets.weak.push({ card, sortKey: -getWeaknessScore(stats, now) });
       continue;
     }
 
@@ -164,14 +162,13 @@ function getFlashcardsForStudyMode(
       return orderedFlashcards.slice(0, 15);
     case 'weak': {
       const now = Date.now();
-      const WEAK_THRESHOLD = 5;
       return orderedFlashcards.filter((card) => {
         const stats = cardStatsById[card.id];
         const live = getLiveCardStats(stats, now);
-        if (live.attempts === 0) {
+        if (live.attempts === 0 || live.status === 'lapsed' || isCardDueForReview(stats, now)) {
           return false;
         }
-        return getWeaknessScore(stats, now) >= WEAK_THRESHOLD;
+        return isWeakCard(stats, now);
       });
     }
     default:
