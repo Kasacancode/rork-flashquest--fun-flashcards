@@ -279,10 +279,10 @@ export default function CardScheduleList({ flashcards, cardStatsById }: CardSche
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 0,
+    marginTop: 18,
   },
   shell: {
-    borderRadius: 22,
+    borderRadius: 24,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -290,8 +290,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
     gap: 12,
   },
   headerPressablePressed: {
@@ -350,8 +350,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   expandInner: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: 18,
+    paddingBottom: 18,
   },
   list: {
     borderRadius: 18,
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    paddingTop: 12,
+    paddingTop: 14,
   },
   footerPill: {
     borderRadius: 999,
