@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 import { ArrowLeft, ArrowLeftRight, BookOpen, Clock, AlertTriangle, RefreshCw, RotateCcw, Sparkles, Target, Zap } from 'lucide-react-native';
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
@@ -22,7 +22,7 @@ import type { CardMemoryStatus } from '@/types/performance';
 import { GAME_MODE } from '@/types/game';
 import { getWeaknessScore, isCardDueForReview, getLiveCardStats } from '@/utils/mastery';
 import { logger } from '@/utils/logger';
-import { DECKS_ROUTE, deckHubHref, questHref } from '@/utils/routes';
+import { DECKS_ROUTE, HOME_ROUTE, deckHubHref, questHref } from '@/utils/routes';
 import { maybePromptReview } from '@/utils/storeReview';
 import { triggerImpact } from '@/utils/haptics';
 
@@ -134,12 +134,14 @@ function getDeckStudySummary(
 
 export default function StudyPage() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ deckId?: string; initialMode?: string }>();
+  const navigation = useNavigation();
+  const params = useLocalSearchParams<{ deckId?: string; initialMode?: string; source?: string }>();
   const { decks, stats, updateFlashcard, recordSessionResult } = useFlashQuest();
   const { performance } = usePerformance();
   const { theme, isDark } = useTheme();
   const validModes: StudyMode[] = ['all', 'due', 'quick-5', 'quick-10', 'quick-15', 'weak'];
   const initialMode = validModes.includes(params.initialMode as StudyMode) ? (params.initialMode as StudyMode) : null;
+  const launchedFromReviewHub = params.source === 'review-hub';
 
   const [showDeckSelector, setShowDeckSelector] = useState<boolean>(!params.deckId);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(params.deckId || null);
@@ -151,6 +153,7 @@ export default function StudyPage() {
   const trackedStudyDeckIdRef = useRef<string | null>(null);
   const sessionStartRef = useRef<number>(Date.now());
   const sessionResolvedRef = useRef<number>(0);
+  const allowDismissToHomeRef = useRef<boolean>(false);
 
   const selectedDeck = useMemo(
     () => decks.find((d) => d.id === selectedDeckId),
@@ -323,6 +326,47 @@ export default function StudyPage() {
     setReversed((prev) => !prev);
   }, []);
 
+  const handleDismissToHome = useCallback(() => {
+    allowDismissToHomeRef.current = true;
+    logger.debug('[Study] Returning review flow to home');
+    router.dismissTo(HOME_ROUTE);
+  }, [router]);
+
+  const handleBackFromStudy = useCallback(() => {
+    if (launchedFromReviewHub) {
+      handleDismissToHome();
+      return;
+    }
+
+    setStudyMode(null);
+  }, [handleDismissToHome, launchedFromReviewHub]);
+
+  useEffect(() => {
+    if (!launchedFromReviewHub) {
+      return;
+    }
+
+    const unsubscribe = navigation.addListener('beforeRemove', (event) => {
+      if (allowDismissToHomeRef.current) {
+        allowDismissToHomeRef.current = false;
+        return;
+      }
+
+      const actionType = event.data.action.type;
+      const shouldRedirectHome = actionType === 'GO_BACK' || actionType === 'POP' || actionType === 'POP_TO_TOP';
+
+      if (!shouldRedirectHome) {
+        return;
+      }
+
+      logger.debug('[Study] Redirecting back action to home', { actionType });
+      event.preventDefault();
+      handleDismissToHome();
+    });
+
+    return unsubscribe;
+  }, [handleDismissToHome, launchedFromReviewHub, navigation]);
+
   if (showResults && selectedDeck) {
     const needsReviewCount = studySummary.lapsedCount + studySummary.dueCount;
     return (
@@ -396,12 +440,12 @@ export default function StudyPage() {
 
             <TouchableOpacity
               style={styles.homeButton}
-              onPress={() => router.back()}
-              accessibilityLabel="Go back"
+              onPress={() => (launchedFromReviewHub ? handleDismissToHome() : router.back())}
+              accessibilityLabel={launchedFromReviewHub ? 'Back to home' : 'Go back'}
               accessibilityRole="button"
               testID="study-results-back-button"
             >
-              <Text style={styles.homeButtonText}>Back to Decks</Text>
+              <Text style={styles.homeButtonText}>{launchedFromReviewHub ? 'Back to Home' : 'Back to Decks'}</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -421,7 +465,7 @@ export default function StudyPage() {
 
         <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton} accessibilityLabel="Go back" accessibilityRole="button">
+            <TouchableOpacity onPress={() => (launchedFromReviewHub ? handleDismissToHome() : router.back())} style={styles.backButton} accessibilityLabel="Go back" accessibilityRole="button">
               <ArrowLeft color="#fff" size={28} strokeWidth={2.5} />
             </TouchableOpacity>
             <Text style={styles.headerTitle} accessibilityRole="header">Study Mode</Text>
@@ -445,7 +489,11 @@ export default function StudyPage() {
           transparent
           onRequestClose={() => {
             if (!selectedDeckId) {
-              router.back();
+              if (launchedFromReviewHub) {
+                handleDismissToHome();
+              } else {
+                router.back();
+              }
             } else {
               setShowDeckSelector(false);
             }
@@ -458,7 +506,11 @@ export default function StudyPage() {
                 <TouchableOpacity
                   onPress={() => {
                     if (!selectedDeckId) {
-                      router.back();
+                      if (launchedFromReviewHub) {
+                        handleDismissToHome();
+                      } else {
+                        router.back();
+                      }
                     } else {
                       setShowDeckSelector(false);
                     }
@@ -556,10 +608,15 @@ export default function StudyPage() {
             <TouchableOpacity
               style={styles.modePickerBackButton}
               onPress={() => {
+                if (launchedFromReviewHub) {
+                  handleDismissToHome();
+                  return;
+                }
+
                 setSelectedDeckId(null);
                 setShowDeckSelector(true);
               }}
-              accessibilityLabel="Back to deck selection"
+              accessibilityLabel={launchedFromReviewHub ? 'Back to home' : 'Back to deck selection'}
               accessibilityRole="button"
               testID="study-mode-picker-back"
             >
@@ -760,7 +817,7 @@ export default function StudyPage() {
         {selectedDeck && studyMode && !showResults && filteredFlashcards.length > 0 ? (
           <>
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => setStudyMode(null)} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Back to study modes">
+              <TouchableOpacity onPress={handleBackFromStudy} style={styles.backButton} accessibilityRole="button" accessibilityLabel={launchedFromReviewHub ? 'Back to home' : 'Back to study modes'}>
                 <ArrowLeft color="#fff" size={28} strokeWidth={2.5} />
               </TouchableOpacity>
               <Text style={[styles.headerTitle, { flex: 1, textAlign: 'center' }]} numberOfLines={1}>{selectedDeck.name}</Text>
