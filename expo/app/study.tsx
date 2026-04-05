@@ -7,13 +7,13 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Modal,
   ScrollView,
   useWindowDimensions,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import StudyDeckSelector from '@/components/StudyDeckSelector';
 import StudyFeed from '@/components/StudyFeed';
 import { useDeckContext } from '@/context/DeckContext';
 import { useStatsContext } from '@/context/StatsContext';
@@ -21,161 +21,14 @@ import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
 import type { Deck, Flashcard } from '@/types/flashcard';
-import type { CardMemoryStatus } from '@/types/performance';
 import { GAME_MODE } from '@/types/game';
 import { logger } from '@/utils/logger';
-import { getWeaknessScore, isCardDueForReview, getLiveCardStats, isWeakCard } from '@/utils/mastery';
 import { buildCrossDeckReviewDeck, CROSS_DECK_REVIEW_DECK_ID } from '@/utils/reviewUtils';
 import { DECKS_ROUTE, HOME_ROUTE, deckHubHref, questHref } from '@/utils/routes';
+import { buildStudyOrder, getFlashcardsForStudyMode, type StudyMode } from '@/utils/studyHelpers';
 import { maybePromptReview } from '@/utils/storeReview';
 import { triggerImpact } from '@/utils/haptics';
 import { waitForInitialSync } from '@/utils/cloudSync';
-
-type StudyCardPriority = 'lapsed' | 'due' | 'new' | 'weak' | 'remaining';
-type StudyMode = 'all' | 'due' | 'quick-5' | 'quick-10' | 'quick-15' | 'weak';
-
-interface StudyOrderSummary {
-  lapsedCount: number;
-  dueCount: number;
-  newCount: number;
-  weakCount: number;
-}
-
-function buildStudyOrder(
-  flashcards: Flashcard[],
-  cardStatsById: Record<string, import('@/types/performance').CardStats>,
-): { ordered: Flashcard[]; summary: StudyOrderSummary } {
-  const now = Date.now();
-
-  const buckets: Record<StudyCardPriority, { card: Flashcard; sortKey: number }[]> = {
-    lapsed: [],
-    due: [],
-    new: [],
-    weak: [],
-    remaining: [],
-  };
-
-  for (const card of flashcards) {
-    const stats = cardStatsById[card.id];
-    const live = getLiveCardStats(stats, now);
-
-    if (live.attempts === 0) {
-      buckets.new.push({ card, sortKey: 0 });
-      continue;
-    }
-
-    if (live.status === 'lapsed') {
-      buckets.lapsed.push({ card, sortKey: -live.lapses });
-      continue;
-    }
-
-    if (isCardDueForReview(stats, now)) {
-      const overdue = live.nextReviewAt ? now - live.nextReviewAt : 0;
-      buckets.due.push({ card, sortKey: -overdue });
-      continue;
-    }
-
-    if (isWeakCard(stats, now)) {
-      buckets.weak.push({ card, sortKey: -getWeaknessScore(stats, now) });
-      continue;
-    }
-
-    buckets.remaining.push({ card, sortKey: live.retrievability });
-  }
-
-  for (const bucket of Object.values(buckets)) {
-    bucket.sort((a, b) => a.sortKey - b.sortKey);
-  }
-
-  const ordered = [
-    ...buckets.lapsed,
-    ...buckets.due,
-    ...buckets.new,
-    ...buckets.weak,
-    ...buckets.remaining,
-  ].map((entry) => entry.card);
-
-  const summary: StudyOrderSummary = {
-    lapsedCount: buckets.lapsed.length,
-    dueCount: buckets.due.length,
-    newCount: buckets.new.length,
-    weakCount: buckets.weak.length,
-  };
-
-  return { ordered, summary };
-}
-
-function getDeckStudySummary(
-  flashcards: Flashcard[],
-  cardStatsById: Record<string, import('@/types/performance').CardStats>,
-): { dueCount: number; newCount: number; lapsedCount: number; status: CardMemoryStatus | 'mixed' } {
-  const now = Date.now();
-  let dueCount = 0;
-  let newCount = 0;
-  let lapsedCount = 0;
-
-  for (const card of flashcards) {
-    const stats = cardStatsById[card.id];
-    const live = getLiveCardStats(stats, now);
-
-    if (live.attempts === 0) {
-      newCount++;
-    } else if (live.status === 'lapsed') {
-      lapsedCount++;
-    } else if (isCardDueForReview(stats, now)) {
-      dueCount++;
-    }
-  }
-
-  const status = lapsedCount > 0 ? 'lapsed'
-    : dueCount > 0 ? 'mixed'
-    : newCount === flashcards.length ? 'new'
-    : 'mixed';
-
-  return { dueCount, newCount, lapsedCount, status };
-}
-
-function getFlashcardsForStudyMode(
-  orderedFlashcards: Flashcard[],
-  studyMode: StudyMode | null,
-  cardStatsById: Record<string, import('@/types/performance').CardStats>,
-): Flashcard[] {
-  if (!studyMode) {
-    return [] as Flashcard[];
-  }
-
-  switch (studyMode) {
-    case 'all':
-      return orderedFlashcards;
-    case 'due': {
-      const now = Date.now();
-      return orderedFlashcards.filter((card) => {
-        const stats = cardStatsById[card.id];
-        const live = getLiveCardStats(stats, now);
-        return live.status === 'lapsed' || isCardDueForReview(stats, now);
-      });
-    }
-    case 'quick-5':
-      return orderedFlashcards.slice(0, 5);
-    case 'quick-10':
-      return orderedFlashcards.slice(0, 10);
-    case 'quick-15':
-      return orderedFlashcards.slice(0, 15);
-    case 'weak': {
-      const now = Date.now();
-      return orderedFlashcards.filter((card) => {
-        const stats = cardStatsById[card.id];
-        const live = getLiveCardStats(stats, now);
-        if (live.attempts === 0 || live.status === 'lapsed' || isCardDueForReview(stats, now)) {
-          return false;
-        }
-        return isWeakCard(stats, now);
-      });
-    }
-    default:
-      return orderedFlashcards;
-  }
-}
 
 export default function StudyPage() {
   const router = useRouter();
@@ -278,14 +131,6 @@ export default function StudyPage() {
   const remainingDueCount = useMemo(() => {
     return getFlashcardsForStudyMode(orderedFlashcards, 'due', performance.cardStatsById).length;
   }, [orderedFlashcards, performance.cardStatsById]);
-
-  const deckSummaries = useMemo(() => {
-    const entries = new Map<string, { dueCount: number; newCount: number; lapsedCount: number }>();
-    for (const deck of decks) {
-      entries.set(deck.id, getDeckStudySummary(deck.flashcards, performance.cardStatsById));
-    }
-    return entries;
-  }, [decks, performance.cardStatsById]);
 
   useEffect(() => {
     if (!selectedDeck || !studyMode || showResults || sessionFlashcards.length > 0) {
@@ -958,92 +803,20 @@ export default function StudyPage() {
           </View>
         </SafeAreaView>
 
-        <Modal
+        <StudyDeckSelector
           visible={showDeckSelector}
-          animationType="slide"
-          transparent
-          onRequestClose={() => {
+          onSelectDeck={handleDeckSelect}
+          onClose={() => {
             if (!selectedDeckId) {
               handleExitStudy();
             } else {
               setShowDeckSelector(false);
             }
           }}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: isDark ? theme.card : '#fff' }]}>
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: isDark ? theme.text : '#333' }]}>Select a Deck</Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    if (!selectedDeckId) {
-                      handleExitStudy();
-                    } else {
-                      setShowDeckSelector(false);
-                    }
-                  }}
-                >
-                  <Text style={[styles.modalClose, { color: isDark ? theme.textSecondary : '#666' }]}>✕</Text>
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView style={styles.deckList} showsVerticalScrollIndicator={false}>
-                {decks.length === 0 ? (
-                  <View style={{ alignItems: 'center', padding: 32 }}>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: isDark ? '#fff' : '#333', marginBottom: 8, textAlign: 'center' }}>No Decks Yet</Text>
-                    <Text style={{ fontSize: 14, color: isDark ? 'rgba(255,255,255,0.6)' : '#666', textAlign: 'center', marginBottom: 20 }}>Create your first deck to start studying.</Text>
-                    <TouchableOpacity
-                      onPress={() => {
-                        setShowDeckSelector(false);
-                        router.push(DECKS_ROUTE);
-                      }}
-                      style={{ backgroundColor: theme.primary, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 24 }}
-                      testID="study-empty-go-to-decks-button"
-                    >
-                      <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Go to Decks</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  decks.map((deck) => {
-                    const summary = deckSummaries.get(deck.id);
-                    const actionCount = (summary?.dueCount ?? 0) + (summary?.lapsedCount ?? 0);
-                    const hasAction = actionCount > 0;
-                    const allNew = (summary?.newCount ?? 0) === deck.flashcards.length;
-                    return (
-                      <TouchableOpacity
-                        key={deck.id}
-                        style={[styles.deckOption, { backgroundColor: theme.deckOption }]}
-                        onPress={() => handleDeckSelect(deck.id)}
-                        activeOpacity={0.7}
-                        accessibilityLabel={`${deck.name}. ${deck.flashcards.length} cards`}
-                        accessibilityRole="button"
-                      >
-                        <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
-                        <View style={styles.deckOptionInfo}>
-                          <Text style={[styles.deckOptionName, { color: isDark ? '#f1f5f9' : '#333' }]}>{deck.name}</Text>
-                          <View style={styles.deckOptionMeta}>
-                            <Text style={[styles.deckOptionCards, { color: isDark ? '#cbd5e1' : '#666' }]}>{deck.flashcards.length} cards</Text>
-                            {hasAction ? (
-                              <View style={styles.deckDueBadge}>
-                                <Clock color="#F59E0B" size={11} strokeWidth={2.5} />
-                                <Text style={styles.deckDueBadgeText}>{actionCount} due</Text>
-                              </View>
-                            ) : allNew ? (
-                              <View style={[styles.deckDueBadge, styles.deckNewBadge]}>
-                                <Sparkles color="#60A5FA" size={11} strokeWidth={2.5} />
-                                <Text style={[styles.deckDueBadgeText, styles.deckNewBadgeText]}>New</Text>
-                              </View>
-                            ) : null}
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })
-                )}
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
+          decks={decks}
+          selectedDeckId={selectedDeckId}
+          studyMode={studyMode}
+        />
       </View>
     );
   }
@@ -1386,76 +1159,14 @@ export default function StudyPage() {
         ) : null}
       </SafeAreaView>
 
-      <Modal
+      <StudyDeckSelector
         visible={showDeckSelector}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowDeckSelector(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: isDark ? theme.card : '#fff' }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: isDark ? theme.text : '#333' }]}>Select a Deck</Text>
-              <TouchableOpacity onPress={() => setShowDeckSelector(false)}>
-                <Text style={[styles.modalClose, { color: isDark ? theme.textSecondary : '#666' }]}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.deckList} showsVerticalScrollIndicator={false}>
-              {decks.length === 0 ? (
-                <View style={{ alignItems: 'center', padding: 32 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: isDark ? '#fff' : '#333', marginBottom: 8, textAlign: 'center' }}>No Decks Yet</Text>
-                  <Text style={{ fontSize: 14, color: isDark ? 'rgba(255,255,255,0.6)' : '#666', textAlign: 'center', marginBottom: 20 }}>Create your first deck to start studying.</Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setShowDeckSelector(false);
-                      router.push(DECKS_ROUTE);
-                    }}
-                    style={{ backgroundColor: theme.primary, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 24 }}
-                    testID="study-empty-go-to-decks-button"
-                  >
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Go to Decks</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                decks.map((deck) => {
-                  const summary = deckSummaries.get(deck.id);
-                  const actionCount = (summary?.dueCount ?? 0) + (summary?.lapsedCount ?? 0);
-                  const hasAction = actionCount > 0;
-                  const allNew = (summary?.newCount ?? 0) === deck.flashcards.length;
-                  return (
-                    <TouchableOpacity
-                      key={deck.id}
-                      style={[styles.deckOption, { backgroundColor: theme.deckOption }]}
-                      onPress={() => handleDeckSelect(deck.id)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[styles.deckColorDot, { backgroundColor: deck.color }]} />
-                      <View style={styles.deckOptionInfo}>
-                        <Text style={[styles.deckOptionName, { color: isDark ? '#f1f5f9' : '#333' }]}>{deck.name}</Text>
-                        <View style={styles.deckOptionMeta}>
-                          <Text style={[styles.deckOptionCards, { color: isDark ? '#cbd5e1' : '#666' }]}>{deck.flashcards.length} cards</Text>
-                          {hasAction ? (
-                            <View style={styles.deckDueBadge}>
-                              <Clock color="#F59E0B" size={11} strokeWidth={2.5} />
-                              <Text style={styles.deckDueBadgeText}>{actionCount} due</Text>
-                            </View>
-                          ) : allNew ? (
-                            <View style={[styles.deckDueBadge, styles.deckNewBadge]}>
-                              <Sparkles color="#60A5FA" size={11} strokeWidth={2.5} />
-                              <Text style={[styles.deckDueBadgeText, styles.deckNewBadgeText]}>New</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        onSelectDeck={handleDeckSelect}
+        onClose={() => setShowDeckSelector(false)}
+        decks={decks}
+        selectedDeckId={selectedDeckId}
+        studyMode={studyMode}
+      />
     </View>
   );
 }
@@ -1532,93 +1243,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     color: '#667eea',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingTop: 24,
-    paddingBottom: 40,
-    maxHeight: '70%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: '#333',
-  },
-  modalClose: {
-    fontSize: 28,
-    color: '#666',
-    fontWeight: '400' as const,
-  },
-  deckList: {
-    paddingHorizontal: 24,
-  },
-  deckOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  deckColorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 16,
-  },
-  deckOptionInfo: {
-    flex: 1,
-  },
-  deckOptionName: {
-    fontSize: 17,
-    fontWeight: '700' as const,
-    color: '#333',
-    marginBottom: 2,
-  },
-  deckOptionCards: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500' as const,
-  },
-  deckOptionMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 1,
-  },
-  deckDueBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(245, 158, 11, 0.14)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  deckDueBadgeText: {
-    fontSize: 12,
-    fontWeight: '700' as const,
-    color: '#D97706',
-  },
-  deckNewBadge: {
-    backgroundColor: 'rgba(96, 165, 250, 0.14)',
-  },
-  deckNewBadgeText: {
-    color: '#2563EB',
   },
   srsResultBanner: {
     width: '100%',
