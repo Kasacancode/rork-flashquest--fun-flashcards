@@ -1,8 +1,8 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BookOpen, Calendar, Flame, Star, Swords, Target, TrendingUp, Zap } from 'lucide-react-native';
+import { BarChart3, BookOpen, Calendar, ChevronDown, ChevronRight, Clock, Flame, Star, Swords, Target, TrendingUp, Zap } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { LayoutAnimation, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { useQueryClient } from '@tanstack/react-query';
@@ -20,6 +20,11 @@ import { LEVELS } from '@/utils/levels';
 import { LEADERBOARD_ROUTE } from '@/utils/routes';
 
 type ThemeValues = Theme;
+type ExpandableStatsCard = 'goal' | 'week' | 'recap';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export default function StatsPage() {
   const {
@@ -70,6 +75,7 @@ export default function StatsPage() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [dailyGoalTarget, setDailyGoalTarget] = useState<number>(15);
   const [dailyGoalProgress, setDailyGoalProgress] = useState<number>(0);
+  const [expandedCard, setExpandedCard] = useState<ExpandableStatsCard | null>(null);
   const cardSurface = isDark ? 'rgba(11, 20, 37, 0.84)' : 'rgba(255, 255, 255, 0.9)';
   const cardBorderColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.18)';
   const dailyGoalPercent = Math.min(Math.round((dailyGoalProgress / Math.max(dailyGoalTarget, 1)) * 100), 100);
@@ -109,6 +115,40 @@ export default function StatsPage() {
   const handleOpenLeaderboard = useCallback(() => {
     router.push(LEADERBOARD_ROUTE);
   }, [router]);
+
+  const currentDateKey = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const weekInsightData = useMemo(() => {
+    const referenceDate = new Date();
+    const dayOfWeek = referenceDate.getDay();
+    const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const todayTime = referenceDate.getTime();
+    const activeDates = new Set<string>(stats.studyDates ?? []);
+
+    if (stats.lastActiveDate) {
+      activeDates.add(stats.lastActiveDate);
+    }
+
+    return ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => {
+      const dayDate = new Date(referenceDate);
+      dayDate.setHours(0, 0, 0, 0);
+      dayDate.setDate(referenceDate.getDate() - mondayOffset + index);
+
+      const dateKey = dayDate.toISOString().slice(0, 10);
+
+      return {
+        key: `${label}-${dateKey}`,
+        label,
+        isToday: dateKey === currentDateKey,
+        isActive: activeDates.has(dateKey),
+        isFuture: dayDate.getTime() > todayTime,
+      };
+    });
+  }, [currentDateKey, stats.lastActiveDate, stats.studyDates]);
+
+  const toggleCard = useCallback((card: ExpandableStatsCard) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedCard((prev) => (prev === card ? null : card));
+  }, []);
 
   return (
     <View style={styles.container} testID="stats-screen">
@@ -218,17 +258,31 @@ export default function StatsPage() {
             </Text>
           </TouchableOpacity>
 
-          <View
-            style={[styles.dailyGoalCard, { backgroundColor: cardSurface, borderColor: cardBorderColor }]}
-            accessible={true}
-            accessibilityLabel={`Today's study goal: ${dailyGoalProgress} of ${dailyGoalTarget} cards. ${dailyGoalProgress >= dailyGoalTarget ? 'Goal reached.' : `${dailyGoalTarget - dailyGoalProgress} remaining.`}`}
-          >
+          <View style={[styles.dailyGoalCard, { backgroundColor: cardSurface, borderColor: cardBorderColor }]}> 
+            <TouchableOpacity
+              style={styles.expandableCardButton}
+              onPress={() => toggleCard('goal')}
+              activeOpacity={0.92}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: expandedCard === 'goal' }}
+              accessibilityLabel={`Today's study goal: ${dailyGoalProgress} of ${dailyGoalTarget} cards. ${dailyGoalProgress >= dailyGoalTarget ? 'Goal reached.' : `${dailyGoalTarget - dailyGoalProgress} remaining.`}`}
+              testID="stats-goal-card-toggle"
+            >
             <View style={styles.dailyGoalHeader}>
               <Target color={statsAccent} size={20} strokeWidth={2.2} />
               <Text style={[styles.dailyGoalTitle, { color: theme.text }]}>Today's Goal</Text>
               <Text style={[styles.dailyGoalFraction, { color: theme.textSecondary }]}>
                 {dailyGoalProgress} / {dailyGoalTarget}
               </Text>
+              <View
+                style={[
+                  styles.cardChevron,
+                  { transform: [{ rotate: expandedCard === 'goal' ? '180deg' : '0deg' }] },
+                ]}
+              >
+                <ChevronDown color={theme.textTertiary} size={16} strokeWidth={2} />
+              </View>
             </View>
 
             <View style={styles.dailyGoalRingContainer}>
@@ -263,12 +317,78 @@ export default function StatsPage() {
                 </Text>
               </View>
             </View>
+            </TouchableOpacity>
+
+            {expandedCard === 'goal' ? (
+              <View style={styles.insightSection}>
+                <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
+                <View style={styles.insightRow}>
+                  <Flame color={theme.warning} size={15} />
+                  <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
+                    {stats.currentStreak > 0
+                      ? `${stats.currentStreak}-day streak. Study tomorrow to keep it going.`
+                      : 'Start a streak today. Study a few cards to begin.'}
+                  </Text>
+                </View>
+
+                {dailyGoalProgress >= dailyGoalTarget && dailyGoalProgress > dailyGoalTarget * 2 ? (
+                  <View style={styles.insightRow}>
+                    <TrendingUp color={theme.success} size={15} />
+                    <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
+                      You hit {dailyGoalProgress} cards today, well over your goal of {dailyGoalTarget}. Consider raising your daily goal.
+                    </Text>
+                  </View>
+                ) : dailyGoalProgress < dailyGoalTarget && dailyGoalProgress > 0 ? (
+                  <View style={styles.insightRow}>
+                    <Target color={statsAccent} size={15} />
+                    <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
+                      {dailyGoalTarget - dailyGoalProgress} more cards to hit your goal. A quick study session will get you there.
+                    </Text>
+                  </View>
+                ) : dailyGoalProgress === 0 ? (
+                  <View style={styles.insightRow}>
+                    <BookOpen color={statsAccent} size={15} />
+                    <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
+                      You haven't studied yet today. Even 5 cards makes a difference.
+                    </Text>
+                  </View>
+                ) : null}
+
+                <TouchableOpacity
+                  style={[styles.insightAction, { backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)' }]}
+                  onPress={() => router.push('/study')}
+                  activeOpacity={0.8}
+                  testID="stats-goal-insight-action"
+                >
+                  <Text style={[styles.insightActionText, { color: statsAccent }]}> 
+                    {dailyGoalProgress >= dailyGoalTarget ? 'Keep studying' : 'Start studying'}
+                  </Text>
+                  <ChevronRight color={statsAccent} size={14} />
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.weeklyCard}>
+            <TouchableOpacity
+              style={styles.expandableCardButton}
+              onPress={() => toggleCard('week')}
+              activeOpacity={0.92}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: expandedCard === 'week' }}
+              testID="stats-week-card-toggle"
+            >
             <View style={styles.weeklyHeader}>
               <Calendar color={statsAccent} size={20} strokeWidth={2.2} />
-              <Text style={styles.weeklyTitle}>This Week</Text>
+              <Text style={[styles.weeklyTitle, styles.expandableCardTitle]}>This Week</Text>
+              <View
+                style={[
+                  styles.cardChevron,
+                  { transform: [{ rotate: expandedCard === 'week' ? '180deg' : '0deg' }] },
+                ]}
+              >
+                <ChevronDown color={theme.textTertiary} size={16} strokeWidth={2} />
+              </View>
             </View>
             <View style={styles.weeklyStatsRow}>
               <View style={styles.weeklyStat}>
@@ -337,17 +457,85 @@ export default function StatsPage() {
               ) : null}
             </View>
             <Text style={styles.weeklyComparison}>{weeklySummary.comparison}</Text>
+            </TouchableOpacity>
+
+            {expandedCard === 'week' ? (
+              <View style={styles.insightSection}>
+                <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
+                <View style={styles.weekDayRow}>
+                  {weekInsightData.map((day) => (
+                    <View key={day.key} style={styles.weekDayItem}>
+                      <Text style={[styles.weekDayLabel, { color: theme.textTertiary }]}>{day.label}</Text>
+                      <View
+                        style={[
+                          styles.weekDayDot,
+                          {
+                            backgroundColor: day.isFuture
+                              ? 'transparent'
+                              : day.isActive
+                                ? theme.success
+                                : (isDark ? 'rgba(148,163,184,0.15)' : 'rgba(0,0,0,0.06)'),
+                            borderWidth: day.isToday ? 2 : 0,
+                            borderColor: day.isToday ? statsAccent : 'transparent',
+                          },
+                        ]}
+                      />
+                    </View>
+                  ))}
+                </View>
+
+                {weeklySummary.currentWeekAccuracy !== null ? (
+                  <View style={styles.insightRow}>
+                    <Target color={weeklySummary.currentWeekAccuracy >= 80 ? theme.success : theme.warning} size={15} />
+                    <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
+                      {weeklySummary.currentWeekAccuracy >= 90
+                        ? `${weeklySummary.currentWeekAccuracy}% accuracy. You're retaining almost everything.`
+                        : weeklySummary.currentWeekAccuracy >= 70
+                          ? `${weeklySummary.currentWeekAccuracy}% accuracy. Solid, but reviewing weak cards could push it higher.`
+                          : `${weeklySummary.currentWeekAccuracy}% accuracy. Try focusing on fewer decks and reviewing weak cards.`}
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.insightRow}>
+                  <Calendar color={statsAccent} size={15} />
+                  <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
+                    {weeklySummary.thisWeekDays >= 5
+                      ? 'Exceptional consistency. Keep this rhythm and watch your recall improve.'
+                      : weeklySummary.thisWeekDays >= 3
+                        ? `${weeklySummary.thisWeekDays} days this week. Try for one more day to build a stronger habit.`
+                        : weeklySummary.thisWeekDays >= 1
+                          ? `Only ${weeklySummary.thisWeekDays} day this week. Aim for at least 3 days for better retention.`
+                          : 'No study days yet this week. Start today and build momentum.'}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
           </View>
 
           {weeklyRecap.cardsStudied > 0 ? (
-            <View
-              style={[styles.recapCard, { backgroundColor: cardSurface, borderColor: cardBorderColor }]}
-              accessible={true}
-              accessibilityLabel={`Weekly recap: ${weeklyRecap.cardsStudied} cards studied, ${weeklyRecap.daysActive} days active${weeklyRecap.accuracy !== null ? `, ${Math.round(weeklyRecap.accuracy * 100)}% accuracy` : ''}`}
-            >
+            <View style={[styles.recapCard, { backgroundColor: cardSurface, borderColor: cardBorderColor }]}> 
+              <TouchableOpacity
+                style={styles.expandableCardButton}
+                onPress={() => toggleCard('recap')}
+                activeOpacity={0.92}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: expandedCard === 'recap' }}
+                accessibilityLabel={`Weekly recap: ${weeklyRecap.cardsStudied} cards studied, ${weeklyRecap.daysActive} days active${weeklyRecap.accuracy !== null ? `, ${Math.round(weeklyRecap.accuracy * 100)}% accuracy` : ''}`}
+                testID="stats-recap-card-toggle"
+              >
               <View style={styles.recapHeader}>
                 <TrendingUp color={statsAccent} size={20} strokeWidth={2.2} />
-                <Text style={[styles.recapTitle, { color: theme.text }]}>Weekly Recap</Text>
+                <Text style={[styles.recapTitle, styles.expandableCardTitle, { color: theme.text }]}>Weekly Recap</Text>
+                <View
+                  style={[
+                    styles.cardChevron,
+                    { transform: [{ rotate: expandedCard === 'recap' ? '180deg' : '0deg' }] },
+                  ]}
+                >
+                  <ChevronDown color={theme.textTertiary} size={16} strokeWidth={2} />
+                </View>
               </View>
 
               <View style={styles.recapGrid}>
@@ -375,6 +563,82 @@ export default function StatsPage() {
                       ? 'Same as last week. Keep it steady.'
                       : `Down from ${weeklyRecap.lastWeekCards} cards last week`}
                 </Text>
+              ) : null}
+              </TouchableOpacity>
+
+              {expandedCard === 'recap' ? (
+                <View style={styles.insightSection}>
+                  <View style={[styles.insightDivider, { backgroundColor: theme.border }]} />
+                  {displaySessions.study + displaySessions.quest + displaySessions.practice + displaySessions.arena > 0 ? (
+                    <View style={styles.insightRow}>
+                      <BarChart3 color={statsAccent} size={15} />
+                      <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
+                        {(() => {
+                          const total = displaySessions.study + displaySessions.quest + displaySessions.practice + displaySessions.arena;
+                          const parts: string[] = [];
+
+                          if (displaySessions.study > 0) {
+                            parts.push(`${Math.round((displaySessions.study / total) * 100)}% Study`);
+                          }
+
+                          if (displaySessions.quest > 0) {
+                            parts.push(`${Math.round((displaySessions.quest / total) * 100)}% Quest`);
+                          }
+
+                          if (displaySessions.practice > 0) {
+                            parts.push(`${Math.round((displaySessions.practice / total) * 100)}% Practice`);
+                          }
+
+                          if (displaySessions.arena > 0) {
+                            parts.push(`${Math.round((displaySessions.arena / total) * 100)}% Arena`);
+                          }
+
+                          return `Session split: ${parts.join(', ')}.`;
+                        })()}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {weeklyRecap.accuracy !== null ? (
+                    <View style={styles.insightRow}>
+                      <TrendingUp color={weeklyRecap.comparedToLastWeek === 'better' ? theme.success : theme.textSecondary} size={15} />
+                      <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
+                        {weeklyRecap.comparedToLastWeek === 'better'
+                          ? `Up from ${weeklyRecap.lastWeekCards} cards last week. You're building momentum.`
+                          : weeklyRecap.comparedToLastWeek === 'worse'
+                            ? `Down from ${weeklyRecap.lastWeekCards} cards last week. Try setting a smaller daily goal to rebuild consistency.`
+                            : weeklyRecap.comparedToLastWeek === 'first_week'
+                              ? 'This is your first tracked week. Come back next week to see your trend.'
+                              : 'Same as last week. Push for one extra session to level up.'}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {displaySessions.quest === 0 && displaySessions.study > 0 ? (
+                    <View style={styles.insightRow}>
+                      <Zap color={theme.warning} size={15} />
+                      <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
+                        You haven't tried Quest mode this week. It tests recall under pressure and earns more XP.
+                      </Text>
+                    </View>
+                  ) : displaySessions.arena === 0 && displaySessions.study + displaySessions.quest > 3 ? (
+                    <View style={styles.insightRow}>
+                      <Swords color={theme.warning} size={15} />
+                      <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
+                        Try Arena mode. Competing against others sharpens your recall speed.
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {formattedStudyTime !== '' ? (
+                    <View style={styles.insightRow}>
+                      <Clock color={statsAccent} size={15} />
+                      <Text style={[styles.insightText, { color: theme.textSecondary }]}> 
+                        {formattedStudyTime} total study time this week. {((stats.totalStudyTimeMs ?? 0) > 1800000) ? 'Great commitment.' : 'Even 5 more minutes a day adds up.'}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
               ) : null}
             </View>
           ) : null}
@@ -829,6 +1093,15 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       shadowRadius: isDark ? 18 : 12,
       elevation: isDark ? 6 : 3,
     },
+    expandableCardButton: {
+      width: '100%',
+    },
+    expandableCardTitle: {
+      flex: 1,
+    },
+    cardChevron: {
+      marginLeft: 8,
+    },
     dailyGoalHeader: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -961,6 +1234,58 @@ const createStyles = (theme: ThemeValues, isDark: boolean) => {
       fontWeight: '500' as const,
       textAlign: 'center',
       marginTop: 4,
+    },
+    insightSection: {
+      marginTop: 12,
+      gap: 10,
+    },
+    insightDivider: {
+      height: 1,
+      marginBottom: 4,
+      opacity: 0.5,
+    },
+    insightRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 10,
+      paddingHorizontal: 4,
+    },
+    insightText: {
+      fontSize: 13,
+      lineHeight: 18,
+      flex: 1,
+    },
+    insightAction: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 10,
+      borderRadius: 10,
+      marginTop: 4,
+    },
+    insightActionText: {
+      fontSize: 13,
+      fontWeight: '700' as const,
+    },
+    weekDayRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: 12,
+      marginBottom: 4,
+    },
+    weekDayItem: {
+      alignItems: 'center',
+      gap: 6,
+    },
+    weekDayLabel: {
+      fontSize: 11,
+      fontWeight: '600' as const,
+    },
+    weekDayDot: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
     },
     calendarCard: {
       marginHorizontal: 24,
