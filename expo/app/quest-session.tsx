@@ -83,32 +83,40 @@ export default function QuestSessionScreen() {
 
   const allCards = useMemo(() => decks.flatMap(d => d.flashcards), [decks]);
 
-  const [currentRound, setCurrentRound] = useState(0);
-  const [currentCard, setCurrentCard] = useState<Flashcard | null>(null);
-  const [options, setOptions] = useState<FlashcardOption[]>([]);
-  const [optionsRenderKey, setOptionsRenderKey] = useState(0);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [round, setRound] = useState({
+    number: 0,
+    card: null as Flashcard | null,
+    options: [] as FlashcardOption[],
+    optionsRenderKey: 0,
+    timeRemaining: null as number | null,
+    startTime: Date.now(),
+  });
+  const [answer, setAnswer] = useState({
+    selectedOption: null as string | null,
+    isCorrect: null as boolean | null,
+    inputLocked: false,
+    usedSecondChance: false,
+  });
+  const [scoring, setScoring] = useState({
+    score: 0,
+    streak: 0,
+    bestStreak: 0,
+    correctCount: 0,
+    incorrectCount: 0,
+    totalTimeMs: 0,
+  });
+  const [assistant, setAssistant] = useState({
+    line: '',
+    tone: 'idle' as 'idle' | 'correct' | 'wrong',
+    missStreak: 0,
+  });
+  const [tracking, setTracking] = useState({
+    missedCardIds: [] as string[],
+    askedCardIds: [] as string[],
+  });
   const [showHint, setShowHint] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
-  const [inputLocked, setInputLocked] = useState(false);
-  const [usedSecondChance, setUsedSecondChance] = useState(false);
-  const [assistantLine, setAssistantLine] = useState<string>('');
-  const [assistantTone, setAssistantTone] = useState<'idle' | 'correct' | 'wrong'>('idle');
-  const [missStreak, setMissStreak] = useState(0);
   const [syncReady, setSyncReady] = useState<boolean>(false);
-
-  const [score, setScore] = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [bestStreak, setBestStreak] = useState(0);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [incorrectCount, setIncorrectCount] = useState(0);
-  const [missedCardIds, setMissedCardIds] = useState<string[]>([]);
-  const [askedCardIds, setAskedCardIds] = useState<string[]>([]);
-
-  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
-  const [roundStartTime, setRoundStartTime] = useState(0);
-  const [totalTimeMs, setTotalTimeMs] = useState(0);
 
   const usedCardIdsRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -159,8 +167,7 @@ export default function QuestSessionScreen() {
 
   const showQuestDialogue = useCallback((event: QuestDialogueEvent, tone: 'idle' | 'correct' | 'wrong') => {
     const line = selectAssistantDialogue({ mode: 'quest', event });
-    setAssistantTone(tone);
-    setAssistantLine(line);
+    setAssistant((prev) => ({ ...prev, tone, line }));
     logger.log('[QuestDialogue] Showing line:', { event, tone, line });
   }, []);
 
@@ -200,19 +207,27 @@ export default function QuestSessionScreen() {
     logger.log('[Quest] Starting round with card:', nextCard.id, 'options ready:', immediateOptions.length);
 
     usedCardIdsRef.current.add(nextCard.id);
-    setAskedCardIds(prev => [...prev, nextCard.id]);
-    setCurrentCard(nextCard);
-    setOptions(immediateOptions);
-    setSelectedOption(null);
-    setIsCorrect(null);
+    setTracking((prev) => ({
+      ...prev,
+      askedCardIds: [...prev.askedCardIds, nextCard.id],
+    }));
+    setRound((prev) => ({
+      number: prev.number,
+      card: nextCard,
+      options: immediateOptions,
+      optionsRenderKey: prev.optionsRenderKey + 1,
+      timeRemaining: settings.timerSeconds > 0 ? settings.timerSeconds : null,
+      startTime: Date.now(),
+    }));
+    setAnswer({
+      selectedOption: null,
+      isCorrect: null,
+      inputLocked: false,
+      usedSecondChance: false,
+    });
     setShowHint(false);
     setShowExplanation(false);
-    setInputLocked(false);
-    setUsedSecondChance(false);
-    setOptionsRenderKey(prev => prev + 1);
     showQuestDialogue('intro', 'idle');
-    setRoundStartTime(Date.now());
-    setTimeRemaining(settings.timerSeconds > 0 ? settings.timerSeconds : null);
 
     void generateAIDistractors(getCardQuestionForSurface(nextCard, 'quest'), getCanonicalAnswer(nextCard), nextCard.id)
       .then(() => {
@@ -239,19 +254,19 @@ export default function QuestSessionScreen() {
   }, [clearAdvanceTimeout]);
 
   const finishSessionEarly = useCallback(() => {
-    updateBestStreak(bestStreak);
+    updateBestStreak(scoring.bestStreak);
 
-    const totalRounds = currentRound;
-    const finalAccuracy = totalRounds > 0 ? correctCount / totalRounds : 0;
+    const totalRounds = round.number;
+    const finalAccuracy = totalRounds > 0 ? scoring.correctCount / totalRounds : 0;
 
     recordSessionResult({
       mode: GAME_MODE.QUEST,
       deckId: settings.deckId,
-      xpEarned: Math.round(score * 0.4),
+      xpEarned: Math.round(scoring.score * 0.4),
       cardsAttempted: totalRounds,
-      correctCount,
+      correctCount: scoring.correctCount,
       timestampISO: new Date().toISOString(),
-      durationMs: totalTimeMs,
+      durationMs: scoring.totalTimeMs,
     });
     trackEvent({
       event: 'quest_completed',
@@ -259,28 +274,28 @@ export default function QuestSessionScreen() {
       properties: {
         mode: settings.mode,
         rounds: totalRounds,
-        correct: correctCount,
-        accuracy: totalRounds > 0 ? Math.round((correctCount / totalRounds) * 100) : 0,
-        best_streak: bestStreak,
-        score,
+        correct: scoring.correctCount,
+        accuracy: totalRounds > 0 ? Math.round((scoring.correctCount / totalRounds) * 100) : 0,
+        best_streak: scoring.bestStreak,
+        score: scoring.score,
         timer_seconds: settings.timerSeconds,
         focus_weak: settings.focusWeakOnly,
       },
     });
-    logger.log('[Quest] Early finish - no more cards. score:', score, 'rounds:', totalRounds);
+    logger.log('[Quest] Early finish - no more cards. score:', scoring.score, 'rounds:', totalRounds);
 
     const result: QuestRunResult = {
       deckId: settings.deckId,
       settings,
-      totalScore: score,
+      totalScore: scoring.score,
       totalRounds,
-      correctCount,
-      incorrectCount,
+      correctCount: scoring.correctCount,
+      incorrectCount: scoring.incorrectCount,
       accuracy: finalAccuracy,
-      bestStreak,
-      totalTimeMs,
-      missedCardIds,
-      askedCardIds,
+      bestStreak: scoring.bestStreak,
+      totalTimeMs: scoring.totalTimeMs,
+      missedCardIds: tracking.missedCardIds,
+      askedCardIds: tracking.askedCardIds,
     };
 
     router.replace(questResultsHref({
@@ -290,7 +305,7 @@ export default function QuestSessionScreen() {
       challengeOpponentId,
       challengeCardIds,
     }));
-  }, [askedCardIds, challengeCardIds, challengeId, challengeOpponentId, challengerScore, correctCount, currentRound, incorrectCount, bestStreak, missedCardIds, recordSessionResult, router, score, settings, totalTimeMs, updateBestStreak]);
+  }, [challengeCardIds, challengeId, challengeOpponentId, challengerScore, recordSessionResult, round.number, router, scoring.bestStreak, scoring.correctCount, scoring.incorrectCount, scoring.score, scoring.totalTimeMs, settings, tracking.askedCardIds, tracking.missedCardIds, updateBestStreak]);
 
   finishSessionEarlyRef.current = finishSessionEarly;
 
@@ -310,14 +325,12 @@ export default function QuestSessionScreen() {
   }, [deck, setupNextRound]);
 
   useEffect(() => {
-    if (settings.timerSeconds > 0 && timeRemaining !== null && timeRemaining > 0 && !inputLocked) {
+    if (settings.timerSeconds > 0 && round.timeRemaining !== null && round.timeRemaining > 0 && !answer.inputLocked) {
       timerRef.current = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev === null || prev <= 1) {
-            return 0;
-          }
-          return prev - 1;
-        });
+        setRound((prev) => ({
+          ...prev,
+          timeRemaining: prev.timeRemaining === null || prev.timeRemaining <= 1 ? 0 : prev.timeRemaining - 1,
+        }));
       }, 1000);
     }
 
@@ -327,7 +340,7 @@ export default function QuestSessionScreen() {
         timerRef.current = null;
       }
     };
-  }, [timeRemaining, inputLocked, settings.timerSeconds]);
+  }, [answer.inputLocked, round.timeRemaining, settings.timerSeconds]);
 
   useEffect(() => {
     return () => {
@@ -339,9 +352,11 @@ export default function QuestSessionScreen() {
   }, [clearAdvanceTimeout]);
 
   useEffect(() => {
-    if (!deck || !currentCard || options.length > 0) {
+    if (!deck || !round.card || round.options.length > 0) {
       return;
     }
+
+    const currentCard = round.card;
 
     logger.warn('[Quest] Empty options detected, regenerating for card:', currentCard.id);
     const recoveredOptions = generateOptions({
@@ -352,12 +367,17 @@ export default function QuestSessionScreen() {
       recentDistractors: recentDistractorHistoryRef.current,
     });
 
-    setOptions(recoveredOptions.length > 0 ? recoveredOptions : [createFlashcardOptionFromCard(currentCard, 'tile')]);
-    setOptionsRenderKey(prev => prev + 1);
-  }, [allCards, currentCard, deck, options.length]);
+    setRound((prev) => ({
+      ...prev,
+      options: recoveredOptions.length > 0 ? recoveredOptions : [createFlashcardOptionFromCard(currentCard, 'tile')],
+      optionsRenderKey: prev.optionsRenderKey + 1,
+    }));
+  }, [allCards, deck, round.card, round.options.length]);
 
   const handleTimeUp = useCallback(() => {
-    if (inputLocked || !currentCard) return;
+    if (answer.inputLocked || !round.card) return;
+
+    const currentCard = round.card;
 
     clearAdvanceTimeout();
 
@@ -366,20 +386,24 @@ export default function QuestSessionScreen() {
       timerRef.current = null;
     }
 
-    const nextMissStreak = missStreak + 1;
+    const nextMissStreak = assistant.missStreak + 1;
     const dialogueEvent: QuestDialogueEvent = isMeaningfulQuestSlump(nextMissStreak) ? 'slump' : 'wrong';
+    const timeToAnswer = Date.now() - round.startTime;
 
-    setInputLocked(true);
-    setIsCorrect(false);
+    setAnswer((prev) => ({ ...prev, inputLocked: true, isCorrect: false }));
     showQuestDialogue(dialogueEvent, 'wrong');
     void playSound('wrong');
-    setStreak(0);
-    setMissStreak(nextMissStreak);
-    setIncorrectCount(prev => prev + 1);
-    setMissedCardIds(prev => [...prev, currentCard.id]);
-
-    const timeToAnswer = Date.now() - roundStartTime;
-    setTotalTimeMs(prev => prev + timeToAnswer);
+    setScoring((prev) => ({
+      ...prev,
+      streak: 0,
+      incorrectCount: prev.incorrectCount + 1,
+      totalTimeMs: prev.totalTimeMs + timeToAnswer,
+    }));
+    setAssistant((prev) => ({ ...prev, missStreak: nextMissStreak }));
+    setTracking((prev) => ({
+      ...prev,
+      missedCardIds: [...prev.missedCardIds, currentCard.id],
+    }));
 
     logQuestAttempt({
       deckId: settings.deckId,
@@ -390,23 +414,25 @@ export default function QuestSessionScreen() {
       timeToAnswerMs: timeToAnswer,
       mode: 'quest',
       hintsUsed: showHint ? 1 : 0,
-      usedSecondChance,
+      usedSecondChance: answer.usedSecondChance,
       explanationOpened: showExplanation,
     });
 
     triggerNotification(NotificationFeedbackType.Error);
 
     scheduleAdvance(1500);
-  }, [inputLocked, currentCard, missStreak, roundStartTime, settings.deckId, logQuestAttempt, scheduleAdvance, clearAdvanceTimeout, showQuestDialogue, showHint, usedSecondChance, showExplanation]);
+  }, [answer.inputLocked, answer.usedSecondChance, assistant.missStreak, clearAdvanceTimeout, logQuestAttempt, round.card, round.startTime, scheduleAdvance, settings.deckId, showExplanation, showHint, showQuestDialogue]);
 
   useEffect(() => {
-    if (timeRemaining === 0 && !inputLocked && currentCard) {
+    if (round.timeRemaining === 0 && !answer.inputLocked && round.card) {
       handleTimeUp();
     }
-  }, [timeRemaining, inputLocked, currentCard, handleTimeUp]);
+  }, [answer.inputLocked, handleTimeUp, round.card, round.timeRemaining]);
 
   const handleOptionPress = useCallback((option: string) => {
-    if (inputLocked || !currentCard) return;
+    if (answer.inputLocked || !round.card) return;
+
+    const currentCard = round.card;
 
     clearAdvanceTimeout();
 
@@ -416,32 +442,29 @@ export default function QuestSessionScreen() {
     }
 
     const correct = checkAnswer(option, getCanonicalAnswer(currentCard));
-    setSelectedOption(option);
-    setInputLocked(true);
-
-    const timeToAnswer = Date.now() - roundStartTime;
-    setTotalTimeMs(prev => prev + timeToAnswer);
+    const timeToAnswer = Date.now() - round.startTime;
 
     if (correct) {
-      const newStreak = streak + 1;
+      const newStreak = scoring.streak + 1;
       const dialogueEvent: QuestDialogueEvent = isMeaningfulQuestStreak(newStreak) ? 'streak' : 'correct';
-
-      setIsCorrect(true);
-      showQuestDialogue(dialogueEvent, 'correct');
-      void playSound(newStreak >= 3 ? 'streak' : 'correct');
-      setStreak(newStreak);
-      setMissStreak(0);
-      if (newStreak > bestStreak) {
-        setBestStreak(newStreak);
-      }
-      
       const points = calculateScore({
         isCorrect: true,
         mode: settings.mode,
-        currentStreak: streak,
+        currentStreak: scoring.streak,
       });
-      setScore(prev => prev + points);
-      setCorrectCount(prev => prev + 1);
+
+      setAnswer((prev) => ({ ...prev, selectedOption: option, isCorrect: true, inputLocked: true }));
+      showQuestDialogue(dialogueEvent, 'correct');
+      void playSound(newStreak >= 3 ? 'streak' : 'correct');
+      setScoring((prev) => ({
+        ...prev,
+        score: prev.score + points,
+        correctCount: prev.correctCount + 1,
+        streak: newStreak,
+        bestStreak: Math.max(prev.bestStreak, newStreak),
+        totalTimeMs: prev.totalTimeMs + timeToAnswer,
+      }));
+      setAssistant((prev) => ({ ...prev, missStreak: 0 }));
 
       logQuestAttempt({
         deckId: settings.deckId,
@@ -452,7 +475,7 @@ export default function QuestSessionScreen() {
         timeToAnswerMs: timeToAnswer,
         mode: 'quest',
         hintsUsed: showHint ? 1 : 0,
-        usedSecondChance,
+        usedSecondChance: answer.usedSecondChance,
         explanationOpened: showExplanation,
       });
 
@@ -463,70 +486,87 @@ export default function QuestSessionScreen() {
       } else {
         scheduleAdvance(1000);
       }
-    } else {
-      const nextMissStreak = missStreak + 1;
-      const dialogueEvent: QuestDialogueEvent = isMeaningfulQuestSlump(nextMissStreak) ? 'slump' : 'wrong';
-
-      setIsCorrect(false);
-      showQuestDialogue(dialogueEvent, 'wrong');
-      void playSound('wrong');
-      setMissStreak(nextMissStreak);
-
-      if (settings.secondChanceEnabled && !usedSecondChance) {
-        setUsedSecondChance(true);
-        setInputLocked(false);
-        setSelectedOption(null);
-        setIsCorrect(null);
-        
-        if (settings.timerSeconds > 0) {
-          setTimeRemaining(Math.max(3, Math.floor(settings.timerSeconds / 2)));
-        }
-
-        triggerImpact(ImpactFeedbackStyle.Medium);
-        return;
-      }
-
-      setStreak(0);
-      setIncorrectCount(prev => prev + 1);
-      setMissedCardIds(prev => [...prev, currentCard.id]);
-
-      logQuestAttempt({
-        deckId: settings.deckId,
-        cardId: currentCard.id,
-        isCorrect: false,
-        selectedOption: option,
-        correctAnswer: getCanonicalAnswer(currentCard),
-        timeToAnswerMs: timeToAnswer,
-        mode: 'quest',
-        hintsUsed: showHint ? 1 : 0,
-        usedSecondChance,
-        explanationOpened: showExplanation,
-      });
-
-      triggerNotification(NotificationFeedbackType.Error);
-
-      if (settings.explanationsEnabled && currentCard.explanation) {
-        explanationTimeoutRef.current = setTimeout(() => setShowExplanation(true), 600);
-      } else {
-        scheduleAdvance(1200);
-      }
+      return;
     }
-  }, [inputLocked, currentCard, streak, missStreak, bestStreak, roundStartTime, settings, usedSecondChance, logQuestAttempt, scheduleAdvance, clearAdvanceTimeout, showQuestDialogue, showHint, showExplanation]);
+
+    const nextMissStreak = assistant.missStreak + 1;
+    const dialogueEvent: QuestDialogueEvent = isMeaningfulQuestSlump(nextMissStreak) ? 'slump' : 'wrong';
+
+    showQuestDialogue(dialogueEvent, 'wrong');
+    void playSound('wrong');
+    setAssistant((prev) => ({ ...prev, missStreak: nextMissStreak }));
+
+    if (settings.secondChanceEnabled && !answer.usedSecondChance) {
+      setAnswer({
+        selectedOption: null,
+        isCorrect: null,
+        inputLocked: false,
+        usedSecondChance: true,
+      });
+      setScoring((prev) => ({
+        ...prev,
+        totalTimeMs: prev.totalTimeMs + timeToAnswer,
+      }));
+
+      if (settings.timerSeconds > 0) {
+        setRound((prev) => ({
+          ...prev,
+          timeRemaining: Math.max(3, Math.floor(settings.timerSeconds / 2)),
+        }));
+      }
+
+      triggerImpact(ImpactFeedbackStyle.Medium);
+      return;
+    }
+
+    setAnswer((prev) => ({ ...prev, selectedOption: option, isCorrect: false, inputLocked: true }));
+    setScoring((prev) => ({
+      ...prev,
+      streak: 0,
+      incorrectCount: prev.incorrectCount + 1,
+      totalTimeMs: prev.totalTimeMs + timeToAnswer,
+    }));
+    setTracking((prev) => ({
+      ...prev,
+      missedCardIds: [...prev.missedCardIds, currentCard.id],
+    }));
+
+    logQuestAttempt({
+      deckId: settings.deckId,
+      cardId: currentCard.id,
+      isCorrect: false,
+      selectedOption: option,
+      correctAnswer: getCanonicalAnswer(currentCard),
+      timeToAnswerMs: timeToAnswer,
+      mode: 'quest',
+      hintsUsed: showHint ? 1 : 0,
+      usedSecondChance: answer.usedSecondChance,
+      explanationOpened: showExplanation,
+    });
+
+    triggerNotification(NotificationFeedbackType.Error);
+
+    if (settings.explanationsEnabled && currentCard.explanation) {
+      explanationTimeoutRef.current = setTimeout(() => setShowExplanation(true), 600);
+    } else {
+      scheduleAdvance(1200);
+    }
+  }, [answer.inputLocked, answer.usedSecondChance, assistant.missStreak, clearAdvanceTimeout, logQuestAttempt, round.card, round.startTime, scheduleAdvance, scoring.streak, settings, showExplanation, showHint, showQuestDialogue]);
 
   const advanceRound = useCallback(() => {
-    const nextRound = currentRound + 1;
-    
+    const nextRound = round.number + 1;
+
     if (nextRound >= effectiveRunLength) {
-      updateBestStreak(bestStreak);
+      updateBestStreak(scoring.bestStreak);
 
       recordSessionResult({
         mode: GAME_MODE.QUEST,
         deckId: settings.deckId,
-        xpEarned: Math.round(score * 0.4),
+        xpEarned: Math.round(scoring.score * 0.4),
         cardsAttempted: effectiveRunLength,
-        correctCount,
+        correctCount: scoring.correctCount,
         timestampISO: new Date().toISOString(),
-        durationMs: totalTimeMs,
+        durationMs: scoring.totalTimeMs,
       });
       trackEvent({
         event: 'quest_completed',
@@ -534,28 +574,28 @@ export default function QuestSessionScreen() {
         properties: {
           mode: settings.mode,
           rounds: effectiveRunLength,
-          correct: correctCount,
-          accuracy: effectiveRunLength > 0 ? Math.round((correctCount / effectiveRunLength) * 100) : 0,
-          best_streak: bestStreak,
-          score,
+          correct: scoring.correctCount,
+          accuracy: effectiveRunLength > 0 ? Math.round((scoring.correctCount / effectiveRunLength) * 100) : 0,
+          best_streak: scoring.bestStreak,
+          score: scoring.score,
           timer_seconds: settings.timerSeconds,
           focus_weak: settings.focusWeakOnly,
         },
       });
-      logger.log('[Quest] Recorded session result, score:', score, 'cards:', effectiveRunLength);
+      logger.log('[Quest] Recorded session result, score:', scoring.score, 'cards:', effectiveRunLength);
 
       const result: QuestRunResult = {
         deckId: settings.deckId,
         settings,
-        totalScore: score,
+        totalScore: scoring.score,
         totalRounds: effectiveRunLength,
-        correctCount,
-        incorrectCount: incorrectCount,
-        accuracy: correctCount / effectiveRunLength,
-        bestStreak,
-        totalTimeMs,
-        missedCardIds,
-        askedCardIds,
+        correctCount: scoring.correctCount,
+        incorrectCount: scoring.incorrectCount,
+        accuracy: scoring.correctCount / effectiveRunLength,
+        bestStreak: scoring.bestStreak,
+        totalTimeMs: scoring.totalTimeMs,
+        missedCardIds: tracking.missedCardIds,
+        askedCardIds: tracking.askedCardIds,
       };
 
       router.replace(questResultsHref({
@@ -568,28 +608,28 @@ export default function QuestSessionScreen() {
       return;
     }
 
-    setCurrentRound(nextRound);
+    setRound((prev) => ({ ...prev, number: nextRound }));
     setShowExplanation(false);
     setupNextRound();
-  }, [askedCardIds, challengeCardIds, challengeId, challengeOpponentId, challengerScore, correctCount, currentRound, effectiveRunLength, incorrectCount, bestStreak, missedCardIds, recordSessionResult, router, score, settings, setupNextRound, totalTimeMs, updateBestStreak]);
+  }, [challengeCardIds, challengeId, challengeOpponentId, challengerScore, effectiveRunLength, recordSessionResult, round.number, router, scoring.bestStreak, scoring.correctCount, scoring.incorrectCount, scoring.score, scoring.totalTimeMs, settings, setupNextRound, tracking.askedCardIds, tracking.missedCardIds, updateBestStreak]);
 
   advanceRoundRef.current = advanceRound;
 
   const displayedOptions = useMemo(() => {
-    if (!currentCard) {
+    if (!round.card) {
       return [] as FlashcardOption[];
     }
 
-    if (options.length > 0) {
-      return options;
+    if (round.options.length > 0) {
+      return round.options;
     }
 
-    logger.warn('[Quest] Rendering fallback option for card:', currentCard.id);
-    return [createFlashcardOptionFromCard(currentCard, 'tile')];
-  }, [currentCard, options]);
+    logger.warn('[Quest] Rendering fallback option for card:', round.card.id);
+    return [createFlashcardOptionFromCard(round.card, 'tile')];
+  }, [round.card, round.options]);
 
-  const displayQuestion = useMemo(() => (currentCard ? getCardQuestionForSurface(currentCard, 'quest') : ''), [currentCard]);
-  const displayHint = useMemo(() => formatGameplayHint(currentCard?.hint1 ?? ''), [currentCard?.hint1]);
+  const displayQuestion = useMemo(() => (round.card ? getCardQuestionForSurface(round.card, 'quest') : ''), [round.card]);
+  const displayHint = useMemo(() => formatGameplayHint(round.card?.hint1 ?? ''), [round.card?.hint1]);
   const displayOptions = useMemo(() => {
     return displayedOptions.map((option) => ({
       value: option.canonicalValue,
@@ -618,10 +658,10 @@ export default function QuestSessionScreen() {
   }, [settings.mode, settings.timerSeconds]);
 
   const handleHintPress = useCallback(() => {
-    if (!settings.hintsEnabled || !currentCard?.hint1 || inputLocked) return;
+    if (!settings.hintsEnabled || !round.card?.hint1 || answer.inputLocked) return;
     setShowHint(true);
     triggerImpact(ImpactFeedbackStyle.Light);
-  }, [settings.hintsEnabled, currentCard, inputLocked]);
+  }, [answer.inputLocked, round.card, settings.hintsEnabled]);
 
   const handleExplanationContinue = useCallback(() => {
     setShowExplanation(false);
@@ -633,17 +673,17 @@ export default function QuestSessionScreen() {
   }, [router]);
 
   const getCardState = (option: string): AnswerCardState => {
-    if (!selectedOption) {
-      return inputLocked ? 'disabled' : 'idle';
+    if (!answer.selectedOption) {
+      return answer.inputLocked ? 'disabled' : 'idle';
     }
-    
-    const isSelected = option === selectedOption;
-    const isCorrectOption = currentCard && checkAnswer(option, getCanonicalAnswer(currentCard));
+
+    const isSelected = option === answer.selectedOption;
+    const isCorrectOption = round.card && checkAnswer(option, getCanonicalAnswer(round.card));
 
     if (isCorrectOption) {
       return 'correct';
     }
-    if (isSelected && !isCorrect) {
+    if (isSelected && !answer.isCorrect) {
       return 'wrong';
     }
     return 'disabled';
@@ -667,7 +707,7 @@ export default function QuestSessionScreen() {
     );
   }
 
-  if (!deck || !currentCard) {
+  if (!deck || !round.card) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.background }}>
         <LinearGradient
@@ -686,6 +726,8 @@ export default function QuestSessionScreen() {
       </View>
     );
   }
+
+  const currentRoundCard = round.card;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -708,22 +750,22 @@ export default function QuestSessionScreen() {
             <X color="#fff" size={20} />
           </TouchableOpacity>
 
-          <View style={styles.hudContainer} accessible={true} accessibilityLabel={`Question ${currentRound + 1} of ${effectiveRunLength}. Score: ${score} points.`}>
-            <Text maxFontSizeMultiplier={1.2} style={styles.hudValue}>{currentRound + 1}/{effectiveRunLength}</Text>
+          <View style={styles.hudContainer} accessible={true} accessibilityLabel={`Question ${round.number + 1} of ${effectiveRunLength}. Score: ${scoring.score} points.`}>
+            <Text maxFontSizeMultiplier={1.2} style={styles.hudValue}>{round.number + 1}/{effectiveRunLength}</Text>
             <View style={styles.hudDivider} />
-            <Text maxFontSizeMultiplier={1.2} style={styles.hudValue}>{score} pts</Text>
+            <Text maxFontSizeMultiplier={1.2} style={styles.hudValue}>{scoring.score} pts</Text>
             <View style={styles.hudDivider} />
             <View style={styles.hudItem}>
               <Zap color="#FFD700" size={12} />
-              <Text maxFontSizeMultiplier={1.2} style={styles.hudValue}>{streak}</Text>
+              <Text maxFontSizeMultiplier={1.2} style={styles.hudValue}>{scoring.streak}</Text>
             </View>
           </View>
 
-          {settings.timerSeconds > 0 && timeRemaining !== null && (
-            <View style={[styles.timerContainer, timeRemaining <= 3 && styles.timerWarning]}>
-              <Clock color={timeRemaining <= 3 ? theme.error : '#fff'} size={14} />
-              <Text maxFontSizeMultiplier={1.2} style={[styles.timerText, timeRemaining <= 3 && { color: theme.error }]}>
-                {timeRemaining}s
+          {settings.timerSeconds > 0 && round.timeRemaining !== null && (
+            <View style={[styles.timerContainer, round.timeRemaining <= 3 && styles.timerWarning]}>
+              <Clock color={round.timeRemaining <= 3 ? theme.error : '#fff'} size={14} />
+              <Text maxFontSizeMultiplier={1.2} style={[styles.timerText, round.timeRemaining <= 3 && { color: theme.error }]}>
+                {round.timeRemaining}s
               </Text>
             </View>
           )}
@@ -741,7 +783,7 @@ export default function QuestSessionScreen() {
               <Text maxFontSizeMultiplier={1.3} style={styles.assistantEyebrow}>FLASHQUEST AI</Text>
               <Text maxFontSizeMultiplier={1.3} style={styles.assistantMode}>{settings.mode === 'learn' ? 'Learn round' : 'Battle round'}</Text>
             </View>
-            <DealerPlaceholder dialogueType={assistantTone} customDialogue={assistantLine} size="small" title="Round assistant" />
+            <DealerPlaceholder dialogueType={assistant.tone} customDialogue={assistant.line} size="small" title="Round assistant" />
           </View>
 
           <View style={[styles.questionCard, { backgroundColor: theme.cardBackground }]} testID="questQuestionCard">
@@ -752,10 +794,10 @@ export default function QuestSessionScreen() {
                 </Text>
               </View>
               <FlashcardDebugButton
-                deckId={currentCard.deckId}
-                cardId={currentCard.id}
+                deckId={currentRoundCard.deckId}
+                cardId={currentRoundCard.id}
                 surface="quest"
-                options={options}
+                options={round.options}
                 testID="quest-flashcard-debug-button"
               />
             </View>
@@ -768,7 +810,7 @@ export default function QuestSessionScreen() {
               </Text>
             </View>
 
-          {settings.hintsEnabled && !!currentCard.hint1 && !showHint && !inputLocked && (
+          {settings.hintsEnabled && !!currentRoundCard.hint1 && !showHint && !answer.inputLocked && (
             <TouchableOpacity
               style={[styles.hintButton, { backgroundColor: theme.warning + '20' }]}
               onPress={handleHintPress}
@@ -781,7 +823,7 @@ export default function QuestSessionScreen() {
             </TouchableOpacity>
           )}
           
-          {showHint && !!currentCard.hint1 && (
+          {showHint && !!currentRoundCard.hint1 && (
             <View style={[styles.hintContainer, { backgroundColor: theme.warning + '15' }]}>
               <Lightbulb color={theme.warning} size={12} />
               <Text maxFontSizeMultiplier={1.3} style={[styles.hintText, { color: theme.warning }]}>{displayHint}</Text>
@@ -793,13 +835,13 @@ export default function QuestSessionScreen() {
         <View style={styles.gameArea}>
           <View style={[styles.answerGridContainer, { maxWidth: gameAreaMaxWidth }]}> 
             <View style={styles.tableSurface}>
-              <View key={`${currentCard.id}-${optionsRenderKey}`} style={styles.optionsGrid} testID="questAnswerGrid">
+              <View key={`${currentRoundCard.id}-${round.optionsRenderKey}`} style={styles.optionsGrid} testID="questAnswerGrid">
               {displayOptionRows.map((row, rowIndex) => {
                 const isLastRow = rowIndex === displayOptionRows.length - 1;
 
                 return (
                   <View
-                    key={`${currentCard.id}-${optionsRenderKey}-row-${rowIndex}`}
+                    key={`${currentRoundCard.id}-${round.optionsRenderKey}-row-${rowIndex}`}
                     style={[styles.optionsRow, isLastRow && styles.optionsRowLast]}
                   >
                     {row.map(({ value, label }, columnIndex) => {
@@ -807,7 +849,7 @@ export default function QuestSessionScreen() {
 
                       return (
                         <AnswerCard
-                          key={`${currentCard.id}-${optionsRenderKey}-${optionIndex}-${value}`}
+                          key={`${currentRoundCard.id}-${round.optionsRenderKey}-${optionIndex}-${value}`}
                           optionText={label}
                           suit={getSuitForIndex(optionIndex)}
                           index={optionIndex}
@@ -825,17 +867,17 @@ export default function QuestSessionScreen() {
           </View>
         </View>
 
-        {showExplanation && !!currentCard.explanation && (
+        {showExplanation && !!currentRoundCard.explanation && (
           <View style={styles.explanationOverlay}>
             <View style={[styles.explanationCard, { backgroundColor: theme.cardBackground }]}>
-              <Text maxFontSizeMultiplier={1.3} style={[styles.explanationTitle, { color: isCorrect ? theme.success : theme.error }]}>
-                {isCorrect ? 'Correct!' : 'Incorrect'}
+              <Text maxFontSizeMultiplier={1.3} style={[styles.explanationTitle, { color: answer.isCorrect ? theme.success : theme.error }]}>
+                {answer.isCorrect ? 'Correct!' : 'Incorrect'}
               </Text>
               <Text maxFontSizeMultiplier={1.3} style={[styles.explanationAnswer, { color: theme.text }]}>
-                Answer: {getCardAnswerForSurface(currentCard, 'study')}
+                Answer: {getCardAnswerForSurface(currentRoundCard, 'study')}
               </Text>
               <Text maxFontSizeMultiplier={1.3} style={[styles.explanationText, { color: theme.textSecondary }]} numberOfLines={6}>
-                {currentCard.explanation}
+                {currentRoundCard.explanation}
               </Text>
               <TouchableOpacity
                 style={[styles.continueButton, { backgroundColor: theme.primary }]}
