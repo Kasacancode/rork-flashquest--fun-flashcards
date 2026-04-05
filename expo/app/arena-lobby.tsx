@@ -501,43 +501,78 @@ export default function ArenaLobbyScreen() {
                 styles.qrSection,
                 styles.sectionSurface,
                 {
-                  backgroundColor: isDark ? 'rgba(15,23,42,0.8)' : 'rgba(255,255,255,0.95)',
-                  borderColor: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(0,0,0,0.06)',
+                  backgroundColor: isDark ? 'rgba(41,28,33,0.88)' : 'rgba(255,252,249,0.96)',
+                  borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(249,115,22,0.14)',
                 },
               ]}
               testID="battle-lobby-qr-section"
             >
+              <View
+                style={[
+                  styles.qrHeaderBadge,
+                  {
+                    backgroundColor: isDark ? 'rgba(249,115,22,0.14)' : 'rgba(249,115,22,0.08)',
+                    borderColor: isDark ? 'rgba(251,191,36,0.18)' : 'rgba(249,115,22,0.12)',
+                  },
+                ]}
+              >
+                <Target color={arenaAccent} size={14} strokeWidth={2.3} />
+                <Text style={[styles.qrHeaderBadgeText, { color: arenaAccent }]}>Fast invite</Text>
+              </View>
+
               <Text style={[styles.qrTitle, { color: isDark ? '#F8FAFC' : '#0F172A' }]}>Scan to Join</Text>
+              <Text style={[styles.qrSubtitle, { color: isDark ? '#D6C7CE' : '#6B5B57' }]}>Open your camera, scan the code, and jump straight into this lobby.</Text>
 
               {qrSvg.length > 0 ? (
                 <View style={styles.qrCodeWrap}>
-                  <View style={styles.qrCodeBackground}>
-                    <SvgXml xml={qrSvg} width={180} height={180} />
+                  <View
+                    style={[
+                      styles.qrCodeShell,
+                      {
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.8)',
+                        borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.05)',
+                      },
+                    ]}
+                  >
+                    <View style={styles.qrCodeBackground}>
+                      <SvgXml xml={qrSvg} width={180} height={180} />
+                    </View>
                   </View>
                 </View>
               ) : (
-                <View style={[styles.qrCodeWrap, { height: 212, justifyContent: 'center' }]}> 
+                <View style={[styles.qrCodeWrap, styles.qrCodeLoadingWrap]}>
                   <ActivityIndicator size="small" color={theme.primary} />
                 </View>
               )}
 
-              <View style={styles.roomCodeRow}>
-                <Text style={[styles.roomCodeLabel, { color: isDark ? '#94A3B8' : '#64748B' }]}>Room Code</Text>
-                <TouchableOpacity
-                  onPress={handleCopyCode}
-                  activeOpacity={0.7}
-                  style={styles.roomCodePill}
-                  accessibilityLabel={`Room code: ${room.code}. Tap to copy.`}
-                  accessibilityRole="button"
-                  testID="battle-lobby-room-code-card"
-                >
-                  <Text style={styles.roomCodeText}>{room.code}</Text>
-                  {codeCopied ? (
-                    <Check color="#10B981" size={16} strokeWidth={2.4} />
-                  ) : (
-                    <Copy color="rgba(255,255,255,0.6)" size={16} strokeWidth={2} />
-                  )}
-                </TouchableOpacity>
+              <View
+                style={[
+                  styles.roomCodeCard,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.72)',
+                    borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)',
+                  },
+                ]}
+              >
+                <View style={styles.roomCodeRow}>
+                  <Text style={[styles.roomCodeLabel, { color: isDark ? '#AEB4C5' : '#7C6B66' }]}>Room Code</Text>
+                  <TouchableOpacity
+                    onPress={handleCopyCode}
+                    activeOpacity={0.7}
+                    style={styles.roomCodePill}
+                    accessibilityLabel={`Room code: ${room.code}. Tap to copy.`}
+                    accessibilityRole="button"
+                    testID="battle-lobby-room-code-card"
+                  >
+                    <Text style={styles.roomCodeText}>{room.code}</Text>
+                    {codeCopied ? (
+                      <Check color="#D1FAE5" size={17} strokeWidth={2.5} />
+                    ) : (
+                      <Copy color="rgba(255,255,255,0.72)" size={17} strokeWidth={2.1} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+                <Text style={[styles.roomCodeHint, { color: isDark ? '#8F96A9' : '#8A7B76' }]}>Tap the code to copy it, or share the invite link below.</Text>
               </View>
 
               <TouchableOpacity
@@ -545,7 +580,7 @@ export default function ArenaLobbyScreen() {
                   styles.shareButton,
                   {
                     backgroundColor: isDark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.08)',
-                    borderColor: isDark ? 'rgba(99,102,241,0.25)' : 'rgba(99,102,241,0.15)',
+                    borderColor: isDark ? 'rgba(129,140,248,0.24)' : 'rgba(99,102,241,0.14)',
                   },
                 ]}
                 onPress={() => {
@@ -554,9 +589,14 @@ export default function ArenaLobbyScreen() {
                 activeOpacity={0.8}
                 testID="battle-lobby-share-button"
               >
-                <Share2 color={theme.primary} size={16} strokeWidth={2.2} />
+                <Share2 color={theme.primary} size={17} strokeWidth={2.2} />
                 <Text style={[styles.shareButtonText, { color: theme.primary }]}>Share Invite Link</Text>
               </TouchableOpacity>
+
+              <View style={styles.qrFooterHint}>
+                <Wifi color={isDark ? '#A78BFA' : '#7C3AED'} size={14} strokeWidth={2.4} />
+                <Text style={[styles.qrFooterHintText, { color: isDark ? '#B8AEC1' : '#7A6A65' }]}>Scanning opens FlashQuest and fills the room code automatically.</Text>
+              </View>
             </View>
           ) : null}
 
@@ -991,65 +1031,143 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   qrSection: {
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1,
     padding: 24,
     alignItems: 'center',
     marginBottom: 16,
   },
+  qrHeaderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  qrHeaderBadgeText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.8,
+  },
   qrTitle: {
-    fontSize: 17,
+    fontSize: 28,
     fontWeight: '800' as const,
-    letterSpacing: -0.2,
-    marginBottom: 16,
+    letterSpacing: -0.8,
+  },
+  qrSubtitle: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    textAlign: 'center' as const,
+    lineHeight: 19,
+    marginTop: 8,
+    marginBottom: 20,
+    maxWidth: 280,
   },
   qrCodeWrap: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
+    width: '100%',
+  },
+  qrCodeLoadingWrap: {
+    height: 238,
+    justifyContent: 'center',
+  },
+  qrCodeShell: {
+    padding: 12,
+    borderRadius: 26,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    elevation: 5,
   },
   qrCodeBackground: {
     padding: 14,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 22,
+  },
+  roomCodeCard: {
+    width: '100%',
+    alignItems: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 14,
   },
   roomCodeRow: {
     alignItems: 'center',
-    marginBottom: 14,
+    width: '100%',
   },
   roomCodeLabel: {
     fontSize: 11,
     fontWeight: '700' as const,
     textTransform: 'uppercase' as const,
-    letterSpacing: 1,
-    marginBottom: 6,
+    letterSpacing: 1.2,
+    marginBottom: 8,
   },
   roomCodePill: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
-    backgroundColor: 'rgba(99,102,241,0.9)',
-    paddingVertical: 8,
+    minWidth: 154,
+    backgroundColor: 'rgba(99,102,241,0.92)',
+    paddingVertical: 10,
     paddingHorizontal: 18,
-    borderRadius: 12,
+    borderRadius: 15,
+    shadowColor: '#4338CA',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.24,
+    shadowRadius: 14,
+    elevation: 5,
   },
   roomCodeText: {
     fontSize: 22,
     fontWeight: '800' as const,
     color: '#FFFFFF',
-    letterSpacing: 2,
+    letterSpacing: 2.2,
+  },
+  roomCodeHint: {
+    fontSize: 12,
+    fontWeight: '500' as const,
+    textAlign: 'center' as const,
+    lineHeight: 18,
+    marginTop: 10,
   },
   shareButton: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
   },
   shareButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700' as const,
+  },
+  qrFooterHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 8,
+  },
+  qrFooterHintText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '500' as const,
+    textAlign: 'center' as const,
+    lineHeight: 17,
   },
   playersSection: {
     borderRadius: 24,
