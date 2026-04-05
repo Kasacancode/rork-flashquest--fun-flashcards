@@ -9,6 +9,7 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
+  FileUp,
   PenLine,
   Plus,
   Sparkles,
@@ -936,8 +937,8 @@ export default function DecksPage() {
                 <FileText color={isDark ? '#60a5fa' : '#3b82f6'} size={24} strokeWidth={2} />
               </View>
               <View style={styles.menuOptionText}>
-                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Text to Deck</Text>
-                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Paste notes or text and AI creates flashcards</Text>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Text or File to Deck</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Paste notes or pick a PDF, Word, PowerPoint, or text file</Text>
               </View>
             </TouchableOpacity>
 
@@ -1029,6 +1030,24 @@ export default function DecksPage() {
               <View style={styles.menuOptionText}>
                 <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Paste Cards</Text>
                 <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>From Quizlet, Anki, notes, or any text</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuOption, { backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : 'rgba(59,130,246,0.08)' }]}
+              onPress={() => {
+                setShowImportSubmenu(false);
+                handleTextToDeck();
+              }}
+              activeOpacity={0.8}
+              testID="submenuImportStudyFile"
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.15)' }]}>
+                <FileUp color={isDark ? '#60a5fa' : '#3b82f6'} size={24} strokeWidth={2} />
+              </View>
+              <View style={styles.menuOptionText}>
+                <Text style={[styles.menuOptionTitle, { color: theme.text }]}>Import PDF, Word, or Slides</Text>
+                <Text style={[styles.menuOptionDesc, { color: theme.textSecondary }]}>Open AI import, then tap Pick a File</Text>
               </View>
             </TouchableOpacity>
 

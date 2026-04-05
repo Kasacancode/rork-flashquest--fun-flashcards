@@ -399,9 +399,9 @@ ${sourceText}`,
               <View style={[styles.iconCircle, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)' }]}>
                 <FileText color={isDark ? '#60a5fa' : '#3b82f6'} size={36} strokeWidth={1.8} />
               </View>
-              <Text style={[styles.heroTitle, { color: theme.text }]}>Paste Your Notes</Text>
+              <Text style={[styles.heroTitle, { color: theme.text }]}>Paste Notes or Pick a File</Text>
               <Text style={[styles.heroSubtitle, { color: theme.textSecondary }]}>
-                Paste any text (lecture notes, textbook passages, articles) and AI will turn it into study-ready flashcards.
+                Paste notes or import a PDF, Word doc, PowerPoint, or text file and AI will turn it into study-ready flashcards.
               </Text>
             </View>
 
