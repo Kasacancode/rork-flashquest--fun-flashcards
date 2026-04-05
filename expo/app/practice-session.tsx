@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { triggerNotification, NotificationFeedbackType } from '@/utils/haptics';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { Bot, Swords, User, X, Zap } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -38,7 +38,7 @@ import {
 import { gradeAnswer, type GradeResult } from '@/utils/answerGrading';
 import { clearAIDistractorCache as clearDistractorCache, generateOptionsWithAI } from '@/utils/questUtils';
 import { logger } from '@/utils/logger';
-import { focusedQuestSessionHref, questHref, studyHref } from '@/utils/routes';
+import { PRACTICE_ROUTE, deckHubHref, focusedQuestSessionHref, questHref, studyHref } from '@/utils/routes';
 import { playSound } from '@/utils/sounds';
 import { useResponsiveLayout } from '@/utils/responsive';
 
@@ -46,9 +46,12 @@ const FEEDBACK_REVEAL_DELAY_MS = 850;
 const TURN_TRANSITION_DELAY_MS = 850;
 const OPPONENT_THINK_MIN_DELAY_MS = 700;
 const OPPONENT_THINK_RANGE_MS = 1100;
+const AUTO_ADVANCE_DELAY_MS = 3200;
+const AUTO_ADVANCE_REVIEW_DELAY_MS = 6500;
 
 export default function PracticeSessionPage() {
   const router = useRouter();
+  const navigation = useNavigation();
   const params = useLocalSearchParams<{ deckId?: string | string[]; mode?: PracticeMode | PracticeMode[] }>();
   const { decks, recordSessionResult } = useFlashQuest();
   const { logQuestAttempt } = usePerformance();
@@ -59,6 +62,7 @@ export default function PracticeSessionPage() {
     const rawMode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
     return rawMode === 'multiplayer' ? 'multiplayer' : 'ai';
   }, [params.mode]);
+  const exitHref = useMemo(() => (deckId ? deckHubHref(deckId) : PRACTICE_ROUTE), [deckId]);
   const [currentBattle, setCurrentBattle] = useState<PracticeSessionState | null>(() => (
     deckId ? createPracticeSession(deckId, practiceMode) : null
   ));
@@ -79,6 +83,7 @@ export default function PracticeSessionPage() {
   const [reviewQuality, setReviewQuality] = useState<RecallQuality | null>(null);
   const [pendingReview, setPendingReview] = useState<PendingCardReview | null>(null);
   const [missedCardIds, setMissedCardIds] = useState<string[]>([]);
+  const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState<number | null>(null);
 
   const sessionStartRef = useRef<number>(Date.now());
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -91,6 +96,7 @@ export default function PracticeSessionPage() {
   const resultRecordedRef = useRef(false);
   const pendingTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const pulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+  const isAdvancingRoundRef = useRef<boolean>(false);
 
   const clearPendingTimeouts = useCallback(() => {
     pendingTimeoutsRef.current.forEach((timeoutId) => {
@@ -153,6 +159,23 @@ export default function PracticeSessionPage() {
   const endBattle = useCallback(() => {
     setCurrentBattle(null);
   }, []);
+
+  const navigateOut = useCallback(() => {
+    const canGoBack = typeof navigation.canGoBack === 'function' ? navigation.canGoBack() : false;
+
+    logger.debug('[Practice] Leaving session screen', {
+      canGoBack,
+      deckId,
+      fallbackRoute: exitHref,
+    });
+
+    if (canGoBack) {
+      router.back();
+      return;
+    }
+
+    router.replace(exitHref);
+  }, [deckId, exitHref, navigation, router]);
 
   const deck = useMemo(() => decks.find((d) => d.id === deckId), [decks, deckId]);
   const allFlashcards = useMemo(() => decks.flatMap((existingDeck) => existingDeck.flashcards), [decks]);
@@ -246,6 +269,8 @@ export default function PracticeSessionPage() {
   useEffect(() => {
     if (!currentCard) return;
     clearPendingTimeouts();
+    isAdvancingRoundRef.current = false;
+    setAutoAdvanceCountdown(null);
     setTimeLeft(QUESTION_TIME);
     setGamePhase('player-turn');
     setUserAnswer('');
@@ -480,21 +505,6 @@ export default function PracticeSessionPage() {
     }
   }, [timeLeft, gamePhase, currentCard]);
 
-  if (!deckId || !currentBattle || !deck) {
-    return (
-      <PracticeSessionEmptyState
-        isDark={isDark}
-        title="Session not available"
-        ctaLabel="Go Back"
-        onPress={() => router.back()}
-      />
-    );
-  }
-
-  if (!currentCard) {
-    return <PracticeSessionEmptyState isDark={isDark} title="Practice session not found" />;
-  }
-
   const closeMatchMessage = lastGradeResult?.grade === 'close'
     ? lastGradeResult.reason === 'typo'
       ? 'Close enough! Watch the spelling.'
@@ -506,13 +516,13 @@ export default function PracticeSessionPage() {
             ? 'Right idea! Word order was different.'
             : 'Close enough!'
     : null;
-  const canOverrideAnswer = currentBattle.mode !== 'multiplayer'
+  const canOverrideAnswer = currentBattle?.mode !== 'multiplayer'
     && lastGradeResult?.grade === 'wrong'
     && buttonState === 'incorrect'
     && userAnswer.trim().length > 0;
 
   const handleSubmitAnswer = () => {
-    if (gamePhase !== 'player-turn' || userAnswer.trim() === '') return;
+    if (!currentBattle || !currentCard || gamePhase !== 'player-turn' || userAnswer.trim() === '') return;
 
     Keyboard.dismiss();
     const submittedAnswer = userAnswer.trim();
@@ -676,15 +686,22 @@ export default function PracticeSessionPage() {
     void playSound('correct');
   }, [canonicalAnswer, currentBattle?.mode, currentCard?.id, lastGradeResult?.grade, userAnswer]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
+    if (!currentBattle || gamePhase !== 'reveal-results' || isAdvancingRoundRef.current) {
+      return;
+    }
+
+    isAdvancingRoundRef.current = true;
     clearPendingTimeouts();
+    setAutoAdvanceCountdown(null);
     commitPendingReview();
 
-    if (currentBattle?.mode === 'multiplayer') {
+    if (currentBattle.mode === 'multiplayer') {
       updateBattle(player1Result?.isCorrect || false, player2Result?.isCorrect || false);
     } else {
       updateBattle(playerResult?.isCorrect || false, opponentResult?.isCorrect || false);
     }
+
     setUserAnswer('');
     setPlayerResult(null);
     setOpponentResult(null);
@@ -702,20 +719,36 @@ export default function PracticeSessionPage() {
     pulseAnim.setValue(1);
     feedbackOpacity.setValue(0);
     feedbackScale.setValue(0.8);
-  };
+  }, [
+    clearPendingTimeouts,
+    commitPendingReview,
+    currentBattle,
+    feedbackOpacity,
+    feedbackScale,
+    gamePhase,
+    opponentResult?.isCorrect,
+    player1Result?.isCorrect,
+    player2Result?.isCorrect,
+    playerResult?.isCorrect,
+    pulseAnim,
+    scaleAnim,
+    updateBattle,
+  ]);
 
-  const handleQuit = () => {
+  const handleQuit = useCallback(() => {
     clearPendingTimeouts();
     commitPendingReview();
     clearDistractorCache();
+    isAdvancingRoundRef.current = false;
     endBattle();
-    router.back();
-  };
+    navigateOut();
+  }, [clearPendingTimeouts, commitPendingReview, endBattle, navigateOut]);
 
   const finalizeCompletedSession = useCallback((destination: 'back' | 'quest' | 'study' | 'retry-missed') => {
     if (!currentBattle || !deckId) {
+      isAdvancingRoundRef.current = false;
       endBattle();
-      router.back();
+      navigateOut();
       return;
     }
 
@@ -767,8 +800,59 @@ export default function PracticeSessionPage() {
       return;
     }
 
-    router.back();
-  }, [clearPendingTimeouts, currentBattle, deckId, endBattle, missedCardIds, recordSessionResult, router]);
+    navigateOut();
+  }, [clearPendingTimeouts, currentBattle, deckId, endBattle, missedCardIds, navigateOut, recordSessionResult, router]);
+
+  useEffect(() => {
+    if (currentBattle?.mode !== 'ai' || currentBattle.status === 'completed' || gamePhase !== 'reveal-results') {
+      setAutoAdvanceCountdown(null);
+      return;
+    }
+
+    const delayMs = canOverrideAnswer ? AUTO_ADVANCE_REVIEW_DELAY_MS : AUTO_ADVANCE_DELAY_MS;
+    const deadline = Date.now() + delayMs;
+
+    const updateCountdown = () => {
+      const remainingMs = deadline - Date.now();
+      setAutoAdvanceCountdown(remainingMs <= 0 ? 0 : Math.max(1, Math.ceil(remainingMs / 1000)));
+    };
+
+    logger.debug('[Practice] Starting auto-advance countdown', {
+      delayMs,
+      canOverrideAnswer,
+      round: currentBattle.currentRound + 1,
+      totalRounds: currentBattle.totalRounds,
+    });
+
+    updateCountdown();
+
+    const intervalId = setInterval(updateCountdown, 250);
+    const timeoutId = setTimeout(() => {
+      logger.debug('[Practice] Auto-advancing to next round');
+      setAutoAdvanceCountdown(null);
+      handleNext();
+    }, delayMs);
+
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
+    };
+  }, [canOverrideAnswer, currentBattle, gamePhase, handleNext]);
+
+  const nextButtonLabel = autoAdvanceCountdown !== null && currentBattle?.mode === 'ai'
+    ? `Next Question · ${autoAdvanceCountdown}s`
+    : 'Next Question';
+
+  if (!deckId || !currentBattle || !deck) {
+    return (
+      <PracticeSessionEmptyState
+        isDark={isDark}
+        title="Session not available"
+        ctaLabel="Go Back"
+        onPress={navigateOut}
+      />
+    );
+  }
 
   if (currentBattle.status === 'completed') {
     const won = currentBattle.playerScore > currentBattle.opponentScore;
@@ -786,6 +870,17 @@ export default function PracticeSessionPage() {
         onRetryMissed={() => finalizeCompletedSession('retry-missed')}
         onQuest={() => finalizeCompletedSession('quest')}
         onStudy={() => finalizeCompletedSession('study')}
+      />
+    );
+  }
+
+  if (!currentCard) {
+    return (
+      <PracticeSessionEmptyState
+        isDark={isDark}
+        title="Preparing next round..."
+        ctaLabel="Go Back"
+        onPress={navigateOut}
       />
     );
   }
@@ -1025,7 +1120,7 @@ export default function PracticeSessionPage() {
 
               <TouchableOpacity style={styles.nextButton} onPress={handleNext} activeOpacity={0.85}>
                 <Zap color="#4338ca" size={20} />
-                <Text maxFontSizeMultiplier={1.3} style={styles.nextButtonText}>Next Question</Text>
+                <Text maxFontSizeMultiplier={1.3} style={styles.nextButtonText}>{nextButtonLabel}</Text>
               </TouchableOpacity>
             </Animated.View>
           )}
