@@ -1057,6 +1057,27 @@ export default function StudyPage() {
   const modeTextSecondary = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.75)';
   const heroBg = isDark ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.95)';
   const heroBorder = isDark ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.3)';
+  const modePickerBackBg = isDark ? 'rgba(15, 23, 42, 0.5)' : 'rgba(255, 255, 255, 0.16)';
+  const modePickerBackBorder = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(255, 255, 255, 0.22)';
+  const modePickerStatBg = isDark ? 'rgba(15, 23, 42, 0.55)' : 'rgba(255, 255, 255, 0.14)';
+  const modePickerStatBorder = isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(255, 255, 255, 0.16)';
+  const studyFocusLabel = dueOnlyCount > 0
+    ? 'Best next move'
+    : studySummary.weakCount > 0
+      ? 'Recommended focus'
+      : studySummary.newCount > 0
+        ? 'Fresh cards waiting'
+        : 'Ready to review';
+  const studyFocusValue = dueOnlyCount > 0
+    ? `${dueOnlyCount} cards want attention first`
+    : studySummary.weakCount > 0
+      ? `${studySummary.weakCount} low-confidence cards to tighten up`
+      : studySummary.newCount > 0
+        ? `${studySummary.newCount} untouched cards ready to learn`
+        : `${orderedFlashcards.length} cards ready for a full pass`;
+  const quickReviewHelper = orderedFlashcards.length >= 15
+    ? 'Fast, focused reps when you only have a minute.'
+    : `Great for a shorter pass with up to ${Math.max(orderedFlashcards.length, 1)} cards.`;
 
   return (
     <View style={styles.container}>
@@ -1071,7 +1092,10 @@ export default function StudyPage() {
         {selectedDeck && !studyMode && !showResults ? (
           <View style={styles.modePickerContainer}>
             <TouchableOpacity
-              style={styles.modePickerBackButton}
+              style={[
+                styles.modePickerBackButton,
+                { backgroundColor: modePickerBackBg, borderColor: modePickerBackBorder },
+              ]}
               onPress={() => {
                 if (launchedFromReviewHub || launchedFromDeckHub || launchedWithDeckId) {
                   handleExitStudy();
@@ -1088,7 +1112,13 @@ export default function StudyPage() {
               <ArrowLeft color={modeTextPrimary} size={22} strokeWidth={2.2} />
             </TouchableOpacity>
 
-            <Text style={[styles.modePickerTitle, { color: modeTextPrimary }]}>{selectedDeck.name}</Text>
+            <LinearGradient
+              colors={isDark ? ['rgba(99,102,241,0.28)', 'rgba(8,15,35,0.6)'] : ['rgba(129,140,248,0.4)', 'rgba(255,255,255,0.08)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.modePickerHeroCard, { borderColor: heroBorder }]}
+            >
+              <Text style={[styles.modePickerTitle, { color: modeTextPrimary }]}>{selectedDeck.name}</Text>
             <Text style={[styles.modePickerSubtitle, { color: modeTextSecondary }]}>
               {selectedDeck.flashcards.length} cards in deck
             </Text>
@@ -1125,6 +1155,32 @@ export default function StudyPage() {
                 </View>
               ) : null}
             </View>
+
+              <View style={styles.modeStatsRow}>
+                <View style={[styles.modeStatCard, { backgroundColor: modePickerStatBg, borderColor: modePickerStatBorder }]}>
+                  <Text style={[styles.modeStatValue, { color: isDark ? '#F8FAFC' : '#FFFFFF' }]}>{studySummary.newCount}</Text>
+                  <Text style={[styles.modeStatLabel, { color: modeTextSecondary }]}>New</Text>
+                </View>
+                <View style={[styles.modeStatCard, { backgroundColor: modePickerStatBg, borderColor: modePickerStatBorder }]}>
+                  <Text style={[styles.modeStatValue, { color: isDark ? '#FCD34D' : '#FFFFFF' }]}>{dueOnlyCount}</Text>
+                  <Text style={[styles.modeStatLabel, { color: modeTextSecondary }]}>Due now</Text>
+                </View>
+                <View style={[styles.modeStatCard, { backgroundColor: modePickerStatBg, borderColor: modePickerStatBorder }]}>
+                  <Text style={[styles.modeStatValue, { color: isDark ? '#FDBA74' : '#FFFFFF' }]}>{studySummary.weakCount}</Text>
+                  <Text style={[styles.modeStatLabel, { color: modeTextSecondary }]}>Weak</Text>
+                </View>
+              </View>
+
+              <View style={[styles.modeFocusStrip, { backgroundColor: isDark ? 'rgba(15,23,42,0.45)' : 'rgba(255,255,255,0.12)', borderColor: modePickerStatBorder }]}>
+                <View style={[styles.modeFocusIconWrap, { backgroundColor: isDark ? 'rgba(129,140,248,0.2)' : 'rgba(255,255,255,0.16)' }]}>
+                  <Target color={isDark ? '#C7D2FE' : '#FFFFFF'} size={16} strokeWidth={2.2} />
+                </View>
+                <View style={styles.modeFocusTextWrap}>
+                  <Text style={[styles.modeFocusEyebrow, { color: modeTextSecondary }]}>{studyFocusLabel}</Text>
+                  <Text style={[styles.modeFocusValue, { color: modeTextPrimary }]}>{studyFocusValue}</Text>
+                </View>
+              </View>
+            </LinearGradient>
 
             <View style={styles.modePickerOptions}>
               <TouchableOpacity
@@ -1191,8 +1247,24 @@ export default function StudyPage() {
                 </TouchableOpacity>
               ) : null}
 
-              <View style={styles.quickReviewSection}>
-                <Text style={[styles.quickReviewHeader, { color: modeTextSecondary }]}>Quick Review</Text>
+              <View
+                style={[
+                  styles.quickReviewSection,
+                  {
+                    backgroundColor: isDark ? 'rgba(8, 15, 35, 0.42)' : 'rgba(255, 255, 255, 0.12)',
+                    borderColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(255, 255, 255, 0.16)',
+                  },
+                ]}
+              >
+                <View style={styles.quickReviewHeaderRow}>
+                  <View style={styles.quickReviewHeaderBlock}>
+                    <Text style={[styles.quickReviewHeader, { color: modeTextPrimary }]}>Quick Review</Text>
+                    <Text style={[styles.quickReviewSubtext, { color: modeTextSecondary }]}>{quickReviewHelper}</Text>
+                  </View>
+                  <View style={[styles.quickReviewTag, { backgroundColor: isDark ? 'rgba(56,189,248,0.16)' : 'rgba(255,255,255,0.14)' }]}>
+                    <Text style={[styles.quickReviewTagText, { color: isDark ? '#7DD3FC' : '#FFFFFF' }]}>Fast lane</Text>
+                  </View>
+                </View>
                 <View style={styles.quickReviewRow}>
                   {[5, 10, 15].map((count) => {
                     const mode = `quick-${count}` as StudyMode;
@@ -2021,36 +2093,49 @@ const styles = StyleSheet.create({
   modePickerContainer: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingTop: 14,
+    paddingBottom: 32,
+    gap: 18,
   },
   modePickerBackButton: {
-    padding: 8,
-    marginLeft: -8,
-    marginBottom: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     alignSelf: 'flex-start',
   },
+  modePickerHeroCard: {
+    borderRadius: 30,
+    borderWidth: 1,
+    padding: 22,
+    gap: 18,
+    overflow: 'hidden',
+  },
   modePickerTitle: {
-    fontSize: 28,
+    fontSize: 34,
+    lineHeight: 38,
     fontWeight: '800' as const,
-    letterSpacing: -0.5,
-    marginBottom: 4,
+    letterSpacing: -1.1,
+    marginBottom: 8,
   },
   modePickerSubtitle: {
-    fontSize: 15,
-    fontWeight: '500' as const,
-    marginBottom: 16,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '600' as const,
+    marginBottom: 0,
   },
   breakdownChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 24,
   },
   breakdownChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 6,
+    paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: 20,
     borderWidth: 1,
@@ -2072,56 +2157,144 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700' as const,
   },
-  modePickerOptions: {
+  modeStatsRow: {
+    flexDirection: 'row',
     gap: 10,
+  },
+  modeStatCard: {
+    flex: 1,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    gap: 6,
+  },
+  modeStatValue: {
+    fontSize: 26,
+    lineHeight: 30,
+    fontWeight: '800' as const,
+    letterSpacing: -0.7,
+  },
+  modeStatLabel: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  modeFocusStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 14,
+  },
+  modeFocusIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modeFocusTextWrap: {
+    flex: 1,
+    gap: 3,
+  },
+  modeFocusEyebrow: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    textTransform: 'uppercase',
+    letterSpacing: 0.9,
+  },
+  modeFocusValue: {
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '700' as const,
+  },
+  modePickerOptions: {
+    gap: 16,
+    marginTop: 'auto',
   },
   modeActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 18,
+    borderRadius: 22,
     borderWidth: 1,
-    padding: 14,
-    gap: 12,
+    padding: 16,
+    minHeight: 88,
+    gap: 14,
   },
   modeIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modeActionText: {
     flex: 1,
+    gap: 2,
   },
   modeActionTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800' as const,
-    marginBottom: 2,
+    letterSpacing: -0.2,
+    marginBottom: 0,
   },
   modeActionDesc: {
-    fontSize: 12,
-    fontWeight: '500' as const,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600' as const,
   },
   modeCountBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    minWidth: 36,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 12,
+    minWidth: 42,
     alignItems: 'center',
   },
   modeCountText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800' as const,
   },
   quickReviewSection: {
-    gap: 8,
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 16,
+    gap: 14,
+  },
+  quickReviewHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  quickReviewHeaderBlock: {
+    flex: 1,
+    gap: 4,
   },
   quickReviewHeader: {
-    fontSize: 12,
-    fontWeight: '700' as const,
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: '800' as const,
+    letterSpacing: -0.4,
+  },
+  quickReviewSubtext: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600' as const,
+  },
+  quickReviewTag: {
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 999,
+    alignSelf: 'flex-start',
+  },
+  quickReviewTagText: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginLeft: 4,
   },
   quickReviewRow: {
     flexDirection: 'row',
@@ -2133,17 +2306,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 14,
-    borderRadius: 16,
+    paddingVertical: 18,
+    borderRadius: 18,
     borderWidth: 1,
   },
   quickPillNumber: {
-    fontSize: 18,
+    fontSize: 22,
+    lineHeight: 24,
     fontWeight: '800' as const,
+    letterSpacing: -0.4,
   },
   quickPillLabel: {
     fontSize: 12,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
   },
   emptyModeContainer: {
     flex: 1,
