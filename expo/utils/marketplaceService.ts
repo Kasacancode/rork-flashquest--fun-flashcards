@@ -1,5 +1,9 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { supabase } from '@/lib/supabase';
 import { logger } from '@/utils/logger';
+
+const DOWNLOAD_COUNTS_KEY = 'flashquest_published_deck_downloads';
 
 export type MarketplaceSortOption = 'popular' | 'top_rated' | 'newest';
 
@@ -51,6 +55,12 @@ interface PublicDeckRow {
 interface DeckVoteRow {
   deck_id: string;
   vote: number;
+}
+
+interface PublishedDeckDownloadRow {
+  id: string;
+  name: string;
+  downloads: number | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -333,5 +343,78 @@ export async function unpublishDeck(userId: string, deckName: string): Promise<{
   } catch (error) {
     logger.warn('[Marketplace] Unpublish error:', error);
     return { success: false, error: 'An unexpected error occurred.' };
+  }
+}
+
+export async function reportDeck(
+  userId: string,
+  deckId: string,
+  reason: string,
+  details: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('reports')
+      .insert({
+        reporter_id: userId,
+        deck_id: deckId,
+        reason,
+        details: details.trim(),
+      });
+
+    if (error) {
+      if (error.code === '23505') {
+        return { success: false, error: 'You have already reported this deck.' };
+      }
+      logger.warn('[Marketplace] Report failed:', error.message);
+      return { success: false, error: 'Could not submit report. Please try again.' };
+    }
+
+    logger.log('[Marketplace] Deck reported:', deckId);
+    return { success: true };
+  } catch (error) {
+    logger.warn('[Marketplace] Report error:', error);
+    return { success: false, error: 'An unexpected error occurred.' };
+  }
+}
+
+export async function checkNewDownloads(userId: string): Promise<{ deckName: string; newDownloads: number } | null> {
+  try {
+    const { data, error } = await supabase
+      .from('public_decks')
+      .select('id, name, downloads')
+      .eq('user_id', userId);
+
+    if (error || !data || data.length === 0) {
+      return null;
+    }
+
+    const storedRaw = await AsyncStorage.getItem(DOWNLOAD_COUNTS_KEY);
+    const stored = storedRaw ? JSON.parse(storedRaw) as Record<string, number> : {};
+
+    let bestDeck: { deckName: string; newDownloads: number } | null = null;
+
+    const updated: Record<string, number> = {};
+    for (const deck of data as PublishedDeckDownloadRow[]) {
+      const previous = stored[deck.id] ?? 0;
+      const current = deck.downloads ?? 0;
+      updated[deck.id] = current;
+
+      if (current > previous && previous > 0) {
+        const diff = current - previous;
+        if (!bestDeck || diff > bestDeck.newDownloads) {
+          bestDeck = { deckName: deck.name, newDownloads: diff };
+        }
+      }
+
+      if (previous === 0 && current > 0) {
+        updated[deck.id] = current;
+      }
+    }
+
+    await AsyncStorage.setItem(DOWNLOAD_COUNTS_KEY, JSON.stringify(updated));
+    return bestDeck;
+  } catch {
+    return null;
   }
 }

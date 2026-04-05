@@ -1,17 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ArrowDownToLine,
   ArrowLeft,
   Compass,
   Download,
+  Flag,
   Search,
+  Share2,
   ThumbsDown,
   ThumbsUp,
   X,
 } from 'lucide-react-native';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +21,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  Share as RNShare,
   StyleSheet,
   Text,
   TextInput,
@@ -39,6 +42,7 @@ import {
   fetchDeckDetail,
   fetchMarketplaceDecks,
   getUserVotes,
+  reportDeck,
   type MarketplaceDeck,
   type MarketplaceDeckDetail,
   type MarketplaceSortOption,
@@ -55,6 +59,7 @@ const SORT_OPTIONS: { value: MarketplaceSortOption; label: string }[] = [
 
 export default function ExploreScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ deckId?: string }>();
   const queryClient = useQueryClient();
   const { theme, isDark } = useTheme();
   const { isSignedIn, user } = useAuth();
@@ -187,6 +192,13 @@ export default function ExploreScreen() {
     });
   }, [marketDecks, searchQuery]);
 
+  useEffect(() => {
+    if (params.deckId && typeof params.deckId === 'string') {
+      setSelectedDeckId(params.deckId);
+      setShowDetail(true);
+    }
+  }, [params.deckId]);
+
   const handleRefresh = useCallback(async () => {
     await Promise.all([
       decksQuery.refetch(),
@@ -224,6 +236,76 @@ export default function ExploreScreen() {
 
     downloadMutation.mutate(selectedDeck);
   }, [downloadMutation, selectedDeck]);
+
+  const handleReport = useCallback((deckId: string) => {
+    if (!isSignedIn || !user?.id) {
+      Alert.alert('Sign In Required', 'You need to sign in to report a deck.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign In', onPress: () => router.push('/auth') },
+      ]);
+      return;
+    }
+
+    Alert.alert(
+      'Report Deck',
+      'Why are you reporting this deck?',
+      [
+        {
+          text: 'Inappropriate Content',
+          onPress: async () => {
+            const result = await reportDeck(user.id, deckId, 'inappropriate', '');
+            Alert.alert(
+              result.success ? 'Report Submitted' : 'Report Failed',
+              result.success
+                ? 'Thanks for keeping the community safe. We will review this deck.'
+                : result.error ?? 'Please try again.',
+            );
+          },
+        },
+        {
+          text: 'Spam or Low Quality',
+          onPress: async () => {
+            const result = await reportDeck(user.id, deckId, 'spam', '');
+            Alert.alert(
+              result.success ? 'Report Submitted' : 'Report Failed',
+              result.success
+                ? 'Thanks for the feedback. We will review this deck.'
+                : result.error ?? 'Please try again.',
+            );
+          },
+        },
+        {
+          text: 'Wrong or Misleading Answers',
+          onPress: async () => {
+            const result = await reportDeck(user.id, deckId, 'inaccurate', '');
+            Alert.alert(
+              result.success ? 'Report Submitted' : 'Report Failed',
+              result.success
+                ? 'Thanks for the feedback. We will review this deck.'
+                : result.error ?? 'Please try again.',
+            );
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
+  }, [isSignedIn, router, user?.id]);
+
+  const handleShareDeck = useCallback(async () => {
+    if (!selectedDeck) {
+      return;
+    }
+
+    const message = `Check out "${selectedDeck.name}" on FlashQuest!\n${selectedDeck.cardCount} cards by ${selectedDeck.publisherName}\n\nflashquest://explore?deckId=${selectedDeck.id}`;
+
+    try {
+      await RNShare.share({
+        message,
+        title: `FlashQuest: ${selectedDeck.name}`,
+      });
+    } catch {
+    }
+  }, [selectedDeck]);
 
   const cardBg = isDark ? 'rgba(11, 20, 37, 0.84)' : 'rgba(255, 255, 255, 0.9)';
   const cardBorder = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.18)';
@@ -524,6 +606,15 @@ export default function ExploreScreen() {
 
                     <View style={styles.voteRow}>
                       <TouchableOpacity
+                        style={[styles.voteButton, { borderColor: cardBorder }]}
+                        onPress={handleShareDeck}
+                        activeOpacity={0.8}
+                        accessibilityLabel="Share this deck"
+                        testID="explore-share-button"
+                      >
+                        <Share2 color={theme.textSecondary} size={18} strokeWidth={2.2} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
                         style={[
                           styles.voteButton,
                           { borderColor: cardBorder },
@@ -556,6 +647,15 @@ export default function ExploreScreen() {
                           strokeWidth={2.2}
                           fill={selectedVote === -1 ? '#EF4444' : 'none'}
                         />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.voteButton, { borderColor: cardBorder }]}
+                        onPress={() => selectedDeckId && handleReport(selectedDeckId)}
+                        activeOpacity={0.8}
+                        accessibilityLabel="Report this deck"
+                        testID="explore-report-button"
+                      >
+                        <Flag color={theme.textSecondary} size={18} strokeWidth={2.2} />
                       </TouchableOpacity>
                     </View>
                   </View>

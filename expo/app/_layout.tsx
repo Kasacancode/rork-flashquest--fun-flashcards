@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import AchievementMonitor from '@/components/AchievementMonitor';
 import DeckMasteryMonitor from '@/components/DeckMasteryMonitor';
+import DownloadToast from '@/components/DownloadToast';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import LevelUpMonitor from '@/components/LevelUpMonitor';
 import OfflineBanner from '@/components/OfflineBanner';
@@ -26,6 +27,7 @@ import { syncWithCloud } from '@/utils/cloudSync';
 import { canAccessDebugRoute } from '@/utils/debugTooling';
 import { logger } from '@/utils/logger';
 import { getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
+import { checkNewDownloads } from '@/utils/marketplaceService';
 import { clearAppBadge, scheduleSmartReminder, updateAppBadgeCount } from '@/utils/notifications';
 import { DATA_PRIVACY_ROUTE } from '@/utils/routes';
 import { loadSoundsEnabledPreference, preloadSounds } from '@/utils/sounds';
@@ -151,6 +153,7 @@ function AppShell() {
   const { decks, stats } = useFlashQuest();
   const { performance } = usePerformance();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState<boolean | null>(null);
+  const [downloadNotification, setDownloadNotification] = useState<{ deckName: string; newDownloads: number } | null>(null);
   const didTrackAppOpenRef = useRef<boolean>(false);
   const latestDueCardCountRef = useRef<number>(0);
   const dueReviewSummary = useMemo(() => {
@@ -261,6 +264,28 @@ function AppShell() {
   }, [reactQueryClient]);
 
   useEffect(() => {
+    let isMounted = true;
+
+    supabase.auth.getSession()
+      .then(({ data: { session: currentSession } }) => {
+        if (!currentSession?.user?.id) {
+          return;
+        }
+
+        void checkNewDownloads(currentSession.user.id).then((result) => {
+          if (isMounted && result) {
+            setDownloadNotification(result);
+          }
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (isOnboardingComplete !== true) {
       return;
     }
@@ -315,6 +340,10 @@ function AppShell() {
       <AchievementMonitor />
       <LevelUpMonitor />
       <DeckMasteryMonitor />
+      <DownloadToast
+        download={downloadNotification}
+        onDismiss={() => setDownloadNotification(null)}
+      />
       <ConsentSheet
         visible={showAnalyticsConsent}
         title="Help improve FlashQuest?"

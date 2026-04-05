@@ -79,6 +79,19 @@ function isSupportedOtpType(value: string | null): value is SupportedOtpType {
   return value !== null && SUPPORTED_OTP_TYPES.includes(value as SupportedOtpType);
 }
 
+function isExploreDeepLink(url: string): boolean {
+  if (!url.includes('explore')) {
+    return false;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    return parsedUrl.pathname === 'explore' || parsedUrl.pathname === '/explore';
+  } catch {
+    return url.includes('flashquest://explore');
+  }
+}
+
 function isAuthCallbackUrl(url: string): boolean {
   return isKnownAuthCallbackUrl(url)
     || url.includes('access_token=')
@@ -558,7 +571,16 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
 
     Linking.getInitialURL()
       .then((initialUrl) => {
-        if (!isMounted || !initialUrl || !isAuthCallbackUrl(initialUrl)) {
+        if (!isMounted || !initialUrl) {
+          return;
+        }
+
+        if (isExploreDeepLink(initialUrl)) {
+          logger.log('[Auth] Skipping initial explore deep link in auth handler');
+          return;
+        }
+
+        if (!isAuthCallbackUrl(initialUrl)) {
           return;
         }
 
@@ -574,6 +596,11 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
       });
 
     const subscription = Linking.addEventListener('url', ({ url }) => {
+      if (isExploreDeepLink(url)) {
+        logger.log('[Auth] Skipping runtime explore deep link in auth handler');
+        return;
+      }
+
       if (!isAuthCallbackUrl(url)) {
         return;
       }
