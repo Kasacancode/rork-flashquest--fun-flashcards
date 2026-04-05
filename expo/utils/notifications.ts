@@ -8,6 +8,7 @@ import { normalizeStringArray, safeParseJsonOrNull } from '@/utils/safeJson';
 const NOTIFICATION_PERMISSION_KEY = 'flashquest_notification_permission_asked';
 export const NOTIFICATIONS_ENABLED_KEY = 'flashquest_notifications_enabled';
 const STREAK_NOTIFICATION_CHANNEL_ID = 'flashquest-streak-reminders';
+const SOCIAL_NOTIFICATION_CHANNEL_ID = 'flashquest-social';
 const STREAK_NOTIFICATION_IDS_KEY = 'flashquest_streak_reminder_ids';
 
 type ReminderMessage = {
@@ -40,6 +41,19 @@ async function ensureAndroidChannel(): Promise<void> {
   await Notifications.setNotificationChannelAsync(STREAK_NOTIFICATION_CHANNEL_ID, {
     name: 'Study Reminders',
     importance: Notifications.AndroidImportance.DEFAULT,
+    sound: 'default',
+  });
+}
+
+export async function ensureSocialChannel(): Promise<void> {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+
+  await Notifications.setNotificationChannelAsync(SOCIAL_NOTIFICATION_CHANNEL_ID, {
+    name: 'Social',
+    description: 'Friend requests, challenges, and social updates',
+    importance: Notifications.AndroidImportance.HIGH,
     sound: 'default',
   });
 }

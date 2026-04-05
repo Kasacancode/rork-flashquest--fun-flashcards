@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
 import { logger } from '@/utils/logger';
+import { unregisterPushToken } from '@/utils/pushTokenService';
 import {
   getAuthRedirectUrl,
   getExpectedSupabaseRedirectUrls,
@@ -816,6 +817,11 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
   const signOut = useCallback(async (): Promise<void> => {
     try {
       logger.log('[Auth] Signing out');
+
+      if (session?.user?.id) {
+        await unregisterPushToken(session.user.id);
+      }
+
       const { error } = await supabase.auth.signOut();
       if (error) {
         logger.warn('[Auth] Sign-out failed:', error.message);
@@ -825,7 +831,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
       logger.warn('[Auth] Sign-out error:', error);
       Alert.alert('Sign Out Failed', 'Could not sign out right now. Please try again.');
     }
-  }, []);
+  }, [session?.user?.id]);
 
   const user = session?.user ?? null;
   const displayName = getProfileDisplayName({

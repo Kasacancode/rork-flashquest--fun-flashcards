@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
 import { Redirect, Stack, router, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -29,7 +30,8 @@ import { canAccessDebugRoute } from '@/utils/debugTooling';
 import { logger } from '@/utils/logger';
 import { getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
 import { checkNewDownloads } from '@/utils/marketplaceService';
-import { clearAppBadge, scheduleSmartReminder, updateAppBadgeCount } from '@/utils/notifications';
+import { clearAppBadge, ensureSocialChannel, scheduleSmartReminder, updateAppBadgeCount } from '@/utils/notifications';
+import { registerPushToken } from '@/utils/pushTokenService';
 import { DATA_PRIVACY_ROUTE } from '@/utils/routes';
 import { loadSoundsEnabledPreference, preloadSounds } from '@/utils/sounds';
 import { readStringFlag } from '@/utils/storage';
@@ -252,15 +254,20 @@ function AppShell() {
           return;
         }
 
-        await syncWithCloud(currentSession.user.id);
-
-        if (isMounted) {
-          void reactQueryClient.invalidateQueries();
-          markInitialSyncComplete();
+        try {
+          await syncWithCloud(currentSession.user.id);
+        } catch (error) {
+          logger.warn('[Layout] Initial cloud sync failed:', error);
+        } finally {
+          if (isMounted) {
+            void reactQueryClient.invalidateQueries();
+            markInitialSyncComplete();
+            void registerPushToken(currentSession.user.id);
+          }
         }
       })
       .catch((error) => {
-        logger.warn('[Layout] Initial cloud sync failed:', error);
+        logger.warn('[Layout] Failed to read initial session:', error);
         markInitialSyncComplete();
       });
 
@@ -302,6 +309,35 @@ function AppShell() {
       currentStreak: stats.currentStreak,
     });
   }, [dueReviewSummary.deckCount, dueReviewSummary.dueCardCount, isOnboardingComplete, stats.currentStreak]);
+
+  useEffect(() => {
+    void ensureSocialChannel();
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const rawData = response.notification.request.content.data;
+      const data = typeof rawData === 'object' && rawData !== null ? rawData as { type?: string } : undefined;
+      const type = typeof data?.type === 'string' ? data.type : null;
+
+      if (type === 'friend_request' || type === 'friend_accepted') {
+        router.push('/friends');
+        return;
+      }
+
+      if (type === 'challenge' || type === 'challenge_result') {
+        router.push('/');
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (isOnboardingComplete !== true) {
