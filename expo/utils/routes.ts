@@ -12,6 +12,7 @@ export const DECKS_ROUTE = '/decks' as const satisfies Href;
 export const EXPLORE_ROUTE = '/explore' as const satisfies Href;
 export const PROFILE_ROUTE = '/profile' as const satisfies Href;
 export const FRIENDS_ROUTE = '/friends' as const satisfies Href;
+export const STATS_ROUTE = '/stats' as const satisfies Href;
 export const LEADERBOARD_ROUTE = '/leaderboard' as const satisfies Href;
 export const AUTH_ROUTE = '/auth' as const satisfies Href;
 export const AUTH_CALLBACK_ROUTE = '/auth-callback' as const satisfies Href;
@@ -44,19 +45,32 @@ export function createFlashcardHref(deckId?: string): Href {
     : CREATE_FLASHCARD_ROUTE;
 }
 
-export function studyHref(deckId: string, mode?: string, source?: 'review-hub' | 'deck-hub'): Href {
-  const params: Record<string, string> = { deckId };
+export type RouteOrigin = 'stats';
+export type StudyRouteSource = 'review-hub' | 'deck-hub' | 'stats';
+
+export function studyHref(deckId?: string, mode?: string, source?: StudyRouteSource, origin?: RouteOrigin): Href {
+  const params: Record<string, string> = {};
+  if (deckId) {
+    params.deckId = deckId;
+  }
   if (mode) {
     params.initialMode = mode;
   }
   if (source) {
     params.source = source;
   }
+  if (origin) {
+    params.origin = origin;
+  }
   return { pathname: STUDY_ROUTE, params } as Href;
 }
 
-export function deckHubHref(deckId: string): Href {
-  return { pathname: DECK_HUB_ROUTE, params: { deckId } };
+export function deckHubHref(deckId: string, origin?: RouteOrigin): Href {
+  const params: Record<string, string> = { deckId };
+  if (origin) {
+    params.origin = origin;
+  }
+  return { pathname: DECK_HUB_ROUTE, params };
 }
 
 export function editDeckHref(deckId: string): Href {

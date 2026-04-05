@@ -24,7 +24,7 @@ import type { Deck, Flashcard } from '@/types/flashcard';
 import { GAME_MODE } from '@/types/game';
 import { logger } from '@/utils/logger';
 import { buildCrossDeckReviewDeck, CROSS_DECK_REVIEW_DECK_ID } from '@/utils/reviewUtils';
-import { DECKS_ROUTE, HOME_ROUTE, deckHubHref, questHref } from '@/utils/routes';
+import { DECKS_ROUTE, HOME_ROUTE, STATS_ROUTE, deckHubHref, questHref } from '@/utils/routes';
 import { buildStudyOrder, getFlashcardsForStudyMode, type StudyMode } from '@/utils/studyHelpers';
 import { maybePromptReview } from '@/utils/storeReview';
 import { triggerImpact } from '@/utils/haptics';
@@ -33,7 +33,7 @@ import { waitForInitialSync } from '@/utils/cloudSync';
 export default function StudyPage() {
   const router = useRouter();
   const navigation = useNavigation();
-  const params = useLocalSearchParams<{ deckId?: string; initialMode?: string; source?: string }>();
+  const params = useLocalSearchParams<{ deckId?: string; initialMode?: string; source?: string; origin?: string }>();
   const { decks, updateFlashcard } = useDeckContext();
   const { stats, recordSessionResult } = useStatsContext();
   const { performance } = usePerformance();
@@ -44,6 +44,7 @@ export default function StudyPage() {
   const initialMode = validModes.includes(params.initialMode as StudyMode) ? (params.initialMode as StudyMode) : null;
   const launchedFromReviewHub = params.source === 'review-hub';
   const launchedFromDeckHub = params.source === 'deck-hub';
+  const launchedFromStats = params.source === 'stats' || params.origin === 'stats';
   const initialDeckId = params.deckId ?? null;
   const launchedWithDeckId = initialDeckId !== null;
 
@@ -68,8 +69,10 @@ export default function StudyPage() {
   const exitRoute = launchedFromReviewHub
     ? HOME_ROUTE
     : launchedFromDeckHub && deckHubTargetDeckId
-      ? deckHubHref(deckHubTargetDeckId)
-      : DECKS_ROUTE;
+      ? deckHubHref(deckHubTargetDeckId, params.origin === 'stats' ? 'stats' : undefined)
+      : launchedFromStats
+        ? STATS_ROUTE
+        : DECKS_ROUTE;
 
   const isCrossDeckReview = selectedDeckId === CROSS_DECK_REVIEW_DECK_ID;
 
@@ -325,9 +328,15 @@ export default function StudyPage() {
       return;
     }
 
+    if (launchedFromStats) {
+      logger.debug('[Study] Exiting study to stats');
+      router.dismissTo(STATS_ROUTE);
+      return;
+    }
+
     logger.debug('[Study] Exiting study to decks');
     router.dismissTo(DECKS_ROUTE);
-  }, [deckHubTargetDeckId, exitRoute, launchedFromDeckHub, launchedFromReviewHub, navigation, router]);
+  }, [deckHubTargetDeckId, exitRoute, launchedFromDeckHub, launchedFromReviewHub, launchedFromStats, navigation, router]);
 
   const handleBackFromStudy = useCallback(() => {
     if (!launchedFromReviewHub && studyMode && !showResults) {
@@ -341,6 +350,24 @@ export default function StudyPage() {
   const handleResultsBack = useCallback(() => {
     handleExitStudy();
   }, [handleExitStudy]);
+
+  const handleOpenDeckProgress = useCallback(() => {
+    if (!selectedDeck || isCrossDeckReview) {
+      return;
+    }
+
+    if (launchedFromDeckHub) {
+      router.dismissTo(exitRoute);
+      return;
+    }
+
+    if (launchedFromStats) {
+      router.replace(deckHubHref(selectedDeck.id, 'stats'));
+      return;
+    }
+
+    router.push(deckHubHref(selectedDeck.id));
+  }, [exitRoute, isCrossDeckReview, launchedFromDeckHub, launchedFromStats, router, selectedDeck]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (event) => {
@@ -758,7 +785,7 @@ export default function StudyPage() {
                 {!isCrossDeckReview ? (
                   <TouchableOpacity
                     style={styles.resultsLinkButtonNew}
-                    onPress={() => router.push(deckHubHref(selectedDeck.id))}
+                    onPress={handleOpenDeckProgress}
                     activeOpacity={0.78}
                   >
                     <Zap color={isDark ? 'rgba(255,255,255,0.72)' : '#4F46E5'} size={17} strokeWidth={2.2} />
@@ -785,7 +812,12 @@ export default function StudyPage() {
 
         <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={handleExitStudy} style={styles.backButton} accessibilityLabel={launchedFromReviewHub ? 'Back to home' : 'Back to decks'} accessibilityRole="button">
+            <TouchableOpacity
+              onPress={handleExitStudy}
+              style={styles.backButton}
+              accessibilityLabel={launchedFromReviewHub ? 'Back to home' : launchedFromDeckHub ? 'Back to deck' : launchedFromStats ? 'Back to stats' : 'Back to decks'}
+              accessibilityRole="button"
+            >
               <ArrowLeft color="#fff" size={28} strokeWidth={2.5} />
             </TouchableOpacity>
             <Text style={styles.headerTitle} accessibilityRole="header">Study Mode</Text>

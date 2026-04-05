@@ -448,7 +448,7 @@ export default function StatsPage() {
 
                 <TouchableOpacity
                   style={[styles.insightAction, { backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)' }]}
-                  onPress={() => router.push('/study')}
+                  onPress={() => router.push(studyHref(undefined, undefined, 'stats'))}
                   activeOpacity={0.8}
                   testID="stats-goal-insight-action"
                 >
@@ -1014,7 +1014,7 @@ export default function StatsPage() {
                       <TouchableOpacity
                         key={deck.id}
                         style={styles.deckMiniRow}
-                        onPress={() => router.push(deckHubHref(deck.id))}
+                        onPress={() => router.push(deckHubHref(deck.id, 'stats'))}
                         activeOpacity={0.8}
                         testID={`stats-mastery-deck-${deck.id}`}
                       >
@@ -1039,7 +1039,7 @@ export default function StatsPage() {
                   return (
                     <TouchableOpacity
                       style={[styles.insightAction, { backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)' }]}
-                      onPress={() => router.push(studyHref(weakest.id))}
+                      onPress={() => router.push(studyHref(weakest.id, undefined, 'stats'))}
                       activeOpacity={0.8}
                       testID="stats-mastery-insight-action"
                     >
@@ -1368,7 +1368,7 @@ export default function StatsPage() {
                   deckMasteryDetails={deckMasteryDetails}
                   deckDueCounts={deckDueCounts}
                   isDark={isDark}
-                  onStudyDeck={(deckId) => router.push(studyHref(deckId))}
+                  onStudyDeck={(deckId) => router.push(studyHref(deckId, undefined, 'stats'))}
                   textColor={theme.text}
                   secondaryTextColor={secondaryTextColor}
                   emptyTextColor={secondaryTextColor}

@@ -17,7 +17,7 @@ import { fetchFriends, type Friendship } from '@/utils/friendsService';
 import { computeDeckMastery } from '@/utils/mastery';
 import { checkDeckPublished, publishDeck, unpublishDeck } from '@/utils/marketplaceService';
 import { serializeQuestSettings } from '@/utils/questParams';
-import { DECKS_ROUTE, editDeckHref, focusedQuestSessionHref, questHref, questSessionHref, studyHref } from '@/utils/routes';
+import { DECKS_ROUTE, STATS_ROUTE, editDeckHref, focusedQuestSessionHref, questHref, questSessionHref, studyHref } from '@/utils/routes';
 import { shareTextWithFallback } from '@/utils/share';
 import { generateUUID } from '@/utils/uuid';
 
@@ -93,7 +93,7 @@ function getChallengeRunLength(cardCount: number): 5 | 10 | 20 {
 
 export default function DeckHubScreen() {
   const router = useRouter();
-  const { deckId } = useLocalSearchParams<{ deckId: string }>();
+  const { deckId, origin } = useLocalSearchParams<{ deckId: string; origin?: string }>();
   const { decks, addDeck, deleteDeck } = useDeckContext();
   const { performance, getDeckAccuracy, getWeakCards, getCardsDueForReview, getLapsedCards, cleanupDeck } = usePerformance();
   const { theme, isDark } = useTheme();
@@ -109,6 +109,7 @@ export default function DeckHubScreen() {
   const menuBtnRef = useRef<View>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
 
+  const launchedFromStats = origin === 'stats';
   const deck = useMemo(() => decks.find((item) => item.id === deckId), [decks, deckId]);
 
   useEffect(() => {
@@ -222,6 +223,15 @@ export default function DeckHubScreen() {
     });
     setMenuVisible(true);
   }, []);
+
+  const handleBack = useCallback(() => {
+    if (launchedFromStats) {
+      router.dismissTo(STATS_ROUTE);
+      return;
+    }
+
+    router.back();
+  }, [launchedFromStats, router]);
 
   const handleEditDeck = useCallback(() => {
     if (!deck) {
@@ -501,12 +511,16 @@ export default function DeckHubScreen() {
           style: 'destructive',
           onPress: async () => {
             await deleteDeck(deck.id);
+            if (launchedFromStats) {
+              router.replace(STATS_ROUTE);
+              return;
+            }
             router.back();
           },
         },
       ],
     );
-  }, [deck, deleteDeck, router]);
+  }, [deck, deleteDeck, launchedFromStats, router]);
 
   if (!deck) {
     return (
@@ -518,14 +532,14 @@ export default function DeckHubScreen() {
           style={StyleSheet.absoluteFill}
         />
         <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.fallbackBackBtn}>
+          <TouchableOpacity onPress={handleBack} style={styles.fallbackBackBtn}>
             <ArrowLeft color="#fff" size={24} strokeWidth={2.5} />
           </TouchableOpacity>
           <View style={styles.errorWrap}>
             <Text style={styles.errorTitle}>Deck not found</Text>
             <Text style={styles.errorSubtitle}>This deck may have been deleted.</Text>
             <TouchableOpacity
-              onPress={() => router.replace(DECKS_ROUTE)}
+              onPress={() => router.replace(launchedFromStats ? STATS_ROUTE : DECKS_ROUTE)}
               style={styles.errorAction}
               testID="deck-hub-go-to-decks-button"
             >
@@ -601,7 +615,7 @@ export default function DeckHubScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={handleBack}
             style={[
               styles.backBtn,
               {
@@ -772,7 +786,7 @@ export default function DeckHubScreen() {
                 shadowOpacity: isDark ? 0.08 : 0.07,
               },
             ]}
-            onPress={() => router.push(studyHref(deck.id, undefined, 'deck-hub'))}
+            onPress={() => router.push(studyHref(deck.id, undefined, 'deck-hub', launchedFromStats ? 'stats' : undefined))}
             activeOpacity={0.85}
           >
             <BookOpen color={secondaryActionAccent} size={22} strokeWidth={2.2} />
