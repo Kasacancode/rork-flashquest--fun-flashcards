@@ -18,11 +18,12 @@ import { useFlashQuest } from '@/context/FlashQuestContext';
 import { usePerformance } from '@/context/PerformanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { trackEvent } from '@/lib/analytics';
-import type { Flashcard } from '@/types/flashcard';
+import type { Deck, Flashcard } from '@/types/flashcard';
 import type { CardMemoryStatus } from '@/types/performance';
 import { GAME_MODE } from '@/types/game';
-import { getWeaknessScore, isCardDueForReview, getLiveCardStats } from '@/utils/mastery';
 import { logger } from '@/utils/logger';
+import { getWeaknessScore, isCardDueForReview, getLiveCardStats } from '@/utils/mastery';
+import { buildCrossDeckReviewDeck, CROSS_DECK_REVIEW_DECK_ID } from '@/utils/reviewUtils';
 import { DECKS_ROUTE, HOME_ROUTE, deckHubHref, questHref } from '@/utils/routes';
 import { maybePromptReview } from '@/utils/storeReview';
 import { triggerImpact } from '@/utils/haptics';
@@ -197,15 +198,47 @@ export default function StudyPage() {
   const [reversed, setReversed] = useState<boolean>(false);
   const [studyMode, setStudyMode] = useState<StudyMode | null>(initialMode);
   const [sessionFlashcards, setSessionFlashcards] = useState<Flashcard[]>([]);
+  const [crossDeckReviewDeck, setCrossDeckReviewDeck] = useState<Deck | null>(
+    () => (params.deckId === CROSS_DECK_REVIEW_DECK_ID ? buildCrossDeckReviewDeck(decks, performance.cardStatsById) : null),
+  );
   const trackedStudyDeckIdRef = useRef<string | null>(null);
   const sessionStartRef = useRef<number>(Date.now());
   const sessionResolvedRef = useRef<number>(0);
   const allowDismissToHomeRef = useRef<boolean>(false);
 
-  const selectedDeck = useMemo(
-    () => decks.find((d) => d.id === selectedDeckId),
-    [decks, selectedDeckId]
+  const isCrossDeckReview = selectedDeckId === CROSS_DECK_REVIEW_DECK_ID;
+
+  const liveCrossDeckReviewDeck = useMemo(
+    () => (isCrossDeckReview ? buildCrossDeckReviewDeck(decks, performance.cardStatsById) : null),
+    [decks, isCrossDeckReview, performance.cardStatsById],
   );
+
+  useEffect(() => {
+    if (!isCrossDeckReview) {
+      setCrossDeckReviewDeck(null);
+      return;
+    }
+
+    if (sessionFlashcards.length > 0 || showResults) {
+      return;
+    }
+
+    setCrossDeckReviewDeck((currentDeck) => {
+      if (!liveCrossDeckReviewDeck) {
+        return null;
+      }
+
+      return currentDeck ?? liveCrossDeckReviewDeck;
+    });
+  }, [isCrossDeckReview, liveCrossDeckReviewDeck, sessionFlashcards.length, showResults]);
+
+  const selectedDeck = useMemo(() => {
+    if (isCrossDeckReview) {
+      return crossDeckReviewDeck ?? liveCrossDeckReviewDeck;
+    }
+
+    return decks.find((deck) => deck.id === selectedDeckId);
+  }, [crossDeckReviewDeck, decks, isCrossDeckReview, liveCrossDeckReviewDeck, selectedDeckId]);
 
   const { orderedFlashcards, studySummary } = useMemo(() => {
     if (!selectedDeck) {
@@ -294,7 +327,7 @@ export default function StudyPage() {
     trackedStudyDeckIdRef.current = selectedDeck.id;
     trackEvent({
       event: 'deck_played',
-      deckId: selectedDeck.id,
+      deckId: selectedDeck.id === CROSS_DECK_REVIEW_DECK_ID ? undefined : selectedDeck.id,
       properties: {
         deck_name: selectedDeck.name,
         mode: GAME_MODE.STUDY,
@@ -309,6 +342,7 @@ export default function StudyPage() {
     }
 
     const resolvedCount = sessionResolvedRef.current;
+    const recordedDeckId = selectedDeck.id === CROSS_DECK_REVIEW_DECK_ID ? undefined : selectedDeck.id;
     setSessionResolved(resolvedCount);
 
     if (resolvedCount === 0) {
@@ -321,7 +355,7 @@ export default function StudyPage() {
     setSessionXp(xpEarned);
     recordSessionResult({
       mode: GAME_MODE.STUDY,
-      deckId: selectedDeck.id,
+      deckId: recordedDeckId,
       xpEarned,
       cardsAttempted: resolvedCount,
       timestampISO: new Date().toISOString(),
@@ -329,7 +363,7 @@ export default function StudyPage() {
     });
     trackEvent({
       event: 'study_completed',
-      deckId: selectedDeck.id,
+      deckId: recordedDeckId,
       properties: {
         cards_studied: resolvedCount,
         deck_name: selectedDeck.name,
@@ -371,10 +405,14 @@ export default function StudyPage() {
   }, [orderedFlashcards, performance.cardStatsById, selectedDeck?.id]);
 
   const handleUpdateCard = useCallback((cardId: string, updates: Partial<Flashcard>) => {
-    if (selectedDeck) {
-      updateFlashcard(selectedDeck.id, cardId, updates);
+    const card = sessionFlashcards.find((entry) => entry.id === cardId)
+      ?? selectedDeck?.flashcards.find((entry) => entry.id === cardId);
+    const deckId = card?.deckId ?? selectedDeck?.id ?? '';
+
+    if (deckId) {
+      updateFlashcard(deckId, cardId, updates);
     }
-  }, [selectedDeck, updateFlashcard]);
+  }, [selectedDeck, sessionFlashcards, updateFlashcard]);
 
   const handleToggleReversed = useCallback(() => {
     triggerImpact();
@@ -497,8 +535,12 @@ export default function StudyPage() {
                 <Text style={[styles.resultsSubtitle, isCompactResults ? styles.resultsSubtitleCompact : null]}>
                   {studyMode === 'due'
                     ? remainingDueCount === 0
-                      ? `${selectedDeck.name} has no cards waiting for review right now.`
-                      : `You finished this round in ${selectedDeck.name}. ${remainingDueCount} card${remainingDueCount !== 1 ? 's are' : ' is'} still due.`
+                      ? isCrossDeckReview
+                        ? 'Your due review queue is clear across every deck in this session.'
+                        : `${selectedDeck.name} has no cards waiting for review right now.`
+                      : isCrossDeckReview
+                        ? `You finished this round across multiple decks. ${remainingDueCount} card${remainingDueCount !== 1 ? 's are' : ' is'} still due.`
+                        : `You finished this round in ${selectedDeck.name}. ${remainingDueCount} card${remainingDueCount !== 1 ? 's are' : ' is'} still due.`
                     : `Great work studying ${selectedDeck.name}`}
                 </Text>
 
@@ -537,15 +579,21 @@ export default function StudyPage() {
                     />
                     <Text style={styles.resultsStatusTitle}>
                       {studyMode === 'due'
-                        ? remainingDueCount === 0 ? 'This deck is cleared for now' : 'You can stop here or keep reinforcing'
+                        ? remainingDueCount === 0
+                          ? isCrossDeckReview ? 'This review run is cleared for now' : 'This deck is cleared for now'
+                          : isCrossDeckReview ? 'Nice pass across your review queue' : 'You can stop here or keep reinforcing'
                         : 'Nice momentum'}
                     </Text>
                   </View>
                   <Text style={styles.resultsStatusText}>
                     {studyMode === 'due'
                       ? remainingDueCount === 0
-                        ? 'Head home and the review hub will bring this deck back when cards are due again.'
-                        : 'You finished the current review pass. Go home now or continue with the full deck for extra reps.'
+                        ? isCrossDeckReview
+                          ? 'Head home and the review hub will pull these decks back in when more cards are due.'
+                          : 'Head home and the review hub will bring this deck back when cards are due again.'
+                        : isCrossDeckReview
+                          ? 'You finished the current cross-deck pass. Head home now and come back when more cards are ready.'
+                          : 'You finished the current review pass. Go home now or continue with the full deck for extra reps.'
                       : 'Come back later for spaced repetition, or jump into Quest mode to test recall under pressure.'}
                   </Text>
 
@@ -554,7 +602,7 @@ export default function StudyPage() {
                       {needsReviewCount > 0 ? (
                         <View style={styles.srsResultRow}>
                           <RefreshCw color="#F59E0B" size={14} strokeWidth={2.2} />
-                          <Text style={styles.srsResultText}>{needsReviewCount} card{needsReviewCount !== 1 ? 's' : ''} still need review in this deck</Text>
+                          <Text style={styles.srsResultText}>{needsReviewCount} card{needsReviewCount !== 1 ? 's' : ''} still need review {isCrossDeckReview ? 'in this session' : 'in this deck'}</Text>
                         </View>
                       ) : null}
                       {studySummary.newCount > 0 ? (
@@ -581,7 +629,7 @@ export default function StudyPage() {
                   </Text>
                 </TouchableOpacity>
 
-                {studyMode === 'due' ? (
+                {studyMode === 'due' && !isCrossDeckReview ? (
                   <TouchableOpacity
                     style={styles.secondaryResultsButton}
                     onPress={handleContinueWithAll}
@@ -592,28 +640,32 @@ export default function StudyPage() {
                     <RotateCcw color="#FFFFFF" size={18} strokeWidth={2} />
                     <Text style={styles.secondaryResultsButtonText}>Continue with All Cards</Text>
                   </TouchableOpacity>
-                ) : (
+                ) : studyMode !== 'due' ? (
                   <TouchableOpacity style={styles.restartButton} onPress={handleRestart} testID="study-results-restart-button">
                     <RotateCcw color="#667eea" size={20} strokeWidth={2} />
                     <Text style={styles.restartButtonText}>Study Again</Text>
                   </TouchableOpacity>
-                )}
+                ) : null}
 
-                <TouchableOpacity
-                  style={styles.suggestButton}
-                  onPress={() => router.push(questHref({ deckId: selectedDeck.id }))}
-                >
-                  <Target color="#fff" size={20} strokeWidth={2} />
-                  <Text style={styles.suggestButtonText}>Test Yourself in Quest Mode</Text>
-                </TouchableOpacity>
+                {!isCrossDeckReview ? (
+                  <>
+                    <TouchableOpacity
+                      style={styles.suggestButton}
+                      onPress={() => router.push(questHref({ deckId: selectedDeck.id }))}
+                    >
+                      <Target color="#fff" size={20} strokeWidth={2} />
+                      <Text style={styles.suggestButtonText}>Test Yourself in Quest Mode</Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.hubButton}
-                  onPress={() => router.push(deckHubHref(selectedDeck.id))}
-                >
-                  <Zap color="rgba(255,255,255,0.7)" size={18} strokeWidth={2} />
-                  <Text style={styles.hubButtonText}>View Deck Progress</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.hubButton}
+                      onPress={() => router.push(deckHubHref(selectedDeck.id))}
+                    >
+                      <Zap color="rgba(255,255,255,0.7)" size={18} strokeWidth={2} />
+                      <Text style={styles.hubButtonText}>View Deck Progress</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : null}
               </View>
             </View>
           </ScrollView>

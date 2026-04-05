@@ -32,6 +32,7 @@ import { getLiveCardStats, isCardDueForReview } from '@/utils/mastery';
 import { serializeQuestSettings } from '@/utils/questParams';
 import { ARENA_ROUTE, DECKS_ROUTE, EXPLORE_ROUTE, deckHubHref, questHref, questSessionHref, studyHref } from '@/utils/routes';
 import { logger } from '@/utils/logger';
+import { buildCrossDeckReviewDeck, CROSS_DECK_REVIEW_DECK_ID } from '@/utils/reviewUtils';
 import { getUserInterests } from '@/utils/userInterests';
 import { useResponsiveLayout } from '@/utils/responsive';
 
@@ -604,12 +605,20 @@ export default function HomePage() {
   }, [handleCloseReviewSheet, router]);
 
   const handleStartReviewing = useCallback(() => {
-    if (!topReviewDeck) {
+    const reviewDeck = buildCrossDeckReviewDeck(decks, performance.cardStatsById);
+    if (!reviewDeck) {
+      Alert.alert('All caught up!', 'No cards are due for review right now.');
       return;
     }
 
-    handleLaunchDueDeck(topReviewDeck.deckId);
-  }, [handleLaunchDueDeck, topReviewDeck]);
+    logger.debug('[Home] Launching cross-deck review', {
+      reviewCardCount: reviewDeck.flashcards.length,
+      source: 'review-hub',
+    });
+    handleCloseReviewSheet(() => {
+      router.push(studyHref(CROSS_DECK_REVIEW_DECK_ID, 'due', 'review-hub'));
+    });
+  }, [decks, handleCloseReviewSheet, performance.cardStatsById, router]);
 
   const handleOpenDecksFromReviewSheet = useCallback(() => {
     handleCloseReviewSheet(() => {

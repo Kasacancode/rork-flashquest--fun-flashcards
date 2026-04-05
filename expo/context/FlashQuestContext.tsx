@@ -23,6 +23,7 @@ import { incrementDailyProgress } from '@/utils/dailyGoal';
 import { computeLevel } from '@/utils/levels';
 import { logger } from '@/utils/logger';
 import { scheduleStudyReminders } from '@/utils/notifications';
+import { CROSS_DECK_REVIEW_DECK_ID } from '@/utils/reviewUtils';
 import { getPreferredProfileName } from '@/utils/userIdentity';
 import { fetchUsername } from '@/utils/usernameService';
 import { updateWidgetData } from '@/utils/widgetBridge';
@@ -765,11 +766,12 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
         newStreak,
       );
 
-      const previousProgress = params.deckId ? await getHydratedProgress() : null;
-      const updatedProgress = params.deckId
+      const normalizedDeckId = params.deckId === CROSS_DECK_REVIEW_DECK_ID ? undefined : params.deckId;
+      const previousProgress = normalizedDeckId ? await getHydratedProgress() : null;
+      const updatedProgress = normalizedDeckId
         ? (() => {
             const currentProgress = previousProgress ?? [];
-            const existingIndex = currentProgress.findIndex((entry) => entry.deckId === params.deckId);
+            const existingIndex = currentProgress.findIndex((entry) => entry.deckId === normalizedDeckId);
 
             if (existingIndex >= 0) {
               const existing = currentProgress[existingIndex];
@@ -785,7 +787,7 @@ export const [FlashQuestProvider, useFlashQuest] = createContextHook(() => {
             return [
               ...currentProgress,
               {
-                deckId: params.deckId,
+                deckId: normalizedDeckId,
                 cardsReviewed: params.cardsAttempted,
                 lastStudied: Date.now(),
                 masteredCards: [],
