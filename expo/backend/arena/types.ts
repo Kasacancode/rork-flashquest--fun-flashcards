@@ -15,7 +15,7 @@ export const PLAYER_COLORS = PLAYER_IDENTITIES.map((identity) => identity.color)
 export const MAX_PLAYERS = 6;
 export const ROOM_TTL_MS = 60 * 60 * 1000;
 export const DISCONNECT_MS = 60 * 1000;
-export const REVEAL_DURATION_MS = 3200;
+export const REVEAL_DURATION_MS = 5000;
 export const NO_TIMER_TIMEOUT_MS = 90 * 1000;
 
 export interface RoomPlayer {

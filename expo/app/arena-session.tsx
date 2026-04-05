@@ -33,9 +33,9 @@ interface ScoreboardPlayer {
   rankDelta: number;
 }
 
-const LOCK_BEAT_MS = 450;
-const ANSWER_BEAT_MS = 1650;
-const LEADERBOARD_BEAT_MS = 900;
+const LOCK_BEAT_MS = 350;
+const ANSWER_BEAT_MS = 2000;
+const LEADERBOARD_BEAT_MS = 2150;
 
 function getRevealBeat(phase: string | null, revealTimeRemainingMs: number | null): ArenaRevealBeat {
   if (phase !== 'reveal') {
@@ -126,6 +126,17 @@ export default function ArenaSessionScreen() {
   const waitingPulse = useRef(new Animated.Value(1)).current;
   const leaderboardPanelAnim = useRef(new Animated.Value(0)).current;
   const leaderboardRowAnims = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
+  const playerAnswerRowAnims = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
     new Animated.Value(0),
     new Animated.Value(0),
     new Animated.Value(0),
@@ -236,6 +247,44 @@ export default function ArenaSessionScreen() {
 
     return 'Standings settle';
   }, [leader, leaderId, myStanding, phase, scoreboardPlayers]);
+  const revealBannerEyebrow = useMemo(() => {
+    if (revealBeat === 'lock') {
+      return 'ROUND LOCKED';
+    }
+
+    if (revealBeat === 'answer') {
+      return 'ANSWER REVEAL';
+    }
+
+    if (revealBeat === 'leaderboard' || revealBeat === 'next') {
+      return 'STANDINGS';
+    }
+
+    return '';
+  }, [revealBeat]);
+  const revealBannerHeadline = useMemo(() => {
+    if (revealBeat === 'lock') {
+      return 'Resolving...';
+    }
+
+    if (revealBeat === 'answer') {
+      if (lastAnswerCorrect) {
+        return myPointsGain > 0 ? `You nailed it. +${myPointsGain} pts` : 'You nailed it.';
+      }
+
+      if (selectedOption) {
+        return 'Not this time.';
+      }
+
+      return 'Time ran out.';
+    }
+
+    if (revealBeat === 'leaderboard' || revealBeat === 'next') {
+      return leadShiftCallout;
+    }
+
+    return '';
+  }, [lastAnswerCorrect, leadShiftCallout, myPointsGain, revealBeat, selectedOption]);
   const displayQuestion = currentQuestion?.question ?? '';
   const displayOptions = options.map((option) => ({
     value: option.canonicalValue,
@@ -252,6 +301,8 @@ export default function ArenaSessionScreen() {
     '1 correct',
     timerTotal > 0 ? `${timerTotal}s clock` : 'live round',
   ].join(' • ');
+  const showAnswerRevealPanel = phase === 'reveal' && revealBeat === 'answer' && currentAnswers != null;
+  const showStandingsPanel = phase === 'reveal' && (revealBeat === 'leaderboard' || revealBeat === 'next');
 
   useEffect(() => {
     if (!game || phase !== 'question' || timerTotal <= 0 || game.timeRemainingMs == null) {
@@ -359,6 +410,7 @@ export default function ArenaSessionScreen() {
       revealOpacity.setValue(0);
       leaderboardPanelAnim.setValue(0);
       leaderboardRowAnims.forEach((animation) => animation.setValue(0));
+      playerAnswerRowAnims.forEach((animation) => animation.setValue(0));
 
       cardAnimations.forEach((anim, index) => {
         anim.setValue(0);
@@ -373,7 +425,7 @@ export default function ArenaSessionScreen() {
         }).start();
       });
     }
-  }, [questionRoundSnapshotKey, leaderId, cardAnimations, cardScales, shakeAnims, revealOpacity, leaderboardPanelAnim, leaderboardRowAnims, roundStartPointsSnapshot, roundStartRanksSnapshot, questionIndex]);
+  }, [questionRoundSnapshotKey, leaderId, cardAnimations, cardScales, shakeAnims, revealOpacity, leaderboardPanelAnim, leaderboardRowAnims, playerAnswerRowAnims, roundStartPointsSnapshot, roundStartRanksSnapshot, questionIndex]);
 
   useEffect(() => {
     if (lastAnswerCorrect !== null && selectedOption) {
@@ -421,6 +473,40 @@ export default function ArenaSessionScreen() {
   }, [phase, revealOpacity]);
 
   useEffect(() => {
+    if (phase !== 'reveal' || currentQuestion == null) {
+      return;
+    }
+
+    const animations: Animated.CompositeAnimation[] = [];
+
+    currentQuestion.options.forEach((option, index) => {
+      const isCorrectOption = currentQuestion.correctAnswer === option.canonicalValue;
+      const isSelectedWrong = selectedOption === option.canonicalValue && !isCorrectOption;
+      const targetOpacity = isCorrectOption ? 1 : isSelectedWrong ? 0.4 : 0.25;
+      const targetScale = isCorrectOption ? 1.03 : 1;
+
+      animations.push(
+        Animated.timing(cardAnimations[index], {
+          toValue: targetOpacity,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      );
+
+      animations.push(
+        Animated.spring(cardScales[index], {
+          toValue: targetScale,
+          friction: 7,
+          tension: 80,
+          useNativeDriver: true,
+        }),
+      );
+    });
+
+    Animated.parallel(animations).start();
+  }, [phase, revealBeat, currentQuestion, selectedOption, cardAnimations, cardScales]);
+
+  useEffect(() => {
     if (phase !== 'reveal' || !hasAnsweredCurrent || lastAnswerCorrect === null) {
       return;
     }
@@ -449,14 +535,31 @@ export default function ArenaSessionScreen() {
         tension: 68,
         useNativeDriver: true,
       }),
-      Animated.stagger(90, leaderboardRowAnims.map((animation) => Animated.spring(animation, {
+      Animated.stagger(100, leaderboardRowAnims.slice(0, scoreboardPlayers.length).map((animation) => Animated.spring(animation, {
         toValue: 1,
         friction: 8,
         tension: 72,
         useNativeDriver: true,
       }))),
     ]).start();
-  }, [phase, revealBeat, leaderboardPanelAnim, leaderboardRowAnims]);
+  }, [phase, revealBeat, leaderboardPanelAnim, leaderboardRowAnims, scoreboardPlayers.length]);
+
+  useEffect(() => {
+    if (!showAnswerRevealPanel || currentAnswers == null) {
+      playerAnswerRowAnims.forEach((animation) => animation.setValue(0));
+      return;
+    }
+
+    playerAnswerRowAnims.forEach((animation) => animation.setValue(0));
+
+    const rowAnimations = playerAnswerRowAnims.map((animation) => Animated.timing(animation, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    }));
+
+    Animated.stagger(120, rowAnimations).start();
+  }, [showAnswerRevealPanel, currentAnswers, playerAnswerRowAnims]);
 
   useEffect(() => {
     if (hasAnsweredCurrent && phase === 'question') {
@@ -591,35 +694,16 @@ export default function ArenaSessionScreen() {
         {phase === 'reveal' && (
           <Animated.View style={[styles.revealBanner, { opacity: revealOpacity }]}> 
             <Text maxFontSizeMultiplier={1.3} style={styles.revealBannerEyebrow}>
-              {revealBeat === 'lock'
-                ? 'Round locked'
-                : revealBeat === 'answer'
-                  ? 'Answer reveal'
-                  : revealBeat === 'leaderboard'
-                    ? 'Leaderboard update'
-                    : 'Next deal'}
+              {revealBannerEyebrow}
             </Text>
             <Text maxFontSizeMultiplier={1.3} style={styles.revealBannerText}>
-              {revealBeat === 'lock'
-                ? 'Cards are in. Resolving the round...'
-                : revealBeat === 'answer'
-                  ? (lastAnswerCorrect ? 'You nailed it.' : selectedOption ? 'The table turns over.' : 'Time expires.')
-                  : revealBeat === 'leaderboard'
-                    ? leadShiftCallout
-                    : 'Next question incoming'}
-            </Text>
-            <Text maxFontSizeMultiplier={1.3} style={styles.revealBannerSubtext}>
-              {revealBeat === 'answer'
-                ? (myPointsGain > 0 ? `+${myPointsGain} pts banked` : 'Check the correct card and round result')
-                : revealBeat === 'leaderboard'
-                  ? 'Scores settle before the next draw'
-                  : 'A short beat keeps the round readable'}
+              {revealBannerHeadline}
             </Text>
           </Animated.View>
         )}
 
         <View style={styles.topStage}>
-          {!!dealerLine && (phase === 'question' || phase === 'reveal') && (
+          {!!dealerLine && phase === 'question' && (
             <View
               style={[
                 styles.assistantCard,
@@ -630,11 +714,7 @@ export default function ArenaSessionScreen() {
               <View style={styles.assistantMetaRow}>
                 <Text maxFontSizeMultiplier={1.3} style={styles.assistantEyebrow}>FLASHQUEST AI</Text>
                 <Text maxFontSizeMultiplier={1.3} style={styles.assistantMode}>
-                  {phase === 'reveal'
-                    ? (revealBeat === 'leaderboard' || revealBeat === 'next' ? 'Standings update' : 'Round reveal')
-                    : hasAnsweredCurrent
-                      ? 'Answer locked'
-                      : 'Live battle'}
+                  {hasAnsweredCurrent ? 'Answer locked' : 'Live battle'}
                 </Text>
               </View>
               <View style={styles.dealerSection}>
@@ -644,20 +724,22 @@ export default function ArenaSessionScreen() {
           )}
 
           <View style={[styles.questionCard, { backgroundColor: isDark ? theme.cardBackground : 'rgba(255,255,255,0.95)' }]} testID="arenaQuestionCard">
-            <View style={styles.questionMetaRow}>
-              <View style={styles.questionPill}>
-                <Text maxFontSizeMultiplier={1.3} style={styles.questionPillText} numberOfLines={1}>
-                  {room?.code ? `ROOM ${room.code}` : 'ARENA BATTLE'}
-                </Text>
+            {phase === 'question' && (
+              <View style={styles.questionMetaRow}>
+                <View style={styles.questionPill}>
+                  <Text maxFontSizeMultiplier={1.3} style={styles.questionPillText} numberOfLines={1}>
+                    {room?.code ? `ROOM ${room.code}` : 'ARENA BATTLE'}
+                  </Text>
+                </View>
+                <FlashcardDebugButton
+                  deckId={room?.deckId}
+                  cardId={currentQuestion?.cardId}
+                  surface="arena"
+                  options={currentQuestion?.options ?? []}
+                  testID="arena-flashcard-debug-button"
+                />
               </View>
-              <FlashcardDebugButton
-                deckId={room?.deckId}
-                cardId={currentQuestion?.cardId}
-                surface="arena"
-                options={currentQuestion?.options ?? []}
-                testID="arena-flashcard-debug-button"
-              />
-            </View>
+            )}
             {timerTotal > 0 && displayTimeRemainingMs !== null && phase === 'question' && (
               <View style={styles.inlineTimer}>
                 <DealerCountdownBar
@@ -711,7 +793,7 @@ export default function ArenaSessionScreen() {
             </View>
           </View>
 
-          {phase === 'reveal' && currentAnswers && (
+          {showAnswerRevealPanel && (
             <Animated.View style={[styles.playerAnswers, { opacity: revealOpacity }]}>
               <View style={styles.playerAnswersHeader}>
                 <View>
@@ -741,8 +823,23 @@ export default function ArenaSessionScreen() {
                 const answer = currentAnswers[player.id];
                 if (!answer) return null;
                 const pointsDelta = scoreboardPlayers.find((entry) => entry.id === player.id)?.pointsDelta ?? 0;
+                const rowAnim = playerAnswerRowAnims[index] ?? revealOpacity;
                 return (
-                  <View key={getOptionalRenderKey(player.id, 'arena-answer-player', index)} style={styles.playerAnswerRow}>
+                  <Animated.View
+                    key={getOptionalRenderKey(player.id, 'arena-answer-player', index)}
+                    style={[
+                      styles.playerAnswerRow,
+                      {
+                        opacity: rowAnim,
+                        transform: [{
+                          translateY: rowAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [8, 0],
+                          }),
+                        }],
+                      },
+                    ]}
+                  >
                     <View style={[styles.playerAnswerDot, { backgroundColor: player.color }]} />
                     <Text maxFontSizeMultiplier={1.3} style={styles.playerAnswerName} numberOfLines={1}>{player.name}</Text>
                     {pointsDelta > 0 && (
@@ -766,7 +863,79 @@ export default function ArenaSessionScreen() {
                         {answer.isCorrect ? 'Correct' : 'Wrong'}
                       </Text>
                     </View>
-                  </View>
+                  </Animated.View>
+                );
+              })}
+            </Animated.View>
+          )}
+
+          {showStandingsPanel && (
+            <Animated.View
+              style={[
+                styles.leaderboardPanel,
+                {
+                  opacity: leaderboardPanelAnim,
+                  transform: [
+                    {
+                      translateY: leaderboardPanelAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [16, 0],
+                      }),
+                    },
+                    {
+                      scale: leaderboardPanelAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.97, 1],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Text maxFontSizeMultiplier={1.3} style={styles.leaderboardPanelEyebrow}>Round standings</Text>
+              {scoreboardPlayers.map((player, index) => {
+                const rowAnim = leaderboardRowAnims[index] ?? leaderboardPanelAnim;
+                return (
+                  <Animated.View
+                    key={getOptionalRenderKey(player.id, 'arena-standings-player', index)}
+                    style={[
+                      styles.leaderboardRow,
+                      {
+                        opacity: rowAnim,
+                        transform: [
+                          {
+                            translateY: rowAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [12, 0],
+                            }),
+                          },
+                          {
+                            scale: rowAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0.95, 1],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  >
+                    <View style={styles.leaderboardRowLeft}>
+                      <Text maxFontSizeMultiplier={1.2} style={styles.leaderboardRank}>{player.rank === 1 ? '👑' : `#${player.rank}`}</Text>
+                      <View style={[styles.leaderboardDot, { backgroundColor: player.color }]} />
+                      <View style={styles.leaderboardNameWrap}>
+                        <Text maxFontSizeMultiplier={1.3} style={styles.leaderboardName} numberOfLines={1}>{player.name}</Text>
+                        {player.rankDelta > 0 ? (
+                          <Text maxFontSizeMultiplier={1.2} style={styles.leaderboardShiftText}>↑ {player.rankDelta} place{player.rankDelta > 1 ? 's' : ''}</Text>
+                        ) : null}
+                      </View>
+                    </View>
+                    <View style={styles.leaderboardScoreWrap}>
+                      {player.pointsDelta > 0 ? (
+                        <Text maxFontSizeMultiplier={1.2} style={styles.leaderboardDelta}>+{player.pointsDelta}</Text>
+                      ) : null}
+                      <Text maxFontSizeMultiplier={1.3} style={styles.leaderboardPoints}>{player.points}</Text>
+                    </View>
+                  </Animated.View>
                 );
               })}
             </Animated.View>
@@ -909,12 +1078,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '700' as const,
-    textAlign: 'center',
-  },
-  revealBannerSubtext: {
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 12,
-    fontWeight: '500' as const,
     textAlign: 'center',
   },
   topStage: {
@@ -1135,6 +1298,79 @@ const styles = StyleSheet.create({
   playerAnswerStatus: {
     fontSize: 12,
     fontWeight: '600' as const,
+  },
+  leaderboardPanel: {
+    marginHorizontal: GRID_HORIZONTAL_MARGIN,
+    marginTop: 10,
+    backgroundColor: 'rgba(7, 11, 25, 0.42)',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  leaderboardPanelEyebrow: {
+    fontSize: 11,
+    fontWeight: '800' as const,
+    color: 'rgba(255,255,255,0.66)',
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.8,
+  },
+  leaderboardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  leaderboardRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  leaderboardRank: {
+    width: 26,
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '800' as const,
+  },
+  leaderboardDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  leaderboardNameWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  leaderboardName: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '700' as const,
+  },
+  leaderboardShiftText: {
+    fontSize: 11,
+    color: '#93c5fd',
+    fontWeight: '700' as const,
+  },
+  leaderboardScoreWrap: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  leaderboardDelta: {
+    fontSize: 11,
+    color: '#6ee7b7',
+    fontWeight: '800' as const,
+  },
+  leaderboardPoints: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '800' as const,
   },
   compactScoreboard: {
     flexDirection: 'row',

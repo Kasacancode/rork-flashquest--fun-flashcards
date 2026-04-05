@@ -60,6 +60,7 @@ interface AnswerCardProps {
   animatedScale?: Animated.Value;
   animatedShake?: Animated.Value;
   animatedOpacity?: Animated.Value;
+  opacityOverride?: number;
 }
 
 export function AnswerCard({
@@ -71,6 +72,7 @@ export function AnswerCard({
   animatedScale,
   animatedShake,
   animatedOpacity,
+  opacityOverride,
 }: AnswerCardProps) {
   const localScale = useRef(new Animated.Value(1)).current;
   const pressDepthAnim = useRef(new Animated.Value(0)).current;
@@ -233,7 +235,7 @@ export function AnswerCard({
             backgroundColor: cardStyle.backgroundColor,
             borderColor: cardStyle.borderColor,
             shadowColor: cardStyle.shadowColor,
-            opacity: cardStyle.opacity ?? 1,
+            opacity: opacityOverride ?? cardStyle.opacity ?? 1,
           },
         ]}
         onPress={handlePress}
