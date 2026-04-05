@@ -10,6 +10,7 @@ export interface FriendProfile {
   currentStreak: number;
   totalScore: number;
   totalCardsStudied: number;
+  lastActive: string | null;
 }
 
 export interface FriendRequest {
@@ -37,6 +38,7 @@ interface LeaderboardRow {
   current_streak: number | null;
   total_score: number | null;
   total_cards_studied: number | null;
+  updated_at?: string | null;
 }
 
 interface FriendshipRow {
@@ -57,6 +59,7 @@ function buildFriendProfile(profile: ProfileRow, stats?: LeaderboardRow | null):
     currentStreak: stats?.current_streak ?? 0,
     totalScore: stats?.total_score ?? 0,
     totalCardsStudied: stats?.total_cards_studied ?? 0,
+    lastActive: stats?.updated_at ?? null,
   };
 }
 
@@ -86,7 +89,7 @@ export async function searchUsers(query: string, currentUserId: string): Promise
 
     const { data: statsData, error: statsError } = await supabase
       .from('leaderboard')
-      .select('user_id, level, current_streak, total_score, total_cards_studied')
+      .select('user_id, level, current_streak, total_score, total_cards_studied, updated_at')
       .in('user_id', userIds);
 
     if (statsError) {
@@ -243,7 +246,7 @@ export async function fetchFriends(userId: string): Promise<Friendship[]> {
 
     const { data: stats, error: statsError } = await supabase
       .from('leaderboard')
-      .select('user_id, level, current_streak, total_score, total_cards_studied')
+      .select('user_id, level, current_streak, total_score, total_cards_studied, updated_at')
       .in('user_id', friendIds);
 
     if (statsError) {
@@ -313,7 +316,7 @@ export async function fetchPendingRequests(userId: string): Promise<FriendReques
 
     const { data: stats, error: statsError } = await supabase
       .from('leaderboard')
-      .select('user_id, level, current_streak, total_score, total_cards_studied')
+      .select('user_id, level, current_streak, total_score, total_cards_studied, updated_at')
       .in('user_id', requesterIds);
 
     if (statsError) {

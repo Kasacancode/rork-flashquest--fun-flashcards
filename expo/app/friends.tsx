@@ -1,12 +1,15 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { ArrowLeft, Check, Flame, Search, Trash2, UserPlus, Users, X } from 'lucide-react-native';
+import { useNavigation, useRouter } from 'expo-router';
+import { ArrowLeft, Check, Flame, Search, Share2, Swords, Trash2, UserPlus, Users, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
+  Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -17,10 +20,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ResponsiveContainer from '@/components/ResponsiveContainer';
 import { useAuth } from '@/context/AuthContext';
+import { useDeckContext } from '@/context/DeckContext';
 import { useTheme } from '@/context/ThemeContext';
-import { AUTH_ROUTE } from '@/utils/routes';
+import { supabase } from '@/lib/supabase';
+import type { QuestSettings } from '@/types/performance';
 import { getLevelBand } from '@/utils/levels';
 import { logger } from '@/utils/logger';
+import { serializeQuestSettings } from '@/utils/questParams';
+import { AUTH_ROUTE, questSessionHref } from '@/utils/routes';
 import {
   acceptFriendRequest,
   declineFriendRequest,
@@ -49,10 +56,43 @@ function getLevelColor(level: number): string {
   }
 }
 
+function formatLastActive(isoDate: string | null): string {
+  if (!isoDate) {
+    return '';
+  }
+
+  const now = Date.now();
+  const then = new Date(isoDate).getTime();
+  const diffMs = now - then;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 5) {
+    return 'Active now';
+  }
+
+  if (diffMins < 60) {
+    return `${diffMins}m ago`;
+  }
+
+  if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  }
+
+  if (diffDays < 7) {
+    return `${diffDays}d ago`;
+  }
+
+  return '';
+}
+
 export default function FriendsScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { theme, isDark } = useTheme();
   const { isSignedIn, user } = useAuth();
+  const { decks } = useDeckContext();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRequestIdRef = useRef<number>(0);
   const [friends, setFriends] = useState<Friendship[]>([]);
@@ -63,6 +103,7 @@ export default function FriendsScreen() {
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [sentRequestIds, setSentRequestIds] = useState<Set<string>>(new Set());
+  const [challengeTarget, setChallengeTarget] = useState<Friendship | null>(null);
 
   const loadData = useCallback(async () => {
     if (!user?.id) {
@@ -97,9 +138,20 @@ export default function FriendsScreen() {
     setPendingRequests([]);
     setSearchResults([]);
     setSentRequestIds(new Set());
+    setChallengeTarget(null);
     setIsLoading(false);
     setIsRefreshing(false);
   }, [isSignedIn, loadData, user?.id]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (user?.id && !isLoading) {
+        void loadData();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, user?.id, isLoading, loadData]);
 
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
@@ -214,6 +266,80 @@ export default function FriendsScreen() {
     );
   }, []);
 
+  const handleStartChallenge = useCallback((deckId: string) => {
+    if (!challengeTarget) {
+      return;
+    }
+
+    const deck = decks.find((item) => item.id === deckId);
+    if (!deck) {
+      return;
+    }
+
+    const cardIds = deck.flashcards.map((card) => card.id);
+    if (cardIds.length < 4) {
+      Alert.alert('Not Enough Cards', 'You need a deck with at least 4 cards to challenge a friend.');
+      return;
+    }
+
+    const settings: QuestSettings = {
+      deckId: deck.id,
+      mode: 'learn',
+      runLength: cardIds.length >= 10 ? 10 : 5,
+      timerSeconds: 0,
+      focusWeakOnly: false,
+      hintsEnabled: true,
+      explanationsEnabled: true,
+      secondChanceEnabled: false,
+    };
+
+    logger.log('[FriendsScreen] Starting challenge', {
+      opponentId: challengeTarget.friend.userId,
+      deckId: deck.id,
+      cardCount: cardIds.length,
+    });
+
+    setChallengeTarget(null);
+    router.push(questSessionHref({
+      settings: serializeQuestSettings(settings),
+      challengeOpponentId: challengeTarget.friend.userId,
+      challengeCardIds: cardIds.join(','),
+    }));
+  }, [challengeTarget, decks, router]);
+
+  const handleShareProfile = useCallback(async () => {
+    if (!user?.id) {
+      return;
+    }
+
+    logger.log('[FriendsScreen] Sharing profile', user.id);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (error) {
+      logger.warn('[FriendsScreen] Failed to load username for sharing:', error.message);
+      Alert.alert('Could Not Share', 'Please try again.');
+      return;
+    }
+
+    const username = typeof data?.username === 'string' ? data.username.trim() : '';
+    if (!username) {
+      Alert.alert('No Username', 'Set a username in your account settings first.');
+      return;
+    }
+
+    try {
+      await Share.share({
+        message: `Add me on FlashQuest! My username is @${username}\n\nDownload: flashquest.net`,
+      });
+    } catch (error) {
+      logger.log('[FriendsScreen] Share dismissed or failed', error);
+    }
+  }, [user?.id]);
+
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
     void loadData();
@@ -221,6 +347,7 @@ export default function FriendsScreen() {
 
   const friendIds = useMemo(() => new Set(friends.map((friendship) => friendship.friend.userId)), [friends]);
   const incomingRequestIds = useMemo(() => new Set(pendingRequests.map((request) => request.user.userId)), [pendingRequests]);
+  const challengeDecks = useMemo(() => decks.filter((deck) => deck.flashcards.length >= 4), [decks]);
   const cardBg = isDark ? 'rgba(11, 20, 37, 0.84)' : 'rgba(255, 255, 255, 0.9)';
   const cardBorder = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.18)';
   const headerText = isDark ? '#F8FAFC' : '#173A71';
@@ -347,6 +474,25 @@ export default function FriendsScreen() {
               </TouchableOpacity>
             ) : null}
           </View>
+
+          <TouchableOpacity
+            style={[
+              styles.shareProfileButton,
+              {
+                backgroundColor: isDark ? 'rgba(99,102,241,0.12)' : 'rgba(99,102,241,0.08)',
+                borderColor: isDark ? 'rgba(99,102,241,0.25)' : 'rgba(99,102,241,0.15)',
+              },
+            ]}
+            onPress={() => {
+              void handleShareProfile();
+            }}
+            activeOpacity={0.8}
+            accessibilityLabel="Share your username"
+            testID="friends-share-profile-button"
+          >
+            <Share2 color={theme.primary} size={15} strokeWidth={2.2} />
+            <Text style={[styles.shareProfileText, { color: theme.primary }]}>Share My Username</Text>
+          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -477,6 +623,7 @@ export default function FriendsScreen() {
                 <View style={[styles.listCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
                   {friends.map((friendship, index) => {
                     const friend = friendship.friend;
+                    const lastActiveLabel = formatLastActive(friend.lastActive);
 
                     return (
                       <View
@@ -500,15 +647,44 @@ export default function FriendsScreen() {
                               </View>
                             ) : null}
                           </View>
+                          {lastActiveLabel ? (
+                            <Text
+                              style={[
+                                styles.lastActiveText,
+                                {
+                                  color: lastActiveLabel === 'Active now'
+                                    ? (isDark ? '#34D399' : '#059669')
+                                    : theme.textTertiary,
+                                },
+                              ]}
+                            >
+                              {lastActiveLabel}
+                            </Text>
+                          ) : null}
                         </View>
-                        <TouchableOpacity
-                          onPress={() => handleRemoveFriend(friendship)}
-                          hitSlop={8}
-                          accessibilityLabel={`Remove ${friend.username}`}
-                          testID={`friends-remove-button-${friendship.id}`}
-                        >
-                          <Trash2 color={theme.textTertiary} size={16} strokeWidth={2.2} />
-                        </TouchableOpacity>
+                        <View style={styles.friendActions}>
+                          <TouchableOpacity
+                            style={[
+                              styles.challengeButton,
+                              { backgroundColor: isDark ? 'rgba(245,158,11,0.12)' : 'rgba(245,158,11,0.08)' },
+                            ]}
+                            onPress={() => setChallengeTarget(friendship)}
+                            activeOpacity={0.8}
+                            accessibilityLabel={`Challenge ${friend.username}`}
+                            testID={`friends-challenge-button-${friendship.id}`}
+                          >
+                            <Swords color={isDark ? '#FBBF24' : '#D97706'} size={16} strokeWidth={2.2} />
+                            <Text style={[styles.challengeButtonText, { color: isDark ? '#FBBF24' : '#D97706' }]}>Challenge</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => handleRemoveFriend(friendship)}
+                            hitSlop={8}
+                            accessibilityLabel={`Remove ${friend.username}`}
+                            testID={`friends-remove-button-${friendship.id}`}
+                          >
+                            <Trash2 color={theme.textTertiary} size={16} strokeWidth={2.2} />
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     );
                   })}
@@ -517,6 +693,56 @@ export default function FriendsScreen() {
             </View>
           </ResponsiveContainer>
         </ScrollView>
+
+        <Modal
+          visible={challengeTarget !== null}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setChallengeTarget(null)}
+        >
+          <View style={styles.deckPickerBackdrop}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setChallengeTarget(null)} />
+            <View style={[styles.deckPickerSheet, { backgroundColor: isDark ? 'rgba(10,17,34,0.98)' : theme.cardBackground }]}>
+              <View style={[styles.menuHandle, { backgroundColor: theme.sheetHandle }]} />
+              <Text style={[styles.deckPickerTitle, { color: theme.text }]}>
+                Pick a deck to challenge @{challengeTarget?.friend.username}
+              </Text>
+              <ScrollView style={styles.deckPickerScroll} showsVerticalScrollIndicator={false}>
+                {challengeDecks.map((deck) => (
+                  <TouchableOpacity
+                    key={deck.id}
+                    style={[
+                      styles.deckPickerItem,
+                      {
+                        backgroundColor: isDark ? 'rgba(148,163,184,0.06)' : 'rgba(0,0,0,0.03)',
+                        borderColor: isDark ? 'rgba(148,163,184,0.1)' : 'rgba(0,0,0,0.06)',
+                      },
+                    ]}
+                    onPress={() => handleStartChallenge(deck.id)}
+                    activeOpacity={0.8}
+                    testID={`friends-challenge-deck-${deck.id}`}
+                  >
+                    <Text style={[styles.deckPickerDeckName, { color: theme.text }]} numberOfLines={1}>{deck.name}</Text>
+                    <Text style={[styles.deckPickerCardCount, { color: theme.textSecondary }]}>{deck.flashcards.length} cards</Text>
+                  </TouchableOpacity>
+                ))}
+                {challengeDecks.length === 0 ? (
+                  <Text style={[styles.deckPickerEmpty, { color: theme.textSecondary }]}>
+                    You need a deck with at least 4 cards to challenge a friend.
+                  </Text>
+                ) : null}
+              </ScrollView>
+              <TouchableOpacity
+                style={[styles.deckPickerCancel, { backgroundColor: isDark ? 'rgba(148,163,184,0.1)' : 'rgba(0,0,0,0.04)' }]}
+                onPress={() => setChallengeTarget(null)}
+                activeOpacity={0.8}
+                testID="friends-challenge-cancel"
+              >
+                <Text style={[styles.deckPickerCancelText, { color: theme.textSecondary }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </View>
   );
@@ -563,6 +789,21 @@ const styles = StyleSheet.create({
   searchRow: {
     paddingHorizontal: 16,
     marginBottom: 12,
+  },
+  shareProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 12,
+  },
+  shareProfileText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   searchInput: {
     flexDirection: 'row',
@@ -647,6 +888,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  lastActiveText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  friendActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  challengeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  challengeButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   statusText: {
     fontSize: 13,
     fontWeight: '700',
@@ -723,5 +986,70 @@ const styles = StyleSheet.create({
   },
   loader: {
     paddingVertical: 20,
+  },
+  deckPickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  deckPickerSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 34,
+    maxHeight: '70%',
+  },
+  menuHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  deckPickerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  deckPickerScroll: {
+    maxHeight: 300,
+  },
+  deckPickerItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  deckPickerDeckName: {
+    fontSize: 15,
+    fontWeight: '600',
+    flex: 1,
+  },
+  deckPickerCardCount: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 12,
+  },
+  deckPickerEmpty: {
+    fontSize: 14,
+    textAlign: 'center',
+    padding: 20,
+    lineHeight: 20,
+  },
+  deckPickerCancel: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginTop: 8,
+  },
+  deckPickerCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

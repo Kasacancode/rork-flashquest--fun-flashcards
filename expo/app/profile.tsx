@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from 'expo-router';
 import { ArrowLeft, UserRound } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -16,12 +17,17 @@ import type { AvatarOptionVisual } from '@/components/profile/profileScreen.type
 import { useProfileScreenState } from '@/components/profile/useProfileScreenState';
 import { AVATAR_COLORS, AVATAR_SUITS } from '@/constants/avatar';
 import { type Theme } from '@/constants/colors';
+import { useAuth } from '@/context/AuthContext';
 import type { AvatarColorId, AvatarSuitId } from '@/types/avatar';
 import { ACHIEVEMENT_CATEGORIES } from '@/utils/achievements';
+import { getPendingRequestCount } from '@/utils/friendsService';
 import { LEVELS } from '@/utils/levels';
 
 export default function ProfilePage() {
   const { width } = useWindowDimensions();
+  const navigation = useNavigation();
+  const { user } = useAuth();
+  const [pendingFriendRequestCount, setPendingFriendRequestCount] = useState<number>(0);
   const {
     theme,
     isDark,
@@ -77,6 +83,28 @@ export default function ProfilePage() {
   } = useProfileScreenState();
 
   const styles = useMemo(() => createStyles(theme, isDark, width), [theme, isDark, width]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setPendingFriendRequestCount(0);
+      return;
+    }
+
+    getPendingRequestCount(user.id).then(setPendingFriendRequestCount).catch(() => {});
+  }, [user?.id]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (!user?.id) {
+        setPendingFriendRequestCount(0);
+        return;
+      }
+
+      void getPendingRequestCount(user.id).then(setPendingFriendRequestCount).catch(() => {});
+    });
+
+    return unsubscribe;
+  }, [navigation, user?.id]);
 
   const suitOptionVisuals = useMemo<Record<AvatarSuitId, AvatarOptionVisual>>(() => {
     return AVATAR_SUITS.reduce<Record<AvatarSuitId, AvatarOptionVisual>>((visuals, suit) => {
@@ -199,6 +227,7 @@ export default function ProfilePage() {
                   onOpenSupport={handleOpenSupport}
                   onOpenLeaderboard={handleOpenLeaderboard}
                   onOpenFriends={handleOpenFriends}
+                  pendingFriendRequestCount={pendingFriendRequestCount}
                   styles={styles}
                   theme={theme}
                   isDark={isDark}
@@ -464,6 +493,24 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       backgroundColor: isDark ? 'rgba(129, 140, 248, 0.2)' : 'rgba(99, 102, 241, 0.14)',
       borderWidth: 1,
       borderColor: isDark ? 'rgba(165, 180, 252, 0.28)' : 'rgba(99, 102, 241, 0.18)',
+      position: 'relative',
+    },
+    pendingBadge: {
+      position: 'absolute',
+      top: -4,
+      right: -4,
+      minWidth: 18,
+      height: 18,
+      borderRadius: 9,
+      backgroundColor: '#EF4444',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 4,
+    },
+    pendingBadgeText: {
+      color: '#FFFFFF',
+      fontSize: 10,
+      fontWeight: '800' as const,
     },
     toggleTextWrap: {
       flex: 1,

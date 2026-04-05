@@ -13,6 +13,7 @@ interface OverviewTabProps {
   onOpenSupport: () => void;
   onOpenLeaderboard: () => void;
   onOpenFriends: () => void;
+  pendingFriendRequestCount: number;
   styles: ViewStyles<
     | 'tabContent'
     | 'toggleCard'
@@ -29,6 +30,7 @@ interface OverviewTabProps {
     | 'utilityIconWrap'
     | 'utilityTextWrap'
     | 'utilityChevronWrap'
+    | 'pendingBadge'
   > &
     TextStyles<
       | 'toggleTitle'
@@ -37,6 +39,7 @@ interface OverviewTabProps {
       | 'leaderboardSubtitle'
       | 'utilityTitle'
       | 'utilitySubtitle'
+      | 'pendingBadgeText'
     >;
   theme: Theme;
   isDark: boolean;
@@ -48,6 +51,7 @@ export default function OverviewTab({
   onOpenSupport,
   onOpenLeaderboard,
   onOpenFriends,
+  pendingFriendRequestCount,
   styles,
   theme,
   isDark,
@@ -91,6 +95,11 @@ export default function OverviewTab({
           ]}
         >
           <Users color={isDark ? '#34D399' : '#059669'} size={20} strokeWidth={2.3} />
+          {pendingFriendRequestCount > 0 ? (
+            <View style={styles.pendingBadge}>
+              <Text style={styles.pendingBadgeText}>{pendingFriendRequestCount > 9 ? '9+' : pendingFriendRequestCount}</Text>
+            </View>
+          ) : null}
         </View>
         <View style={styles.toggleTextWrap}>
           <Text style={styles.toggleTitle}>Friends</Text>
