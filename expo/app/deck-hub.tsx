@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, Globe, MoreHorizontal, Pencil, QrCode, RotateCcw, Trash2, Upload } from 'lucide-react-native';
+import { ArrowDownToLine, ArrowLeft, BookOpen, Target, Swords, AlertTriangle, Copy, Globe, MoreHorizontal, Pencil, QrCode, RotateCcw, Trash2, Upload } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,7 +15,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { exportDeckToSharePayload } from '@/utils/deckImport';
 import { fetchFriends, type Friendship } from '@/utils/friendsService';
 import { computeDeckMastery } from '@/utils/mastery';
-import { checkContentSimilarity, checkDeckPublished, checkPublishLimits, publishDeck, unpublishDeck } from '@/utils/marketplaceService';
+import { checkCommunityDeckUpdate, checkContentSimilarity, checkDeckPublished, checkPublishLimits, publishDeck, unpublishDeck } from '@/utils/marketplaceService';
 import { serializeQuestSettings } from '@/utils/questParams';
 import { DECKS_ROUTE, STATS_ROUTE, editDeckHref, focusedQuestSessionHref, questHref, questSessionHref, studyHref } from '@/utils/routes';
 import { shareTextWithFallback } from '@/utils/share';
@@ -115,6 +115,7 @@ export default function DeckHubScreen() {
   const [isLoadingFriends, setIsLoadingFriends] = useState<boolean>(false);
   const menuBtnRef = useRef<View>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+  const [communityUpdate, setCommunityUpdate] = useState<{ hasUpdate: boolean; updatedAt?: string; newCardCount?: number } | null>(null);
 
   const launchedFromStats = origin === 'stats';
   const deck = useMemo(() => decks.find((item) => item.id === deckId), [decks, deckId]);
@@ -150,6 +151,35 @@ export default function DeckHubScreen() {
       isActive = false;
     };
   }, [deck, isSignedIn, publishedDeckName, user?.id]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!deck?.communitySourceId || !deck.communityDownloadedAt) {
+      setCommunityUpdate(null);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    checkCommunityDeckUpdate(deck.communitySourceId, deck.communityDownloadedAt)
+      .then((result) => {
+        if (!isActive) {
+          return;
+        }
+
+        setCommunityUpdate(result.hasUpdate ? result : null);
+      })
+      .catch(() => {
+        if (isActive) {
+          setCommunityUpdate(null);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [deck?.communityDownloadedAt, deck?.communitySourceId]);
 
   const mastery = useMemo(() => {
     if (!deck) {
@@ -734,6 +764,35 @@ export default function DeckHubScreen() {
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <ResponsiveContainer>
+            {communityUpdate?.hasUpdate ? (
+              <TouchableOpacity
+                style={[
+                  styles.updateBanner,
+                  {
+                    backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)',
+                    borderColor: isDark ? 'rgba(99,102,241,0.25)' : 'rgba(99,102,241,0.15)',
+                  },
+                ]}
+                onPress={() => {
+                  Alert.alert(
+                    'Update Available',
+                    `The author has updated this deck${communityUpdate.newCardCount ? ` (now ${communityUpdate.newCardCount} cards)` : ''}.\n\nTo get the latest version, visit Explore, find this deck, and download it again. Your study progress will be kept if the card content matches.`,
+                    [
+                      { text: 'Later', style: 'cancel' },
+                      {
+                        text: 'Go to Explore',
+                        onPress: () => router.push({ pathname: '/explore', params: { deckId: deck.communitySourceId } } as Href),
+                      },
+                    ],
+                  );
+                }}
+                activeOpacity={0.8}
+                testID="deck-community-update-banner"
+              >
+                <ArrowDownToLine color={theme.primary} size={15} strokeWidth={2.2} />
+                <Text style={[styles.updateBannerText, { color: theme.primary }]}>Update available from author</Text>
+              </TouchableOpacity>
+            ) : null}
             <View
             style={[
               styles.card,
@@ -1237,6 +1296,20 @@ const styles = StyleSheet.create({
   headerSub: { fontSize: 13, fontWeight: '600' as const, color: 'rgba(255,255,255,0.64)', marginTop: 3 },
   accentBar: { height: 5, borderRadius: 3, marginHorizontal: 20, marginBottom: 10 },
   content: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 84 },
+  updateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  updateBannerText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+  },
   errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   errorTitle: { fontSize: 18, fontWeight: '700' as const, color: '#fff', marginBottom: 8 },
   errorSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.6)', marginBottom: 24, textAlign: 'center' as const },

@@ -37,6 +37,21 @@ export interface MarketplaceDeckDetail extends MarketplaceDeck {
   deckData: MarketplaceDeckCardData[];
 }
 
+export interface MyPublishedDeck {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  cardCount: number;
+  downloads: number;
+  upVotes: number;
+  downVotes: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  publisherName: string;
+}
+
 interface PublicDeckRow {
   id: string;
   user_id: string;
@@ -51,6 +66,8 @@ interface PublicDeckRow {
   up_votes: number | null;
   down_votes: number | null;
   created_at: string | null;
+  updated_at?: string | null;
+  status?: string | null;
   deck_data?: unknown;
 }
 
@@ -333,6 +350,39 @@ export async function checkDeckPublished(userId: string, deckName: string): Prom
   }
 }
 
+export async function fetchMyPublishedDecks(userId: string): Promise<MyPublishedDeck[]> {
+  try {
+    const { data, error } = await supabase
+      .from('public_decks')
+      .select('id, name, description, category, card_count, downloads, up_votes, down_votes, status, created_at, updated_at, publisher_name')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error || !data) {
+      logger.warn('[Marketplace] Failed to fetch my published decks:', error?.message ?? 'missing rows');
+      return [];
+    }
+
+    return (data as PublicDeckRow[]).map((row) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description?.trim() ?? '',
+      category: row.category?.trim() || 'General',
+      cardCount: row.card_count ?? 0,
+      downloads: row.downloads ?? 0,
+      upVotes: row.up_votes ?? 0,
+      downVotes: row.down_votes ?? 0,
+      status: row.status?.trim() || 'active',
+      createdAt: row.created_at ?? '',
+      updatedAt: row.updated_at ?? '',
+      publisherName: row.publisher_name?.trim() || 'Anonymous',
+    }));
+  } catch (error) {
+    logger.warn('[Marketplace] Unexpected my published decks error:', error);
+    return [];
+  }
+}
+
 export async function unpublishDeck(userId: string, deckName: string): Promise<{ success: boolean; error?: string }> {
   try {
     const { error } = await supabase
@@ -351,6 +401,38 @@ export async function unpublishDeck(userId: string, deckName: string): Promise<{
   } catch (error) {
     logger.warn('[Marketplace] Unpublish error:', error);
     return { success: false, error: 'An unexpected error occurred.' };
+  }
+}
+
+export async function checkCommunityDeckUpdate(
+  publicDeckId: string,
+  downloadedAt: string,
+): Promise<{ hasUpdate: boolean; updatedAt?: string; newCardCount?: number }> {
+  try {
+    const { data, error } = await supabase
+      .from('public_decks')
+      .select('updated_at, card_count, status')
+      .eq('id', publicDeckId)
+      .maybeSingle();
+
+    if (error || !data) {
+      return { hasUpdate: false };
+    }
+
+    const publishedDeck = data as { updated_at?: string | null; card_count?: number | null; status?: string | null };
+    if (publishedDeck.status !== 'active' || !publishedDeck.updated_at) {
+      return { hasUpdate: false };
+    }
+
+    const hasUpdate = new Date(publishedDeck.updated_at) > new Date(downloadedAt);
+    return {
+      hasUpdate,
+      updatedAt: publishedDeck.updated_at,
+      newCardCount: publishedDeck.card_count ?? undefined,
+    };
+  } catch (error) {
+    logger.warn('[Marketplace] Community deck update check failed:', error);
+    return { hasUpdate: false };
   }
 }
 

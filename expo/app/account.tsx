@@ -252,6 +252,17 @@ export default function AccountScreen() {
       }
 
       await refreshUsername();
+
+      const publisherName = nextSanitizedUsername || nextSanitizedProfileName || user.email?.split('@')[0] || 'Anonymous';
+      void supabase
+        .from('public_decks')
+        .update({ publisher_name: publisherName, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .then(({ error }) => {
+          if (error) {
+            logger.warn('[Account] Failed to update publisher names:', error.message);
+          }
+        });
     },
     onSuccess: () => {
       Alert.alert('Saved', 'Your profile name and username are updated.');

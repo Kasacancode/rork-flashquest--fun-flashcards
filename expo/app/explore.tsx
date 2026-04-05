@@ -43,11 +43,13 @@ import {
   downloadMarketplaceDeck,
   fetchDeckDetail,
   fetchMarketplaceDecks,
+  fetchMyPublishedDecks,
   getUserVotes,
   reportDeck,
   type MarketplaceDeck,
   type MarketplaceDeckDetail,
   type MarketplaceSortOption,
+  type MyPublishedDeck,
   unpublishDeck,
   voteDeck,
 } from '@/utils/marketplaceService';
@@ -60,25 +62,12 @@ const SORT_OPTIONS: { value: MarketplaceSortOption; label: string }[] = [
   { value: 'newest', label: 'Newest' },
 ];
 
-interface PublishedDeckListItem {
-  id: string;
-  name: string;
-  description: string;
-  category: string | null;
-  card_count: number;
-  downloads: number | null;
-  up_votes: number | null;
-  down_votes: number | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export default function ExploreScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ deckId?: string }>();
   const queryClient = useQueryClient();
   const { theme, isDark } = useTheme();
-  const { isSignedIn, user } = useAuth();
+  const { displayName, isSignedIn, user, username } = useAuth();
   const { addDeck } = useDeckContext();
   const [sort, setSort] = useState<MarketplaceSortOption>('popular');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -110,22 +99,12 @@ export default function ExploreScreen() {
 
   const myDecksQuery = useQuery({
     queryKey: ['my-published-decks', user?.id],
-    queryFn: async () => {
+    queryFn: () => {
       if (!user?.id) {
-        return [] as PublishedDeckListItem[];
+        return Promise.resolve([] as MyPublishedDeck[]);
       }
 
-      const { data, error } = await supabase
-        .from('public_decks')
-        .select('id, name, description, category, card_count, downloads, up_votes, down_votes, created_at, updated_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error || !data) {
-        return [] as PublishedDeckListItem[];
-      }
-
-      return data as PublishedDeckListItem[];
+      return fetchMyPublishedDecks(user.id);
     },
     enabled: showMyDecks && Boolean(user?.id),
   });
@@ -171,6 +150,7 @@ export default function ExploreScreen() {
         hint2: card.hint2,
         explanation: card.explanation,
       }));
+      const downloadedAt = new Date().toISOString();
       const localDeck: Deck = {
         id: newDeckId,
         name: deck.name.slice(0, 100),
@@ -182,12 +162,18 @@ export default function ExploreScreen() {
         createdAt,
         isCustom: true,
         communitySourceId: deck.id,
+        communityDownloadedAt: downloadedAt,
       };
       const normalizedDeck = normalizeDeck(localDeck, { source: 'import', trackDiagnostics: true });
+      const localDeckWithSource: Deck = {
+        ...normalizedDeck,
+        communitySourceId: deck.id,
+        communityDownloadedAt: downloadedAt,
+      };
 
-      addDeck(normalizedDeck);
+      addDeck(localDeckWithSource);
       await downloadMarketplaceDeck(deck.id);
-      return { deck: normalizedDeck, cardCount: flashcards.length };
+      return { deck: localDeckWithSource, cardCount: flashcards.length };
     },
     onSuccess: async (result) => {
       setShowDetail(false);
@@ -207,6 +193,13 @@ export default function ExploreScreen() {
   const marketDecks = useMemo<MarketplaceDeck[]>(() => decksQuery.data ?? [], [decksQuery.data]);
   const userVotes = useMemo<Record<string, 1 | -1>>(() => userVotesQuery.data ?? {}, [userVotesQuery.data]);
   const selectedDeck = useMemo<MarketplaceDeckDetail | null>(() => detailQuery.data ?? null, [detailQuery.data]);
+  const currentPublisherName = useMemo<string>(() => {
+    return username?.trim() || displayName.trim() || user?.email?.split('@')[0] || 'Anonymous';
+  }, [displayName, user?.email, username]);
+  const currentPublisherLabel = useMemo<string>(() => {
+    const trimmedUsername = username?.trim();
+    return trimmedUsername ? `@${trimmedUsername}` : currentPublisherName;
+  }, [currentPublisherName, username]);
 
   const categories = useMemo<string[]>(() => {
     const merged = new Set<string>(DEFAULT_CATEGORIES);
@@ -669,12 +662,57 @@ export default function ExploreScreen() {
                         },
                       ]}
                     >
+                      {deck.status === 'hidden' ? (
+                        <View
+                          style={[
+                            styles.hiddenBadge,
+                            { backgroundColor: isDark ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,0.08)' },
+                          ]}
+                        >
+                          <Text style={[styles.hiddenBadgeText, { color: theme.error }]}>Hidden - reported by community</Text>
+                        </View>
+                      ) : null}
+                      {deck.publisherName !== currentPublisherName && currentPublisherName.trim().length > 0 ? (
+                        <TouchableOpacity
+                          style={[
+                            styles.fixNameButton,
+                            { backgroundColor: isDark ? 'rgba(245,158,11,0.1)' : 'rgba(245,158,11,0.06)' },
+                          ]}
+                          onPress={async () => {
+                            if (!user?.id) {
+                              return;
+                            }
+
+                            const { error } = await supabase
+                              .from('public_decks')
+                              .update({ publisher_name: currentPublisherName, updated_at: new Date().toISOString() })
+                              .eq('id', deck.id);
+
+                            if (error) {
+                              logger.warn('[Explore] Failed to update stale publisher name:', error.message);
+                              Alert.alert('Update Failed', 'Could not refresh the publisher name right now.');
+                              return;
+                            }
+
+                            await Promise.all([
+                              myDecksQuery.refetch(),
+                              queryClient.invalidateQueries({ queryKey: ['marketplace-decks'] }),
+                              queryClient.invalidateQueries({ queryKey: ['marketplace-deck-detail', deck.id] }),
+                            ]);
+                          }}
+                          activeOpacity={0.8}
+                          testID={`my-deck-fix-name-${deck.id}`}
+                        >
+                          <Text style={[styles.fixNameText, { color: theme.warning }]}>Showing as "{deck.publisherName}" - tap to update to {currentPublisherLabel}</Text>
+                        </TouchableOpacity>
+                      ) : null}
                       <Text style={[styles.myDeckName, { color: theme.text }]} numberOfLines={1}>{deck.name}</Text>
                       <Text style={[styles.myDeckMeta, { color: theme.textSecondary }]}>
-                        {deck.card_count} cards · {deck.downloads ?? 0} downloads · {(deck.up_votes ?? 0) - (deck.down_votes ?? 0)} votes
+                        {deck.cardCount} cards · {deck.downloads} downloads · {deck.upVotes - deck.downVotes} votes
                       </Text>
                       <Text style={[styles.myDeckCategory, { color: theme.textTertiary }]}>
-                        {deck.category ?? 'General'} · Published {new Date(deck.created_at).toLocaleDateString()}
+
+                        {deck.category} · Published {new Date(deck.createdAt).toLocaleDateString()}
                       </Text>
 
                       <View style={styles.myDeckActions}>
@@ -1191,6 +1229,27 @@ const styles = StyleSheet.create({
   myDeckActionText: {
     fontSize: 13,
     fontWeight: '700' as const,
+  },
+  hiddenBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+  },
+  hiddenBadgeText: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+  },
+  fixNameButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  fixNameText: {
+    fontSize: 11,
+    fontWeight: '600' as const,
   },
   detailBackdrop: {
     flex: 1,

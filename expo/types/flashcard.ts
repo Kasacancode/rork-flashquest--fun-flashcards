@@ -132,6 +132,7 @@ export interface Deck {
   createdAt: number;
   isCustom: boolean;
   communitySourceId?: string;
+  communityDownloadedAt?: string;
 }
 
 export interface FlashcardDeckCardSummary {
